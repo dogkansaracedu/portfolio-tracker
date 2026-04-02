@@ -52,7 +52,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
+
+    // Seed default platforms and assets for the new user
+    if (!error && data.user) {
+      try {
+        await supabase.rpc("seed_user_data", { p_user_id: data.user.id });
+      } catch (seedErr) {
+        console.error("Failed to seed user data:", seedErr);
+      }
+    }
+
     return { error };
   }, []);
 

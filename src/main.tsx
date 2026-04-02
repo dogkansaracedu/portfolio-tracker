@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { DisplayProvider } from "@/contexts/DisplayContext"
+import { TransactionProvider } from "@/contexts/TransactionContext"
 import App from "./App"
 import "./index.css"
 
@@ -11,7 +12,9 @@ createRoot(document.getElementById("root")!).render(
     <TooltipProvider>
       <DisplayProvider>
         <AuthProvider>
-          <App />
+          <TransactionProvider>
+            <App />
+          </TransactionProvider>
         </AuthProvider>
       </DisplayProvider>
     </TooltipProvider>
