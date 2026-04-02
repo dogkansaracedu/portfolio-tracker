@@ -1,0 +1,102 @@
+# Component 10: Snapshots & Performance
+
+## Overview
+Build the snapshot system (manual trigger, snapshot viewing) and full performance page with charts: portfolio value over time, monthly returns, category attribution, drawdown, and summary statistics.
+
+## Dependencies
+- Component 5 (Price Engine)
+- Component 6 (P&L Engine)
+- Component 7 (Dashboard) — shares charting patterns
+
+## File Structure
+```
+src/
+├── pages/
+│   └── PerformancePage.tsx
+├── components/
+│   └── performance/
+│       ├── TimeRangeSelector.tsx
+│       ├── PortfolioValueChart.tsx
+│       ├── MonthlyReturnsChart.tsx
+│       ├── CategoryAttribution.tsx
+│       ├── DrawdownChart.tsx
+│       ├── PerformanceSummary.tsx
+│       └── SnapshotManager.tsx
+├── hooks/
+│   ├── useSnapshots.ts
+│   └── usePerformance.ts
+├── lib/
+│   ├── queries/
+│   │   └── snapshots.ts
+│   └── performance.ts
+```
+
+## Tasks
+1. **Snapshot queries** (`lib/queries/snapshots.ts`):
+   - fetchSnapshots(userId): all, date ASC
+   - createSnapshot(userId): fetch active assets + prices + rates → aggregate by category/platform → build breakdown JSONB (per PRD 8.2) → INSERT
+   - deleteSnapshot(id): rare admin action
+
+2. **useSnapshots hook**: Fetch all on mount. Expose snapshots[], loading, takeSnapshot(), deleteSnapshot(), refetch()
+
+3. **Performance utilities** (`lib/performance.ts`):
+   - computeMonthlyReturns(snapshots): (S[n]-S[n-1])/S[n-1] per pair
+   - computeYTDReturn(snapshots): Jan 1 vs latest
+   - computeAllTimeReturn(snapshots): earliest vs latest
+   - computeCAGR(snapshots): (latest/earliest)^(1/years)-1
+   - computeDrawdown(snapshots): (value-peak)/peak per snapshot. Max drawdown = min
+   - computeCategoryAttribution(snapshots, timeRange): per-category Δ / total_start
+   - filterByTimeRange(snapshots, range): filter to 1M, 3M, 6M, YTD, 1Y, ALL
+
+4. **usePerformance hook**: Depends on useSnapshots. Accepts timeRange. Returns { monthlyReturns, ytdReturn, allTimeReturn, cagr, maxDrawdown, bestMonth, worstMonth, drawdownSeries, filteredSnapshots, loading }
+
+5. **TimeRangeSelector**: Row of buttons (1M, 3M, 6M, YTD, 1Y, ALL). Active highlighted. shadcn ToggleGroup
+
+6. **PortfolioValueChart**: Recharts AreaChart/LineChart. X: dates, Y: total value. Single line in selected currency. Tooltip: date, value, monthly change. ResponsiveContainer
+
+7. **MonthlyReturnsChart**: Recharts BarChart. Green bars positive, red negative. X: month labels, Y: return %. Tooltip: "March 2026: +3.2% ($1,240)"
+
+8. **CategoryAttribution**: Table (not chart). Columns: Category, Start value, End value, Change USD, Contribution %. Sorted by absolute contribution. shadcn Table
+
+9. **DrawdownChart**: Recharts AreaChart. Always ≤0. Red filled area below 0% line. Highlights max drawdown point. X: dates, Y: drawdown %
+
+10. **PerformanceSummary**: Grid of stat cards (2x3 or 3x2): Total Return (amount+%), CAGR, Best Month, Worst Month, Max Drawdown (% + date range), Current value. shadcn Card
+
+11. **SnapshotManager**: "Take Snapshot Now" button. Last snapshot date. Collapsible snapshot history list with date, total value, delete option. Success/error toast
+
+12. **PerformancePage layout**:
+    - TimeRangeSelector (top)
+    - PerformanceSummary (stat cards)
+    - PortfolioValueChart (full width)
+    - MonthlyReturnsChart (1/2) + CategoryAttribution (1/2)
+    - DrawdownChart (full width)
+    - SnapshotManager (bottom, collapsible)
+    - Mobile: single column stacked
+
+13. **Empty state**: If <2 snapshots: "Take at least 2 snapshots to see performance. Your first snapshot captures today's state." + "Take First Snapshot" button
+
+14. **Time range edge cases**: <2 data points in range → "Not enough data" message + suggest wider range
+
+## UI Components
+- **shadcn/ui**: Card, Table, ToggleGroup, Button, Collapsible, Skeleton, Sonner/Toast
+- **Recharts**: AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
+- **Custom**: TimeRangeSelector, PortfolioValueChart, MonthlyReturnsChart, CategoryAttribution, DrawdownChart, PerformanceSummary, SnapshotManager
+
+## Key Decisions
+- **Monthly granularity**: Performance measured monthly, not daily. Aligns with long-term tracking goal
+- **All computation client-side**: <120 snapshots (10 years). Trivial computation
+- **CAGR only after 1+ year**: Show "N/A" if <12 months of data
+- **Drawdown in USD only**: TRY drawdown would be misleading due to depreciation
+- **Manual snapshot is idempotent per date**: UPSERT with (user_id, snapshot_date) unique constraint
+- **SnapshotManager in Performance page**: Data belongs with its visualization, not in Settings
+
+## Acceptance Criteria
+- [ ] Manual snapshot from Performance page saves to DB
+- [ ] Portfolio value line chart renders from snapshot data
+- [ ] Monthly returns bar chart with green/red bars
+- [ ] Category attribution table shows per-category contributions
+- [ ] Drawdown chart shows peak-to-trough drawdowns
+- [ ] Summary stats computed and displayed (total return, CAGR, best/worst, max drawdown)
+- [ ] Time range selector filters all charts and metrics
+- [ ] Empty state shown when <2 snapshots
+- [ ] All charts responsive
