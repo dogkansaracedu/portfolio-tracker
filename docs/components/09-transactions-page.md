@@ -1,5 +1,7 @@
 # Component 9: Transactions Page
 
+## Status: Done
+
 ## Overview
 Chronological log of all transactions with filtering by date range, asset, platform, and transaction type. Displays realized P&L for sell transactions. The audit trail and history view.
 

@@ -1,6 +1,9 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useTransactions } from "@/hooks/useTransactions"
-import type { TransactionType } from "@/types/database"
+import { useAuth } from "@/hooks/useAuth"
+import { fetchAllExchangeRates } from "@/lib/queries/pnl"
+import { normalizeToUsd } from "@/lib/pnl/currency"
+import type { TransactionType, ExchangeRate } from "@/types/database"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 
 export interface TransactionLogFilters {
@@ -18,7 +21,14 @@ export interface TransactionLogSummary {
 }
 
 export function useTransactionLog() {
+  const { user } = useAuth()
   const [filters, setFilters] = useState<TransactionLogFilters>({})
+  const [rates, setRates] = useState<ExchangeRate[]>([])
+
+  useEffect(() => {
+    if (!user) return
+    fetchAllExchangeRates().then(setRates).catch(console.error)
+  }, [user])
 
   // Pass date, asset, and platform filters to the server query
   const serverFilters = useMemo(
@@ -50,11 +60,16 @@ export function useTransactionLog() {
     let totalSellVolume = 0
 
     for (const tx of transactions) {
-      const cost = tx.price_currency === "USD" ? tx.total_cost : 0
+      const costUsd = normalizeToUsd(
+        tx.total_cost,
+        tx.price_currency,
+        tx.date,
+        rates,
+      ).toNumber()
       if (tx.type === "buy") {
-        totalBuyVolume += cost
+        totalBuyVolume += costUsd
       } else if (tx.type === "sell") {
-        totalSellVolume += cost
+        totalSellVolume += costUsd
       }
     }
 
@@ -63,7 +78,7 @@ export function useTransactionLog() {
       totalBuyVolume,
       totalSellVolume,
     }
-  }, [transactions])
+  }, [transactions, rates])
 
   return {
     transactions,

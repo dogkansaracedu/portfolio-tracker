@@ -1,5 +1,7 @@
 # Component 8: Portfolio Page
 
+## Status: Done
+
 ## Overview
 Full portfolio page showing all assets in a rich table with grouping (by platform or category), search/filter, current values, and P&L columns. The detailed asset view complementing the dashboard's summary.
 

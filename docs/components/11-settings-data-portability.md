@@ -1,5 +1,8 @@
 # Component 11: Settings & Data Portability
 
+## Status: Partial
+Missing: CSV import/export, JSON data export, pg_cron automated snapshots, service worker
+
 ## Overview
 Finalize the Settings page with data export (JSON/CSV), import (CSV + bulk paste), display preferences (currency, dark mode), price management, pg_cron for automated monthly snapshots, and data management (danger zone).
 

@@ -1,5 +1,7 @@
 # Component 6: P&L Engine
 
+## Status: Done
+
 ## Overview
 Implement the FIFO cost basis calculation engine for realized and unrealized P&L. Build the currency normalization layer that converts all transaction prices to USD using historical exchange rates. Pure computation layer — no new UI pages, provides data consumed by Dashboard, Portfolio, and Transactions pages.
 

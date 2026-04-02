@@ -3,11 +3,11 @@ import { useDashboard } from "@/hooks/useDashboard"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import NetWorthCard from "@/components/dashboard/NetWorthCard"
+import PortfolioMetricsCard from "@/components/dashboard/PortfolioMetricsCard"
 import AllocationChart from "@/components/dashboard/AllocationChart"
 import TagBreakdown from "@/components/dashboard/TagBreakdown"
 import PlatformBreakdown from "@/components/dashboard/PlatformBreakdown"
 import TopMovers from "@/components/dashboard/TopMovers"
-import PerformanceSparkline from "@/components/dashboard/PerformanceSparkline"
 
 function SkeletonCard({ className }: { className?: string }) {
   return (
@@ -50,6 +50,9 @@ export default function DashboardPage() {
     byTag,
     byPlatform,
     topMovers,
+    balanceChange,
+    investmentPnL,
+    snapshots,
     loading,
   } = useDashboard()
 
@@ -100,6 +103,14 @@ export default function DashboardPage() {
         totalValueTry={totalValueTry}
       />
 
+      <PortfolioMetricsCard
+        snapshots={snapshots}
+        currentValueUsd={totalValueUsd}
+        currentValueTry={totalValueTry}
+        balanceChange={balanceChange}
+        investmentPnL={investmentPnL}
+      />
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TagBreakdown byTag={byTag} />
         <AllocationChart
@@ -114,7 +125,6 @@ export default function DashboardPage() {
         <TopMovers topMovers={topMovers} />
       </div>
 
-      <PerformanceSparkline />
     </div>
   )
 }

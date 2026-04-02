@@ -1,5 +1,7 @@
 # Component 1: Project Setup
 
+## Status: Done
+
 ## Overview
 Bootstrap the development environment with Vite + React + TypeScript + Tailwind CSS + shadcn/ui. Set up React Router v7 for page routing, configure local Supabase via CLI/Docker, create the app layout shell (sidebar/navbar, content area), and establish the folder structure and dev tooling conventions.
 
