@@ -1,7 +1,9 @@
 # Component 3: Platform & Asset Management
 
+## Status: Done
+
 ## Overview
-Build the CRUD UI for managing platforms and assets. Users can create, edit, and soft-delete platforms and assets. All operations persist to local Supabase via real queries. This is the first "real data" component.
+CRUD UI for managing platforms and global assets. Assets are global (one per ticker per user) with `holdings` table for per-platform balances. Category is free-form text, with tags array for cross-cutting allocation and price_source to specify which API fetches the price.
 
 ## Dependencies
 - Component 2 (Database Schema & Auth)
@@ -38,8 +40,8 @@ src/
 5. **PlatformForm**: Dialog with name (Input) + color (preset palette of 8-10 colors as clickable swatches). Submit calls add/edit
 6. **PlatformList**: Grid of PlatformCard components. "Add Platform" button
 7. **PlatformCard**: Card with name, color dot, asset count, actions dropdown (Edit, Delete)
-8. **AssetForm**: Dialog with platform (Select), category (Select), ticker (Input with convention hints), display name (Input), initial balance (optional)
-9. **AssetList**: Table with columns: Name, Ticker, Platform, Category (Badge), Balance, Status. Row actions: Edit, Deactivate
+8. **AssetForm**: Dialog with category (text), ticker (Input), display name (Input), tags (multi-value), price_source (Select: tcmb/coingecko/yahoo/manual)
+9. **AssetList**: Table with columns: Name, Ticker, Category (Badge), Tags, Price Source, Status. Row actions: Edit, Deactivate
 10. **AssetRow**: Single table row with category shown as color-coded Badge
 11. **Settings page**: Tabs for "Platforms" and "Assets", each rendering respective list component
 12. **Quick Add Asset** on Portfolio page: button that opens AssetForm directly

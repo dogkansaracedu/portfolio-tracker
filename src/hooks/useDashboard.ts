@@ -1,9 +1,10 @@
 import { useMemo } from "react"
 import BigNumber from "bignumber.js"
-import { bn, BN_ZERO } from "@/lib/config"
+import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
 import { useHoldings } from "@/hooks/useHoldings"
 import { usePrices } from "@/hooks/usePrices"
 import { usePnL } from "@/hooks/usePnL"
+import { useSnapshots } from "@/hooks/useSnapshots"
 import type { PriceCache } from "@/types/database"
 import type { HoldingWithDetails } from "@/lib/queries/holdings"
 import type { AssetPnL } from "@/lib/pnl/types"
@@ -42,6 +43,21 @@ export interface TopMover {
   currentValueUsd: number
 }
 
+export interface BalanceChange {
+  changeUsd: number
+  changeTry: number
+  changePct: number
+  snapshotDate: string | null
+}
+
+export interface InvestmentPnL {
+  totalCostBasisUsd: number
+  totalUnrealizedPnlUsd: number
+  totalRealizedPnlUsd: number
+  totalPnlUsd: number
+  totalPnlPct: number
+}
+
 export interface DashboardData {
   totalValueUsd: number
   totalValueTry: number
@@ -49,6 +65,9 @@ export interface DashboardData {
   byPlatform: PlatformAllocation[]
   byTag: TagAllocation[]
   topMovers: TopMover[]
+  balanceChange: BalanceChange
+  investmentPnL: InvestmentPnL
+  snapshots: import("@/types/database").Snapshot[]
   loading: boolean
 }
 
@@ -75,9 +94,16 @@ function computeHoldingValue(
 export function useDashboard(): DashboardData {
   const { holdings, loading: holdingsLoading } = useHoldings()
   const { prices, loading: pricesLoading } = usePrices()
-  const { assetPnLs, loading: pnlLoading } = usePnL(holdings, prices)
+  const {
+    assetPnLs,
+    totalCostBasisUsd,
+    totalUnrealizedPnlUsd,
+    totalRealizedPnlUsd,
+    loading: pnlLoading,
+  } = usePnL(holdings, prices)
+  const { snapshots, loading: snapshotsLoading } = useSnapshots()
 
-  const loading = holdingsLoading || pricesLoading || pnlLoading
+  const loading = holdingsLoading || pricesLoading || pnlLoading || snapshotsLoading
 
   const result = useMemo(() => {
     let totalValueUsd = BN_ZERO
@@ -218,6 +244,44 @@ export function useDashboard(): DashboardData {
         }
       })
 
+    // ── Balance change (vs last snapshot) ──────────────────────────
+    const lastSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null
+    const balanceChange: BalanceChange = (() => {
+      if (!lastSnapshot) {
+        return { changeUsd: 0, changeTry: 0, changePct: 0, snapshotDate: null }
+      }
+      const prevUsd = bn(lastSnapshot.total_usd)
+      const prevTry = bn(lastSnapshot.total_try)
+      const changeUsd = totalValueUsd.minus(prevUsd)
+      const changeTry = totalValueTry.minus(prevTry)
+      const changePct = prevUsd.isZero()
+        ? BN_ZERO
+        : changeUsd.div(prevUsd).times(BN_HUNDRED)
+      return {
+        changeUsd: changeUsd.toNumber(),
+        changeTry: changeTry.toNumber(),
+        changePct: changePct.toNumber(),
+        snapshotDate: lastSnapshot.snapshot_date,
+      }
+    })()
+
+    // ── Investment P&L (FIFO-based) ─────────────────────────────
+    const bnCostBasis = bn(totalCostBasisUsd)
+    const bnUnrealized = bn(totalUnrealizedPnlUsd)
+    const bnRealized = bn(totalRealizedPnlUsd)
+    const totalPnl = bnUnrealized.plus(bnRealized)
+    const totalPnlPct = bnCostBasis.isZero()
+      ? BN_ZERO
+      : totalPnl.div(bnCostBasis).times(BN_HUNDRED)
+
+    const investmentPnL: InvestmentPnL = {
+      totalCostBasisUsd: bnCostBasis.toNumber(),
+      totalUnrealizedPnlUsd: bnUnrealized.toNumber(),
+      totalRealizedPnlUsd: bnRealized.toNumber(),
+      totalPnlUsd: totalPnl.toNumber(),
+      totalPnlPct: totalPnlPct.toNumber(),
+    }
+
     return {
       totalValueUsd: totalValueUsd.toNumber(),
       totalValueTry: totalValueTry.toNumber(),
@@ -225,8 +289,11 @@ export function useDashboard(): DashboardData {
       byPlatform,
       byTag,
       topMovers,
+      balanceChange,
+      investmentPnL,
+      snapshots,
     }
-  }, [holdings, prices, assetPnLs])
+  }, [holdings, prices, assetPnLs, snapshots, totalCostBasisUsd, totalUnrealizedPnlUsd, totalRealizedPnlUsd])
 
   return { ...result, loading }
 }

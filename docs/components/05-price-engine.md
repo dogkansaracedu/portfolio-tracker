@@ -1,5 +1,7 @@
 # Component 5: Price Engine
 
+## Status: Done
+
 ## Overview
 Build the price fetching system: Supabase Edge Functions that fetch from TCMB (exchange rates + gold), CoinGecko (crypto), and Yahoo Finance (stocks). Prices cached in `price_cache` and `exchange_rates` tables. Client reads from cache and triggers refresh when stale. Manual price entry as fallback.
 

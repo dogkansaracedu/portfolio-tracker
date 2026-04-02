@@ -51,5 +51,9 @@ BEGIN
     (p_user_id, 'stock_us', 'QQQ',   'Invesco QQQ',          ARRAY[]::text[], 'yahoo'),
     (p_user_id, 'stock_us', 'BRK-B', 'Berkshire Hathaway B', ARRAY[]::text[], 'yahoo');
 
+  -- Vehicle
+  INSERT INTO public.assets (user_id, category, ticker, name, tags, price_source) VALUES
+    (p_user_id, 'vehicle', 'ARABA', 'Araba', ARRAY['vehicle'], 'manual');
+
 END;
 $$;

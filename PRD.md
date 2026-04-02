@@ -1,9 +1,9 @@
 # Portfolio Tracker — Product Requirements Document
 
-**Version:** 1.0  
+**Version:** 2.0  
 **Date:** April 2, 2026  
 **Author:** —  
-**Status:** Draft
+**Status:** In Progress (MVP ~85% complete)
 
 ---
 
@@ -40,11 +40,14 @@ A single user (the developer/owner) who:
 
 | Layer | Choice | Rationale |
 |-------|--------|-----------|
-| Frontend | React + Vite + Tailwind | Fast dev, simple deploy, great DX |
+| Frontend | React 19 + Vite 8 + Tailwind 4 | Fast dev, simple deploy, great DX |
+| UI Components | shadcn/ui + Lucide icons + Recharts 3 | Consistent design system, chart library |
 | Hosting | Netlify (or Vercel) | Free tier, `npm run build` → deploy |
 | Database | Supabase (PostgreSQL) | Free tier (500MB), auth, RLS, edge functions, realtime |
-| Auth | Supabase Auth | Email/password or magic link — single user, keep it simple |
+| Auth | Supabase Auth | Email/password — single user, keep it simple |
 | Price Data | TCMB, CoinGecko, Yahoo Finance | All free, details in §10 |
+| Financial Math | BigNumber.js | Decimal-safe arithmetic for all money/quantity operations |
+| Routing | React Router v7 | File-based page structure |
 | Scheduled Jobs | Supabase Edge Functions + pg_cron | Monthly snapshots, daily price cache refresh |
 
 ## 6. Data Model
@@ -63,22 +66,40 @@ Represents a brokerage, exchange, bank, or physical location.
 
 ### 6.2 `assets`
 
-A specific holding on a specific platform. One row = one asset-platform pair. E.g., "BTC on Paribu" and "BTC on OKX" are two separate rows.
+A **global** asset definition per user. One row per ticker per user. Platform-specific balances are tracked in the `holdings` table (§6.3).
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid | PK |
 | user_id | uuid | FK → auth.users |
-| platform_id | uuid | FK → platforms |
-| category | enum | `fiat`, `crypto`, `stock_bist`, `stock_us`, `commodity` |
-| ticker | text | Canonical ticker used for price lookups. See §6.7 |
-| name | text | Display name: "Bitcoin", "THY", "Gram Altın" |
-| balance | numeric | Current quantity — **derived from transactions**, cached here |
+| category | text | Free-form: `fiat`, `crypto`, `stock_us`, `stock_bist`, `gold`, `commodity`, `vehicle`, etc. |
+| ticker | text | Canonical ticker used for price lookups. See §6.8 |
+| name | text | Display name: "Bitcoin", "THY", "Gram Altın", "Araba" |
+| tags | text[] | Multi-value labels for cross-cutting allocation (e.g., `['crypto','usd']` for stablecoins) |
+| price_source | text | Which API to use: `tcmb`, `coingecko`, `yahoo`, `manual` |
 | is_active | boolean | Soft delete |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
-### 6.3 `transactions`
+**Unique constraint:** (user_id, ticker)
+
+### 6.3 `holdings`
+
+Per-platform balance for a global asset. Created on first transaction, balance derived from transactions.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| user_id | uuid | FK → auth.users |
+| asset_id | uuid | FK → assets |
+| platform_id | uuid | FK → platforms |
+| balance | numeric | Current quantity — **derived from transactions**, cached here via `recalculateBalance()` |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+**Unique constraint:** (asset_id, platform_id)
+
+### 6.4 `transactions`
 
 Every buy, sell, transfer, dividend, or fee event.
 
@@ -87,6 +108,7 @@ Every buy, sell, transfer, dividend, or fee event.
 | id | uuid | PK |
 | user_id | uuid | FK → auth.users |
 | asset_id | uuid | FK → assets |
+| platform_id | uuid | FK → platforms |
 | type | enum | `buy`, `sell`, `transfer_in`, `transfer_out`, `dividend`, `interest`, `fee` |
 | date | timestamptz | When the transaction occurred |
 | amount | numeric | Quantity (always positive) |
@@ -99,9 +121,9 @@ Every buy, sell, transfer, dividend, or fee event.
 | notes | text | |
 | created_at | timestamptz | |
 
-**Invariant:** `asset.balance = SUM(buy + transfer_in + dividend + interest) - SUM(sell + transfer_out + fee)` for that asset's transactions.
+**Invariant:** `holding.balance = SUM(buy + transfer_in + dividend + interest) - SUM(sell + transfer_out + fee)` for that asset+platform's transactions.
 
-### 6.4 `price_cache`
+### 6.5 `price_cache`
 
 Latest known price for each ticker.
 
@@ -110,10 +132,10 @@ Latest known price for each ticker.
 | ticker | text | PK. Canonical ticker |
 | price_usd | numeric | |
 | price_try | numeric | |
-| source | text | `coingecko`, `yahoo`, `tcmb` |
+| source | text | `coingecko`, `yahoo`, `tcmb`, `manual` |
 | updated_at | timestamptz | |
 
-### 6.5 `snapshots`
+### 6.6 `snapshots`
 
 Monthly portfolio photograph.
 
@@ -129,7 +151,7 @@ Monthly portfolio photograph.
 
 **Unique constraint:** (user_id, snapshot_date)
 
-### 6.6 `exchange_rates`
+### 6.7 `exchange_rates`
 
 Daily exchange rate log for historical calculations.
 
@@ -142,7 +164,7 @@ Daily exchange rate log for historical calculations.
 | gold_gram_try | numeric | |
 | source | text | |
 
-### 6.7 Canonical Ticker Convention
+### 6.8 Canonical Ticker Convention
 
 Every asset has a `ticker` used for price lookups. Convention:
 
@@ -153,6 +175,8 @@ Every asset has a `ticker` used for price lookups. Convention:
 | BIST Stock | Yahoo format | `THYAO.IS`, `GARAN.IS`, `ASELS.IS` |
 | US Stock | Standard ticker | `AAPL`, `MSFT`, `VOO` |
 | Commodity | Custom | `XAU_GRAM` (gram gold), `XAG_GRAM` (gram silver) |
+| Vehicle | Custom | `ARABA` |
+| Manual | Any custom string | Price entered/updated manually by user |
 
 Fiat assets (TRY, USD, EUR) have an implicit price of 1 in their own currency. Conversion to USD/TRY is done via `exchange_rates`.
 
@@ -246,6 +270,11 @@ The user can also trigger a manual snapshot at any time (button in UI).
     "Midas": { "usd": 5000, "pct": 11.8 },
     "Paribu": { "usd": 12000, "pct": 28.3 }
   },
+  "by_tag": {
+    "crypto": { "usd": 15000, "pct": 35.4 },
+    "usd": { "usd": 8200, "pct": 19.3 },
+    "vehicle": { "usd": 21348, "pct": 5.0 }
+  },
   "by_asset": [
     {
       "ticker": "bitcoin",
@@ -336,13 +365,15 @@ Filters: date range, asset, platform, type.
 
 ### 9.5 Settings Page
 
-- **Platforms**: CRUD.
-- **Assets**: manage tickers, categories.
-- **Display currency**: default USD or TRY.
-- **Export data**: JSON or CSV dump of all tables.
-- **Import data**: bulk transaction import from CSV.
-- **Manual snapshot**: trigger button.
-- **Price refresh**: manual trigger + show last update time.
+- **Platforms**: CRUD (PlatformList, PlatformCard, PlatformForm).
+- **Assets**: manage tickers, categories, tags, price_source (AssetList, AssetForm, AssetRow).
+- **Display currency**: USD/TRY toggle (persisted in localStorage via DisplayContext).
+- **Obfuscation toggle**: hide/show actual values (persisted in localStorage).
+- **Manual snapshot**: trigger button (SnapshotManager).
+- **Price refresh**: manual trigger + staleness indicator (PriceRefreshButton).
+- **Manual price entry**: for assets with `price_source = 'manual'` (ManualPriceEntry).
+- **Export data**: JSON or CSV dump of all tables. *(not yet implemented)*
+- **Import data**: bulk transaction import from CSV. *(not yet implemented)*
 
 ## 10. Price Data Sources
 
@@ -396,12 +427,12 @@ If any price source is down:
 
 ### 11.1 Initial Setup
 
-1. User signs up (email/password).
-2. Onboarding wizard:
-   - Add platforms (preset list + custom).
-   - For each platform, add assets with current balances.
-   - Optionally backfill: "I bought 0.5 BTC at $30,000 on 2023-06-15" — this creates a `buy` transaction.
-3. First snapshot is taken automatically.
+1. User signs up (email/password via Supabase Auth).
+2. `seed_user_data()` function auto-creates:
+   - **8 platforms:** IBKR, Midas, Midas Kripto, Paribu, OKX, Binance, Enpara, Fiziksel.
+   - **16 global assets:** TRY/USD/EUR (fiat), USDT/USDC (stablecoins), BTC/ETH (crypto), PAXG/XAUT/XAU_GRAM (gold), AAPL/QQQ/BRK-B (US stocks), ARABA (vehicle).
+   - No holdings created — they're generated on first transaction.
+3. User adds transactions via UI to start tracking.
 
 ### 11.2 Recording a Trade
 
@@ -466,25 +497,26 @@ These are explicitly out of scope for v1 but worth keeping in mind architectural
 
 ## 16. MVP Scope Summary
 
-For the initial release, prioritize in this order:
-
-| Priority | Feature | Effort |
+| Priority | Feature | Status |
 |----------|---------|--------|
-| P0 | Auth + platform/asset CRUD | S |
-| P0 | Transaction logging (buy/sell) | M |
-| P0 | Price fetching (TCMB + CoinGecko) | M |
-| P0 | Dashboard with total net worth | M |
-| P0 | Portfolio page with current values | M |
-| P1 | FIFO P&L calculation | L |
-| P1 | Monthly snapshots (auto + manual) | M |
-| P1 | Performance page with charts | L |
-| P1 | Transfer between platforms | M |
-| P2 | PWA setup | S |
-| P2 | CSV import/export | M |
-| P2 | Yahoo Finance for stocks | S |
-| P2 | Settings + data management | S |
-
-**Estimated total effort:** 3–5 weeks solo, working evenings/weekends.
+| P0 | Auth (Supabase email/password) | Done |
+| P0 | Platform CRUD | Done |
+| P0 | Asset management (global assets + tags + price_source) | Done |
+| P0 | Transaction logging (buy/sell/transfer/dividend/interest/fee) | Done |
+| P0 | Price fetching (TCMB + CoinGecko + Yahoo Finance) | Done |
+| P0 | Dashboard with net worth (USD+TRY), allocation, top movers | Done |
+| P0 | Portfolio page with grouped assets + P&L | Done |
+| P1 | FIFO P&L calculation (realized + unrealized) | Done |
+| P1 | Monthly snapshots (manual trigger) | Done |
+| P1 | Performance page (charts, drawdown, attribution, summary stats) | Done |
+| P1 | Transfer between platforms (cost basis carry-over) | Done |
+| P2 | PWA manifest + icons | Done (no service worker yet) |
+| P2 | Yahoo Finance for stocks | Done |
+| P2 | Settings (platforms + assets management) | Done |
+| P2 | CSV import/export | Not started |
+| P2 | Service worker (offline shell) | Not started |
+| P2 | Automated monthly snapshots (pg_cron) | Not started |
+| P2 | Data export (JSON/CSV dumps) | Not started |
 
 ## 17. Open Questions
 

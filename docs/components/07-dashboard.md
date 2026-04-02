@@ -1,5 +1,7 @@
 # Component 7: Dashboard
 
+## Status: Done
+
 ## Overview
 Build the main dashboard page — the primary view after login. Shows total net worth (USD/TRY toggle), daily change, allocation donut chart, platform breakdown, top movers, and monthly performance sparkline from snapshots.
 

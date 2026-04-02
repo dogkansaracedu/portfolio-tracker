@@ -1,5 +1,7 @@
 # Component 10: Snapshots & Performance
 
+## Status: Done
+
 ## Overview
 Build the snapshot system (manual trigger, snapshot viewing) and full performance page with charts: portfolio value over time, monthly returns, category attribution, drawdown, and summary statistics.
 

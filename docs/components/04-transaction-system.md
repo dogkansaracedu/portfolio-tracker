@@ -1,5 +1,7 @@
 # Component 4: Transaction System
 
+## Status: Done
+
 ## Overview
 Build the transaction recording system: an "Add Transaction" modal with support for all transaction types (buy, sell, transfer, dividend, interest, fee). On transaction creation, recalculate the asset's cached balance. This is the core data-entry workflow.
 
