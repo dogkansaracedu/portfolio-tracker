@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/prices"
+import { formatCurrency, obfuscate } from "@/lib/prices"
+import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import type { TopMover } from "@/hooks/useDashboard"
 
 interface TopMoversProps {
@@ -7,6 +8,8 @@ interface TopMoversProps {
 }
 
 export default function TopMovers({ topMovers }: TopMoversProps) {
+  const { obfuscated } = useDisplayCurrency()
+  const o = (v: string) => obfuscate(v, obfuscated)
 
   return (
     <Card className="flex flex-col">
@@ -51,7 +54,7 @@ export default function TopMovers({ topMovers }: TopMoversProps) {
                   <div className="text-right">
                     <p className={`text-sm font-medium ${colorClass}`}>
                       {sign}
-                      {pnlDisplay}
+                      {o(pnlDisplay)}
                     </p>
                     <p className={`text-xs ${colorClass}`}>
                       {sign}

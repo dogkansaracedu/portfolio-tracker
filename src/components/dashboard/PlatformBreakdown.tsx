@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency } from "@/lib/prices"
+import { formatCurrency, obfuscate } from "@/lib/prices"
 import type { PlatformAllocation } from "@/hooks/useDashboard"
 
 interface PlatformBreakdownProps {
@@ -10,7 +10,8 @@ interface PlatformBreakdownProps {
 export default function PlatformBreakdown({
   byPlatform,
 }: PlatformBreakdownProps) {
-  const { currency } = useDisplayCurrency()
+  const { currency, obfuscated } = useDisplayCurrency()
+  const o = (v: string) => obfuscate(v, obfuscated)
 
   if (byPlatform.length === 0) {
     return (
@@ -49,7 +50,7 @@ export default function PlatformBreakdown({
                     {platform.percentage.toFixed(1)}%
                   </span>
                   <span className="font-medium">
-                    {formatCurrency(value, currency)}
+                    {o(formatCurrency(value, currency))}
                   </span>
                 </div>
               </div>

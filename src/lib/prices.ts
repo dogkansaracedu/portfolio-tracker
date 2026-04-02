@@ -1,5 +1,11 @@
 import { CURRENCY_CONFIG, DECIMALS, getAmountDecimals } from "@/lib/config"
 
+export const OBFUSCATED_VALUE = "••••••"
+
+export function obfuscate(value: string, isObfuscated: boolean): string {
+  return isObfuscated ? OBFUSCATED_VALUE : value
+}
+
 /**
  * Format a numeric value as currency.
  * - USD: $1,234.56 (en-US locale)
