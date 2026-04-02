@@ -1,0 +1,81 @@
+import type { ExchangeRate } from "@/types/database"
+
+/**
+ * Find the exchange rate for a given date (or nearest prior date).
+ * Rates must be sorted by date ASC.
+ */
+export function getExchangeRateForDate(
+  date: string,
+  rates: ExchangeRate[],
+): ExchangeRate | null {
+  if (rates.length === 0) return null
+
+  const target = date.slice(0, 10) // "YYYY-MM-DD"
+
+  // Binary search for the largest date <= target
+  let lo = 0
+  let hi = rates.length - 1
+  let result: ExchangeRate | null = null
+
+  while (lo <= hi) {
+    const mid = (lo + hi) >>> 1
+    const midDate = rates[mid].date.slice(0, 10)
+
+    if (midDate <= target) {
+      result = rates[mid]
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+
+  return result
+}
+
+/**
+ * Convert an amount from a given currency to USD using the exchange rate
+ * for the transaction date.
+ */
+export function normalizeToUsd(
+  amount: number,
+  currency: string,
+  date: string,
+  rates: ExchangeRate[],
+): number {
+  const upper = currency.toUpperCase()
+
+  if (upper === "USD") return amount
+
+  const rate = getExchangeRateForDate(date, rates)
+  if (!rate) {
+    // No exchange rate available — return amount as-is (assume USD)
+    return amount
+  }
+
+  if (upper === "TRY") {
+    const usdTry = rate.usd_try ?? 1
+    return usdTry > 0 ? amount / usdTry : amount
+  }
+
+  if (upper === "EUR") {
+    const eurTry = rate.eur_try ?? 1
+    const usdTry = rate.usd_try ?? 1
+    // EUR -> TRY -> USD
+    return usdTry > 0 ? (amount * eurTry) / usdTry : amount
+  }
+
+  // Unknown currency — return as-is
+  return amount
+}
+
+/**
+ * Convert a unit price to USD.
+ */
+export function unitPriceToUsd(
+  unitPrice: number,
+  currency: string,
+  date: string,
+  rates: ExchangeRate[],
+): number {
+  return normalizeToUsd(unitPrice, currency, date, rates)
+}
