@@ -2,40 +2,43 @@ import { useState, useEffect, useMemo } from "react"
 import { bn, BN_ZERO } from "@/lib/config"
 import { useAuth } from "@/hooks/useAuth"
 import {
-  fetchTransactionsForPnL,
   fetchTransactionsForAllAssets,
   fetchAllExchangeRates,
 } from "@/lib/queries/pnl"
 import { computeFIFOLots } from "@/lib/pnl/fifo"
 import { computeUnrealizedPnL } from "@/lib/pnl/unrealized"
-import type { Transaction, ExchangeRate, Asset, PriceCache } from "@/types/database"
+import type { Transaction, ExchangeRate, PriceCache } from "@/types/database"
 import type { AssetPnL, PortfolioPnL } from "@/lib/pnl/types"
+import type { HoldingWithDetails } from "@/lib/queries/holdings"
+
+// ─── Helpers ────────────────────────────────────────────────────────
 
 /**
- * Group transactions by asset_id.
+ * Group transactions by composite key `asset_id|platform_id`.
  */
-function groupByAsset(
+function groupByAssetPlatform(
   transactions: Transaction[],
 ): Record<string, Transaction[]> {
   const groups: Record<string, Transaction[]> = {}
   for (const tx of transactions) {
-    if (!groups[tx.asset_id]) groups[tx.asset_id] = []
-    groups[tx.asset_id].push(tx)
+    const key = `${tx.asset_id}|${tx.platform_id}`
+    if (!groups[key]) groups[key] = []
+    groups[key].push(tx)
   }
   return groups
 }
 
+// ─── Hook ───────────────────────────────────────────────────────────
+
 /**
- * Compute P&L for a single asset or the full portfolio.
+ * Compute P&L from holdings (which carry asset + platform details) and current prices.
  *
- * @param assets - Active assets (with balance, ticker, category)
- * @param prices - Price cache map (ticker -> PriceCache)
- * @param assetId - If provided, compute for one asset only
+ * FIFO runs per (asset, platform) pair. Results are then aggregated to the asset level
+ * so callers get one `AssetPnL` per unique asset (summed across platforms).
  */
 export function usePnL(
-  assets: Asset[],
+  holdings: HoldingWithDetails[],
   prices: Record<string, PriceCache>,
-  assetId?: string,
 ) {
   const { user } = useAuth()
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -49,9 +52,7 @@ export function usePnL(
       setLoading(true)
       try {
         const [txs, exchangeRates] = await Promise.all([
-          assetId
-            ? fetchTransactionsForPnL(assetId)
-            : fetchTransactionsForAllAssets(user.id),
+          fetchTransactionsForAllAssets(user.id),
           fetchAllExchangeRates(),
         ])
         setTransactions(txs)
@@ -64,10 +65,10 @@ export function usePnL(
     }
 
     load()
-  }, [user, assetId])
+  }, [user])
 
   const result: PortfolioPnL = useMemo(() => {
-    if (loading || assets.length === 0) {
+    if (loading || holdings.length === 0) {
       return {
         assetPnLs: [],
         totalCostBasisUsd: BN_ZERO,
@@ -77,59 +78,114 @@ export function usePnL(
       }
     }
 
-    const grouped = groupByAsset(transactions)
-    const assetPnLs: AssetPnL[] = []
+    const grouped = groupByAssetPlatform(transactions)
 
-    const targetAssets = assetId
-      ? assets.filter((a) => a.id === assetId)
-      : assets
+    // ── Per-(asset, platform) P&L ──────────────────────────────────
 
-    for (const asset of targetAssets) {
-      // Skip fiat — no meaningful P&L
-      if (asset.category === "fiat") {
-        const price = prices[asset.ticker]
-        const currentValueUsd = bn(asset.balance).times(bn(price?.price_usd))
-        assetPnLs.push({
-          assetId: asset.id,
-          ticker: asset.ticker,
-          category: asset.category,
-          costBasisUsd: currentValueUsd, // fiat cost = current value
+    interface HoldingPnL {
+      assetId: string
+      ticker: string
+      category: string
+      costBasisUsd: ReturnType<typeof bn>
+      currentValueUsd: ReturnType<typeof bn>
+      unrealizedPnlUsd: ReturnType<typeof bn>
+      realizedPnlUsd: ReturnType<typeof bn>
+    }
+
+    const holdingPnLs: HoldingPnL[] = []
+
+    for (const h of holdings) {
+      const ticker = h.assets.ticker
+      const category = h.assets.category
+      const price = prices[ticker]
+      const currentPriceUsd = price?.price_usd ?? 0
+      const key = `${h.asset_id}|${h.platform_id}`
+
+      if (category === "fiat") {
+        // Fiat: value = balance * price, zero P&L
+        const currentValueUsd = bn(h.balance).times(bn(currentPriceUsd))
+        holdingPnLs.push({
+          assetId: h.asset_id,
+          ticker,
+          category,
+          costBasisUsd: currentValueUsd,
           currentValueUsd,
           unrealizedPnlUsd: BN_ZERO,
-          unrealizedPnlPct: BN_ZERO,
           realizedPnlUsd: BN_ZERO,
-          lots: [],
         })
         continue
       }
 
-      const assetTxs = grouped[asset.id] ?? []
-      const { lots, realized } = computeFIFOLots(assetTxs, rates)
+      const holdingTxs = grouped[key] ?? []
+      const { lots, realized } = computeFIFOLots(holdingTxs, rates)
 
-      const price = prices[asset.ticker]
-      const currentPriceUsd = price?.price_usd ?? 0
-
-      const unrealized = computeUnrealizedPnL(
-        lots,
-        currentPriceUsd,
-        asset.balance,
-      )
+      const unrealized = computeUnrealizedPnL(lots, currentPriceUsd, h.balance)
 
       const totalRealized = realized.reduce(
         (sum, r) => sum.plus(r.realizedPnlUsd),
         BN_ZERO,
       )
 
-      assetPnLs.push({
-        assetId: asset.id,
-        ticker: asset.ticker,
-        category: asset.category,
+      holdingPnLs.push({
+        assetId: h.asset_id,
+        ticker,
+        category,
         costBasisUsd: unrealized.costBasisUsd,
         currentValueUsd: unrealized.currentValueUsd,
         unrealizedPnlUsd: unrealized.unrealizedPnlUsd,
-        unrealizedPnlPct: unrealized.unrealizedPnlPct,
         realizedPnlUsd: totalRealized,
-        lots,
+      })
+    }
+
+    // ── Aggregate to asset level ───────────────────────────────────
+
+    const assetMap = new Map<
+      string,
+      {
+        ticker: string
+        category: string
+        costBasisUsd: ReturnType<typeof bn>
+        currentValueUsd: ReturnType<typeof bn>
+        unrealizedPnlUsd: ReturnType<typeof bn>
+        realizedPnlUsd: ReturnType<typeof bn>
+      }
+    >()
+
+    for (const hp of holdingPnLs) {
+      const existing = assetMap.get(hp.assetId)
+      if (existing) {
+        existing.costBasisUsd = existing.costBasisUsd.plus(hp.costBasisUsd)
+        existing.currentValueUsd = existing.currentValueUsd.plus(hp.currentValueUsd)
+        existing.unrealizedPnlUsd = existing.unrealizedPnlUsd.plus(hp.unrealizedPnlUsd)
+        existing.realizedPnlUsd = existing.realizedPnlUsd.plus(hp.realizedPnlUsd)
+      } else {
+        assetMap.set(hp.assetId, {
+          ticker: hp.ticker,
+          category: hp.category,
+          costBasisUsd: hp.costBasisUsd,
+          currentValueUsd: hp.currentValueUsd,
+          unrealizedPnlUsd: hp.unrealizedPnlUsd,
+          realizedPnlUsd: hp.realizedPnlUsd,
+        })
+      }
+    }
+
+    const assetPnLs: AssetPnL[] = []
+    for (const [assetId, data] of assetMap) {
+      const unrealizedPnlPct = data.costBasisUsd.isZero()
+        ? BN_ZERO
+        : data.unrealizedPnlUsd.div(data.costBasisUsd).times(100)
+
+      assetPnLs.push({
+        assetId,
+        ticker: data.ticker,
+        category: data.category,
+        costBasisUsd: data.costBasisUsd,
+        currentValueUsd: data.currentValueUsd,
+        unrealizedPnlUsd: data.unrealizedPnlUsd,
+        unrealizedPnlPct,
+        realizedPnlUsd: data.realizedPnlUsd,
+        lots: [], // lots are per-platform; aggregated view omits them
       })
     }
 
@@ -157,7 +213,7 @@ export function usePnL(
       totalUnrealizedPnlUsd,
       totalRealizedPnlUsd,
     }
-  }, [transactions, rates, assets, prices, loading, assetId])
+  }, [transactions, rates, holdings, prices, loading])
 
   return { ...result, loading }
 }

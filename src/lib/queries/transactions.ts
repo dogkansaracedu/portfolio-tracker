@@ -6,12 +6,8 @@ import type {
 } from "@/types/database"
 
 export interface TransactionWithDetails extends Transaction {
-  assets: {
-    name: string
-    ticker: string
-    category: string
-    platforms: { name: string; color: string }
-  }
+  assets: { name: string; ticker: string; category: string }
+  platforms: { name: string; color: string }
 }
 
 export interface TransactionFilters {
@@ -28,13 +24,16 @@ export async function fetchTransactions(
 ): Promise<TransactionWithDetails[]> {
   let query = supabase
     .from("transactions")
-    .select("*, assets(name, ticker, category, platforms(name, color))")
+    .select("*, assets(name, ticker, category), platforms(name, color)")
     .eq("user_id", userId)
     .order("date", { ascending: false })
     .order("created_at", { ascending: false })
 
   if (filters?.assetId) {
     query = query.eq("asset_id", filters.assetId)
+  }
+  if (filters?.platformId) {
+    query = query.eq("platform_id", filters.platformId)
   }
   if (filters?.type) {
     query = query.eq("type", filters.type)
@@ -50,9 +49,7 @@ export async function fetchTransactions(
 
   if (error) throw error
 
-  let results = (data ?? []) as unknown as TransactionWithDetails[]
-
-  return results
+  return (data ?? []) as unknown as TransactionWithDetails[]
 }
 
 export async function fetchTransactionsByAsset(

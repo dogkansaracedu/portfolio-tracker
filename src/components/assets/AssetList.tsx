@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAssets } from "@/hooks/useAssets";
-import type { AssetWithPlatform } from "@/lib/queries/assets";
+import type { Asset } from "@/types/database";
 import { AssetForm } from "@/components/assets/AssetForm";
 import { AssetRow } from "@/components/assets/AssetRow";
 import {
@@ -29,19 +29,18 @@ export function AssetList() {
     useAssets();
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingAsset, setEditingAsset] = useState<AssetWithPlatform | null>(
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [deactivatingAsset, setDeactivatingAsset] = useState<Asset | null>(
     null
   );
-  const [deactivatingAsset, setDeactivatingAsset] =
-    useState<AssetWithPlatform | null>(null);
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
 
-  function handleEdit(asset: AssetWithPlatform) {
+  function handleEdit(asset: Asset) {
     setEditingAsset(asset);
     setFormOpen(true);
   }
 
-  function handleDeactivate(asset: AssetWithPlatform) {
+  function handleDeactivate(asset: Asset) {
     setDeactivateError(null);
     setDeactivatingAsset(asset);
   }
@@ -77,9 +76,6 @@ export function AssetList() {
     );
   }
 
-  const hasPositiveBalance =
-    deactivatingAsset != null && deactivatingAsset.balance > 0;
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -105,9 +101,8 @@ export function AssetList() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Platform</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
+                <TableHead>Group</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
@@ -123,7 +118,7 @@ export function AssetList() {
               ))}
               {assets.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center">
+                  <TableCell colSpan={5} className="py-8 text-center">
                     <p className="text-sm text-muted-foreground">
                       No assets found
                     </p>
@@ -142,10 +137,11 @@ export function AssetList() {
         onSubmit={async (data) => {
           if (editingAsset) {
             await editAsset(editingAsset.id, {
-              platform_id: data.platform_id,
               category: data.category,
               ticker: data.ticker,
               name: data.name,
+              tags: data.tags,
+              price_source: data.price_source,
             });
           } else {
             await addAsset(data);
@@ -163,9 +159,7 @@ export function AssetList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Deactivate Asset</AlertDialogTitle>
             <AlertDialogDescription>
-              {hasPositiveBalance
-                ? `"${deactivatingAsset?.name}" has a balance of ${deactivatingAsset?.balance.toLocaleString()}. Deactivating it will hide it from your active portfolio. Are you sure?`
-                : `Are you sure you want to deactivate "${deactivatingAsset?.name}"? It will be hidden from your active portfolio but can be reactivated later.`}
+              {`Are you sure you want to deactivate "${deactivatingAsset?.name}"? It will be hidden from your active portfolio but can be reactivated later.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deactivateError && (

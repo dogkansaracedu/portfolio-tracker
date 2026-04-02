@@ -4,19 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Camera, Trash2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { formatCurrency } from "@/lib/prices"
-import type { Snapshot, Asset, PriceCache, ExchangeRate } from "@/types/database"
-
-interface AssetWithPlatform extends Asset {
-  platforms: { name: string; color: string }
-}
+import type { Snapshot, PriceCache, ExchangeRate } from "@/types/database"
 
 interface Props {
   snapshots: Snapshot[]
-  assets: AssetWithPlatform[]
   prices: Record<string, PriceCache>
   latestRates: ExchangeRate | null
   onTakeSnapshot: (
-    assets: AssetWithPlatform[],
     prices: Record<string, PriceCache>,
     rates: ExchangeRate | null,
   ) => Promise<Snapshot>
@@ -25,7 +19,6 @@ interface Props {
 
 export function SnapshotManager({
   snapshots,
-  assets,
   prices,
   latestRates,
   onTakeSnapshot,
@@ -37,7 +30,7 @@ export function SnapshotManager({
   const handleTake = async () => {
     setTaking(true)
     try {
-      await onTakeSnapshot(assets, prices, latestRates)
+      await onTakeSnapshot(prices, latestRates)
       toast.success("Snapshot taken!")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to take snapshot")

@@ -1,64 +1,63 @@
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import type { AssetInsert, AssetUpdate } from "@/types/database";
+import { useState, useEffect, useCallback } from "react"
+import { useAuth } from "@/hooks/useAuth"
+import type { Asset, AssetInsert, AssetUpdate } from "@/types/database"
 import {
   fetchAssets,
   createAsset,
   updateAsset,
   deactivateAsset,
-  type AssetWithPlatform,
-} from "@/lib/queries/assets";
+} from "@/lib/queries/assets"
 
 export function useAssets() {
-  const { user } = useAuth();
-  const [assets, setAssets] = useState<AssetWithPlatform[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth()
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const refetch = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    setError(null);
+    if (!user) return
+    setLoading(true)
+    setError(null)
     try {
-      const data = await fetchAssets(user.id);
-      setAssets(data);
+      const data = await fetchAssets(user.id)
+      setAssets(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch assets");
+      setError(err instanceof Error ? err.message : "Failed to fetch assets")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [user]);
+  }, [user])
 
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    refetch()
+  }, [refetch])
 
   const addAsset = useCallback(
     async (data: Omit<AssetInsert, "user_id">) => {
-      if (!user) throw new Error("Not authenticated");
-      const asset = await createAsset({ ...data, user_id: user.id });
-      await refetch();
-      return asset;
+      if (!user) throw new Error("Not authenticated")
+      const asset = await createAsset({ ...data, user_id: user.id })
+      await refetch()
+      return asset
     },
-    [user, refetch]
-  );
+    [user, refetch],
+  )
 
   const editAsset = useCallback(
     async (id: string, data: AssetUpdate) => {
-      const asset = await updateAsset(id, data);
-      await refetch();
-      return asset;
+      const asset = await updateAsset(id, data)
+      await refetch()
+      return asset
     },
-    [refetch]
-  );
+    [refetch],
+  )
 
   const deactivateAssetById = useCallback(
     async (id: string) => {
-      await deactivateAsset(id);
-      await refetch();
+      await deactivateAsset(id)
+      await refetch()
     },
-    [refetch]
-  );
+    [refetch],
+  )
 
   return {
     assets,
@@ -68,5 +67,5 @@ export function useAssets() {
     editAsset,
     deactivateAsset: deactivateAssetById,
     refetch,
-  };
+  }
 }

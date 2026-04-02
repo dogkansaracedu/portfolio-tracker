@@ -33,7 +33,7 @@ export default function PortfolioPage() {
             All your assets in one place.
           </p>
         </div>
-        <Button variant="outline" size="sm" render={<Link to="/settings" />}>
+        <Button variant="outline" size="sm" nativeButton={false} render={<Link to="/settings" />}>
           <Plus className="size-4" />
           Add Asset
         </Button>

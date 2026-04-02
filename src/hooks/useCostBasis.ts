@@ -6,16 +6,19 @@ import type { Transaction, ExchangeRate } from "@/types/database"
 import type { CostLot } from "@/lib/pnl/types"
 
 /**
- * Get the current FIFO cost lots for a specific asset.
+ * Get the current FIFO cost lots for a specific (asset, platform) pair.
  * Returns the open lots, total cost, and average cost per unit.
  */
-export function useCostBasis(assetId: string | undefined) {
+export function useCostBasis(
+  assetId: string | undefined,
+  platformId: string | undefined,
+) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [rates, setRates] = useState<ExchangeRate[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!assetId) {
+    if (!assetId || !platformId) {
       setLoading(false)
       return
     }
@@ -24,7 +27,7 @@ export function useCostBasis(assetId: string | undefined) {
       setLoading(true)
       try {
         const [txs, exchangeRates] = await Promise.all([
-          fetchTransactionsForPnL(assetId),
+          fetchTransactionsForPnL(assetId, platformId),
           fetchAllExchangeRates(),
         ])
         setTransactions(txs)
@@ -37,10 +40,10 @@ export function useCostBasis(assetId: string | undefined) {
     }
 
     load()
-  }, [assetId])
+  }, [assetId, platformId])
 
   const result = useMemo(() => {
-    if (!assetId || loading) {
+    if (!assetId || !platformId || loading) {
       return { lots: [] as CostLot[], totalCostUsd: 0, avgCostUsd: 0 }
     }
 
@@ -61,7 +64,7 @@ export function useCostBasis(assetId: string | undefined) {
       : totalCostUsd.div(totalAmount).toNumber()
 
     return { lots, totalCostUsd: totalCostUsd.toNumber(), avgCostUsd }
-  }, [assetId, transactions, rates, loading])
+  }, [assetId, platformId, transactions, rates, loading])
 
   return { ...result, loading }
 }

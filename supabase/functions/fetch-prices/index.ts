@@ -70,11 +70,16 @@ Deno.serve(async (req) => {
         { ticker: "EUR", price_usd: eurTry / usdTry, price_try: eurTry, source: "tcmb", updated_at: now },
         { ticker: "TRY", price_usd: 1 / usdTry, price_try: 1, source: "tcmb", updated_at: now },
       ]
-      if (goldGramTry) {
+      if (xauMatch) {
+        const xauOunceUsd = parseFloat(xauMatch[1])
+        // price_usd = USD per gram (troy oz / 31.1035)
+        const goldGramUsd = xauOunceUsd / 31.1035
+        // price_try = USD per gram * USD/TRY
+        const goldGramTryPrice = goldGramUsd * usdTry
         priceRows.push({
           ticker: "XAU_GRAM",
-          price_usd: goldGramTry / usdTry,
-          price_try: goldGramTry,
+          price_usd: goldGramUsd,
+          price_try: goldGramTryPrice,
           source: "tcmb",
           updated_at: now,
         })
@@ -109,7 +114,7 @@ Deno.serve(async (req) => {
       const { data: assets } = await supabase
         .from("assets")
         .select("ticker")
-        .eq("category", "crypto")
+        .eq("price_source", "coingecko")
 
       if (!assets || assets.length === 0) return 0
 
@@ -169,22 +174,22 @@ Deno.serve(async (req) => {
     try {
       const { data: assets } = await supabase
         .from("assets")
-        .select("ticker, category")
-        .in("category", ["stock_bist", "stock_us"])
+        .select("ticker")
+        .eq("price_source", "yahoo")
 
       if (!assets || assets.length === 0) return 0
 
-      const tickerSet = new Map<string, string>()
+      const tickerSet = new Set<string>()
       for (const a of assets) {
-        tickerSet.set(a.ticker, a.category)
+        tickerSet.add(a.ticker)
       }
 
       const now = new Date().toISOString()
       let updated = 0
-      const tickers = [...tickerSet.entries()]
+      const tickers = [...tickerSet]
 
       for (let i = 0; i < tickers.length; i++) {
-        const [ticker] = tickers[i]
+        const ticker = tickers[i]
 
         if (i > 0) {
           await new Promise((resolve) => setTimeout(resolve, 1000))

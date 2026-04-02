@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
     // Get distinct stock tickers from assets
     const { data: assets, error: assetsError } = await supabase
       .from("assets")
-      .select("ticker, category")
-      .in("category", ["stock_bist", "stock_us"])
+      .select("ticker")
+      .eq("price_source", "yahoo")
 
     if (assetsError) {
       throw new Error(`Failed to query assets: ${assetsError.message}`)
@@ -35,9 +35,9 @@ Deno.serve(async (req) => {
     }
 
     // Deduplicate tickers
-    const tickerSet = new Map<string, string>()
+    const tickerSet = new Set<string>()
     for (const a of assets) {
-      tickerSet.set(a.ticker, a.category)
+      tickerSet.add(a.ticker)
     }
 
     // Get latest USD/TRY for converting TRY prices to USD
@@ -55,9 +55,9 @@ Deno.serve(async (req) => {
     const errors: string[] = []
 
     // Process each ticker with a 1-second delay between requests
-    const tickers = [...tickerSet.entries()]
+    const tickers = [...tickerSet]
     for (let i = 0; i < tickers.length; i++) {
-      const [ticker, _category] = tickers[i]
+      const ticker = tickers[i]
 
       // 1-second delay between requests (skip for first)
       if (i > 0) {

@@ -1,12 +1,5 @@
 // ─── Enum Union Types ───────────────────────────────────────────────
 
-export type AssetCategory =
-  | "fiat"
-  | "crypto"
-  | "stock_bist"
-  | "stock_us"
-  | "commodity";
-
 export type TransactionType =
   | "buy"
   | "sell"
@@ -26,15 +19,27 @@ export interface Platform {
   created_at: string;
 }
 
+/** Global asset — one row per ticker per user. No platform association. */
 export interface Asset {
   id: string;
   user_id: string;
-  platform_id: string;
-  category: AssetCategory;
+  category: string;
   ticker: string;
   name: string;
-  balance: number;
+  tags: string[];
+  price_source: string;
   is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Per-platform balance for a global asset. */
+export interface Holding {
+  id: string;
+  user_id: string;
+  asset_id: string;
+  platform_id: string;
+  balance: number;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +48,7 @@ export interface Transaction {
   id: string;
   user_id: string;
   asset_id: string;
+  platform_id: string;
   type: TransactionType;
   date: string;
   amount: number;
@@ -91,11 +97,9 @@ export interface SnapshotBreakdown {
     eur_try: number;
     gold_gram_try: number;
   };
-  by_category: Record<
-    AssetCategory,
-    { usd: number; try: number; pct: number }
-  >;
+  by_category: Record<string, { usd: number; try: number; pct: number }>;
   by_platform: Record<string, { usd: number; pct: number }>;
+  by_tag: Record<string, { usd: number; pct: number }>;
   by_asset: Array<{
     ticker: string;
     name: string;
@@ -113,6 +117,9 @@ export type PlatformUpdate = Partial<Omit<Platform, "id" | "user_id" | "created_
 
 export type AssetInsert = Omit<Asset, "id" | "created_at" | "updated_at">;
 export type AssetUpdate = Partial<Omit<Asset, "id" | "user_id" | "created_at" | "updated_at">>;
+
+export type HoldingInsert = Omit<Holding, "id" | "created_at" | "updated_at">;
+export type HoldingUpdate = Partial<Omit<Holding, "id" | "user_id" | "created_at" | "updated_at">>;
 
 export type TransactionInsert = Omit<Transaction, "id" | "created_at">;
 export type TransactionUpdate = Partial<Omit<Transaction, "id" | "user_id" | "created_at">>;

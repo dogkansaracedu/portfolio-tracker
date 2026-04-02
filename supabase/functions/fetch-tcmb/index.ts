@@ -99,11 +99,16 @@ Deno.serve(async (req) => {
       },
     ]
 
-    if (goldGramTry) {
+    if (xauMatch) {
+      const xauOunceUsd = parseFloat(xauMatch[1])
+      // price_usd = USD per gram (troy oz / 31.1035)
+      const goldGramUsd = xauOunceUsd / 31.1035
+      // price_try = USD per gram * USD/TRY
+      const goldGramTryPrice = goldGramUsd * usdTry
       priceRows.push({
         ticker: "XAU_GRAM",
-        price_usd: goldGramTry / usdTry,
-        price_try: goldGramTry,
+        price_usd: goldGramUsd,
+        price_try: goldGramTryPrice,
         source: "tcmb",
         updated_at: now,
       })

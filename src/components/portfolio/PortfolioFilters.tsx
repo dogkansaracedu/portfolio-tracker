@@ -52,6 +52,7 @@ export function PortfolioFilters({
           variant="outline"
           size="sm"
         >
+          <ToggleGroupItem value="tag">Tag</ToggleGroupItem>
           <ToggleGroupItem value="platform">Platform</ToggleGroupItem>
           <ToggleGroupItem value="category">Category</ToggleGroupItem>
         </ToggleGroup>

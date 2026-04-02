@@ -82,17 +82,19 @@ export function usePrices(): UsePricesReturn {
   }, [loadPrices])
 
   // Auto-refresh if stale (runs once after initial load)
+  // Only if there are prices to refresh (avoids calling edge functions on empty DB)
   useEffect(() => {
     if (loading || hasAutoRefreshed.current) return
 
+    const hasPrices = Object.keys(prices).length > 0
     const shouldRefresh =
-      !lastUpdated || isStale(lastUpdated, STALE_THRESHOLD_MINUTES)
+      hasPrices && (!lastUpdated || isStale(lastUpdated, STALE_THRESHOLD_MINUTES))
 
     if (shouldRefresh) {
       hasAutoRefreshed.current = true
       refreshPrices()
     }
-  }, [loading, lastUpdated, refreshPrices])
+  }, [loading, lastUpdated, refreshPrices, prices])
 
   // Compute stale asset tickers
   const staleAssets = Object.entries(prices)

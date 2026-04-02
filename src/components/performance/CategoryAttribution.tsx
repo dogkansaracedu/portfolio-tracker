@@ -12,9 +12,9 @@ import { formatCurrency } from "@/lib/prices"
 const categoryLabels: Record<string, string> = {
   fiat: "Fiat",
   crypto: "Crypto",
-  stock_bist: "BIST Stocks",
+  gold: "Gold",
   stock_us: "US Stocks",
-  commodity: "Commodities",
+  stock_bist: "BIST Stocks",
 }
 
 interface Props {

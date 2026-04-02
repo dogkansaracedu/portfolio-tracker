@@ -1,5 +1,4 @@
-import type { AssetCategory } from "@/types/database";
-import type { AssetWithPlatform } from "@/lib/queries/assets";
+import type { Asset } from "@/types/database";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,26 +10,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, EyeOff } from "lucide-react";
 
-const CATEGORY_LABELS: Record<AssetCategory, string> = {
+const CATEGORY_LABELS: Record<string, string> = {
   fiat: "Fiat",
   crypto: "Crypto",
-  stock_bist: "BIST",
+  gold: "Gold",
   stock_us: "US Stock",
-  commodity: "Commodity",
-};
-
-const CATEGORY_VARIANTS: Record<AssetCategory, "default" | "secondary" | "outline"> = {
-  fiat: "secondary",
-  crypto: "default",
-  stock_bist: "outline",
-  stock_us: "outline",
-  commodity: "secondary",
+  stock_bist: "BIST",
 };
 
 interface AssetRowProps {
-  asset: AssetWithPlatform;
-  onEdit: (asset: AssetWithPlatform) => void;
-  onDeactivate: (asset: AssetWithPlatform) => void;
+  asset: Asset;
+  onEdit: (asset: Asset) => void;
+  onDeactivate: (asset: Asset) => void;
 }
 
 export function AssetRow({ asset, onEdit, onDeactivate }: AssetRowProps) {
@@ -43,24 +34,20 @@ export function AssetRow({ asset, onEdit, onDeactivate }: AssetRowProps) {
         </div>
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-2">
-          <span
-            className="inline-block size-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: asset.platforms.color }}
-          />
-          <span className="text-sm">{asset.platforms.name}</span>
-        </div>
-      </TableCell>
-      <TableCell>
-        <Badge variant={CATEGORY_VARIANTS[asset.category]}>
-          {CATEGORY_LABELS[asset.category]}
+        <Badge variant="secondary">
+          {CATEGORY_LABELS[asset.category] ?? asset.category}
         </Badge>
       </TableCell>
-      <TableCell className="text-right font-mono text-sm">
-        {asset.balance.toLocaleString(undefined, {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 8,
-        })}
+      <TableCell>
+        <div className="flex flex-wrap gap-1">
+          {(asset.tags ?? []).length > 0
+            ? (asset.tags ?? []).map((tag) => (
+                <Badge key={tag} variant="outline" className="text-[10px]">
+                  {tag}
+                </Badge>
+              ))
+            : <span className="text-xs text-muted-foreground">—</span>}
+        </div>
       </TableCell>
       <TableCell>
         <Badge variant={asset.is_active ? "default" : "secondary"}>

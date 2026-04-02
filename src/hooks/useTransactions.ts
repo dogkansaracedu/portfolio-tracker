@@ -28,7 +28,7 @@ export function useTransactions(filters?: TransactionFilters) {
     } finally {
       setLoading(false)
     }
-  }, [user, filters?.assetId, filters?.type, filters?.dateFrom, filters?.dateTo])
+  }, [user, filters?.assetId, filters?.platformId, filters?.type, filters?.dateFrom, filters?.dateTo])
 
   useEffect(() => {
     load()
@@ -39,21 +39,29 @@ export function useTransactions(filters?: TransactionFilters) {
 
     const tx = await createTransaction({ ...data, user_id: user.id })
 
-    // Recalculate balance for affected asset(s)
-    await recalculateBalance(tx.asset_id)
+    // Recalculate balance for the affected (asset, platform) holding
+    await recalculateBalance(user.id, tx.asset_id, tx.platform_id)
 
-    // If it's a transfer, also recalculate the related asset
+    // If it's a transfer, also recalculate the destination/source platform holding.
+    // related_asset_id is re-used to reference the counterpart asset row for transfers.
+    // For transfer_out the counterpart transfer_in has the same asset_id but different platform.
+    // The related_asset_id field may store the counterpart platform_id for transfers.
     if (tx.related_asset_id) {
-      await recalculateBalance(tx.related_asset_id)
+      await recalculateBalance(user.id, tx.asset_id, tx.related_asset_id)
     }
 
     await load()
     return tx
   }
 
-  const removeTransaction = async (id: string, assetId: string) => {
+  const removeTransaction = async (
+    id: string,
+    assetId: string,
+    platformId: string,
+  ) => {
+    if (!user) throw new Error("Not authenticated")
     await deleteTransaction(id)
-    await recalculateBalance(assetId)
+    await recalculateBalance(user.id, assetId, platformId)
     await load()
   }
 

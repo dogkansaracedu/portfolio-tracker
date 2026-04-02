@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { DisplayProvider } from "@/contexts/DisplayContext"
 import { TransactionProvider } from "@/contexts/TransactionContext"
+import { Toaster } from "@/components/ui/sonner"
 import App from "./App"
 import "./index.css"
 
@@ -14,6 +15,7 @@ createRoot(document.getElementById("root")!).render(
         <AuthProvider>
           <TransactionProvider>
             <App />
+            <Toaster />
           </TransactionProvider>
         </AuthProvider>
       </DisplayProvider>

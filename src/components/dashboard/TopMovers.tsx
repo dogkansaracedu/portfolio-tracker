@@ -45,7 +45,7 @@ export default function TopMovers({ topMovers }: TopMoversProps) {
                       {mover.name}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {mover.platformName} &middot; {mover.ticker}
+                      {mover.ticker}
                     </p>
                   </div>
                   <div className="text-right">

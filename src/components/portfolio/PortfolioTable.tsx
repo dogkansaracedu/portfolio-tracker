@@ -34,9 +34,9 @@ export function PortfolioTable({ groups }: PortfolioTableProps) {
               <TableHead>Asset</TableHead>
               <TableHead>Platform</TableHead>
               <TableHead className="text-right">Quantity</TableHead>
+              <TableHead className="text-right">Bought</TableHead>
               <TableHead className="text-right">Price</TableHead>
               <TableHead className="text-right">Value</TableHead>
-              <TableHead className="text-right">Cost Basis</TableHead>
               <TableHead className="text-right">P&L</TableHead>
               <TableHead className="text-right">Alloc.</TableHead>
               <TableHead className="w-10" />

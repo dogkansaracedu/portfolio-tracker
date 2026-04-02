@@ -29,16 +29,13 @@ import { TransactionTypeSelector } from "./TransactionTypeSelector"
 import { AssetSearchSelect } from "./AssetSearchSelect"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactions } from "@/hooks/useTransactions"
+import { useHoldings } from "@/hooks/useHoldings"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
 import type { TransactionType, Asset, Platform } from "@/types/database"
 
-interface AssetWithPlatform extends Asset {
-  platforms: { name: string; color: string }
-}
-
 interface Props {
-  assets: AssetWithPlatform[]
+  assets: Asset[]
   platforms: Platform[]
   onSuccess?: () => void
 }
@@ -47,39 +44,45 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const { user } = useAuth()
   const { modalState, closeTransactionModal } = useTransactionModal()
   const { addTransaction } = useTransactions()
+  const { getTotalBalance, getHoldingsForAsset } = useHoldings()
 
   const [type, setType] = useState<TransactionType>("buy")
   const [assetId, setAssetId] = useState<string>("")
+  const [platformId, setPlatformId] = useState<string>("")
   const [date, setDate] = useState<Date>(new Date())
   const [amount, setAmount] = useState("")
   const [unitPrice, setUnitPrice] = useState("")
   const [priceCurrency, setPriceCurrency] = useState("USD")
   const [fee, setFee] = useState("")
   const [feeCurrency, setFeeCurrency] = useState("USD")
-  const [relatedAssetId, setRelatedAssetId] = useState<string>("")
+  const [destPlatformId, setDestPlatformId] = useState<string>("")
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
 
-  // Pre-fill asset when modal opens with a preset
+  // Pre-fill asset and platform when modal opens with presets
   useEffect(() => {
     if (modalState.prefilledAssetId) {
       setAssetId(modalState.prefilledAssetId)
     }
-  }, [modalState.prefilledAssetId])
+    if (modalState.prefilledPlatformId) {
+      setPlatformId(modalState.prefilledPlatformId)
+    }
+  }, [modalState.prefilledAssetId, modalState.prefilledPlatformId])
 
   // Reset form when modal closes
   useEffect(() => {
     if (!modalState.isOpen) {
       setType("buy")
       setAssetId("")
+      setPlatformId("")
       setDate(new Date())
       setAmount("")
       setUnitPrice("")
       setPriceCurrency("USD")
       setFee("")
       setFeeCurrency("USD")
-      setRelatedAssetId("")
+      setDestPlatformId("")
       setNotes("")
     }
   }, [modalState.isOpen])
@@ -91,21 +94,29 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
 
   const showPriceFields = ["buy", "sell", "dividend", "interest"].includes(type)
   const showFeeFields = ["buy", "sell"].includes(type)
-  const showTransferFields = type === "transfer_out"
+  const isTransfer = type === "transfer_out"
 
-  // Validation
-  const selectedBalance = selectedAsset?.balance ?? 0
+  // Get the balance for the selected asset on the selected platform
+  const holdingsForAsset = assetId ? getHoldingsForAsset(assetId) : []
+  const selectedHolding = holdingsForAsset.find(
+    (h) => h.platform_id === platformId,
+  )
+  const selectedPlatformBalance = selectedHolding?.balance ?? 0
+  const totalBalance = assetId ? getTotalBalance(assetId) : 0
+
+  // Validation: check balance on the specific platform for sell/transfer/fee
   const isOverBalance =
     (type === "sell" || type === "transfer_out" || type === "fee") &&
-    parsedAmount > selectedBalance
+    parsedAmount > selectedPlatformBalance
 
   const canSubmit =
     assetId &&
+    platformId &&
     parsedAmount > 0 &&
     !isOverBalance &&
     !submitting &&
     (showPriceFields ? parsedPrice > 0 : true) &&
-    (showTransferFields ? relatedAssetId : true)
+    (isTransfer ? destPlatformId && destPlatformId !== platformId : true)
 
   const handleSubmit = async () => {
     if (!user || !canSubmit) return
@@ -115,6 +126,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
       // Create main transaction
       await addTransaction({
         asset_id: assetId,
+        platform_id: platformId,
         type,
         date: date.toISOString(),
         amount: parsedAmount,
@@ -123,14 +135,16 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         total_cost: totalCost,
         fee: parseFloat(fee) || 0,
         fee_currency: fee ? feeCurrency : null,
-        related_asset_id: relatedAssetId || null,
+        related_asset_id: null,
         notes: notes || null,
       })
 
-      // For transfer_out, create matching transfer_in
-      if (type === "transfer_out" && relatedAssetId) {
+      // For transfer_out, create matching transfer_in on the destination platform
+      if (isTransfer && destPlatformId) {
+        const selectedPlatform = platforms.find((p) => p.id === platformId)
         await addTransaction({
-          asset_id: relatedAssetId,
+          asset_id: assetId,
+          platform_id: destPlatformId,
           type: "transfer_in",
           date: date.toISOString(),
           amount: parsedAmount,
@@ -139,8 +153,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           total_cost: totalCost,
           fee: 0,
           fee_currency: null,
-          related_asset_id: assetId,
-          notes: notes ? `Transfer from ${selectedAsset?.name}: ${notes}` : null,
+          related_asset_id: null,
+          notes: notes
+            ? `Transfer from ${selectedPlatform?.name ?? "unknown"}: ${notes}`
+            : `Transfer from ${selectedPlatform?.name ?? "unknown"}`,
         })
       }
 
@@ -170,33 +186,79 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             <TransactionTypeSelector value={type} onChange={setType} />
           </div>
 
-          {/* Asset Selection */}
+          {/* Asset Selection (global) */}
           <div className="space-y-2">
             <Label>Asset</Label>
             <AssetSearchSelect
               assets={assets}
-              platforms={platforms}
               value={assetId}
               onChange={setAssetId}
             />
             {selectedAsset && (
               <p className="text-xs text-muted-foreground">
-                Current balance: {selectedAsset.balance} {selectedAsset.ticker}
+                Total balance: {totalBalance} {selectedAsset.ticker}
               </p>
             )}
           </div>
 
-          {/* Transfer destination */}
-          {showTransferFields && (
+          {/* Platform Selection */}
+          <div className="space-y-2">
+            <Label>{isTransfer ? "Source Platform" : "Platform"}</Label>
+            <Select
+              value={platformId}
+              onValueChange={(v) => v && setPlatformId(v)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select platform..." />
+              </SelectTrigger>
+              <SelectContent>
+                {platforms.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="inline-block size-2.5 rounded-full"
+                        style={{ backgroundColor: p.color }}
+                      />
+                      {p.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {platformId && selectedAsset && (type === "sell" || type === "transfer_out" || type === "fee") && (
+              <p className="text-xs text-muted-foreground">
+                Balance on this platform: {selectedPlatformBalance} {selectedAsset.ticker}
+              </p>
+            )}
+          </div>
+
+          {/* Transfer destination platform */}
+          {isTransfer && (
             <div className="space-y-2">
-              <Label>Destination Asset</Label>
-              <AssetSearchSelect
-                assets={assets}
-                platforms={platforms}
-                value={relatedAssetId}
-                onChange={setRelatedAssetId}
-                filterTicker={selectedAsset?.ticker}
-              />
+              <Label>Destination Platform</Label>
+              <Select
+                value={destPlatformId}
+                onValueChange={(v) => v && setDestPlatformId(v)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select destination..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {platforms
+                    .filter((p) => p.id !== platformId)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="inline-block size-2.5 rounded-full"
+                            style={{ backgroundColor: p.color }}
+                          />
+                          {p.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
@@ -237,7 +299,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             />
             {isOverBalance && (
               <p className="text-xs text-destructive">
-                Insufficient balance (have: {selectedBalance}{" "}
+                Insufficient balance on this platform (have: {selectedPlatformBalance}{" "}
                 {selectedAsset?.ticker})
               </p>
             )}
@@ -276,7 +338,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           {/* Total Cost display */}
           {showPriceFields && totalCost > 0 && (
             <div className="rounded-md bg-muted px-3 py-2 text-sm">
-              Total: {priceCurrency === "TRY" ? "₺" : priceCurrency === "EUR" ? "€" : "$"}
+              Total: {priceCurrency === "TRY" ? "\u20BA" : priceCurrency === "EUR" ? "\u20AC" : "$"}
               {totalCost.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,

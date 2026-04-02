@@ -2,16 +2,23 @@ import { supabase } from "@/lib/supabase"
 import { bn, BN_ZERO } from "@/lib/config"
 
 /**
- * Recalculate and update an asset's cached balance from its transactions.
+ * Recalculate and upsert a holding's balance from its transactions.
  *
  * balance = SUM(buy + transfer_in + dividend + interest)
  *         - SUM(sell + transfer_out + fee)
+ *
+ * Writes the result into the `holdings` table (upsert on user_id, asset_id, platform_id).
  */
-export async function recalculateBalance(assetId: string): Promise<number> {
+export async function recalculateBalance(
+  userId: string,
+  assetId: string,
+  platformId: string,
+): Promise<number> {
   const { data: transactions, error } = await supabase
     .from("transactions")
     .select("type, amount")
     .eq("asset_id", assetId)
+    .eq("platform_id", platformId)
 
   if (error) throw error
 
@@ -29,12 +36,18 @@ export async function recalculateBalance(assetId: string): Promise<number> {
 
   const balanceNum = balance.toNumber()
 
-  const { error: updateError } = await supabase
-    .from("assets")
-    .update({ balance: balanceNum, updated_at: new Date().toISOString() })
-    .eq("id", assetId)
+  const { error: upsertError } = await supabase.from("holdings").upsert(
+    {
+      user_id: userId,
+      asset_id: assetId,
+      platform_id: platformId,
+      balance: balanceNum,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,asset_id,platform_id" },
+  )
 
-  if (updateError) throw updateError
+  if (upsertError) throw upsertError
 
   return balanceNum
 }

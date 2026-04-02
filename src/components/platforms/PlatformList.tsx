@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import type { Platform } from "@/types/database";
 import { usePlatforms } from "@/hooks/usePlatforms";
-import { useAssets } from "@/hooks/useAssets";
+import { useHoldings } from "@/hooks/useHoldings";
 import { PlatformCard } from "@/components/platforms/PlatformCard";
 import { PlatformForm } from "@/components/platforms/PlatformForm";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { Plus } from "lucide-react";
 export function PlatformList() {
   const { platforms, loading, error, addPlatform, editPlatform, removePlatform } =
     usePlatforms();
-  const { assets } = useAssets();
+  const { holdings } = useHoldings();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingPlatform, setEditingPlatform] = useState<Platform | null>(null);
@@ -29,13 +29,13 @@ export function PlatformList() {
 
   const assetCountByPlatform = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const asset of assets) {
-      if (asset.is_active) {
-        counts[asset.platform_id] = (counts[asset.platform_id] || 0) + 1;
+    for (const h of holdings) {
+      if (h.balance > 0) {
+        counts[h.platform_id] = (counts[h.platform_id] || 0) + 1;
       }
     }
     return counts;
-  }, [assets]);
+  }, [holdings]);
 
   function handleEdit(platform: Platform) {
     setEditingPlatform(platform);
