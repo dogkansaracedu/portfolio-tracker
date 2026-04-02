@@ -158,6 +158,7 @@ export function computeCategoryAttribution(
   endSnapshot: Snapshot | undefined,
 ): { category: string; startUsd: number; endUsd: number; changeUsd: number; contributionPct: number }[] {
   if (!startSnapshot?.breakdown || !endSnapshot?.breakdown) return []
+  if (!endSnapshot.breakdown.by_category) return []
 
   const startTotal = bn(startSnapshot.total_usd)
   if (startTotal.isZero()) return []
