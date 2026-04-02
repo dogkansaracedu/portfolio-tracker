@@ -1,4 +1,6 @@
 import { useMemo } from "react"
+import BigNumber from "bignumber.js"
+import { bn, BN_ZERO } from "@/lib/config"
 import { useAssets } from "@/hooks/useAssets"
 import { usePrices } from "@/hooks/usePrices"
 import { usePnL } from "@/hooks/usePnL"
@@ -43,10 +45,10 @@ export interface DashboardData {
 function computeAssetValue(
   asset: AssetWithPlatform,
   prices: Record<string, PriceCache>,
-): { usd: number; try_: number } {
+): { usd: BigNumber; try_: BigNumber } {
   const price = prices[asset.ticker]
-  const usd = asset.balance * (price?.price_usd ?? 0)
-  const try_ = asset.balance * (price?.price_try ?? 0)
+  const usd = bn(asset.balance).times(bn(price?.price_usd))
+  const try_ = bn(asset.balance).times(bn(price?.price_try))
   return { usd, try_ }
 }
 
@@ -61,30 +63,30 @@ export function useDashboard(): DashboardData {
     const activeAssets = assets.filter((a) => a.is_active)
 
     // Total values
-    let totalValueUsd = 0
-    let totalValueTry = 0
+    let totalValueUsd = BN_ZERO
+    let totalValueTry = BN_ZERO
 
     for (const asset of activeAssets) {
       const { usd, try_ } = computeAssetValue(asset, prices)
-      totalValueUsd += usd
-      totalValueTry += try_
+      totalValueUsd = totalValueUsd.plus(usd)
+      totalValueTry = totalValueTry.plus(try_)
     }
 
     // By category
     const categoryMap = new Map<
       AssetCategory,
-      { valueUsd: number; valueTry: number }
+      { valueUsd: BigNumber; valueTry: BigNumber }
     >()
 
     for (const asset of activeAssets) {
       const { usd, try_ } = computeAssetValue(asset, prices)
       const existing = categoryMap.get(asset.category) ?? {
-        valueUsd: 0,
-        valueTry: 0,
+        valueUsd: BN_ZERO,
+        valueTry: BN_ZERO,
       }
       categoryMap.set(asset.category, {
-        valueUsd: existing.valueUsd + usd,
-        valueTry: existing.valueTry + try_,
+        valueUsd: existing.valueUsd.plus(usd),
+        valueTry: existing.valueTry.plus(try_),
       })
     }
 
@@ -93,16 +95,18 @@ export function useDashboard(): DashboardData {
     )
       .map(([category, { valueUsd, valueTry }]) => ({
         category,
-        valueUsd,
-        valueTry,
-        percentage: totalValueUsd > 0 ? (valueUsd / totalValueUsd) * 100 : 0,
+        valueUsd: valueUsd.toNumber(),
+        valueTry: valueTry.toNumber(),
+        percentage: totalValueUsd.isZero()
+          ? 0
+          : valueUsd.div(totalValueUsd).times(100).toNumber(),
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
 
     // By platform
     const platformMap = new Map<
       string,
-      { color: string; valueUsd: number; valueTry: number }
+      { color: string; valueUsd: BigNumber; valueTry: BigNumber }
     >()
 
     for (const asset of activeAssets) {
@@ -110,13 +114,13 @@ export function useDashboard(): DashboardData {
       const key = asset.platforms.name
       const existing = platformMap.get(key) ?? {
         color: asset.platforms.color,
-        valueUsd: 0,
-        valueTry: 0,
+        valueUsd: BN_ZERO,
+        valueTry: BN_ZERO,
       }
       platformMap.set(key, {
         color: existing.color,
-        valueUsd: existing.valueUsd + usd,
-        valueTry: existing.valueTry + try_,
+        valueUsd: existing.valueUsd.plus(usd),
+        valueTry: existing.valueTry.plus(try_),
       })
     }
 
@@ -126,9 +130,11 @@ export function useDashboard(): DashboardData {
       .map(([platformName, { color, valueUsd, valueTry }]) => ({
         platformName,
         color,
-        valueUsd,
-        valueTry,
-        percentage: totalValueUsd > 0 ? (valueUsd / totalValueUsd) * 100 : 0,
+        valueUsd: valueUsd.toNumber(),
+        valueTry: valueTry.toNumber(),
+        percentage: totalValueUsd.isZero()
+          ? 0
+          : valueUsd.div(totalValueUsd).times(100).toNumber(),
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
 
@@ -143,7 +149,7 @@ export function useDashboard(): DashboardData {
       .filter((p: AssetPnL) => p.category !== "fiat")
       .sort(
         (a: AssetPnL, b: AssetPnL) =>
-          Math.abs(b.unrealizedPnlUsd) - Math.abs(a.unrealizedPnlUsd),
+          bn(b.unrealizedPnlUsd).abs().comparedTo(bn(a.unrealizedPnlUsd).abs()) ?? 0,
       )
       .slice(0, 5)
       .map((p: AssetPnL) => {
@@ -153,15 +159,15 @@ export function useDashboard(): DashboardData {
           ticker: p.ticker,
           name: asset?.name ?? p.ticker,
           platformName: asset?.platforms.name ?? "",
-          unrealizedPnlUsd: p.unrealizedPnlUsd,
-          unrealizedPnlPct: p.unrealizedPnlPct,
-          currentValueUsd: p.currentValueUsd,
+          unrealizedPnlUsd: bn(p.unrealizedPnlUsd).toNumber(),
+          unrealizedPnlPct: bn(p.unrealizedPnlPct).toNumber(),
+          currentValueUsd: bn(p.currentValueUsd).toNumber(),
         }
       })
 
     return {
-      totalValueUsd,
-      totalValueTry,
+      totalValueUsd: totalValueUsd.toNumber(),
+      totalValueTry: totalValueTry.toNumber(),
       byCategory,
       byPlatform,
       topMovers,

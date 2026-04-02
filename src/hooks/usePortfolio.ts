@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { bn, BN_ZERO } from "@/lib/config"
 import { useAssets } from "@/hooks/useAssets"
 import { usePrices } from "@/hooks/usePrices"
 import { usePnL } from "@/hooks/usePnL"
@@ -105,15 +106,18 @@ export function usePortfolio(): UsePortfolioReturn {
       pnlMap.set(pnl.assetId, pnl)
     }
 
-    const totalValue = totalCurrentValueUsd || 1 // avoid division by zero
+    const totalValue = bn(totalCurrentValueUsd)
 
     return activeAssets.map((asset: AssetWithPlatform): EnrichedAsset => {
       const price: PriceCache | undefined = prices[asset.ticker]
-      const priceUsd = price?.price_usd ?? 0
-      const priceTry = price?.price_try ?? priceUsd * usdTryRate
+      const bnPriceUsd = bn(price?.price_usd)
+      const bnPriceTry = price?.price_try
+        ? bn(price.price_try)
+        : bnPriceUsd.times(bn(usdTryRate))
 
-      const currentValueUsd = asset.balance * priceUsd
-      const currentValueTry = asset.balance * priceTry
+      const bnBalance = bn(asset.balance)
+      const currentValueUsd = bnBalance.times(bnPriceUsd)
+      const currentValueTry = bnBalance.times(bnPriceTry)
 
       const pnl = pnlMap.get(asset.id)
 
@@ -127,17 +131,16 @@ export function usePortfolio(): UsePortfolioReturn {
         platformId: asset.platform_id,
         platformName: asset.platforms.name,
         platformColor: asset.platforms.color,
-        currentPriceUsd: priceUsd,
-        currentPriceTry: priceTry,
-        currentValueUsd,
-        currentValueTry,
-        costBasisUsd: pnl?.costBasisUsd ?? 0,
-        unrealizedPnlUsd: pnl?.unrealizedPnlUsd ?? 0,
-        unrealizedPnlPct: pnl?.unrealizedPnlPct ?? 0,
-        allocationPct:
-          totalCurrentValueUsd > 0
-            ? (currentValueUsd / totalValue) * 100
-            : 0,
+        currentPriceUsd: bnPriceUsd.toNumber(),
+        currentPriceTry: bnPriceTry.toNumber(),
+        currentValueUsd: currentValueUsd.toNumber(),
+        currentValueTry: currentValueTry.toNumber(),
+        costBasisUsd: bn(pnl?.costBasisUsd).toNumber(),
+        unrealizedPnlUsd: bn(pnl?.unrealizedPnlUsd).toNumber(),
+        unrealizedPnlPct: bn(pnl?.unrealizedPnlPct).toNumber(),
+        allocationPct: totalValue.isZero()
+          ? 0
+          : currentValueUsd.div(totalValue).times(100).toNumber(),
       }
     })
   }, [activeAssets, prices, assetPnLs, totalCurrentValueUsd, usdTryRate])
@@ -193,27 +196,23 @@ export function usePortfolio(): UsePortfolioReturn {
           : CATEGORY_LABELS[key] ?? key
       const color = groupBy === "platform" ? first.platformColor : undefined
 
-      const totalValueUsd = groupAssets.reduce(
-        (s, a) => s + a.currentValueUsd,
-        0,
-      )
-      const totalValueTry = groupAssets.reduce(
-        (s, a) => s + a.currentValueTry,
-        0,
-      )
-      const totalPnlUsd = groupAssets.reduce(
-        (s, a) => s + a.unrealizedPnlUsd,
-        0,
-      )
+      let totalValueUsdBn = BN_ZERO
+      let totalValueTryBn = BN_ZERO
+      let totalPnlUsdBn = BN_ZERO
+      for (const a of groupAssets) {
+        totalValueUsdBn = totalValueUsdBn.plus(bn(a.currentValueUsd))
+        totalValueTryBn = totalValueTryBn.plus(bn(a.currentValueTry))
+        totalPnlUsdBn = totalPnlUsdBn.plus(bn(a.unrealizedPnlUsd))
+      }
 
       result.push({
         key,
         label,
         color,
         assets: groupAssets,
-        totalValueUsd,
-        totalValueTry,
-        totalPnlUsd,
+        totalValueUsd: totalValueUsdBn.toNumber(),
+        totalValueTry: totalValueTryBn.toNumber(),
+        totalPnlUsd: totalPnlUsdBn.toNumber(),
       })
     }
 
@@ -223,19 +222,18 @@ export function usePortfolio(): UsePortfolioReturn {
     return result
   }, [sortedAssets, groupBy])
 
-  const totalValueTry = totalCurrentValueUsd * usdTryRate
-  const totalUnrealizedPnlPct =
-    totalCostBasisUsd > 0
-      ? (totalUnrealizedPnlUsd / totalCostBasisUsd) * 100
-      : 0
+  const totalValueTry = totalCurrentValueUsd.times(bn(usdTryRate)).toNumber()
+  const totalUnrealizedPnlPct = totalCostBasisUsd.isZero()
+    ? 0
+    : totalUnrealizedPnlUsd.div(totalCostBasisUsd).times(100).toNumber()
 
   return {
     enrichedAssets: sortedAssets,
     groups,
-    totalValueUsd: totalCurrentValueUsd,
+    totalValueUsd: totalCurrentValueUsd.toNumber(),
     totalValueTry,
-    totalCostBasisUsd,
-    totalUnrealizedPnlUsd,
+    totalCostBasisUsd: totalCostBasisUsd.toNumber(),
+    totalUnrealizedPnlUsd: totalUnrealizedPnlUsd.toNumber(),
     totalUnrealizedPnlPct,
     activeAssetCount: activeAssets.length,
     loading,

@@ -1,3 +1,4 @@
+import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
 import type { Snapshot } from "@/types/database"
 
 export type TimeRange = "1M" | "3M" | "6M" | "YTD" | "1Y" | "ALL"
@@ -65,13 +66,13 @@ export function computeMonthlyReturns(snapshots: Snapshot[]): MonthlyReturn[] {
   const returns: MonthlyReturn[] = []
 
   for (let i = 1; i < snapshots.length; i++) {
-    const prev = snapshots[i - 1].total_usd ?? 0
-    const curr = snapshots[i].total_usd ?? 0
+    const prev = bn(snapshots[i - 1].total_usd)
+    const curr = bn(snapshots[i].total_usd)
 
-    if (prev === 0) continue
+    if (prev.isZero()) continue
 
-    const returnPct = ((curr - prev) / prev) * 100
-    const returnUsd = curr - prev
+    const returnPct = curr.minus(prev).div(prev).times(BN_HUNDRED).toNumber()
+    const returnUsd = curr.minus(prev).toNumber()
 
     returns.push({
       month: snapshots[i].snapshot_date.slice(0, 7),
@@ -95,20 +96,20 @@ export function computeYTDReturn(snapshots: Snapshot[]): number | null {
 
   if (!janSnapshot || !latest) return null
 
-  const start = janSnapshot.total_usd ?? 0
-  if (start === 0) return null
+  const start = bn(janSnapshot.total_usd)
+  if (start.isZero()) return null
 
-  return (((latest.total_usd ?? 0) - start) / start) * 100
+  return bn(latest.total_usd).minus(start).div(start).times(BN_HUNDRED).toNumber()
 }
 
 export function computeAllTimeReturn(snapshots: Snapshot[]): number | null {
   if (snapshots.length < 2) return null
 
-  const earliest = snapshots[0].total_usd ?? 0
-  const latest = snapshots[snapshots.length - 1].total_usd ?? 0
+  const earliest = bn(snapshots[0].total_usd)
+  const latest = bn(snapshots[snapshots.length - 1].total_usd)
 
-  if (earliest === 0) return null
-  return ((latest - earliest) / earliest) * 100
+  if (earliest.isZero()) return null
+  return latest.minus(earliest).div(earliest).times(BN_HUNDRED).toNumber()
 }
 
 export function computeCAGR(snapshots: Snapshot[]): number | null {
@@ -117,10 +118,10 @@ export function computeCAGR(snapshots: Snapshot[]): number | null {
   const earliest = snapshots[0]
   const latest = snapshots[snapshots.length - 1]
 
-  const startVal = earliest.total_usd ?? 0
-  const endVal = latest.total_usd ?? 0
+  const startVal = bn(earliest.total_usd)
+  const endVal = bn(latest.total_usd)
 
-  if (startVal <= 0) return null
+  if (startVal.isLessThanOrEqualTo(0)) return null
 
   const startDate = new Date(earliest.snapshot_date)
   const endDate = new Date(latest.snapshot_date)
@@ -129,20 +130,23 @@ export function computeCAGR(snapshots: Snapshot[]): number | null {
 
   if (years < 0.08) return null // Less than ~1 month
 
-  return (Math.pow(endVal / startVal, 1 / years) - 1) * 100
+  const ratio = endVal.div(startVal).toNumber()
+  return (Math.pow(ratio, 1 / years) - 1) * 100
 }
 
 export function computeDrawdown(
   snapshots: Snapshot[],
 ): { date: string; drawdownPct: number }[] {
   const series: { date: string; drawdownPct: number }[] = []
-  let peak = 0
+  let peak = BN_ZERO
 
   for (const snap of snapshots) {
-    const val = snap.total_usd ?? 0
-    if (val > peak) peak = val
+    const val = bn(snap.total_usd)
+    if (val.isGreaterThan(peak)) peak = val
 
-    const drawdownPct = peak > 0 ? ((val - peak) / peak) * 100 : 0
+    const drawdownPct = peak.isGreaterThan(0)
+      ? val.minus(peak).div(peak).times(BN_HUNDRED).toNumber()
+      : 0
     series.push({ date: snap.snapshot_date, drawdownPct })
   }
 
@@ -155,21 +159,21 @@ export function computeCategoryAttribution(
 ): { category: string; startUsd: number; endUsd: number; changeUsd: number; contributionPct: number }[] {
   if (!startSnapshot?.breakdown || !endSnapshot?.breakdown) return []
 
-  const startTotal = startSnapshot.total_usd ?? 0
-  if (startTotal === 0) return []
+  const startTotal = bn(startSnapshot.total_usd)
+  if (startTotal.isZero()) return []
 
   const categories = Object.keys(endSnapshot.breakdown.by_category)
   return categories.map((cat) => {
-    const startUsd = startSnapshot.breakdown?.by_category[cat as keyof typeof startSnapshot.breakdown.by_category]?.usd ?? 0
-    const endUsd = endSnapshot.breakdown?.by_category[cat as keyof typeof endSnapshot.breakdown.by_category]?.usd ?? 0
-    const changeUsd = endUsd - startUsd
+    const startUsd = bn(startSnapshot.breakdown?.by_category[cat as keyof typeof startSnapshot.breakdown.by_category]?.usd)
+    const endUsd = bn(endSnapshot.breakdown?.by_category[cat as keyof typeof endSnapshot.breakdown.by_category]?.usd)
+    const changeUsd = endUsd.minus(startUsd)
 
     return {
       category: cat,
-      startUsd,
-      endUsd,
-      changeUsd,
-      contributionPct: (changeUsd / startTotal) * 100,
+      startUsd: startUsd.toNumber(),
+      endUsd: endUsd.toNumber(),
+      changeUsd: changeUsd.toNumber(),
+      contributionPct: changeUsd.div(startTotal).times(BN_HUNDRED).toNumber(),
     }
   }).sort((a, b) => Math.abs(b.contributionPct) - Math.abs(a.contributionPct))
 }

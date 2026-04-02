@@ -1,4 +1,6 @@
+import BigNumber from "bignumber.js"
 import type { ExchangeRate } from "@/types/database"
+import { bn } from "@/lib/config"
 
 /**
  * Find the exchange rate for a given date (or nearest prior date).
@@ -41,31 +43,32 @@ export function normalizeToUsd(
   currency: string,
   date: string,
   rates: ExchangeRate[],
-): number {
+): BigNumber {
   const upper = currency.toUpperCase()
+  const bnAmount = bn(amount)
 
-  if (upper === "USD") return amount
+  if (upper === "USD") return bnAmount
 
   const rate = getExchangeRateForDate(date, rates)
   if (!rate) {
     // No exchange rate available — return amount as-is (assume USD)
-    return amount
+    return bnAmount
   }
 
   if (upper === "TRY") {
-    const usdTry = rate.usd_try ?? 1
-    return usdTry > 0 ? amount / usdTry : amount
+    const usdTry = bn(rate.usd_try ?? 1)
+    return usdTry.isZero() ? bnAmount : bnAmount.div(usdTry)
   }
 
   if (upper === "EUR") {
-    const eurTry = rate.eur_try ?? 1
-    const usdTry = rate.usd_try ?? 1
+    const eurTry = bn(rate.eur_try ?? 1)
+    const usdTry = bn(rate.usd_try ?? 1)
     // EUR -> TRY -> USD
-    return usdTry > 0 ? (amount * eurTry) / usdTry : amount
+    return usdTry.isZero() ? bnAmount : bnAmount.times(eurTry).div(usdTry)
   }
 
   // Unknown currency — return as-is
-  return amount
+  return bnAmount
 }
 
 /**
@@ -76,6 +79,6 @@ export function unitPriceToUsd(
   currency: string,
   date: string,
   rates: ExchangeRate[],
-): number {
+): BigNumber {
   return normalizeToUsd(unitPrice, currency, date, rates)
 }

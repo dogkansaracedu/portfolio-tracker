@@ -1,3 +1,5 @@
+import { CURRENCY_CONFIG, DECIMALS, getAmountDecimals } from "@/lib/config"
+
 /**
  * Format a numeric value as currency.
  * - USD: $1,234.56 (en-US locale)
@@ -7,20 +9,12 @@ export function formatCurrency(
   value: number,
   currency: "USD" | "TRY"
 ): string {
-  if (currency === "USD") {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value)
-  }
-
-  return new Intl.NumberFormat("tr-TR", {
+  const cfg = CURRENCY_CONFIG[currency]
+  return new Intl.NumberFormat(cfg.locale, {
     style: "currency",
-    currency: "TRY",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    currency,
+    minimumFractionDigits: cfg.decimals,
+    maximumFractionDigits: cfg.decimals,
   }).format(value)
 }
 
@@ -31,7 +25,18 @@ export function formatCurrency(
 export function formatCryptoAmount(value: number): string {
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 8,
+    maximumFractionDigits: DECIMALS.cryptoAmount,
+  }).format(value)
+}
+
+/**
+ * Format an asset quantity using the appropriate decimals for its category.
+ */
+export function formatAmount(value: number, category: string): string {
+  const decimals = getAmountDecimals(category)
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
   }).format(value)
 }
 
