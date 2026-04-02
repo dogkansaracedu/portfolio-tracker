@@ -1,5 +1,3 @@
--- Create price_cache table (global, no user_id)
-
 CREATE TABLE public.price_cache (
   ticker text PRIMARY KEY,
   price_usd numeric,

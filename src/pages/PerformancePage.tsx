@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { useSnapshots } from "@/hooks/useSnapshots"
 import { usePerformance } from "@/hooks/usePerformance"
-import { useAssets } from "@/hooks/useAssets"
 import { usePrices } from "@/hooks/usePrices"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { TimeRangeSelector } from "@/components/performance/TimeRangeSelector"
@@ -17,7 +16,6 @@ import type { TimeRange } from "@/lib/performance"
 export default function PerformancePage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("ALL")
   const { snapshots, takeSnapshot, removeSnapshot } = useSnapshots()
-  const { assets } = useAssets()
   const { prices, rates } = usePrices()
   const { currency } = useDisplayCurrency()
 
@@ -96,7 +94,6 @@ export default function PerformancePage() {
       {/* Snapshot manager */}
       <SnapshotManager
         snapshots={snapshots}
-        assets={assets}
         prices={prices}
         latestRates={latestRates}
         onTakeSnapshot={takeSnapshot}

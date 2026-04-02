@@ -5,11 +5,7 @@ import {
   createSnapshot,
   deleteSnapshot,
 } from "@/lib/queries/snapshots"
-import type { Snapshot, Asset, PriceCache, ExchangeRate } from "@/types/database"
-
-interface AssetWithPlatform extends Asset {
-  platforms: { name: string; color: string }
-}
+import type { Snapshot, PriceCache, ExchangeRate } from "@/types/database"
 
 export function useSnapshots() {
   const { user } = useAuth()
@@ -37,12 +33,11 @@ export function useSnapshots() {
 
   const takeSnapshot = useCallback(
     async (
-      assets: AssetWithPlatform[],
       prices: Record<string, PriceCache>,
       latestRates: ExchangeRate | null,
     ) => {
       if (!user) throw new Error("Not authenticated")
-      const snapshot = await createSnapshot(user.id, assets, prices, latestRates)
+      const snapshot = await createSnapshot(user.id, prices, latestRates)
       await load()
       return snapshot
     },

@@ -7,46 +7,30 @@ import {
 import {
   Command,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import { Badge } from "@/components/ui/badge"
 import { ChevronsUpDown, Check } from "lucide-react"
-import type { Asset, Platform } from "@/types/database"
+import type { Asset } from "@/types/database"
 
-interface AssetWithPlatform extends Asset {
-  platforms: { name: string; color: string }
+const CATEGORY_LABELS: Record<string, string> = {
+  fiat: "Fiat",
+  crypto: "Crypto",
+  gold: "Gold",
+  stock_us: "US Stock",
+  stock_bist: "BIST",
 }
 
 interface Props {
-  assets: AssetWithPlatform[]
-  platforms: Platform[]
+  assets: Asset[]
   value: string | undefined
   onChange: (assetId: string) => void
-  filterTicker?: string // Only show assets with this ticker (for transfers)
 }
 
-export function AssetSearchSelect({
-  assets,
-  platforms,
-  value,
-  onChange,
-  filterTicker,
-}: Props) {
+export function AssetSearchSelect({ assets, value, onChange }: Props) {
   const [open, setOpen] = useState(false)
-
-  const filteredAssets = filterTicker
-    ? assets.filter((a) => a.ticker === filterTicker)
-    : assets
-
-  // Group assets by platform
-  const grouped = platforms
-    .map((platform) => ({
-      platform,
-      assets: filteredAssets.filter((a) => a.platform_id === platform.id),
-    }))
-    .filter((g) => g.assets.length > 0)
 
   const selectedAsset = assets.find((a) => a.id === value)
 
@@ -57,46 +41,38 @@ export function AssetSearchSelect({
       >
         <span className="truncate">
           {selectedAsset
-            ? `${selectedAsset.name} — ${selectedAsset.platforms.name}`
+            ? `${selectedAsset.name} (${selectedAsset.ticker})`
             : "Select asset..."}
         </span>
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
       <PopoverContent className="w-[350px] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search asset..." />
+          <CommandInput placeholder="Search by name or ticker..." />
           <CommandList>
             <CommandEmpty>No asset found.</CommandEmpty>
-            {grouped.map(({ platform, assets: groupAssets }) => (
-              <CommandGroup
-                key={platform.id}
-                heading={platform.name}
+            {assets.map((asset) => (
+              <CommandItem
+                key={asset.id}
+                value={`${asset.name} ${asset.ticker}`}
+                onSelect={() => {
+                  onChange(asset.id)
+                  setOpen(false)
+                }}
               >
-                {groupAssets.map((asset) => (
-                  <CommandItem
-                    key={asset.id}
-                    value={`${asset.name} ${asset.ticker} ${platform.name}`}
-                    onSelect={() => {
-                      onChange(asset.id)
-                      setOpen(false)
-                    }}
-                  >
-                    <Check
-                      className={`mr-2 h-4 w-4 ${
-                        value === asset.id ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
-                    <div
-                      className="mr-2 h-2 w-2 rounded-full"
-                      style={{ backgroundColor: platform.color }}
-                    />
-                    <span>{asset.name}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {asset.ticker}
-                    </span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+                <Check
+                  className={`mr-2 h-4 w-4 ${
+                    value === asset.id ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+                <span className="font-medium">{asset.name}</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {asset.ticker}
+                </span>
+                <Badge variant="secondary" className="ml-auto text-[10px]">
+                  {CATEGORY_LABELS[asset.category] ?? asset.category}
+                </Badge>
+              </CommandItem>
             ))}
           </CommandList>
         </Command>

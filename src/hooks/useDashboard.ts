@@ -1,15 +1,17 @@
 import { useMemo } from "react"
 import BigNumber from "bignumber.js"
 import { bn, BN_ZERO } from "@/lib/config"
-import { useAssets } from "@/hooks/useAssets"
+import { useHoldings } from "@/hooks/useHoldings"
 import { usePrices } from "@/hooks/usePrices"
 import { usePnL } from "@/hooks/usePnL"
-import type { AssetCategory, PriceCache } from "@/types/database"
-import type { AssetWithPlatform } from "@/lib/queries/assets"
+import type { PriceCache } from "@/types/database"
+import type { HoldingWithDetails } from "@/lib/queries/holdings"
 import type { AssetPnL } from "@/lib/pnl/types"
 
+// ─── Types ──────────────────────────────────────────────────────────
+
 export interface CategoryAllocation {
-  category: AssetCategory
+  category: string
   valueUsd: number
   valueTry: number
   percentage: number
@@ -23,11 +25,18 @@ export interface PlatformAllocation {
   percentage: number
 }
 
+export interface TagAllocation {
+  tag: string
+  valueUsd: number
+  valueTry: number
+  percentage: number
+  quantity: number
+}
+
 export interface TopMover {
   assetId: string
   ticker: string
   name: string
-  platformName: string
   unrealizedPnlUsd: number
   unrealizedPnlPct: number
   currentValueUsd: number
@@ -38,53 +47,62 @@ export interface DashboardData {
   totalValueTry: number
   byCategory: CategoryAllocation[]
   byPlatform: PlatformAllocation[]
+  byTag: TagAllocation[]
   topMovers: TopMover[]
   loading: boolean
 }
 
-function computeAssetValue(
-  asset: AssetWithPlatform,
+// ─── Helpers ────────────────────────────────────────────────────────
+
+/** Troy ounce to grams conversion factor. */
+const OZ_TO_GRAMS = 31.1035
+
+/** Tickers whose balance should be converted from oz to grams for display. */
+const GOLD_OZ_TICKERS = new Set(["paxgold", "tether-gold"])
+
+function computeHoldingValue(
+  h: HoldingWithDetails,
   prices: Record<string, PriceCache>,
 ): { usd: BigNumber; try_: BigNumber } {
-  const price = prices[asset.ticker]
-  const usd = bn(asset.balance).times(bn(price?.price_usd))
-  const try_ = bn(asset.balance).times(bn(price?.price_try))
+  const price = prices[h.assets.ticker]
+  const usd = bn(h.balance).times(bn(price?.price_usd))
+  const try_ = bn(h.balance).times(bn(price?.price_try))
   return { usd, try_ }
 }
 
-export function useDashboard(): DashboardData {
-  const { assets, loading: assetsLoading } = useAssets()
-  const { prices, loading: pricesLoading } = usePrices()
-  const { assetPnLs, loading: pnlLoading } = usePnL(assets, prices)
+// ─── Hook ───────────────────────────────────────────────────────────
 
-  const loading = assetsLoading || pricesLoading || pnlLoading
+export function useDashboard(): DashboardData {
+  const { holdings, loading: holdingsLoading } = useHoldings()
+  const { prices, loading: pricesLoading } = usePrices()
+  const { assetPnLs, loading: pnlLoading } = usePnL(holdings, prices)
+
+  const loading = holdingsLoading || pricesLoading || pnlLoading
 
   const result = useMemo(() => {
-    const activeAssets = assets.filter((a) => a.is_active)
-
-    // Total values
     let totalValueUsd = BN_ZERO
     let totalValueTry = BN_ZERO
 
-    for (const asset of activeAssets) {
-      const { usd, try_ } = computeAssetValue(asset, prices)
+    for (const h of holdings) {
+      const { usd, try_ } = computeHoldingValue(h, prices)
       totalValueUsd = totalValueUsd.plus(usd)
       totalValueTry = totalValueTry.plus(try_)
     }
 
-    // By category
+    // ── By category (mutually exclusive) ─────────────────────────
     const categoryMap = new Map<
-      AssetCategory,
+      string,
       { valueUsd: BigNumber; valueTry: BigNumber }
     >()
 
-    for (const asset of activeAssets) {
-      const { usd, try_ } = computeAssetValue(asset, prices)
-      const existing = categoryMap.get(asset.category) ?? {
+    for (const h of holdings) {
+      const { usd, try_ } = computeHoldingValue(h, prices)
+      const cat = h.assets.category
+      const existing = categoryMap.get(cat) ?? {
         valueUsd: BN_ZERO,
         valueTry: BN_ZERO,
       }
-      categoryMap.set(asset.category, {
+      categoryMap.set(cat, {
         valueUsd: existing.valueUsd.plus(usd),
         valueTry: existing.valueTry.plus(try_),
       })
@@ -103,17 +121,17 @@ export function useDashboard(): DashboardData {
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
 
-    // By platform
+    // ── By platform ──────────────────────────────────────────────
     const platformMap = new Map<
       string,
       { color: string; valueUsd: BigNumber; valueTry: BigNumber }
     >()
 
-    for (const asset of activeAssets) {
-      const { usd, try_ } = computeAssetValue(asset, prices)
-      const key = asset.platforms.name
+    for (const h of holdings) {
+      const { usd, try_ } = computeHoldingValue(h, prices)
+      const key = h.platforms.name
       const existing = platformMap.get(key) ?? {
-        color: asset.platforms.color,
+        color: h.platforms.color,
         valueUsd: BN_ZERO,
         valueTry: BN_ZERO,
       }
@@ -138,13 +156,49 @@ export function useDashboard(): DashboardData {
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
 
-    // Top movers: top 5 by absolute unrealized P&L USD
-    // Build a lookup from assetId -> asset for name/platform
-    const assetLookup = new Map<string, AssetWithPlatform>()
-    for (const asset of activeAssets) {
-      assetLookup.set(asset.id, asset)
+    // ── By tag (cross-cutting, allows overlap) ───────────────────
+    const tagMap = new Map<
+      string,
+      { valueUsd: BigNumber; valueTry: BigNumber; quantity: BigNumber }
+    >()
+
+    for (const h of holdings) {
+      for (const tag of (h.assets.tags ?? [])) {
+        const { usd, try_ } = computeHoldingValue(h, prices)
+
+        const rawBalance = bn(h.balance)
+        const quantity = GOLD_OZ_TICKERS.has(h.assets.ticker)
+          ? rawBalance.times(OZ_TO_GRAMS)
+          : rawBalance
+
+        const existing = tagMap.get(tag) ?? {
+          valueUsd: BN_ZERO,
+          valueTry: BN_ZERO,
+          quantity: BN_ZERO,
+        }
+        tagMap.set(tag, {
+          valueUsd: existing.valueUsd.plus(usd),
+          valueTry: existing.valueTry.plus(try_),
+          quantity: existing.quantity.plus(quantity),
+        })
+      }
     }
 
+    const byTag: TagAllocation[] = Array.from(
+      tagMap.entries(),
+    )
+      .map(([tag, { valueUsd, valueTry, quantity }]) => ({
+        tag,
+        valueUsd: valueUsd.toNumber(),
+        valueTry: valueTry.toNumber(),
+        percentage: totalValueUsd.isZero()
+          ? 0
+          : valueUsd.div(totalValueUsd).times(100).toNumber(),
+        quantity: quantity.toNumber(),
+      }))
+      .sort((a, b) => b.valueUsd - a.valueUsd)
+
+    // ── Top movers ───────────────────────────────────────────────
     const topMovers: TopMover[] = assetPnLs
       .filter((p: AssetPnL) => p.category !== "fiat")
       .sort(
@@ -153,12 +207,11 @@ export function useDashboard(): DashboardData {
       )
       .slice(0, 5)
       .map((p: AssetPnL) => {
-        const asset = assetLookup.get(p.assetId)
+        const holding = holdings.find((h) => h.asset_id === p.assetId)
         return {
           assetId: p.assetId,
           ticker: p.ticker,
-          name: asset?.name ?? p.ticker,
-          platformName: asset?.platforms.name ?? "",
+          name: holding?.assets.name ?? p.ticker,
           unrealizedPnlUsd: bn(p.unrealizedPnlUsd).toNumber(),
           unrealizedPnlPct: bn(p.unrealizedPnlPct).toNumber(),
           currentValueUsd: bn(p.currentValueUsd).toNumber(),
@@ -170,9 +223,10 @@ export function useDashboard(): DashboardData {
       totalValueTry: totalValueTry.toNumber(),
       byCategory,
       byPlatform,
+      byTag,
       topMovers,
     }
-  }, [assets, prices, assetPnLs])
+  }, [holdings, prices, assetPnLs])
 
   return { ...result, loading }
 }

@@ -1,5 +1,3 @@
--- Create exchange_rates table
-
 CREATE TABLE public.exchange_rates (
   date date NOT NULL,
   source text NOT NULL,
@@ -7,6 +5,5 @@ CREATE TABLE public.exchange_rates (
   eur_try numeric,
   eur_usd numeric,
   gold_gram_try numeric,
-
   PRIMARY KEY (date, source)
 );

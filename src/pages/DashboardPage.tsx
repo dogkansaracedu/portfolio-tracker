@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import NetWorthCard from "@/components/dashboard/NetWorthCard"
 import AllocationChart from "@/components/dashboard/AllocationChart"
+import TagBreakdown from "@/components/dashboard/TagBreakdown"
 import PlatformBreakdown from "@/components/dashboard/PlatformBreakdown"
 import TopMovers from "@/components/dashboard/TopMovers"
 import PerformanceSparkline from "@/components/dashboard/PerformanceSparkline"
@@ -46,6 +47,7 @@ export default function DashboardPage() {
     totalValueUsd,
     totalValueTry,
     byCategory,
+    byTag,
     byPlatform,
     topMovers,
     loading,
@@ -93,27 +95,26 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      {/* Row 1: Net Worth */}
       <NetWorthCard
         totalValueUsd={totalValueUsd}
         totalValueTry={totalValueTry}
       />
 
-      {/* Row 2: Allocation + Platform Breakdown */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <TagBreakdown byTag={byTag} />
         <AllocationChart
           byCategory={byCategory}
           totalValueUsd={totalValueUsd}
           totalValueTry={totalValueTry}
         />
-        <PlatformBreakdown byPlatform={byPlatform} />
       </div>
 
-      {/* Row 3: Top Movers + Performance */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <PlatformBreakdown byPlatform={byPlatform} />
         <TopMovers topMovers={topMovers} />
-        <PerformanceSparkline />
       </div>
+
+      <PerformanceSparkline />
     </div>
   )
 }

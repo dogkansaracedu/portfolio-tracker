@@ -3,11 +3,12 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 interface TransactionModalState {
   isOpen: boolean
   prefilledAssetId?: string
+  prefilledPlatformId?: string
 }
 
 interface TransactionContextValue {
   modalState: TransactionModalState
-  openTransactionModal: (assetId?: string) => void
+  openTransactionModal: (assetId?: string, platformId?: string) => void
   closeTransactionModal: () => void
 }
 
@@ -18,12 +19,12 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     isOpen: false,
   })
 
-  const openTransactionModal = useCallback((assetId?: string) => {
-    setModalState({ isOpen: true, prefilledAssetId: assetId })
+  const openTransactionModal = useCallback((assetId?: string, platformId?: string) => {
+    setModalState({ isOpen: true, prefilledAssetId: assetId, prefilledPlatformId: platformId })
   }, [])
 
   const closeTransactionModal = useCallback(() => {
-    setModalState({ isOpen: false, prefilledAssetId: undefined })
+    setModalState({ isOpen: false, prefilledAssetId: undefined, prefilledPlatformId: undefined })
   }, [])
 
   return (

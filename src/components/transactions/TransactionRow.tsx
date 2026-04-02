@@ -7,7 +7,7 @@ import type { TransactionType } from "@/types/database"
 const POSITIVE_TYPES: TransactionType[] = ["buy", "transfer_in", "dividend", "interest"]
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00")
+  const date = new Date(dateStr)
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -50,13 +50,13 @@ export function TransactionRow({ transaction, currency }: Props) {
 
       {/* Platform */}
       <TableCell>
-        {tx.assets?.platforms ? (
+        {tx.platforms ? (
           <div className="flex items-center gap-1.5">
             <span
               className="inline-block size-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: tx.assets.platforms.color }}
+              style={{ backgroundColor: tx.platforms.color }}
             />
-            <span className="text-sm">{tx.assets.platforms.name}</span>
+            <span className="text-sm">{tx.platforms.name}</span>
           </div>
         ) : (
           <span className="text-muted-foreground">--</span>

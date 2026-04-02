@@ -2,16 +2,18 @@ import { supabase } from "@/lib/supabase"
 import type { Transaction, ExchangeRate } from "@/types/database"
 
 /**
- * Fetch all transactions for a single asset, ordered by date ASC.
- * Used for FIFO calculation on one asset.
+ * Fetch all transactions for a single asset on a single platform, ordered by date ASC.
+ * Used for FIFO calculation on one (asset, platform) pair.
  */
 export async function fetchTransactionsForPnL(
   assetId: string,
+  platformId: string,
 ): Promise<Transaction[]> {
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
     .eq("asset_id", assetId)
+    .eq("platform_id", platformId)
     .order("date", { ascending: true })
     .order("created_at", { ascending: true })
 
@@ -20,8 +22,8 @@ export async function fetchTransactionsForPnL(
 }
 
 /**
- * Fetch all transactions for all assets of a user, ordered by asset_id then date ASC.
- * Used for full portfolio P&L computation.
+ * Fetch all transactions for all assets of a user, ordered by asset_id, platform_id, then date ASC.
+ * The grouping by (asset_id, platform_id) happens in the hook.
  */
 export async function fetchTransactionsForAllAssets(
   userId: string,
@@ -31,6 +33,7 @@ export async function fetchTransactionsForAllAssets(
     .select("*")
     .eq("user_id", userId)
     .order("asset_id", { ascending: true })
+    .order("platform_id", { ascending: true })
     .order("date", { ascending: true })
     .order("created_at", { ascending: true })
 

@@ -1,9 +1,8 @@
--- Create transactions table
-
 CREATE TABLE public.transactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   asset_id uuid NOT NULL REFERENCES public.assets(id) ON DELETE CASCADE,
+  platform_id uuid NOT NULL REFERENCES public.platforms(id) ON DELETE CASCADE,
   type public.transaction_type NOT NULL,
   date timestamptz NOT NULL,
   amount numeric NOT NULL,
@@ -17,5 +16,7 @@ CREATE TABLE public.transactions (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_transactions_user_asset_date ON public.transactions(user_id, asset_id, date);
-CREATE INDEX idx_transactions_user_date ON public.transactions(user_id, date);
+CREATE INDEX idx_transactions_user_asset_platform_date
+  ON public.transactions(user_id, asset_id, platform_id, date);
+CREATE INDEX idx_transactions_user_date
+  ON public.transactions(user_id, date);

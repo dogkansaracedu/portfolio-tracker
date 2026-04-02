@@ -1,5 +1,4 @@
 export type {
-  AssetCategory,
   TransactionType,
   Platform,
   PlatformInsert,
@@ -7,6 +6,9 @@ export type {
   Asset,
   AssetInsert,
   AssetUpdate,
+  Holding,
+  HoldingInsert,
+  HoldingUpdate,
   Transaction,
   TransactionInsert,
   TransactionUpdate,

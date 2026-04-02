@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import type { AssetCategory } from "@/types/database";
-import type { AssetWithPlatform } from "@/lib/queries/assets";
-import { usePlatforms } from "@/hooks/usePlatforms";
+import type { Asset } from "@/types/database";
 import {
   Dialog,
   DialogContent,
@@ -22,32 +20,39 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const CATEGORIES: { value: AssetCategory; label: string }[] = [
+const CATEGORIES = [
   { value: "fiat", label: "Fiat" },
   { value: "crypto", label: "Crypto" },
-  { value: "stock_bist", label: "BIST Stock" },
+  { value: "gold", label: "Gold" },
   { value: "stock_us", label: "US Stock" },
-  { value: "commodity", label: "Commodity" },
+  { value: "stock_bist", label: "BIST Stock" },
 ];
 
-const TICKER_HINTS: Record<AssetCategory, string> = {
-  fiat: 'Use ISO code, e.g. "usd", "try", "eur"',
+const PRICE_SOURCES = [
+  { value: "coingecko", label: "CoinGecko" },
+  { value: "yahoo", label: "Yahoo Finance" },
+  { value: "tcmb", label: "TCMB" },
+  { value: "manual", label: "Manual" },
+];
+
+const TICKER_HINTS: Record<string, string> = {
+  fiat: 'Use ISO code, e.g. "USD", "TRY", "EUR"',
   crypto: 'Use CoinGecko ID, e.g. "bitcoin", "ethereum"',
-  stock_bist: 'Use BIST ticker, e.g. "THYAO", "ASELS"',
+  gold: 'CoinGecko ID for tokenized, "XAU_GRAM" for physical',
   stock_us: 'Use US ticker, e.g. "AAPL", "MSFT"',
-  commodity: 'Use short name, e.g. "gold", "silver"',
+  stock_bist: 'Use Yahoo format, e.g. "THYAO.IS", "ASELS.IS"',
 };
 
 interface AssetFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  asset?: AssetWithPlatform | null;
+  asset?: Asset | null;
   onSubmit: (data: {
-    platform_id: string;
-    category: AssetCategory;
+    category: string;
     ticker: string;
     name: string;
-    balance: number;
+    tags: string[];
+    price_source: string;
     is_active: boolean;
   }) => Promise<void>;
 }
@@ -58,13 +63,11 @@ export function AssetForm({
   asset,
   onSubmit,
 }: AssetFormProps) {
-  const { platforms } = usePlatforms();
-
-  const [platformId, setPlatformId] = useState("");
-  const [category, setCategory] = useState<AssetCategory>("fiat");
+  const [category, setCategory] = useState("fiat");
   const [ticker, setTicker] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [balance, setBalance] = useState("0");
+  const [tagsInput, setTagsInput] = useState("");
+  const [priceSource, setPriceSource] = useState("manual");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,22 +75,18 @@ export function AssetForm({
 
   useEffect(() => {
     if (open) {
-      setPlatformId(asset?.platform_id ?? (platforms[0]?.id ?? ""));
       setCategory(asset?.category ?? "fiat");
       setTicker(asset?.ticker ?? "");
       setDisplayName(asset?.name ?? "");
-      setBalance(asset?.balance?.toString() ?? "0");
+      setTagsInput(asset?.tags?.join(", ") ?? "");
+      setPriceSource(asset?.price_source ?? "manual");
       setError(null);
     }
-  }, [open, asset, platforms]);
+  }, [open, asset]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!platformId) {
-      setError("Please select a platform");
-      return;
-    }
     const trimmedTicker = ticker.trim();
     if (!trimmedTicker) {
       setError("Ticker is required");
@@ -98,17 +97,21 @@ export function AssetForm({
       setError("Display name is required");
       return;
     }
-    const numBalance = parseFloat(balance) || 0;
+
+    const tags = tagsInput
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
 
     setSubmitting(true);
     setError(null);
     try {
       await onSubmit({
-        platform_id: platformId,
         category,
         ticker: trimmedTicker,
         name: trimmedName,
-        balance: numBalance,
+        tags,
+        price_source: priceSource,
         is_active: true,
       });
       onOpenChange(false);
@@ -127,41 +130,16 @@ export function AssetForm({
           <DialogDescription>
             {isEditing
               ? "Update this asset's details."
-              : "Create a new asset to track in your portfolio."}
+              : "Create a new global asset to track in your portfolio."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
-            <Label>Platform</Label>
-            <Select
-              value={platformId}
-              onValueChange={(val) => setPlatformId(val as string)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select platform" />
-              </SelectTrigger>
-              <SelectContent>
-                {platforms.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="inline-block size-2.5 rounded-full"
-                        style={{ backgroundColor: p.color }}
-                      />
-                      {p.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
             <Label>Category</Label>
             <Select
               value={category}
-              onValueChange={(val) => setCategory(val as AssetCategory)}
+              onValueChange={(val) => setCategory(val as string)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -180,12 +158,12 @@ export function AssetForm({
             <Label htmlFor="asset-ticker">Ticker</Label>
             <Input
               id="asset-ticker"
-              placeholder="e.g. bitcoin, AAPL, usd"
+              placeholder="e.g. bitcoin, AAPL, USD"
               value={ticker}
               onChange={(e) => setTicker(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              {TICKER_HINTS[category]}
+              {TICKER_HINTS[category] ?? "Enter the asset ticker."}
             </p>
           </div>
 
@@ -199,23 +177,37 @@ export function AssetForm({
             />
           </div>
 
-          {!isEditing && (
-            <div className="grid gap-2">
-              <Label htmlFor="asset-balance">Initial Balance</Label>
-              <Input
-                id="asset-balance"
-                type="number"
-                step="any"
-                min="0"
-                placeholder="0"
-                value={balance}
-                onChange={(e) => setBalance(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Optional. You can adjust this later with transactions.
-              </p>
-            </div>
-          )}
+          <div className="grid gap-2">
+            <Label htmlFor="asset-tags">Tags</Label>
+            <Input
+              id="asset-tags"
+              placeholder='e.g. "crypto, usd" or "fiat, try"'
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Comma-separated. Used for cross-cutting queries (e.g. "usd" groups USD + USDT + USDC).
+            </p>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Price Source</Label>
+            <Select
+              value={priceSource}
+              onValueChange={(val) => setPriceSource(val as string)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRICE_SOURCES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 

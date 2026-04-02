@@ -1,5 +1,3 @@
--- Create custom enum types for the portfolio tracker
-
 CREATE TYPE public.asset_category AS ENUM (
   'fiat',
   'crypto',

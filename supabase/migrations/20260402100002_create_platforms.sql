@@ -1,5 +1,3 @@
--- Create platforms table
-
 CREATE TABLE public.platforms (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,

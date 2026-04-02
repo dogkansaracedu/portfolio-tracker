@@ -12,8 +12,6 @@ interface PortfolioRowProps {
   asset: EnrichedAsset
 }
 
-// ─── Quantity formatter ─────────────────────────────────────────────
-
 function formatQuantity(balance: number, category: string): string {
   if (category === "crypto") return formatCryptoAmount(balance)
   if (category === "fiat")
@@ -21,7 +19,6 @@ function formatQuantity(balance: number, category: string): string {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(balance)
-  // stocks
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -42,7 +39,6 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
 
   return (
     <TableRow>
-      {/* Asset name + ticker */}
       <TableCell>
         <div className="flex flex-col">
           <span className="font-medium">{asset.name}</span>
@@ -50,38 +46,41 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
         </div>
       </TableCell>
 
-      {/* Platform */}
       <TableCell>
-        <div className="flex items-center gap-1.5">
-          <span
-            className="inline-block size-2.5 rounded-full"
-            style={{ backgroundColor: asset.platformColor }}
-          />
-          <span className="text-sm">{asset.platformName}</span>
+        <div className="flex flex-col gap-0.5">
+          {asset.holdings.map((h) => (
+            <div key={h.platformId} className="flex items-center gap-1.5">
+              <span
+                className="inline-block size-2 rounded-full"
+                style={{ backgroundColor: h.platformColor }}
+              />
+              <span className="text-xs">{h.platformName}</span>
+            </div>
+          ))}
+          {asset.holdings.length === 0 && (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
         </div>
       </TableCell>
 
-      {/* Quantity */}
       <TableCell className="text-right tabular-nums">
-        {formatQuantity(asset.balance, asset.category)}
+        {formatQuantity(asset.totalBalance, asset.category)}
       </TableCell>
 
-      {/* Price */}
+      <TableCell className="text-right tabular-nums text-muted-foreground">
+        {asset.totalBalance > 0
+          ? formatCurrency(asset.costBasisUsd / asset.totalBalance, "USD")
+          : "—"}
+      </TableCell>
+
       <TableCell className="text-right tabular-nums">
         {formatCurrency(displayPrice, currency)}
       </TableCell>
 
-      {/* Value */}
       <TableCell className="text-right tabular-nums font-semibold">
         {formatCurrency(displayValue, currency)}
       </TableCell>
 
-      {/* Cost Basis */}
-      <TableCell className="text-right tabular-nums">
-        {formatCurrency(asset.costBasisUsd, "USD")}
-      </TableCell>
-
-      {/* Unrealized P&L */}
       <TableCell className="text-right">
         <div className="flex flex-col items-end">
           <span
@@ -101,7 +100,6 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
         </div>
       </TableCell>
 
-      {/* Allocation */}
       <TableCell className="text-right">
         <div className="flex flex-col items-end gap-0.5">
           <span className="text-sm tabular-nums">
@@ -116,7 +114,6 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
         </div>
       </TableCell>
 
-      {/* Action */}
       <TableCell>
         <Button
           variant="ghost"
@@ -150,11 +147,15 @@ export function PortfolioRowCard({ asset }: PortfolioRowProps) {
             <Badge variant="secondary">{asset.ticker}</Badge>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span
-              className="inline-block size-2 rounded-full"
-              style={{ backgroundColor: asset.platformColor }}
-            />
-            {asset.platformName}
+            {asset.holdings.map((h) => (
+              <span key={h.platformId} className="flex items-center gap-1">
+                <span
+                  className="inline-block size-2 rounded-full"
+                  style={{ backgroundColor: h.platformColor }}
+                />
+                {h.platformName}
+              </span>
+            ))}
           </div>
         </div>
 

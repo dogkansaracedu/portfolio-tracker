@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     const { data: assets, error: assetsError } = await supabase
       .from("assets")
       .select("ticker")
-      .eq("category", "crypto")
+      .eq("price_source", "coingecko")
 
     if (assetsError) {
       throw new Error(`Failed to query assets: ${assetsError.message}`)

@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react"
 import { bn, BN_ZERO } from "@/lib/config"
 import { useAssets } from "@/hooks/useAssets"
+import { useHoldings } from "@/hooks/useHoldings"
 import { usePrices } from "@/hooks/usePrices"
 import { usePnL } from "@/hooks/usePnL"
-import type { AssetWithPlatform } from "@/lib/queries/assets"
+import type { Asset, PriceCache } from "@/types/database"
+import type { HoldingWithDetails } from "@/lib/queries/holdings"
 import type { AssetPnL } from "@/lib/pnl/types"
-import type { PriceCache } from "@/types/database"
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -14,11 +15,14 @@ export interface EnrichedAsset {
   name: string
   ticker: string
   category: string
-  balance: number
-  isActive: boolean
-  platformId: string
-  platformName: string
-  platformColor: string
+  tags: string[]
+  totalBalance: number
+  holdings: {
+    platformId: string
+    platformName: string
+    platformColor: string
+    balance: number
+  }[]
   currentPriceUsd: number
   currentPriceTry: number
   currentValueUsd: number
@@ -39,7 +43,7 @@ export interface AssetGroup {
   totalPnlUsd: number
 }
 
-export type GroupBy = "platform" | "category"
+export type GroupBy = "platform" | "category" | "tag"
 export type SortBy = "value" | "pnl" | "name"
 
 interface UsePortfolioReturn {
@@ -65,23 +69,19 @@ interface UsePortfolioReturn {
 // ─── Category labels ────────────────────────────────────────────────
 
 const CATEGORY_LABELS: Record<string, string> = {
+  fiat: "Fiat",
   crypto: "Crypto",
+  gold: "Gold",
   stock_us: "US Stocks",
   stock_bist: "BIST Stocks",
-  commodity: "Commodities",
-  fiat: "Fiat",
 }
 
 // ─── Hook ───────────────────────────────────────────────────────────
 
 export function usePortfolio(): UsePortfolioReturn {
-  const { assets, loading: assetsLoading, error, refetch } = useAssets()
+  const { assets, loading: assetsLoading, error, refetch: refetchAssets } = useAssets()
+  const { holdings, loading: holdingsLoading, refetch: refetchHoldings } = useHoldings()
   const { prices, rates, loading: pricesLoading } = usePrices()
-
-  const activeAssets = useMemo(
-    () => assets.filter((a) => a.is_active),
-    [assets],
-  )
 
   const {
     assetPnLs,
@@ -89,35 +89,62 @@ export function usePortfolio(): UsePortfolioReturn {
     totalCurrentValueUsd,
     totalUnrealizedPnlUsd,
     loading: pnlLoading,
-  } = usePnL(activeAssets, prices)
+  } = usePnL(holdings, prices)
 
   const [search, setSearch] = useState("")
-  const [groupBy, setGroupBy] = useState<GroupBy>("platform")
+  const [groupBy, setGroupBy] = useState<GroupBy>("category")
   const [sortBy, setSortBy] = useState<SortBy>("value")
 
-  const loading = assetsLoading || pricesLoading || pnlLoading
+  const loading = assetsLoading || holdingsLoading || pricesLoading || pnlLoading
 
   const usdTryRate = rates?.usd_try ?? 0
 
-  // Build enriched assets
+  const activeAssets = useMemo(
+    () => assets.filter((a) => a.is_active),
+    [assets],
+  )
+
   const enrichedAssets = useMemo(() => {
     const pnlMap = new Map<string, AssetPnL>()
     for (const pnl of assetPnLs) {
       pnlMap.set(pnl.assetId, pnl)
     }
 
+    const holdingsByAsset = new Map<string, HoldingWithDetails[]>()
+    for (const h of holdings) {
+      const existing = holdingsByAsset.get(h.asset_id)
+      if (existing) {
+        existing.push(h)
+      } else {
+        holdingsByAsset.set(h.asset_id, [h])
+      }
+    }
+
     const totalValue = bn(totalCurrentValueUsd)
 
-    return activeAssets.map((asset: AssetWithPlatform): EnrichedAsset => {
+    return activeAssets.map((asset: Asset): EnrichedAsset => {
       const price: PriceCache | undefined = prices[asset.ticker]
       const bnPriceUsd = bn(price?.price_usd)
       const bnPriceTry = price?.price_try
         ? bn(price.price_try)
         : bnPriceUsd.times(bn(usdTryRate))
 
-      const bnBalance = bn(asset.balance)
-      const currentValueUsd = bnBalance.times(bnPriceUsd)
-      const currentValueTry = bnBalance.times(bnPriceTry)
+      const assetHoldings = holdingsByAsset.get(asset.id) ?? []
+
+      const holdingsData = assetHoldings.map((h) => ({
+        platformId: h.platform_id,
+        platformName: h.platforms.name,
+        platformColor: h.platforms.color,
+        balance: h.balance,
+      }))
+
+      const bnTotalBalance = assetHoldings.reduce(
+        (sum, h) => sum.plus(bn(h.balance)),
+        BN_ZERO,
+      )
+
+      const currentValueUsd = bnTotalBalance.times(bnPriceUsd)
+      const currentValueTry = bnTotalBalance.times(bnPriceTry)
 
       const pnl = pnlMap.get(asset.id)
 
@@ -126,11 +153,9 @@ export function usePortfolio(): UsePortfolioReturn {
         name: asset.name,
         ticker: asset.ticker,
         category: asset.category,
-        balance: asset.balance,
-        isActive: asset.is_active,
-        platformId: asset.platform_id,
-        platformName: asset.platforms.name,
-        platformColor: asset.platforms.color,
+        tags: asset.tags ?? [],
+        totalBalance: bnTotalBalance.toNumber(),
+        holdings: holdingsData,
         currentPriceUsd: bnPriceUsd.toNumber(),
         currentPriceTry: bnPriceTry.toNumber(),
         currentValueUsd: currentValueUsd.toNumber(),
@@ -143,9 +168,8 @@ export function usePortfolio(): UsePortfolioReturn {
           : currentValueUsd.div(totalValue).times(100).toNumber(),
       }
     })
-  }, [activeAssets, prices, assetPnLs, totalCurrentValueUsd, usdTryRate])
+  }, [activeAssets, holdings, prices, assetPnLs, totalCurrentValueUsd, usdTryRate])
 
-  // Filter by search
   const filteredAssets = useMemo(() => {
     if (!search.trim()) return enrichedAssets
     const q = search.toLowerCase()
@@ -156,7 +180,6 @@ export function usePortfolio(): UsePortfolioReturn {
     )
   }, [enrichedAssets, search])
 
-  // Sort
   const sortedAssets = useMemo(() => {
     const sorted = [...filteredAssets]
     switch (sortBy) {
@@ -173,28 +196,135 @@ export function usePortfolio(): UsePortfolioReturn {
     return sorted
   }, [filteredAssets, sortBy])
 
-  // Group
   const groups = useMemo((): AssetGroup[] => {
+    if (groupBy === "platform") {
+      const map = new Map<string, EnrichedAsset[]>()
+      const platformMeta = new Map<string, { name: string; color: string }>()
+
+      for (const asset of sortedAssets) {
+        for (const h of asset.holdings) {
+          const key = h.platformId
+          if (!platformMeta.has(key)) {
+            platformMeta.set(key, { name: h.platformName, color: h.platformColor })
+          }
+          const platformBalance = h.balance
+          const platformValueUsd = platformBalance * asset.currentPriceUsd
+          const platformValueTry = platformBalance * asset.currentPriceTry
+          const costPerUnit = asset.totalBalance > 0
+            ? asset.costBasisUsd / asset.totalBalance
+            : 0
+          const platformCostBasis = costPerUnit * platformBalance
+
+          const scoped: EnrichedAsset = {
+            ...asset,
+            totalBalance: platformBalance,
+            holdings: [h],
+            currentValueUsd: platformValueUsd,
+            currentValueTry: platformValueTry,
+            costBasisUsd: platformCostBasis,
+            unrealizedPnlUsd: platformValueUsd - platformCostBasis,
+            unrealizedPnlPct: platformCostBasis > 0
+              ? ((platformValueUsd - platformCostBasis) / platformCostBasis) * 100
+              : 0,
+            allocationPct: asset.allocationPct > 0 && asset.totalBalance > 0
+              ? asset.allocationPct * (platformBalance / (asset.totalBalance + platformBalance - platformBalance))
+              : 0,
+          }
+
+          const existing = map.get(key) ?? []
+          existing.push(scoped)
+          map.set(key, existing)
+        }
+      }
+
+      const totalValue = bn(totalCurrentValueUsd)
+      const result: AssetGroup[] = []
+      for (const [key, groupAssets] of map) {
+        const meta = platformMeta.get(key)!
+        let totalValueUsdBn = BN_ZERO
+        let totalValueTryBn = BN_ZERO
+        let totalPnlUsdBn = BN_ZERO
+        for (const a of groupAssets) {
+          totalValueUsdBn = totalValueUsdBn.plus(bn(a.currentValueUsd))
+          totalValueTryBn = totalValueTryBn.plus(bn(a.currentValueTry))
+          totalPnlUsdBn = totalPnlUsdBn.plus(bn(a.unrealizedPnlUsd))
+          a.allocationPct = totalValue.isZero()
+            ? 0
+            : bn(a.currentValueUsd).div(totalValue).times(100).toNumber()
+        }
+
+        result.push({
+          key,
+          label: meta.name,
+          color: meta.color,
+          assets: groupAssets,
+          totalValueUsd: totalValueUsdBn.toNumber(),
+          totalValueTry: totalValueTryBn.toNumber(),
+          totalPnlUsd: totalPnlUsdBn.toNumber(),
+        })
+      }
+
+      result.sort((a, b) => b.totalValueUsd - a.totalValueUsd)
+      return result
+    }
+
+    if (groupBy === "tag") {
+      const map = new Map<string, Set<string>>()
+      const assetMap = new Map<string, EnrichedAsset>()
+
+      for (const asset of sortedAssets) {
+        assetMap.set(asset.id, asset)
+        for (const tag of asset.tags) {
+          const existing = map.get(tag) ?? new Set()
+          existing.add(asset.id)
+          map.set(tag, existing)
+        }
+        if (asset.tags.length === 0) {
+          const existing = map.get("Other") ?? new Set()
+          existing.add(asset.id)
+          map.set("Other", existing)
+        }
+      }
+
+      const result: AssetGroup[] = []
+      for (const [key, assetIds] of map) {
+        const groupAssets = [...assetIds].map((id) => assetMap.get(id)!).filter(Boolean)
+        let totalValueUsdBn = BN_ZERO
+        let totalValueTryBn = BN_ZERO
+        let totalPnlUsdBn = BN_ZERO
+        for (const a of groupAssets) {
+          totalValueUsdBn = totalValueUsdBn.plus(bn(a.currentValueUsd))
+          totalValueTryBn = totalValueTryBn.plus(bn(a.currentValueTry))
+          totalPnlUsdBn = totalPnlUsdBn.plus(bn(a.unrealizedPnlUsd))
+        }
+
+        result.push({
+          key,
+          label: key,
+          assets: groupAssets,
+          totalValueUsd: totalValueUsdBn.toNumber(),
+          totalValueTry: totalValueTryBn.toNumber(),
+          totalPnlUsd: totalPnlUsdBn.toNumber(),
+        })
+      }
+
+      result.sort((a, b) => b.totalValueUsd - a.totalValueUsd)
+      return result
+    }
+
+    // Default: group by category
     const map = new Map<string, EnrichedAsset[]>()
 
     for (const asset of sortedAssets) {
-      const key = groupBy === "platform" ? asset.platformId : asset.category
-      const existing = map.get(key)
-      if (existing) {
-        existing.push(asset)
-      } else {
-        map.set(key, [asset])
-      }
+      const key = asset.category
+      const existing = map.get(key) ?? []
+      existing.push(asset)
+      map.set(key, existing)
     }
 
     const result: AssetGroup[] = []
     for (const [key, groupAssets] of map) {
-      const first = groupAssets[0]
-      const label =
-        groupBy === "platform"
-          ? first.platformName
-          : CATEGORY_LABELS[key] ?? key
-      const color = groupBy === "platform" ? first.platformColor : undefined
+      const label = CATEGORY_LABELS[key] ?? key
 
       let totalValueUsdBn = BN_ZERO
       let totalValueTryBn = BN_ZERO
@@ -208,7 +338,6 @@ export function usePortfolio(): UsePortfolioReturn {
       result.push({
         key,
         label,
-        color,
         assets: groupAssets,
         totalValueUsd: totalValueUsdBn.toNumber(),
         totalValueTry: totalValueTryBn.toNumber(),
@@ -216,9 +345,7 @@ export function usePortfolio(): UsePortfolioReturn {
       })
     }
 
-    // Sort groups by total value descending
     result.sort((a, b) => b.totalValueUsd - a.totalValueUsd)
-
     return result
   }, [sortedAssets, groupBy])
 
@@ -226,6 +353,10 @@ export function usePortfolio(): UsePortfolioReturn {
   const totalUnrealizedPnlPct = totalCostBasisUsd.isZero()
     ? 0
     : totalUnrealizedPnlUsd.div(totalCostBasisUsd).times(100).toNumber()
+
+  const refetch = async () => {
+    await Promise.all([refetchAssets(), refetchHoldings()])
+  }
 
   return {
     enrichedAssets: sortedAssets,

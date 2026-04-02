@@ -1,21 +1,15 @@
-import { supabase } from "@/lib/supabase";
-import type { Asset, AssetInsert, AssetUpdate } from "@/types/database";
+import { supabase } from "@/lib/supabase"
+import type { Asset, AssetInsert, AssetUpdate } from "@/types/database"
 
-export type AssetWithPlatform = Asset & {
-  platforms: { name: string; color: string };
-};
-
-export async function fetchAssets(
-  userId: string
-): Promise<AssetWithPlatform[]> {
+export async function fetchAssets(userId: string): Promise<Asset[]> {
   const { data, error } = await supabase
     .from("assets")
-    .select("*, platforms(name, color)")
+    .select("*")
     .eq("user_id", userId)
-    .order("created_at", { ascending: true });
+    .order("name")
 
-  if (error) throw error;
-  return data as AssetWithPlatform[];
+  if (error) throw error
+  return data ?? []
 }
 
 export async function createAsset(data: AssetInsert): Promise<Asset> {
@@ -23,32 +17,32 @@ export async function createAsset(data: AssetInsert): Promise<Asset> {
     .from("assets")
     .insert(data)
     .select()
-    .single();
+    .single()
 
-  if (error) throw error;
-  return asset;
+  if (error) throw error
+  return asset
 }
 
 export async function updateAsset(
   id: string,
-  data: AssetUpdate
+  data: AssetUpdate,
 ): Promise<Asset> {
   const { data: asset, error } = await supabase
     .from("assets")
     .update(data)
     .eq("id", id)
     .select()
-    .single();
+    .single()
 
-  if (error) throw error;
-  return asset;
+  if (error) throw error
+  return asset
 }
 
 export async function deactivateAsset(id: string): Promise<void> {
   const { error } = await supabase
     .from("assets")
     .update({ is_active: false })
-    .eq("id", id);
+    .eq("id", id)
 
-  if (error) throw error;
+  if (error) throw error
 }

@@ -9,22 +9,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { formatCurrency } from "@/lib/prices"
 import type { CategoryAllocation } from "@/hooks/useDashboard"
-import type { AssetCategory } from "@/types/database"
 
-const CATEGORY_COLORS: Record<AssetCategory, string> = {
-  fiat: "#64748b",
+const CATEGORY_COLORS: Record<string, string> = {
+  fiat: "#22c55e",
   crypto: "#f97316",
-  stock_bist: "#ef4444",
+  gold: "#eab308",
   stock_us: "#3b82f6",
-  commodity: "#eab308",
+  stock_bist: "#ef4444",
 }
 
-const CATEGORY_LABELS: Record<AssetCategory, string> = {
+const CATEGORY_LABELS: Record<string, string> = {
   fiat: "Fiat",
   crypto: "Crypto",
-  stock_bist: "BIST Stocks",
+  gold: "Gold",
   stock_us: "US Stocks",
-  commodity: "Commodities",
+  stock_bist: "BIST Stocks",
 }
 
 interface AllocationChartProps {
@@ -43,10 +42,10 @@ export default function AllocationChart({
   const totalValue = currency === "USD" ? totalValueUsd : totalValueTry
 
   const data = byCategory.map((c) => ({
-    name: CATEGORY_LABELS[c.category],
+    name: CATEGORY_LABELS[c.category] ?? c.category,
     value: currency === "USD" ? c.valueUsd : c.valueTry,
     percentage: c.percentage,
-    color: CATEGORY_COLORS[c.category],
+    color: CATEGORY_COLORS[c.category] ?? "#94a3b8",
   }))
 
   if (data.length === 0) {
@@ -92,7 +91,6 @@ export default function AllocationChart({
               />
             </PieChart>
           </ResponsiveContainer>
-          {/* Center text overlay */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <span className="text-sm font-semibold">
               {formatCurrency(totalValue, currency)}
@@ -100,7 +98,6 @@ export default function AllocationChart({
           </div>
         </div>
 
-        {/* Legend */}
         <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
           {data.map((entry) => (
             <div

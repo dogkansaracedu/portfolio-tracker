@@ -2,8 +2,16 @@ import { Outlet } from "react-router"
 import Sidebar from "./Sidebar"
 import MobileNav from "./MobileNav"
 import Header from "./Header"
+import { AddTransactionModal } from "@/components/transactions/AddTransactionModal"
+import { useAssets } from "@/hooks/useAssets"
+import { usePlatforms } from "@/hooks/usePlatforms"
+import { useHoldings } from "@/hooks/useHoldings"
 
 export default function AppLayout() {
+  const { assets } = useAssets()
+  const { platforms } = usePlatforms()
+  const { refetch: refetchHoldings } = useHoldings()
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
@@ -14,6 +22,11 @@ export default function AppLayout() {
         </main>
       </div>
       <MobileNav />
+      <AddTransactionModal
+        assets={assets}
+        platforms={platforms}
+        onSuccess={refetchHoldings}
+      />
     </div>
   )
 }
