@@ -1,4 +1,6 @@
+import BigNumber from "bignumber.js"
 import type { CostLot, UnrealizedPnLResult } from "./types"
+import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
 
 /**
  * Compute unrealized P&L from remaining FIFO lots and current market price.
@@ -9,16 +11,17 @@ export function computeUnrealizedPnL(
   balance: number,
 ): UnrealizedPnLResult {
   const costBasisUsd = lots.reduce(
-    (sum, lot) => sum + lot.amount * lot.unitPriceUsd,
-    0,
+    (sum: BigNumber, lot) => sum.plus(lot.amount.times(lot.unitPriceUsd)),
+    BN_ZERO,
   )
 
-  const currentValueUsd = balance * currentPriceUsd
+  const currentValueUsd = bn(balance).times(bn(currentPriceUsd))
 
-  const unrealizedPnlUsd = currentValueUsd - costBasisUsd
+  const unrealizedPnlUsd = currentValueUsd.minus(costBasisUsd)
 
-  const unrealizedPnlPct =
-    costBasisUsd > 0 ? (unrealizedPnlUsd / costBasisUsd) * 100 : 0
+  const unrealizedPnlPct = costBasisUsd.isZero()
+    ? BN_ZERO
+    : unrealizedPnlUsd.div(costBasisUsd).times(BN_HUNDRED)
 
   return {
     costBasisUsd,

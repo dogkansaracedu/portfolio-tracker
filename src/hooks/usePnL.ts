@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import { bn, BN_ZERO } from "@/lib/config"
 import { useAuth } from "@/hooks/useAuth"
 import {
   fetchTransactionsForPnL,
@@ -69,10 +70,10 @@ export function usePnL(
     if (loading || assets.length === 0) {
       return {
         assetPnLs: [],
-        totalCostBasisUsd: 0,
-        totalCurrentValueUsd: 0,
-        totalUnrealizedPnlUsd: 0,
-        totalRealizedPnlUsd: 0,
+        totalCostBasisUsd: BN_ZERO,
+        totalCurrentValueUsd: BN_ZERO,
+        totalUnrealizedPnlUsd: BN_ZERO,
+        totalRealizedPnlUsd: BN_ZERO,
       }
     }
 
@@ -87,16 +88,16 @@ export function usePnL(
       // Skip fiat — no meaningful P&L
       if (asset.category === "fiat") {
         const price = prices[asset.ticker]
-        const currentValueUsd = asset.balance * (price?.price_usd ?? 0)
+        const currentValueUsd = bn(asset.balance).times(bn(price?.price_usd))
         assetPnLs.push({
           assetId: asset.id,
           ticker: asset.ticker,
           category: asset.category,
           costBasisUsd: currentValueUsd, // fiat cost = current value
           currentValueUsd,
-          unrealizedPnlUsd: 0,
-          unrealizedPnlPct: 0,
-          realizedPnlUsd: 0,
+          unrealizedPnlUsd: BN_ZERO,
+          unrealizedPnlPct: BN_ZERO,
+          realizedPnlUsd: BN_ZERO,
           lots: [],
         })
         continue
@@ -115,8 +116,8 @@ export function usePnL(
       )
 
       const totalRealized = realized.reduce(
-        (sum, r) => sum + r.realizedPnlUsd,
-        0,
+        (sum, r) => sum.plus(r.realizedPnlUsd),
+        BN_ZERO,
       )
 
       assetPnLs.push({
@@ -133,20 +134,20 @@ export function usePnL(
     }
 
     const totalCostBasisUsd = assetPnLs.reduce(
-      (s, a) => s + a.costBasisUsd,
-      0,
+      (s, a) => s.plus(a.costBasisUsd),
+      BN_ZERO,
     )
     const totalCurrentValueUsd = assetPnLs.reduce(
-      (s, a) => s + a.currentValueUsd,
-      0,
+      (s, a) => s.plus(a.currentValueUsd),
+      BN_ZERO,
     )
     const totalUnrealizedPnlUsd = assetPnLs.reduce(
-      (s, a) => s + a.unrealizedPnlUsd,
-      0,
+      (s, a) => s.plus(a.unrealizedPnlUsd),
+      BN_ZERO,
     )
     const totalRealizedPnlUsd = assetPnLs.reduce(
-      (s, a) => s + a.realizedPnlUsd,
-      0,
+      (s, a) => s.plus(a.realizedPnlUsd),
+      BN_ZERO,
     )
 
     return {

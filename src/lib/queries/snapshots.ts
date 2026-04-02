@@ -1,3 +1,5 @@
+import BigNumber from "bignumber.js"
+import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
 import { supabase } from "@/lib/supabase"
 import type {
   Snapshot,
@@ -40,49 +42,51 @@ export async function createSnapshot(
 ): Promise<Snapshot> {
   const today = new Date().toISOString().slice(0, 10) // "YYYY-MM-DD"
 
-  const usdTry = latestRates?.usd_try ?? 1
-  const eurTry = latestRates?.eur_try ?? 1
-  const goldGramTry = latestRates?.gold_gram_try ?? 0
+  const usdTry = bn(latestRates?.usd_try ?? 1)
+  const eurTry = bn(latestRates?.eur_try ?? 1)
+  const goldGramTry = bn(latestRates?.gold_gram_try ?? 0)
 
   // Compute per-asset values
   const byAsset: SnapshotBreakdown["by_asset"] = []
-  const categoryTotals: Record<string, { usd: number; try_val: number }> = {}
-  const platformTotals: Record<string, { usd: number }> = {}
-  let totalUsd = 0
-  let totalTry = 0
+  const categoryTotals: Record<string, { usd: BigNumber; try_val: BigNumber }> = {}
+  const platformTotals: Record<string, { usd: BigNumber }> = {}
+  let totalUsd = BN_ZERO
+  let totalTry = BN_ZERO
 
   for (const asset of assets) {
     if (!asset.is_active || asset.balance <= 0) continue
 
     const price = prices[asset.ticker]
-    const priceUsd = price?.price_usd ?? 0
-    const priceTry = price?.price_try ?? priceUsd * usdTry
+    const priceUsd = bn(price?.price_usd)
+    const priceTry = price?.price_try != null
+      ? bn(price.price_try)
+      : priceUsd.times(usdTry)
 
-    const valueUsd = asset.balance * priceUsd
-    const valueTry = asset.balance * priceTry
+    const valueUsd = bn(asset.balance).times(priceUsd)
+    const valueTry = bn(asset.balance).times(priceTry)
 
-    totalUsd += valueUsd
-    totalTry += valueTry
+    totalUsd = totalUsd.plus(valueUsd)
+    totalTry = totalTry.plus(valueTry)
 
     byAsset.push({
       ticker: asset.ticker,
       name: asset.name,
       platform: asset.platforms.name,
       amount: asset.balance,
-      price_usd: priceUsd,
-      value_usd: valueUsd,
+      price_usd: priceUsd.toNumber(),
+      value_usd: valueUsd.toNumber(),
     })
 
     // Category aggregation
     const cat = asset.category
-    if (!categoryTotals[cat]) categoryTotals[cat] = { usd: 0, try_val: 0 }
-    categoryTotals[cat].usd += valueUsd
-    categoryTotals[cat].try_val += valueTry
+    if (!categoryTotals[cat]) categoryTotals[cat] = { usd: BN_ZERO, try_val: BN_ZERO }
+    categoryTotals[cat].usd = categoryTotals[cat].usd.plus(valueUsd)
+    categoryTotals[cat].try_val = categoryTotals[cat].try_val.plus(valueTry)
 
     // Platform aggregation
     const plat = asset.platforms.name
-    if (!platformTotals[plat]) platformTotals[plat] = { usd: 0 }
-    platformTotals[plat].usd += valueUsd
+    if (!platformTotals[plat]) platformTotals[plat] = { usd: BN_ZERO }
+    platformTotals[plat].usd = platformTotals[plat].usd.plus(valueUsd)
   }
 
   // Build breakdown
@@ -95,27 +99,31 @@ export async function createSnapshot(
   ]
   const byCategory: SnapshotBreakdown["by_category"] = {} as SnapshotBreakdown["by_category"]
   for (const cat of allCategories) {
-    const vals = categoryTotals[cat] ?? { usd: 0, try_val: 0 }
+    const vals = categoryTotals[cat] ?? { usd: BN_ZERO, try_val: BN_ZERO }
     byCategory[cat] = {
-      usd: vals.usd,
-      try: vals.try_val,
-      pct: totalUsd > 0 ? (vals.usd / totalUsd) * 100 : 0,
+      usd: vals.usd.toNumber(),
+      try: vals.try_val.toNumber(),
+      pct: totalUsd.isGreaterThan(0)
+        ? vals.usd.div(totalUsd).times(BN_HUNDRED).toNumber()
+        : 0,
     }
   }
 
   const byPlatform: SnapshotBreakdown["by_platform"] = {}
   for (const [name, vals] of Object.entries(platformTotals)) {
     byPlatform[name] = {
-      usd: vals.usd,
-      pct: totalUsd > 0 ? (vals.usd / totalUsd) * 100 : 0,
+      usd: vals.usd.toNumber(),
+      pct: totalUsd.isGreaterThan(0)
+        ? vals.usd.div(totalUsd).times(BN_HUNDRED).toNumber()
+        : 0,
     }
   }
 
   const breakdown: SnapshotBreakdown = {
     rates: {
-      usd_try: usdTry,
-      eur_try: eurTry,
-      gold_gram_try: goldGramTry,
+      usd_try: usdTry.toNumber(),
+      eur_try: eurTry.toNumber(),
+      gold_gram_try: goldGramTry.toNumber(),
     },
     by_category: byCategory,
     by_platform: byPlatform,
@@ -125,8 +133,8 @@ export async function createSnapshot(
   const insert: SnapshotInsert = {
     user_id: userId,
     snapshot_date: today,
-    total_usd: totalUsd,
-    total_try: totalTry,
+    total_usd: totalUsd.toNumber(),
+    total_try: totalTry.toNumber(),
     breakdown,
   }
 

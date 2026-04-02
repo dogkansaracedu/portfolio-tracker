@@ -1,29 +1,31 @@
+import BigNumber from "bignumber.js"
+
 export interface CostLot {
   /** Source transaction ID */
   transactionId: string
   date: string
   /** Remaining quantity in this lot */
-  amount: number
+  amount: BigNumber
   /** Original price in the transaction's currency */
-  unitPriceOriginal: number
+  unitPriceOriginal: BigNumber
   priceCurrency: string
   /** Price normalized to USD using historical exchange rate */
-  unitPriceUsd: number
+  unitPriceUsd: BigNumber
 }
 
 export interface ConsumedLot {
   lotTransactionId: string
-  amount: number
-  costBasisUsd: number
+  amount: BigNumber
+  costBasisUsd: BigNumber
 }
 
 export interface RealizedPnLEntry {
   transactionId: string
   date: string
-  amount: number
-  proceedsUsd: number
-  costBasisUsd: number
-  realizedPnlUsd: number
+  amount: BigNumber
+  proceedsUsd: BigNumber
+  costBasisUsd: BigNumber
+  realizedPnlUsd: BigNumber
   lots: ConsumedLot[]
 }
 
@@ -35,28 +37,28 @@ export interface FIFOResult {
 }
 
 export interface UnrealizedPnLResult {
-  costBasisUsd: number
-  currentValueUsd: number
-  unrealizedPnlUsd: number
-  unrealizedPnlPct: number
+  costBasisUsd: BigNumber
+  currentValueUsd: BigNumber
+  unrealizedPnlUsd: BigNumber
+  unrealizedPnlPct: BigNumber
 }
 
 export interface AssetPnL {
   assetId: string
   ticker: string
   category: string
-  costBasisUsd: number
-  currentValueUsd: number
-  unrealizedPnlUsd: number
-  unrealizedPnlPct: number
-  realizedPnlUsd: number
+  costBasisUsd: BigNumber
+  currentValueUsd: BigNumber
+  unrealizedPnlUsd: BigNumber
+  unrealizedPnlPct: BigNumber
+  realizedPnlUsd: BigNumber
   lots: CostLot[]
 }
 
 export interface PortfolioPnL {
   assetPnLs: AssetPnL[]
-  totalCostBasisUsd: number
-  totalCurrentValueUsd: number
-  totalUnrealizedPnlUsd: number
-  totalRealizedPnlUsd: number
+  totalCostBasisUsd: BigNumber
+  totalCurrentValueUsd: BigNumber
+  totalUnrealizedPnlUsd: BigNumber
+  totalRealizedPnlUsd: BigNumber
 }

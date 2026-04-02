@@ -1,6 +1,8 @@
+import BigNumber from "bignumber.js"
 import type { Transaction, ExchangeRate } from "@/types/database"
 import type { CostLot, RealizedPnLEntry, FIFOResult, ConsumedLot } from "./types"
 import { unitPriceToUsd } from "./currency"
+import { bn, BN_ZERO } from "@/lib/config"
 
 /**
  * FIFO cost basis engine.
@@ -31,8 +33,8 @@ export function computeFIFOLots(
         lots.push({
           transactionId: tx.id,
           date: tx.date,
-          amount: tx.amount,
-          unitPriceOriginal: tx.unit_price,
+          amount: bn(tx.amount),
+          unitPriceOriginal: bn(tx.unit_price),
           priceCurrency: tx.price_currency,
           unitPriceUsd: priceUsd,
         })
@@ -41,17 +43,17 @@ export function computeFIFOLots(
 
       case "sell": {
         const sellPriceUsd = priceUsd
-        let remaining = tx.amount
-        let totalProceeds = 0
-        let totalCostBasis = 0
+        let remaining = bn(tx.amount)
+        let totalProceeds = BN_ZERO
+        let totalCostBasis = BN_ZERO
         const consumedLots: ConsumedLot[] = []
 
-        while (remaining > 0 && lots.length > 0) {
+        while (remaining.gt(0) && lots.length > 0) {
           const oldest = lots[0]
-          const consumed = Math.min(oldest.amount, remaining)
+          const consumed = BigNumber.min(oldest.amount, remaining)
 
-          const costBasis = consumed * oldest.unitPriceUsd
-          const proceeds = consumed * sellPriceUsd
+          const costBasis = consumed.times(oldest.unitPriceUsd)
+          const proceeds = consumed.times(sellPriceUsd)
 
           consumedLots.push({
             lotTransactionId: oldest.transactionId,
@@ -59,13 +61,13 @@ export function computeFIFOLots(
             costBasisUsd: costBasis,
           })
 
-          totalCostBasis += costBasis
-          totalProceeds += proceeds
+          totalCostBasis = totalCostBasis.plus(costBasis)
+          totalProceeds = totalProceeds.plus(proceeds)
 
-          oldest.amount -= consumed
-          remaining -= consumed
+          oldest.amount = oldest.amount.minus(consumed)
+          remaining = remaining.minus(consumed)
 
-          if (oldest.amount <= 0) {
+          if (oldest.amount.lte(0)) {
             lots.shift()
           }
         }
@@ -73,10 +75,10 @@ export function computeFIFOLots(
         realized.push({
           transactionId: tx.id,
           date: tx.date,
-          amount: tx.amount,
+          amount: bn(tx.amount),
           proceedsUsd: totalProceeds,
           costBasisUsd: totalCostBasis,
-          realizedPnlUsd: totalProceeds - totalCostBasis,
+          realizedPnlUsd: totalProceeds.minus(totalCostBasis),
           lots: consumedLots,
         })
         break
@@ -86,13 +88,13 @@ export function computeFIFOLots(
         // Remove lots FIFO but do NOT record P&L.
         // The cost basis will be carried to the destination
         // via the transfer_in's unit_price (set during Component 4).
-        let remaining = tx.amount
-        while (remaining > 0 && lots.length > 0) {
+        let remaining = bn(tx.amount)
+        while (remaining.gt(0) && lots.length > 0) {
           const oldest = lots[0]
-          const consumed = Math.min(oldest.amount, remaining)
-          oldest.amount -= consumed
-          remaining -= consumed
-          if (oldest.amount <= 0) {
+          const consumed = BigNumber.min(oldest.amount, remaining)
+          oldest.amount = oldest.amount.minus(consumed)
+          remaining = remaining.minus(consumed)
+          if (oldest.amount.lte(0)) {
             lots.shift()
           }
         }
@@ -101,15 +103,15 @@ export function computeFIFOLots(
 
       case "fee": {
         // Fee reduces balance. Treat as a realized loss.
-        const feeCostUsd = tx.amount * priceUsd
-        let remaining = tx.amount
-        let totalCostBasis = 0
+        const feeCostUsd = bn(tx.amount).times(priceUsd)
+        let remaining = bn(tx.amount)
+        let totalCostBasis = BN_ZERO
         const consumedLots: ConsumedLot[] = []
 
-        while (remaining > 0 && lots.length > 0) {
+        while (remaining.gt(0) && lots.length > 0) {
           const oldest = lots[0]
-          const consumed = Math.min(oldest.amount, remaining)
-          const costBasis = consumed * oldest.unitPriceUsd
+          const consumed = BigNumber.min(oldest.amount, remaining)
+          const costBasis = consumed.times(oldest.unitPriceUsd)
 
           consumedLots.push({
             lotTransactionId: oldest.transactionId,
@@ -117,11 +119,11 @@ export function computeFIFOLots(
             costBasisUsd: costBasis,
           })
 
-          totalCostBasis += costBasis
-          oldest.amount -= consumed
-          remaining -= consumed
+          totalCostBasis = totalCostBasis.plus(costBasis)
+          oldest.amount = oldest.amount.minus(consumed)
+          remaining = remaining.minus(consumed)
 
-          if (oldest.amount <= 0) {
+          if (oldest.amount.lte(0)) {
             lots.shift()
           }
         }
@@ -129,10 +131,10 @@ export function computeFIFOLots(
         realized.push({
           transactionId: tx.id,
           date: tx.date,
-          amount: tx.amount,
-          proceedsUsd: 0, // fees have no proceeds
+          amount: bn(tx.amount),
+          proceedsUsd: BN_ZERO, // fees have no proceeds
           costBasisUsd: totalCostBasis,
-          realizedPnlUsd: -feeCostUsd,
+          realizedPnlUsd: feeCostUsd.negated(),
           lots: consumedLots,
         })
         break
@@ -152,20 +154,20 @@ export function computeTransferCostBasis(
   transactions: Transaction[],
   rates: ExchangeRate[],
   transferAmount: number,
-): number {
+): BigNumber {
   const { lots } = computeFIFOLots(transactions, rates)
 
-  let remaining = transferAmount
-  let totalCost = 0
-  let totalAmount = 0
+  let remaining = bn(transferAmount)
+  let totalCost = BN_ZERO
+  let totalAmount = BN_ZERO
 
   for (const lot of lots) {
-    if (remaining <= 0) break
-    const consumed = Math.min(lot.amount, remaining)
-    totalCost += consumed * lot.unitPriceUsd
-    totalAmount += consumed
-    remaining -= consumed
+    if (remaining.lte(0)) break
+    const consumed = BigNumber.min(lot.amount, remaining)
+    totalCost = totalCost.plus(consumed.times(lot.unitPriceUsd))
+    totalAmount = totalAmount.plus(consumed)
+    remaining = remaining.minus(consumed)
   }
 
-  return totalAmount > 0 ? totalCost / totalAmount : 0
+  return totalAmount.gt(0) ? totalCost.div(totalAmount) : BN_ZERO
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import { BN_ZERO } from "@/lib/config"
 import { fetchTransactionsForPnL, fetchAllExchangeRates } from "@/lib/queries/pnl"
 import { computeFIFOLots } from "@/lib/pnl/fifo"
 import type { Transaction, ExchangeRate } from "@/types/database"
@@ -46,15 +47,20 @@ export function useCostBasis(assetId: string | undefined) {
     const { lots } = computeFIFOLots(transactions, rates)
 
     const totalCostUsd = lots.reduce(
-      (sum, lot) => sum + lot.amount * lot.unitPriceUsd,
-      0,
+      (sum, lot) => sum.plus(lot.amount.times(lot.unitPriceUsd)),
+      BN_ZERO,
     )
 
-    const totalAmount = lots.reduce((sum, lot) => sum + lot.amount, 0)
+    const totalAmount = lots.reduce(
+      (sum, lot) => sum.plus(lot.amount),
+      BN_ZERO,
+    )
 
-    const avgCostUsd = totalAmount > 0 ? totalCostUsd / totalAmount : 0
+    const avgCostUsd = totalAmount.isZero()
+      ? 0
+      : totalCostUsd.div(totalAmount).toNumber()
 
-    return { lots, totalCostUsd, avgCostUsd }
+    return { lots, totalCostUsd: totalCostUsd.toNumber(), avgCostUsd }
   }, [assetId, transactions, rates, loading])
 
   return { ...result, loading }
