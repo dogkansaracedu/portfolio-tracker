@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency } from "@/lib/prices"
+import { formatCurrency, obfuscate } from "@/lib/prices"
 import type { TagAllocation } from "@/hooks/useDashboard"
 
 const TAG_COLORS: Record<string, string> = {
@@ -17,7 +17,8 @@ interface TagBreakdownProps {
 }
 
 export default function TagBreakdown({ byTag }: TagBreakdownProps) {
-  const { currency } = useDisplayCurrency()
+  const { currency, obfuscated } = useDisplayCurrency()
+  const o = (v: string) => obfuscate(v, obfuscated)
 
   if (byTag.length === 0) {
     return (
@@ -53,7 +54,7 @@ export default function TagBreakdown({ byTag }: TagBreakdownProps) {
                   <span className="font-medium">{item.tag}</span>
                 </div>
                 <span className="font-medium">
-                  {formatCurrency(value, currency)}
+                  {o(formatCurrency(value, currency))}
                 </span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted">

@@ -25,11 +25,12 @@ interface Props {
   currency: "USD" | "TRY"
 }
 
-export function TransactionRow({ transaction, currency }: Props) {
+export function TransactionRow({ transaction }: Props) {
   const tx = transaction
   const isPositive = POSITIVE_TYPES.includes(tx.type)
   const sign = isPositive ? "+" : "-"
   const amountColor = isPositive ? "text-green-600" : "text-red-600"
+  const txCurrency: "USD" | "TRY" = tx.price_currency === "TRY" ? "TRY" : "USD"
 
   return (
     <TableRow>
@@ -81,12 +82,12 @@ export function TransactionRow({ transaction, currency }: Props) {
 
       {/* Unit Price */}
       <TableCell className="tabular-nums text-muted-foreground">
-        {formatCurrency(tx.unit_price, currency)}
+        {formatCurrency(tx.unit_price, txCurrency)}
       </TableCell>
 
       {/* Total */}
       <TableCell className="tabular-nums font-medium">
-        {formatCurrency(tx.total_cost, currency)}
+        {formatCurrency(tx.total_cost, txCurrency)}
       </TableCell>
 
       {/* Notes */}

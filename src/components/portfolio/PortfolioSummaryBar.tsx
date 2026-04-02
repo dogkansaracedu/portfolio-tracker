@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency } from "@/lib/prices"
+import { formatCurrency, obfuscate } from "@/lib/prices"
 
 interface PortfolioSummaryBarProps {
   totalValueUsd: number
@@ -17,14 +17,14 @@ export function PortfolioSummaryBar({
   totalUnrealizedPnlPct,
   activeAssetCount,
 }: PortfolioSummaryBarProps) {
-  const { currency } = useDisplayCurrency()
+  const { currency, obfuscated } = useDisplayCurrency()
+  const o = (v: string) => obfuscate(v, obfuscated)
 
   const displayValue = currency === "USD" ? totalValueUsd : totalValueTry
   const pnlIsPositive = totalUnrealizedPnlUsd >= 0
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      {/* Total Value */}
       <Card size="sm">
         <CardContent>
           <div className="flex flex-col gap-0.5">
@@ -32,13 +32,12 @@ export function PortfolioSummaryBar({
               Total Portfolio Value
             </span>
             <span className="text-xl font-bold tabular-nums">
-              {formatCurrency(displayValue, currency)}
+              {o(formatCurrency(displayValue, currency))}
             </span>
           </div>
         </CardContent>
       </Card>
 
-      {/* Unrealized P&L */}
       <Card size="sm">
         <CardContent>
           <div className="flex flex-col gap-0.5">
@@ -52,7 +51,7 @@ export function PortfolioSummaryBar({
                 }`}
               >
                 {pnlIsPositive ? "+" : ""}
-                {formatCurrency(totalUnrealizedPnlUsd, "USD")}
+                {o(formatCurrency(totalUnrealizedPnlUsd, "USD"))}
               </span>
               <span
                 className={`text-sm ${

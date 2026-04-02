@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { useTransactionModal } from "@/contexts/TransactionContext"
-import { formatCurrency, formatCryptoAmount } from "@/lib/prices"
+import { formatCurrency, formatCryptoAmount, obfuscate } from "@/lib/prices"
 import type { EnrichedAsset } from "@/hooks/usePortfolio"
 
 interface PortfolioRowProps {
@@ -28,8 +28,9 @@ function formatQuantity(balance: number, category: string): string {
 // ─── Desktop Table Row ──────────────────────────────────────────────
 
 export function PortfolioRow({ asset }: PortfolioRowProps) {
-  const { currency } = useDisplayCurrency()
+  const { currency, obfuscated } = useDisplayCurrency()
   const { openTransactionModal } = useTransactionModal()
+  const o = (v: string) => obfuscate(v, obfuscated)
 
   const displayPrice =
     currency === "USD" ? asset.currentPriceUsd : asset.currentPriceTry
@@ -64,7 +65,7 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
       </TableCell>
 
       <TableCell className="text-right tabular-nums">
-        {formatQuantity(asset.totalBalance, asset.category)}
+        {o(formatQuantity(asset.totalBalance, asset.category))}
       </TableCell>
 
       <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -78,7 +79,7 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
       </TableCell>
 
       <TableCell className="text-right tabular-nums font-semibold">
-        {formatCurrency(displayValue, currency)}
+        {o(formatCurrency(displayValue, currency))}
       </TableCell>
 
       <TableCell className="text-right">
@@ -87,7 +88,7 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
             className={pnlIsPositive ? "text-emerald-600" : "text-red-500"}
           >
             {pnlIsPositive ? "+" : ""}
-            {formatCurrency(asset.unrealizedPnlUsd, "USD")}
+            {o(formatCurrency(asset.unrealizedPnlUsd, "USD"))}
           </span>
           <span
             className={`text-xs ${

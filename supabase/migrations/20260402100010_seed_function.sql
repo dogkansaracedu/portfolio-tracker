@@ -15,7 +15,6 @@ BEGIN
     (p_user_id, 'Paribu',        '#06b6d4'),
     (p_user_id, 'OKX',           '#22c55e'),
     (p_user_id, 'Binance',       '#eab308'),
-    (p_user_id, 'Ziraat',        '#ec4899'),
     (p_user_id, 'Enpara',        '#10b981'),
     (p_user_id, 'Fiziksel',      '#64748b');
 

@@ -24,7 +24,7 @@ export async function fetchTransactions(
 ): Promise<TransactionWithDetails[]> {
   let query = supabase
     .from("transactions")
-    .select("*, assets(name, ticker, category), platforms(name, color)")
+    .select("*, assets!transactions_asset_id_fkey(name, ticker, category), platforms(name, color)")
     .eq("user_id", userId)
     .order("date", { ascending: false })
     .order("created_at", { ascending: false })

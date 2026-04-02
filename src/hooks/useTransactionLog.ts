@@ -50,10 +50,11 @@ export function useTransactionLog() {
     let totalSellVolume = 0
 
     for (const tx of transactions) {
+      const cost = tx.price_currency === "USD" ? tx.total_cost : 0
       if (tx.type === "buy") {
-        totalBuyVolume += tx.total_cost
+        totalBuyVolume += cost
       } else if (tx.type === "sell") {
-        totalSellVolume += tx.total_cost
+        totalSellVolume += cost
       }
     }
 

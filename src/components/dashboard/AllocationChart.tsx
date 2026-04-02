@@ -7,7 +7,7 @@ import {
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency } from "@/lib/prices"
+import { formatCurrency, obfuscate } from "@/lib/prices"
 import type { CategoryAllocation } from "@/hooks/useDashboard"
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -37,7 +37,7 @@ export default function AllocationChart({
   totalValueUsd,
   totalValueTry,
 }: AllocationChartProps) {
-  const { currency } = useDisplayCurrency()
+  const { currency, obfuscated } = useDisplayCurrency()
 
   const totalValue = currency === "USD" ? totalValueUsd : totalValueTry
 
@@ -93,7 +93,7 @@ export default function AllocationChart({
           </ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <span className="text-sm font-semibold">
-              {formatCurrency(totalValue, currency)}
+              {obfuscate(formatCurrency(totalValue, currency), obfuscated)}
             </span>
           </div>
         </div>

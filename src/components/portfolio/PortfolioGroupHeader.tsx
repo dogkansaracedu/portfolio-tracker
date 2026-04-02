@@ -1,6 +1,6 @@
 import { TableRow, TableCell } from "@/components/ui/table"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency } from "@/lib/prices"
+import { formatCurrency, obfuscate } from "@/lib/prices"
 import type { AssetGroup } from "@/hooks/usePortfolio"
 
 interface PortfolioGroupHeaderProps {
@@ -12,7 +12,8 @@ export function PortfolioGroupHeader({
   group,
   colSpan,
 }: PortfolioGroupHeaderProps) {
-  const { currency } = useDisplayCurrency()
+  const { currency, obfuscated } = useDisplayCurrency()
+  const o = (v: string) => obfuscate(v, obfuscated)
 
   const displayValue =
     currency === "USD" ? group.totalValueUsd : group.totalValueTry
@@ -37,7 +38,7 @@ export function PortfolioGroupHeader({
           </div>
           <div className="flex items-center gap-4 text-sm">
             <span className="font-medium">
-              {formatCurrency(displayValue, currency)}
+              {o(formatCurrency(displayValue, currency))}
             </span>
             <span
               className={
@@ -45,7 +46,7 @@ export function PortfolioGroupHeader({
               }
             >
               {pnlIsPositive ? "+" : ""}
-              {formatCurrency(displayPnl, "USD")}
+              {o(formatCurrency(displayPnl, "USD"))}
             </span>
           </div>
         </div>

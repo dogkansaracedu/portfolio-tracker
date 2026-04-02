@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency } from "@/lib/prices"
+import { formatCurrency, obfuscate } from "@/lib/prices"
 
 interface NetWorthCardProps {
   totalValueUsd: number
@@ -11,7 +11,7 @@ export default function NetWorthCard({
   totalValueUsd,
   totalValueTry,
 }: NetWorthCardProps) {
-  const { currency } = useDisplayCurrency()
+  const { currency, obfuscated } = useDisplayCurrency()
 
   const primaryValue =
     currency === "USD" ? totalValueUsd : totalValueTry
@@ -34,10 +34,10 @@ export default function NetWorthCard({
         ) : (
           <div className="space-y-1">
             <p className="text-3xl font-bold tracking-tight">
-              {formatCurrency(primaryValue, currency)}
+              {obfuscate(formatCurrency(primaryValue, currency), obfuscated)}
             </p>
             <p className="text-sm text-muted-foreground">
-              {formatCurrency(secondaryValue, secondaryCurrency)}
+              {obfuscate(formatCurrency(secondaryValue, secondaryCurrency), obfuscated)}
             </p>
           </div>
         )}
