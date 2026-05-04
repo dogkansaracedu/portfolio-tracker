@@ -7,6 +7,7 @@ import {
 } from "@/lib/queries/pnl"
 import { computeFIFOLots } from "@/lib/pnl/fifo"
 import { computeUnrealizedPnL } from "@/lib/pnl/unrealized"
+import { computeCurrentInvestedUsd } from "@/lib/performance"
 import type { Transaction, ExchangeRate, PriceCache } from "@/types/database"
 import type { AssetPnL, PortfolioPnL } from "@/lib/pnl/types"
 import type { HoldingWithDetails } from "@/lib/queries/holdings"
@@ -75,6 +76,7 @@ export function usePnL(
         totalCurrentValueUsd: BN_ZERO,
         totalUnrealizedPnlUsd: BN_ZERO,
         totalRealizedPnlUsd: BN_ZERO,
+        totalInvestedUsd: BN_ZERO,
       }
     }
 
@@ -205,6 +207,7 @@ export function usePnL(
       (s, a) => s.plus(a.realizedPnlUsd),
       BN_ZERO,
     )
+    const totalInvestedUsd = bn(computeCurrentInvestedUsd(transactions, rates))
 
     return {
       assetPnLs,
@@ -212,8 +215,9 @@ export function usePnL(
       totalCurrentValueUsd,
       totalUnrealizedPnlUsd,
       totalRealizedPnlUsd,
+      totalInvestedUsd,
     }
   }, [transactions, rates, holdings, prices, loading])
 
-  return { ...result, loading }
+  return { ...result, transactions, rates, loading }
 }

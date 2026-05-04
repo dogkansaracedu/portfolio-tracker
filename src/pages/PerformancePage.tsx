@@ -1,7 +1,9 @@
 import { useState } from "react"
+import { useHoldings } from "@/hooks/useHoldings"
 import { useSnapshots } from "@/hooks/useSnapshots"
 import { usePerformance } from "@/hooks/usePerformance"
 import { usePrices } from "@/hooks/usePrices"
+import { usePnL } from "@/hooks/usePnL"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { TimeRangeSelector } from "@/components/performance/TimeRangeSelector"
 import { PerformanceSummary } from "@/components/performance/PerformanceSummary"
@@ -15,6 +17,7 @@ import type { TimeRange } from "@/lib/performance"
 
 export default function PerformancePage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("ALL")
+  const { holdings } = useHoldings()
   const { snapshots, takeSnapshot, removeSnapshot } = useSnapshots()
   const { prices, rates } = usePrices()
   const { currency } = useDisplayCurrency()
@@ -22,18 +25,35 @@ export default function PerformancePage() {
   const latestRates = rates ?? null
 
   const {
+    assetPnLs,
+    totalUnrealizedPnlUsd,
+    totalRealizedPnlUsd,
+    totalInvestedUsd,
+    totalCurrentValueUsd,
+    transactions,
+    rates: pnlRates,
+  } = usePnL(holdings, prices)
+
+  const totalPnlUsd = totalUnrealizedPnlUsd.plus(totalRealizedPnlUsd).toNumber()
+  const totalInvestedNum = totalInvestedUsd.toNumber()
+  const currentValueNum = totalCurrentValueUsd.toNumber()
+
+  const {
     monthlyReturns,
     filteredSnapshots,
     categoryAttribution,
     drawdownSeries,
     ...metrics
-  } = usePerformance(snapshots, timeRange)
-
-  // Current total from latest snapshot or 0
-  const currentValueUsd =
-    snapshots.length > 0
-      ? (snapshots[snapshots.length - 1].total_usd ?? 0)
-      : 0
+  } = usePerformance({
+    snapshots,
+    timeRange,
+    assetPnLs,
+    transactions,
+    rates: pnlRates,
+    totalInvestedUsd: totalInvestedNum,
+    totalPnlUsd,
+    currentValueUsd: currentValueNum,
+  })
 
   const hasEnoughData = snapshots.length >= 2
 
@@ -70,7 +90,7 @@ export default function PerformancePage() {
           {/* Summary stats */}
           <PerformanceSummary
             metrics={{ monthlyReturns, drawdownSeries, ...metrics }}
-            currentValueUsd={currentValueUsd}
+            currentValueUsd={currentValueNum}
             currency={currency}
           />
 

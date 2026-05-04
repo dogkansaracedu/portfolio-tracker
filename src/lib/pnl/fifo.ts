@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js"
 import type { Transaction, ExchangeRate } from "@/types/database"
 import type { CostLot, RealizedPnLEntry, FIFOResult, ConsumedLot } from "./types"
-import { unitPriceToUsd } from "./currency"
+import { unitPriceToUsd, normalizeToUsd } from "./currency"
 import { bn, BN_ZERO } from "@/lib/config"
 
 /**
@@ -30,13 +30,32 @@ export function computeFIFOLots(
       case "transfer_in":
       case "dividend":
       case "interest": {
+        // Capitalize trade fees into the cost basis of the new lot so unrealized
+        // P&L reflects the true acquisition cost (industry standard). Without
+        // this, fees would silently disappear — neither in cost basis nor in
+        // realized P&L. transfer_in/dividend/interest don't usually have fees,
+        // but we handle defensively if present.
+        const baseAmount = bn(tx.amount)
+        const lotCostUsd = baseAmount.times(priceUsd)
+        const feeUsd = tx.fee
+          ? normalizeToUsd(
+              tx.fee,
+              tx.fee_currency ?? tx.price_currency,
+              tx.date,
+              rates,
+            )
+          : BN_ZERO
+        const adjustedUnitPriceUsd = baseAmount.gt(0)
+          ? lotCostUsd.plus(feeUsd).div(baseAmount)
+          : priceUsd
+
         lots.push({
           transactionId: tx.id,
           date: tx.date,
-          amount: bn(tx.amount),
+          amount: baseAmount,
           unitPriceOriginal: bn(tx.unit_price),
           priceCurrency: tx.price_currency,
-          unitPriceUsd: priceUsd,
+          unitPriceUsd: adjustedUnitPriceUsd,
         })
         break
       }
@@ -72,13 +91,25 @@ export function computeFIFOLots(
           }
         }
 
+        // Capitalize sell fees by subtracting them from proceeds — symmetric
+        // with the buy-side treatment.
+        const sellFeeUsd = tx.fee
+          ? normalizeToUsd(
+              tx.fee,
+              tx.fee_currency ?? tx.price_currency,
+              tx.date,
+              rates,
+            )
+          : BN_ZERO
+        const netProceedsUsd = totalProceeds.minus(sellFeeUsd)
+
         realized.push({
           transactionId: tx.id,
           date: tx.date,
           amount: bn(tx.amount),
-          proceedsUsd: totalProceeds,
+          proceedsUsd: netProceedsUsd,
           costBasisUsd: totalCostBasis,
-          realizedPnlUsd: totalProceeds.minus(totalCostBasis),
+          realizedPnlUsd: netProceedsUsd.minus(totalCostBasis),
           lots: consumedLots,
         })
         break

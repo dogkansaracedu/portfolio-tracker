@@ -11,8 +11,10 @@ export default function PortfolioPage() {
     groups,
     totalValueUsd,
     totalValueTry,
+    totalPnlUsd,
+    totalPnlPct,
     totalUnrealizedPnlUsd,
-    totalUnrealizedPnlPct,
+    totalRealizedPnlUsd,
     activeAssetCount,
     loading,
     search,
@@ -43,8 +45,10 @@ export default function PortfolioPage() {
       <PortfolioSummaryBar
         totalValueUsd={totalValueUsd}
         totalValueTry={totalValueTry}
+        totalPnlUsd={totalPnlUsd}
+        totalPnlPct={totalPnlPct}
         totalUnrealizedPnlUsd={totalUnrealizedPnlUsd}
-        totalUnrealizedPnlPct={totalUnrealizedPnlPct}
+        totalRealizedPnlUsd={totalRealizedPnlUsd}
         activeAssetCount={activeAssetCount}
       />
 

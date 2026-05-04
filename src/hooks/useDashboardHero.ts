@@ -217,8 +217,8 @@ export function useDashboardHero({
     const startTry = start?.valueTry ?? 0
     const endTry = end?.valueTry ?? 0
 
-    const deltaUsd = endUsd - startUsd
-    const deltaTry = endTry - startTry
+    let deltaUsd = endUsd - startUsd
+    let deltaTry = endTry - startTry
     // Percent denominator:
     //  · Value mode → divide by the period's starting portfolio value
     //    (classic "% return on the value that was sitting there").
@@ -232,6 +232,23 @@ export function useDashboardHero({
       pctDenom = Math.abs(investedNow) || 1
     } else {
       pctDenom = Math.abs(startUsd) || 1
+    }
+
+    // Value-mode "ALL" override: the snapshot-to-snapshot delta misses any
+    // unrealized gain that already existed at the time of the first snapshot
+    // (e.g. a deposit happened before snapshots started recording, or prices
+    // moved between deposit and first snapshot). For lifetime semantics the
+    // honest answer is "current value − total invested" = total P&L. Shorter
+    // ranges keep snapshot-delta semantics because there "value change for
+    // the period" is the right reading (deposits in-period included).
+    if (viewMode === "value" && timeRange === "ALL") {
+      const investedNow = computeCurrentInvestedUsd(transactions, rates)
+      const totalPnlUsd = currentValueUsd - investedNow
+      const ratio =
+        currentValueUsd > 0 ? currentValueTry / currentValueUsd : usdTry
+      deltaUsd = totalPnlUsd
+      deltaTry = totalPnlUsd * ratio
+      pctDenom = Math.abs(investedNow) || 1
     }
     const deltaPct = pctDenom !== 0 ? (deltaUsd / pctDenom) * 100 : 0
 

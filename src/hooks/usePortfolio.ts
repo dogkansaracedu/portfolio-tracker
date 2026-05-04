@@ -54,6 +54,9 @@ interface UsePortfolioReturn {
   totalCostBasisUsd: number
   totalUnrealizedPnlUsd: number
   totalUnrealizedPnlPct: number
+  totalRealizedPnlUsd: number
+  totalPnlUsd: number
+  totalPnlPct: number
   activeAssetCount: number
   loading: boolean
   error: string | null
@@ -88,6 +91,8 @@ export function usePortfolio(): UsePortfolioReturn {
     totalCostBasisUsd,
     totalCurrentValueUsd,
     totalUnrealizedPnlUsd,
+    totalRealizedPnlUsd,
+    totalInvestedUsd,
     loading: pnlLoading,
   } = usePnL(holdings, prices)
 
@@ -354,6 +359,14 @@ export function usePortfolio(): UsePortfolioReturn {
     ? 0
     : totalUnrealizedPnlUsd.div(totalCostBasisUsd).times(100).toNumber()
 
+  // Total P&L = unrealized + realized. % uses computeCurrentInvestedUsd as the
+  // denominator — same as Dashboard hero — so the headline matches across pages.
+  const totalPnlUsdBn = totalUnrealizedPnlUsd.plus(totalRealizedPnlUsd)
+  const investedAbs = totalInvestedUsd.abs()
+  const totalPnlPct = investedAbs.isZero()
+    ? 0
+    : totalPnlUsdBn.div(investedAbs).times(100).toNumber()
+
   const refetch = async () => {
     await Promise.all([refetchAssets(), refetchHoldings()])
   }
@@ -366,6 +379,9 @@ export function usePortfolio(): UsePortfolioReturn {
     totalCostBasisUsd: totalCostBasisUsd.toNumber(),
     totalUnrealizedPnlUsd: totalUnrealizedPnlUsd.toNumber(),
     totalUnrealizedPnlPct,
+    totalRealizedPnlUsd: totalRealizedPnlUsd.toNumber(),
+    totalPnlUsd: totalPnlUsdBn.toNumber(),
+    totalPnlPct,
     activeAssetCount: activeAssets.length,
     loading,
     error,
