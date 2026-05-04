@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/prices"
+import type { CategoryAttributionRow } from "@/lib/performance"
 
 const categoryLabels: Record<string, string> = {
   fiat: "Fiat",
@@ -18,13 +19,7 @@ const categoryLabels: Record<string, string> = {
 }
 
 interface Props {
-  data: {
-    category: string
-    startUsd: number
-    endUsd: number
-    changeUsd: number
-    contributionPct: number
-  }[]
+  data: CategoryAttributionRow[]
 }
 
 export function CategoryAttribution({ data }: Props) {
@@ -35,7 +30,7 @@ export function CategoryAttribution({ data }: Props) {
           <CardTitle className="text-sm font-medium">Category Attribution</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Need at least 2 snapshots.</p>
+          <p className="text-sm text-muted-foreground">No transactions yet.</p>
         </CardContent>
       </Card>
     )
@@ -51,9 +46,9 @@ export function CategoryAttribution({ data }: Props) {
           <TableHeader>
             <TableRow>
               <TableHead>Category</TableHead>
-              <TableHead className="text-right">Start</TableHead>
-              <TableHead className="text-right">End</TableHead>
-              <TableHead className="text-right">Change</TableHead>
+              <TableHead className="text-right">Cost Basis</TableHead>
+              <TableHead className="text-right">Value</TableHead>
+              <TableHead className="text-right">P&L</TableHead>
               <TableHead className="text-right">Contribution</TableHead>
             </TableRow>
           </TableHeader>
@@ -64,18 +59,18 @@ export function CategoryAttribution({ data }: Props) {
                   {categoryLabels[row.category] ?? row.category}
                 </TableCell>
                 <TableCell className="text-right">
-                  {formatCurrency(row.startUsd, "USD")}
+                  {formatCurrency(row.costBasisUsd, "USD")}
                 </TableCell>
                 <TableCell className="text-right">
-                  {formatCurrency(row.endUsd, "USD")}
+                  {formatCurrency(row.valueUsd, "USD")}
                 </TableCell>
                 <TableCell
                   className={`text-right ${
-                    row.changeUsd >= 0 ? "text-green-600" : "text-red-600"
+                    row.pnlUsd >= 0 ? "text-green-600" : "text-red-600"
                   }`}
                 >
-                  {row.changeUsd >= 0 ? "+" : ""}
-                  {formatCurrency(row.changeUsd, "USD")}
+                  {row.pnlUsd >= 0 ? "+" : ""}
+                  {formatCurrency(row.pnlUsd, "USD")}
                 </TableCell>
                 <TableCell
                   className={`text-right ${

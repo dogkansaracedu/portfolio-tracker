@@ -5,23 +5,33 @@ import { formatCurrency, obfuscate } from "@/lib/prices"
 interface PortfolioSummaryBarProps {
   totalValueUsd: number
   totalValueTry: number
+  totalPnlUsd: number
+  totalPnlPct: number
   totalUnrealizedPnlUsd: number
-  totalUnrealizedPnlPct: number
+  totalRealizedPnlUsd: number
   activeAssetCount: number
+}
+
+function signedCurrency(value: number, currency: "USD" | "TRY"): string {
+  const sign = value >= 0 ? "+" : "−"
+  return `${sign}${formatCurrency(Math.abs(value), currency)}`
 }
 
 export function PortfolioSummaryBar({
   totalValueUsd,
   totalValueTry,
+  totalPnlUsd,
+  totalPnlPct,
   totalUnrealizedPnlUsd,
-  totalUnrealizedPnlPct,
+  totalRealizedPnlUsd,
   activeAssetCount,
 }: PortfolioSummaryBarProps) {
   const { currency, obfuscated } = useDisplayCurrency()
   const o = (v: string) => obfuscate(v, obfuscated)
 
   const displayValue = currency === "USD" ? totalValueUsd : totalValueTry
-  const pnlIsPositive = totalUnrealizedPnlUsd >= 0
+  const pnlIsPositive = totalPnlUsd >= 0
+  const hasRealized = Math.abs(totalRealizedPnlUsd) > 0.005
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -41,17 +51,14 @@ export function PortfolioSummaryBar({
       <Card size="sm">
         <CardContent>
           <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">
-              Unrealized P&L
-            </span>
+            <span className="text-xs text-muted-foreground">P&L</span>
             <div className="flex items-baseline gap-2">
               <span
                 className={`text-xl font-bold tabular-nums ${
                   pnlIsPositive ? "text-emerald-600" : "text-red-500"
                 }`}
               >
-                {pnlIsPositive ? "+" : ""}
-                {o(formatCurrency(totalUnrealizedPnlUsd, "USD"))}
+                {o(signedCurrency(totalPnlUsd, "USD"))}
               </span>
               <span
                 className={`text-sm ${
@@ -59,9 +66,16 @@ export function PortfolioSummaryBar({
                 }`}
               >
                 ({pnlIsPositive ? "+" : ""}
-                {totalUnrealizedPnlPct.toFixed(2)}%)
+                {totalPnlPct.toFixed(2)}%)
               </span>
             </div>
+            {hasRealized && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Unrealized {o(signedCurrency(totalUnrealizedPnlUsd, "USD"))}
+                {" · "}
+                Realized {o(signedCurrency(totalRealizedPnlUsd, "USD"))}
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>

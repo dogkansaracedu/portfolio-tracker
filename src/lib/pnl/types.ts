@@ -61,4 +61,10 @@ export interface PortfolioPnL {
   totalCurrentValueUsd: BigNumber
   totalUnrealizedPnlUsd: BigNumber
   totalRealizedPnlUsd: BigNumber
+  /**
+   * Cash-flow net invested capital (buys + fees − sells − dividends, with
+   * transfers cancelling). Same denominator the Dashboard P&L card uses, so
+   * surfaces using this for the % match exactly.
+   */
+  totalInvestedUsd: BigNumber
 }
