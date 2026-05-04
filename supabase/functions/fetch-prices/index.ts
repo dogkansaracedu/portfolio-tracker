@@ -197,7 +197,15 @@ Deno.serve(async (req) => {
 
         try {
           const yahooRes = await fetch(
-            `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`
+            `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`,
+            {
+              headers: {
+                "User-Agent":
+                  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                Accept: "application/json,text/plain,*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+              },
+            }
           )
 
           if (!yahooRes.ok) {
@@ -259,6 +267,29 @@ Deno.serve(async (req) => {
   ])
 
   totalUpdated += cgUpdated + yahooUpdated
+
+  // ──────────────────────────────────────────────────────────────
+  // Step 4: Trigger today's snapshot now that prices are fresh.
+  // Fire-and-forget; failures here don't fail the price refresh.
+  // ──────────────────────────────────────────────────────────────
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    fetch(`${supabaseUrl}/functions/v1/take-snapshots`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+      },
+      body: "{}",
+    }).catch((err) => {
+      console.error("take-snapshots invoke failed:", err)
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown snapshot error"
+    errors.push(`take-snapshots: ${msg}`)
+  }
 
   const result = {
     updated: totalUpdated,

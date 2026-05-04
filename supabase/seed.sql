@@ -6,11 +6,3 @@ VALUES
   ('2026-04-01', 'tcmb', 44.50, 51.56, 1.09, 6610)
 ON CONFLICT DO NOTHING;
 
--- Seed price_cache for manual assets
-INSERT INTO public.price_cache (ticker, price_usd, price_try, source, updated_at)
-VALUES
-  ('ARABA', 21348.31, 950000, 'manual', now())
-ON CONFLICT (ticker) DO UPDATE SET
-  price_usd = EXCLUDED.price_usd,
-  price_try = EXCLUDED.price_try,
-  updated_at = EXCLUDED.updated_at;

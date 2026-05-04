@@ -165,3 +165,44 @@ export async function createSnapshot(
   if (error) throw error
   return data
 }
+
+// ─── Backfill Edge Function ─────────────────────────────────────────
+
+export type BackfillGranularity = "monthly" | "tx_dates"
+
+export interface BackfillOptions {
+  granularity: BackfillGranularity
+  overwrite: boolean
+}
+
+export interface BackfillResult {
+  target_dates: string[]
+  target_count: number
+  snapshots_written: number
+  tickers_priced: string[]
+  sample: Array<{ date: string; total_usd: number; total_try: number }>
+  errors?: string[]
+  timestamp: string
+}
+
+/**
+ * Trigger the `backfill-snapshots` Edge Function. Generates one snapshot
+ * per target date (every month-start since the earliest transaction, or
+ * one per transaction date) by replaying transactions and pulling
+ * historical prices from CoinGecko / Yahoo Finance.
+ *
+ * Long-running: typically 30–90 seconds depending on the number of
+ * unique tickers. Optionally overwrites existing snapshots in the
+ * targeted (user, date) range.
+ */
+export async function triggerBackfillSnapshots(
+  opts: BackfillOptions,
+): Promise<BackfillResult> {
+  const { data, error } = await supabase.functions.invoke<BackfillResult>(
+    "backfill-snapshots",
+    { body: opts },
+  )
+  if (error) throw error
+  if (!data) throw new Error("backfill-snapshots returned no data")
+  return data
+}
