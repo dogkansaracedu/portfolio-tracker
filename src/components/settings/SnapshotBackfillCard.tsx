@@ -24,13 +24,13 @@ const GRANULARITY_OPTIONS: {
 }[] = [
   {
     value: "monthly",
-    label: "Aylık + son 30 gün günlük",
-    hint: "Her ayın 1'i için bir snapshot, ek olarak son 30 günün her günü için bir snapshot. 1G / 1H aralıklarının dolu görünmesi için önerilen seçenek.",
+    label: "Monthly + last 30 days daily",
+    hint: "One snapshot for the 1st of every month, plus one snapshot for each of the last 30 days. Recommended so the 1D / 1W ranges look populated.",
   },
   {
     value: "tx_dates",
-    label: "Her tx günü",
-    hint: "Sadece transaction'ın geçtiği günler için snapshot. Daha hassas ama daha fazla satır.",
+    label: "Each transaction day",
+    hint: "Only snapshots for days a transaction occurred. More precise, but more rows.",
   },
 ]
 
@@ -49,24 +49,24 @@ export function SnapshotBackfillCard() {
       const errCount = result.errors?.length ?? 0
       if (result.snapshots_written > 0) {
         toast.success(
-          `${result.snapshots_written} snapshot yazıldı (${result.target_count} hedef tarih)`,
+          `Wrote ${result.snapshots_written} snapshot${result.snapshots_written === 1 ? "" : "s"} (${result.target_count} target date${result.target_count === 1 ? "" : "s"})`,
           {
             description:
               errCount > 0
-                ? `${errCount} fiyat kaynağı uyarı verdi — detaylar aşağıda.`
+                ? `${errCount} price source warning${errCount === 1 ? "" : "s"} — details below.`
                 : undefined,
           },
         )
       } else if (errCount > 0) {
-        toast.error("Backfill tamamlandı ama snapshot yazılmadı", {
+        toast.error("Backfill completed but no snapshots were written", {
           description: result.errors?.[0],
         })
       } else {
-        toast.message("Backfill tamamlandı, yazılacak yeni snapshot yok.")
+        toast.message("Backfill complete — no new snapshots to write.")
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      toast.error("Backfill başarısız", { description: message })
+      toast.error("Backfill failed", { description: message })
     } finally {
       setRunning(false)
     }
@@ -77,18 +77,18 @@ export function SnapshotBackfillCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <History className="h-4 w-4" />
-          Geriye Dönük Snapshot
+          Historical Snapshots
         </CardTitle>
         <CardDescription>
-          Önce eksik transaction'ları gir, sonra çalıştır. CoinGecko ve
-          Yahoo'dan tarihsel fiyat çekilir, ~30–90 sn sürer.
+          Enter any missing transactions first, then run. Pulls historical
+          prices from CoinGecko and Yahoo — takes ~30–90 sec.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-5">
         {/* Granularity */}
         <div className="space-y-2">
-          <p className="text-sm font-medium">Granularite</p>
+          <p className="text-sm font-medium">Granularity</p>
           <div className="flex flex-wrap gap-2">
             {GRANULARITY_OPTIONS.map((opt) => (
               <button
@@ -123,11 +123,12 @@ export function SnapshotBackfillCard() {
           />
           <div className="space-y-0.5">
             <p className="text-sm font-medium leading-none">
-              Mevcut snapshot'ları üzerine yaz
+              Overwrite existing snapshots
             </p>
             <p className="text-xs text-muted-foreground">
-              Hedef tarihlerde mevcut snapshot'lar silinip yeniden yazılır.
-              Kapalıysa onConflict ile sadece total/breakdown güncellenir.
+              Existing snapshots on target dates are deleted and rewritten.
+              When off, conflicts upsert and only total / breakdown are
+              updated.
             </p>
           </div>
         </label>
@@ -135,7 +136,7 @@ export function SnapshotBackfillCard() {
         {/* Action */}
         <div className="flex items-center justify-between gap-3 border-t pt-4">
           <p className="text-xs text-muted-foreground">
-            {overwrite ? "Eski snapshot'lar silinecek." : "Çakışanlar upsert ile güncellenecek."}
+            {overwrite ? "Existing snapshots will be deleted." : "Conflicts will be upserted."}
           </p>
           <Button onClick={handleRun} disabled={running} size="sm">
             {running ? (
@@ -143,7 +144,7 @@ export function SnapshotBackfillCard() {
             ) : (
               <History className="mr-2 h-4 w-4" />
             )}
-            {running ? "Çalışıyor…" : "Backfill çalıştır"}
+            {running ? "Running…" : "Run backfill"}
           </Button>
         </div>
 
@@ -151,17 +152,17 @@ export function SnapshotBackfillCard() {
         {lastResult && (
           <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-xs">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Stat label="Hedef tarih" value={String(lastResult.target_count)} />
+              <Stat label="Target dates" value={String(lastResult.target_count)} />
               <Stat
-                label="Yazılan snapshot"
+                label="Snapshots written"
                 value={String(lastResult.snapshots_written)}
               />
               <Stat
-                label="Fiyatlanan ticker"
+                label="Tickers priced"
                 value={String(lastResult.tickers_priced.length)}
               />
               <Stat
-                label="Hata"
+                label="Errors"
                 value={String(lastResult.errors?.length ?? 0)}
               />
             </div>
@@ -170,7 +171,7 @@ export function SnapshotBackfillCard() {
               <div className="space-y-1 rounded-md border border-amber-500/40 bg-amber-50 p-2 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
                 <p className="flex items-center gap-1 font-medium">
                   <AlertTriangle className="h-3 w-3" />
-                  Uyarılar
+                  Warnings
                 </p>
                 <ul className="list-inside list-disc space-y-0.5">
                   {lastResult.errors.slice(0, 5).map((e, i) => (
@@ -179,7 +180,7 @@ export function SnapshotBackfillCard() {
                     </li>
                   ))}
                   {lastResult.errors.length > 5 && (
-                    <li>… ve {lastResult.errors.length - 5} tane daha</li>
+                    <li>… and {lastResult.errors.length - 5} more</li>
                   )}
                 </ul>
               </div>

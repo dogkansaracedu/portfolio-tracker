@@ -102,7 +102,13 @@ export function computeFIFOLots(
       }
 
       case "fee": {
-        // Fee reduces balance. Treat as a realized loss.
+        // Fees are modeled two-sidedly: we consume FIFO lots (so the
+        // remaining cost basis stays correct) AND record a realized loss
+        // equal to the fee's *current* market value (-feeCostUsd). When
+        // cost basis ≠ market value at the time of the fee, this slightly
+        // double-counts the gap on that fee unit — kept intentionally for
+        // self-consistency: the consumed lots zero out, and the loss
+        // reflects what was actually paid in today's terms.
         const feeCostUsd = bn(tx.amount).times(priceUsd)
         let remaining = bn(tx.amount)
         let totalCostBasis = BN_ZERO

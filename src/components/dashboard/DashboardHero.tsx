@@ -25,29 +25,29 @@ interface DashboardHeroProps {
 }
 
 const TIME_RANGES: { id: TimeRange; label: string }[] = [
-  { id: "1D", label: "1G" },
-  { id: "1W", label: "1H" },
-  { id: "1M", label: "1A" },
-  { id: "3M", label: "3A" },
+  { id: "1D", label: "1D" },
+  { id: "1W", label: "1W" },
+  { id: "1M", label: "1M" },
+  { id: "3M", label: "3M" },
   { id: "YTD", label: "YTD" },
   { id: "1Y", label: "1Y" },
-  { id: "ALL", label: "TÜM" },
+  { id: "ALL", label: "ALL" },
 ]
 
 const VIEW_MODES: { id: HeroViewMode; label: string }[] = [
-  { id: "value", label: "Değer" },
-  { id: "pnl", label: "Kar / Zarar" },
+  { id: "value", label: "Value" },
+  { id: "pnl", label: "P&L" },
 ]
 
 const RANGE_LABELS: Record<TimeRange, string> = {
-  "1D": "son 1 gün",
-  "1W": "son 1 hafta",
-  "1M": "son 1 ay",
-  "3M": "son 3 ay",
-  "6M": "son 6 ay",
-  YTD: "yıl başından beri",
-  "1Y": "son 1 yıl",
-  ALL: "tüm zamanlar",
+  "1D": "past day",
+  "1W": "past week",
+  "1M": "past month",
+  "3M": "past 3 months",
+  "6M": "past 6 months",
+  YTD: "year to date",
+  "1Y": "past year",
+  ALL: "all time",
 }
 
 function formatPct(value: number): string {
@@ -175,8 +175,8 @@ export default function DashboardHero({
         <div className="space-y-1">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {viewMode === "value"
-              ? "Toplam Değer"
-              : `Kar / Zarar · ${RANGE_LABELS[timeRange]}`}
+              ? "Total Value"
+              : `P&L · ${RANGE_LABELS[timeRange]}`}
           </p>
           <p
             className={cn(
@@ -209,7 +209,7 @@ export default function DashboardHero({
               </span>
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">
-                Toplam{" "}
+                Total{" "}
                 <span className={cn("font-medium", totalPnlColor)}>
                   {obfuscate(
                     formatSigned(
@@ -223,7 +223,7 @@ export default function DashboardHero({
               </span>
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">
-                Yatırılan{" "}
+                Invested{" "}
                 {obfuscate(
                   formatCurrency(
                     currency === "USD" ? investedNowUsd : investedNowTry,
@@ -284,7 +284,7 @@ export default function DashboardHero({
                         : formatCurrency(Number(value), currency),
                       obfuscated,
                     ),
-                    viewMode === "value" ? "Değer" : "Kar/Zarar",
+                    viewMode === "value" ? "Value" : "P&L",
                   ]}
                   labelFormatter={(label) => String(label)}
                 />
@@ -309,7 +309,7 @@ export default function DashboardHero({
         ) : (
           <div className="flex h-[220px] items-center justify-center rounded-lg border border-dashed">
             <p className="text-sm text-muted-foreground">
-              Bu zaman aralığı için yeterli veri yok.
+              Not enough data for this time range.
             </p>
           </div>
         )}

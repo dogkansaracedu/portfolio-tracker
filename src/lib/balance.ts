@@ -13,7 +13,7 @@ export async function recalculateBalance(
   userId: string,
   assetId: string,
   platformId: string,
-): Promise<number> {
+): Promise<string> {
   const { data: transactions, error } = await supabase
     .from("transactions")
     .select("type, amount")
@@ -34,14 +34,17 @@ export async function recalculateBalance(
     }
   }
 
-  const balanceNum = balance.toNumber()
+  // Pass the BigNumber as a string so the Postgres `numeric` column stores
+  // full precision; .toNumber() would silently round token decimals beyond
+  // ~15-17 sig figs.
+  const balanceStr = balance.toFixed()
 
   const { error: upsertError } = await supabase.from("holdings").upsert(
     {
       user_id: userId,
       asset_id: assetId,
       platform_id: platformId,
-      balance: balanceNum,
+      balance: balanceStr,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id,asset_id,platform_id" },
@@ -49,5 +52,5 @@ export async function recalculateBalance(
 
   if (upsertError) throw upsertError
 
-  return balanceNum
+  return balanceStr
 }

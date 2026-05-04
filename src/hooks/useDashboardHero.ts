@@ -156,7 +156,7 @@ export function useDashboardHero({
     // lifetime cumulative P&L (instead of "P&L change since first
     // snapshot", which silently drops any unrealized gain that already
     // existed at the moment of the first snapshot — a pre-existing bug
-    // that made the headline number disagree with the "Toplam" subtitle).
+    // that made the headline number disagree with the "Total" subtitle).
     //
     // For shorter ranges (1M/3M/YTD/1Y), filterByTimeRange picks the
     // closest snapshot before the cutoff as anchor, so this 0-point only
