@@ -1,7 +1,23 @@
 import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
-import type { Snapshot } from "@/types/database"
+import { normalizeToUsd } from "@/lib/pnl/currency"
+import type { Snapshot, Transaction, ExchangeRate } from "@/types/database"
 
-export type TimeRange = "1M" | "3M" | "6M" | "YTD" | "1Y" | "ALL"
+export type TimeRange =
+  | "1D"
+  | "1W"
+  | "1M"
+  | "3M"
+  | "6M"
+  | "YTD"
+  | "1Y"
+  | "ALL"
+
+export interface PnLPoint {
+  date: string
+  totalUsd: number
+  investedUsd: number
+  pnlUsd: number
+}
 
 export interface MonthlyReturn {
   month: string // "2026-03"
@@ -31,6 +47,15 @@ function formatMonthLabel(dateStr: string): string {
   return `${monthLabels[d.getMonth()]} ${d.getFullYear()}`
 }
 
+function pad2(n: number): string {
+  return n.toString().padStart(2, "0")
+}
+
+/** Local-date "YYYY-MM-DD" string (avoids timezone drift from toISOString). */
+function localIso(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
 export function filterByTimeRange(
   snapshots: Snapshot[],
   range: TimeRange,
@@ -41,6 +66,12 @@ export function filterByTimeRange(
   let cutoff: Date
 
   switch (range) {
+    case "1D":
+      cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+      break
+    case "1W":
+      cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
+      break
     case "1M":
       cutoff = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
       break
@@ -58,8 +89,37 @@ export function filterByTimeRange(
       break
   }
 
-  const cutoffStr = cutoff.toISOString().slice(0, 10)
-  return snapshots.filter((s) => s.snapshot_date >= cutoffStr)
+  const cutoffStr = localIso(cutoff)
+  const inRange = snapshots.filter((s) => s.snapshot_date >= cutoffStr)
+
+  // For ranges of 1 month or longer, include the latest snapshot strictly
+  // before the cutoff as a "start anchor". This keeps the chart populated
+  // when snapshot granularity is monthly (e.g. monthly snapshots and a "1M"
+  // window where the closest snapshot is just outside the window). We do
+  // NOT do this for 1D / 1W because extending those back to a month-ago
+  // snapshot would misrepresent the requested range.
+  const supportsAnchor =
+    range === "1M" ||
+    range === "3M" ||
+    range === "6M" ||
+    range === "YTD" ||
+    range === "1Y"
+
+  if (supportsAnchor) {
+    let anchorIdx = -1
+    for (let i = 0; i < snapshots.length; i++) {
+      if (snapshots[i].snapshot_date < cutoffStr) {
+        anchorIdx = i
+      } else {
+        break
+      }
+    }
+    if (anchorIdx >= 0) {
+      return [snapshots[anchorIdx], ...inRange]
+    }
+  }
+
+  return inRange
 }
 
 export function computeMonthlyReturns(snapshots: Snapshot[]): MonthlyReturn[] {
@@ -216,4 +276,125 @@ export function computePerformanceMetrics(
     worstMonth,
     drawdownSeries,
   }
+}
+
+/**
+ * Apply a single transaction's impact on cumulative net invested capital (USD).
+ *
+ * Convention used here:
+ *   buy            -> +total + fee   (real cash deployed for an asset)
+ *   sell           -> -total + fee   (cash returned, fee still consumed)
+ *   transfer_in    -> +total         (cost basis carried in — opening
+ *                                     balance or platform-to-platform move)
+ *   transfer_out   -> -total         (cost basis carried out — symmetric)
+ *   dividend       -> -total         (cash returned to the account)
+ *   interest       -> -total         (cash returned to the account)
+ *   fee            -> +fee || +total (standalone fee — pure cost)
+ *
+ * For genuine platform-to-platform transfers (a transfer_out paired with a
+ * transfer_in of equal cost basis), the two cancel and the net invested
+ * stays unchanged. For "loading event" / opening-balance entries (a lone
+ * transfer_in with no matching out), the cost basis recorded on the
+ * transaction is added to invested capital — so the asset doesn't appear
+ * to be "free" relative to its current value.
+ */
+function applyTxToInvested(
+  tx: Transaction,
+  rates: ExchangeRate[],
+  cum: ReturnType<typeof bn>,
+): ReturnType<typeof bn> {
+  const totalUsd = normalizeToUsd(
+    tx.total_cost ?? 0,
+    tx.price_currency,
+    tx.date,
+    rates,
+  )
+  const feeUsd = tx.fee
+    ? normalizeToUsd(tx.fee, tx.fee_currency ?? tx.price_currency, tx.date, rates)
+    : bn(0)
+
+  switch (tx.type) {
+    case "buy":
+      return cum.plus(totalUsd).plus(feeUsd)
+    case "sell":
+      return cum.minus(totalUsd).plus(feeUsd)
+    case "transfer_in":
+      return cum.plus(totalUsd)
+    case "transfer_out":
+      return cum.minus(totalUsd)
+    case "dividend":
+    case "interest":
+      return cum.minus(totalUsd)
+    case "fee":
+      return cum.plus(feeUsd.isZero() ? totalUsd : feeUsd)
+    default:
+      return cum
+  }
+}
+
+/**
+ * Compute a P&L time series from snapshots and transactions.
+ *
+ * P&L at time T is defined as `total_value(T) - net_invested_capital(T)`.
+ * Net invested capital is the cumulative cost basis deployed: buys plus
+ * fees minus sells minus dividends/interest received, with `transfer_in`
+ * adding and `transfer_out` subtracting the recorded cost basis. Real
+ * platform-to-platform transfers cancel out (out + in net to zero);
+ * opening-balance entries (lone `transfer_in`s) correctly add their cost
+ * basis so the asset isn't treated as zero-cost.
+ *
+ * Transactions must be sortable by date. Rates are used to normalize
+ * non-USD totals to USD.
+ */
+export function computePnLTimeSeries(
+  snapshots: Snapshot[],
+  transactions: Transaction[],
+  rates: ExchangeRate[],
+): PnLPoint[] {
+  if (snapshots.length === 0) return []
+
+  const txs = [...transactions].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  )
+
+  const series: PnLPoint[] = []
+  let cumInvested = bn(0)
+  let txIdx = 0
+
+  for (const snap of snapshots) {
+    const cutoff = snap.snapshot_date
+
+    while (txIdx < txs.length && txs[txIdx].date <= cutoff) {
+      cumInvested = applyTxToInvested(txs[txIdx], rates, cumInvested)
+      txIdx++
+    }
+
+    const totalUsd = bn(snap.total_usd ?? 0)
+    const pnl = totalUsd.minus(cumInvested)
+
+    series.push({
+      date: snap.snapshot_date,
+      totalUsd: totalUsd.toNumber(),
+      investedUsd: cumInvested.toNumber(),
+      pnlUsd: pnl.toNumber(),
+    })
+  }
+
+  return series
+}
+
+/**
+ * Compute the current cumulative net invested capital in USD across all
+ * transactions (treats all transactions as "applied" through "now"). Used
+ * to anchor the live "now" point in the P&L series.
+ */
+export function computeCurrentInvestedUsd(
+  transactions: Transaction[],
+  rates: ExchangeRate[],
+): number {
+  let cum = bn(0)
+  for (const tx of transactions) {
+    cum = applyTxToInvested(tx, rates, cum)
+  }
+  return cum.toNumber()
 }

@@ -2,8 +2,7 @@ import { Link } from "react-router"
 import { useDashboard } from "@/hooks/useDashboard"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import NetWorthCard from "@/components/dashboard/NetWorthCard"
-import PortfolioMetricsCard from "@/components/dashboard/PortfolioMetricsCard"
+import DashboardHero from "@/components/dashboard/DashboardHero"
 import AllocationChart from "@/components/dashboard/AllocationChart"
 import TagBreakdown from "@/components/dashboard/TagBreakdown"
 import PlatformBreakdown from "@/components/dashboard/PlatformBreakdown"
@@ -19,6 +18,23 @@ function SkeletonCard({ className }: { className?: string }) {
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-36" />
         <Skeleton className="h-4 w-24" />
+      </CardContent>
+    </Card>
+  )
+}
+
+function SkeletonHero() {
+  return (
+    <Card>
+      <CardContent className="space-y-5 pt-2">
+        <Skeleton className="h-9 w-48" />
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-10 w-72" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <Skeleton className="h-[220px] w-full" />
+        <Skeleton className="h-8 w-80" />
       </CardContent>
     </Card>
   )
@@ -50,19 +66,18 @@ export default function DashboardPage() {
     byTag,
     byPlatform,
     topMovers,
-    balanceChange,
-    investmentPnL,
     snapshots,
+    usdTry,
     loading,
   } = useDashboard()
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <SkeletonCard />
+        <SkeletonHero />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <SkeletonChartCard />
           <SkeletonCard />
+          <SkeletonChartCard />
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <SkeletonCard />
@@ -98,17 +113,11 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <NetWorthCard
-        totalValueUsd={totalValueUsd}
-        totalValueTry={totalValueTry}
-      />
-
-      <PortfolioMetricsCard
+      <DashboardHero
         snapshots={snapshots}
         currentValueUsd={totalValueUsd}
         currentValueTry={totalValueTry}
-        balanceChange={balanceChange}
-        investmentPnL={investmentPnL}
+        usdTry={usdTry}
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -124,7 +133,6 @@ export default function DashboardPage() {
         <PlatformBreakdown byPlatform={byPlatform} />
         <TopMovers topMovers={topMovers} />
       </div>
-
     </div>
   )
 }

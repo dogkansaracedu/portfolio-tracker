@@ -1,0 +1,239 @@
+import { createClient } from "jsr:@supabase/supabase-js@2"
+
+interface HoldingRow {
+  user_id: string
+  balance: number
+  assets: {
+    ticker: string
+    name: string
+    category: string
+    tags: string[] | null
+    is_active: boolean
+  } | null
+  platforms: { name: string; color: string } | null
+}
+
+interface PriceRow {
+  ticker: string
+  price_usd: number | null
+  price_try: number | null
+}
+
+interface RateRow {
+  usd_try: number | null
+  eur_try: number | null
+  gold_gram_try: number | null
+}
+
+interface CategoryAgg {
+  usd: number
+  try_val: number
+}
+
+interface ScalarAgg {
+  usd: number
+}
+
+interface AssetEntry {
+  ticker: string
+  name: string
+  platform: string
+  amount: number
+  price_usd: number
+  value_usd: number
+}
+
+Deno.serve(async (req) => {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+  }
+
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders })
+  }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } }
+  )
+
+  const today = new Date().toISOString().slice(0, 10)
+  const errors: string[] = []
+  let usersProcessed = 0
+  let snapshotsWritten = 0
+
+  // ── Load shared data once ──────────────────────────────────────────
+  const { data: priceRows, error: priceErr } = await supabase
+    .from("price_cache")
+    .select("ticker, price_usd, price_try")
+
+  if (priceErr) {
+    return new Response(
+      JSON.stringify({ error: `price_cache: ${priceErr.message}` }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    )
+  }
+
+  const prices: Record<string, PriceRow> = {}
+  for (const p of (priceRows ?? []) as PriceRow[]) {
+    prices[p.ticker] = p
+  }
+
+  const { data: rateRow } = await supabase
+    .from("exchange_rates")
+    .select("usd_try, eur_try, gold_gram_try")
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const rates: RateRow = (rateRow as RateRow | null) ?? {
+    usd_try: null,
+    eur_try: null,
+    gold_gram_try: null,
+  }
+  const usdTry = rates.usd_try ?? 1
+  const eurTry = rates.eur_try ?? 0
+  const goldGramTry = rates.gold_gram_try ?? 0
+
+  // ── Load all holdings across all users in one shot ─────────────────
+  const { data: holdingRows, error: holdingsErr } = await supabase
+    .from("holdings")
+    .select(
+      "user_id, balance, assets(ticker, name, category, tags, is_active), platforms(name, color)"
+    )
+    .neq("balance", 0)
+
+  if (holdingsErr) {
+    return new Response(
+      JSON.stringify({ error: `holdings: ${holdingsErr.message}` }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    )
+  }
+
+  const holdings = (holdingRows ?? []) as unknown as HoldingRow[]
+
+  // Group by user_id
+  const byUser = new Map<string, HoldingRow[]>()
+  for (const h of holdings) {
+    if (!h.assets || !h.platforms) continue
+    if (!h.assets.is_active) continue
+    if (h.balance <= 0) continue
+    const arr = byUser.get(h.user_id) ?? []
+    arr.push(h)
+    byUser.set(h.user_id, arr)
+  }
+
+  // ── Build & upsert one snapshot per user ───────────────────────────
+  const snapshotInserts: Array<{
+    user_id: string
+    snapshot_date: string
+    total_usd: number
+    total_try: number
+    breakdown: unknown
+  }> = []
+
+  for (const [userId, userHoldings] of byUser) {
+    const byAsset: AssetEntry[] = []
+    const categoryTotals: Record<string, CategoryAgg> = {}
+    const platformTotals: Record<string, ScalarAgg> = {}
+    const tagTotals: Record<string, ScalarAgg> = {}
+    let totalUsd = 0
+    let totalTry = 0
+
+    for (const h of userHoldings) {
+      const asset = h.assets!
+      const platform = h.platforms!
+      const price = prices[asset.ticker]
+      const priceUsd = price?.price_usd ?? 0
+      const priceTry = price?.price_try ?? priceUsd * usdTry
+
+      const valueUsd = h.balance * priceUsd
+      const valueTry = h.balance * priceTry
+
+      totalUsd += valueUsd
+      totalTry += valueTry
+
+      byAsset.push({
+        ticker: asset.ticker,
+        name: asset.name,
+        platform: platform.name,
+        amount: h.balance,
+        price_usd: priceUsd,
+        value_usd: valueUsd,
+      })
+
+      const cat = asset.category
+      if (!categoryTotals[cat]) categoryTotals[cat] = { usd: 0, try_val: 0 }
+      categoryTotals[cat].usd += valueUsd
+      categoryTotals[cat].try_val += valueTry
+
+      const plat = platform.name
+      if (!platformTotals[plat]) platformTotals[plat] = { usd: 0 }
+      platformTotals[plat].usd += valueUsd
+
+      for (const tag of asset.tags ?? []) {
+        if (!tagTotals[tag]) tagTotals[tag] = { usd: 0 }
+        tagTotals[tag].usd += valueUsd
+      }
+    }
+
+    const safeDiv = (n: number) => (totalUsd > 0 ? (n / totalUsd) * 100 : 0)
+
+    const byCategory: Record<string, { usd: number; try: number; pct: number }> = {}
+    for (const [k, v] of Object.entries(categoryTotals)) {
+      byCategory[k] = { usd: v.usd, try: v.try_val, pct: safeDiv(v.usd) }
+    }
+
+    const byPlatform: Record<string, { usd: number; pct: number }> = {}
+    for (const [k, v] of Object.entries(platformTotals)) {
+      byPlatform[k] = { usd: v.usd, pct: safeDiv(v.usd) }
+    }
+
+    const byTag: Record<string, { usd: number; pct: number }> = {}
+    for (const [k, v] of Object.entries(tagTotals)) {
+      byTag[k] = { usd: v.usd, pct: safeDiv(v.usd) }
+    }
+
+    snapshotInserts.push({
+      user_id: userId,
+      snapshot_date: today,
+      total_usd: totalUsd,
+      total_try: totalTry,
+      breakdown: {
+        rates: { usd_try: usdTry, eur_try: eurTry, gold_gram_try: goldGramTry },
+        by_category: byCategory,
+        by_platform: byPlatform,
+        by_tag: byTag,
+        by_asset: byAsset,
+      },
+    })
+    usersProcessed++
+  }
+
+  if (snapshotInserts.length > 0) {
+    const { error: upsertErr, data: upserted } = await supabase
+      .from("snapshots")
+      .upsert(snapshotInserts, { onConflict: "user_id,snapshot_date" })
+      .select("id")
+
+    if (upsertErr) {
+      errors.push(`snapshots upsert: ${upsertErr.message}`)
+    } else {
+      snapshotsWritten = upserted?.length ?? 0
+    }
+  }
+
+  return new Response(
+    JSON.stringify({
+      date: today,
+      users: usersProcessed,
+      snapshots: snapshotsWritten,
+      errors: errors.length > 0 ? errors : undefined,
+      timestamp: new Date().toISOString(),
+    }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  )
+})

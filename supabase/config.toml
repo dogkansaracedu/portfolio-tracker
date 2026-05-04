@@ -368,6 +368,18 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Allow pg_cron and other internal callers to invoke take-snapshots
+# without auth. The function only operates server-side and writes today's
+# snapshot using the service role key from env; callers cannot inject data.
+[functions.take-snapshots]
+verify_jwt = false
+
+# Backfill function — invoked manually (via curl) to seed historical
+# snapshots from external price APIs. No JWT needed; service role is
+# loaded from env inside the function.
+[functions.backfill-snapshots]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
