@@ -5,8 +5,6 @@ import { useHoldings } from "@/hooks/useHoldings"
 import { usePrices } from "@/hooks/usePrices"
 import { usePnL } from "@/hooks/usePnL"
 import { useSnapshots } from "@/hooks/useSnapshots"
-import type { PriceCache } from "@/types/database"
-import type { HoldingWithDetails } from "@/lib/queries/holdings"
 import type { AssetPnL } from "@/lib/pnl/types"
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -74,16 +72,6 @@ const OZ_TO_GRAMS = 31.1035
 /** Tickers whose balance should be converted from oz to grams for display. */
 const GOLD_OZ_TICKERS = new Set(["paxgold", "tether-gold"])
 
-function computeHoldingValue(
-  h: HoldingWithDetails,
-  prices: Record<string, PriceCache>,
-): { usd: BigNumber; try_: BigNumber } {
-  const price = prices[h.assets.ticker]
-  const usd = bn(h.balance).times(bn(price?.price_usd))
-  const try_ = bn(h.balance).times(bn(price?.price_try))
-  return { usd, try_ }
-}
-
 // ─── Hook ───────────────────────────────────────────────────────────
 
 export function useDashboard(): DashboardData {
@@ -119,34 +107,58 @@ export function useDashboard(): DashboardData {
     let totalValueUsd = BN_ZERO
     let totalValueTry = BN_ZERO
 
+    const categoryMap = new Map<string, { valueUsd: BigNumber; valueTry: BigNumber }>()
+    const platformMap = new Map<string, { color: string; valueUsd: BigNumber; valueTry: BigNumber }>()
+    const tagMap = new Map<string, { valueUsd: BigNumber; valueTry: BigNumber; quantity: BigNumber }>()
+
+    // Single pass: compute per-holding value once, then accumulate into
+    // totals and the category / platform / tag buckets.
     for (const h of holdings) {
-      const { usd, try_ } = computeHoldingValue(h, prices)
+      const price = prices[h.assets.ticker]
+      const balance = bn(h.balance)
+      const usd = balance.times(bn(price?.price_usd))
+      const try_ = balance.times(bn(price?.price_try))
+
       totalValueUsd = totalValueUsd.plus(usd)
       totalValueTry = totalValueTry.plus(try_)
-    }
 
-    // ── By category (mutually exclusive) ─────────────────────────
-    const categoryMap = new Map<
-      string,
-      { valueUsd: BigNumber; valueTry: BigNumber }
-    >()
-
-    for (const h of holdings) {
-      const { usd, try_ } = computeHoldingValue(h, prices)
       const cat = h.assets.category
-      const existing = categoryMap.get(cat) ?? {
-        valueUsd: BN_ZERO,
-        valueTry: BN_ZERO,
+      const catExisting = categoryMap.get(cat)
+      if (catExisting) {
+        catExisting.valueUsd = catExisting.valueUsd.plus(usd)
+        catExisting.valueTry = catExisting.valueTry.plus(try_)
+      } else {
+        categoryMap.set(cat, { valueUsd: usd, valueTry: try_ })
       }
-      categoryMap.set(cat, {
-        valueUsd: existing.valueUsd.plus(usd),
-        valueTry: existing.valueTry.plus(try_),
-      })
+
+      const platKey = h.platforms.name
+      const platExisting = platformMap.get(platKey)
+      if (platExisting) {
+        platExisting.valueUsd = platExisting.valueUsd.plus(usd)
+        platExisting.valueTry = platExisting.valueTry.plus(try_)
+      } else {
+        platformMap.set(platKey, { color: h.platforms.color, valueUsd: usd, valueTry: try_ })
+      }
+
+      const tags = h.assets.tags ?? []
+      if (tags.length > 0) {
+        const quantity = GOLD_OZ_TICKERS.has(h.assets.ticker)
+          ? balance.times(OZ_TO_GRAMS)
+          : balance
+        for (const tag of tags) {
+          const tagExisting = tagMap.get(tag)
+          if (tagExisting) {
+            tagExisting.valueUsd = tagExisting.valueUsd.plus(usd)
+            tagExisting.valueTry = tagExisting.valueTry.plus(try_)
+            tagExisting.quantity = tagExisting.quantity.plus(quantity)
+          } else {
+            tagMap.set(tag, { valueUsd: usd, valueTry: try_, quantity })
+          }
+        }
+      }
     }
 
-    const byCategory: CategoryAllocation[] = Array.from(
-      categoryMap.entries(),
-    )
+    const byCategory: CategoryAllocation[] = Array.from(categoryMap.entries())
       .map(([category, { valueUsd, valueTry }]) => ({
         category,
         valueUsd: valueUsd.toNumber(),
@@ -157,30 +169,7 @@ export function useDashboard(): DashboardData {
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
 
-    // ── By platform ──────────────────────────────────────────────
-    const platformMap = new Map<
-      string,
-      { color: string; valueUsd: BigNumber; valueTry: BigNumber }
-    >()
-
-    for (const h of holdings) {
-      const { usd, try_ } = computeHoldingValue(h, prices)
-      const key = h.platforms.name
-      const existing = platformMap.get(key) ?? {
-        color: h.platforms.color,
-        valueUsd: BN_ZERO,
-        valueTry: BN_ZERO,
-      }
-      platformMap.set(key, {
-        color: existing.color,
-        valueUsd: existing.valueUsd.plus(usd),
-        valueTry: existing.valueTry.plus(try_),
-      })
-    }
-
-    const byPlatform: PlatformAllocation[] = Array.from(
-      platformMap.entries(),
-    )
+    const byPlatform: PlatformAllocation[] = Array.from(platformMap.entries())
       .map(([platformName, { color, valueUsd, valueTry }]) => ({
         platformName,
         color,
@@ -191,34 +180,6 @@ export function useDashboard(): DashboardData {
           : valueUsd.div(totalValueUsd).times(100).toNumber(),
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
-
-    // ── By tag (cross-cutting, allows overlap) ───────────────────
-    const tagMap = new Map<
-      string,
-      { valueUsd: BigNumber; valueTry: BigNumber; quantity: BigNumber }
-    >()
-
-    for (const h of holdings) {
-      for (const tag of (h.assets.tags ?? [])) {
-        const { usd, try_ } = computeHoldingValue(h, prices)
-
-        const rawBalance = bn(h.balance)
-        const quantity = GOLD_OZ_TICKERS.has(h.assets.ticker)
-          ? rawBalance.times(OZ_TO_GRAMS)
-          : rawBalance
-
-        const existing = tagMap.get(tag) ?? {
-          valueUsd: BN_ZERO,
-          valueTry: BN_ZERO,
-          quantity: BN_ZERO,
-        }
-        tagMap.set(tag, {
-          valueUsd: existing.valueUsd.plus(usd),
-          valueTry: existing.valueTry.plus(try_),
-          quantity: existing.quantity.plus(quantity),
-        })
-      }
-    }
 
     const byTag: TagAllocation[] = Array.from(
       tagMap.entries(),

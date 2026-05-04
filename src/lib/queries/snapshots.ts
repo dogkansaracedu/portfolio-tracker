@@ -148,11 +148,15 @@ export async function createSnapshot(
     by_asset: byAsset,
   }
 
+  // Top-level numeric columns are written as strings (BigNumber.toFixed)
+  // so the Postgres `numeric` type retains full precision. JSONB breakdown
+  // values stay as JS Number — JSON has no lossless numeric type, and
+  // aggregate USD/TRY values fit comfortably in double precision.
   const insert: SnapshotInsert = {
     user_id: userId,
     snapshot_date: today,
-    total_usd: totalUsd.toNumber(),
-    total_try: totalTry.toNumber(),
+    total_usd: totalUsd.toFixed(),
+    total_try: totalTry.toFixed(),
     breakdown,
   }
 

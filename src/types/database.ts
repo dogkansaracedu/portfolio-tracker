@@ -111,6 +111,10 @@ export interface SnapshotBreakdown {
 }
 
 // ─── Insert / Update helpers ────────────────────────────────────────
+//
+// Postgres `numeric` columns accept strings to preserve precision beyond
+// JS Number (15-17 sig figs). Writes use BigNumber.toFixed() strings;
+// reads come back as Number via supabase-js.
 
 export type PlatformInsert = Omit<Platform, "id" | "created_at">;
 export type PlatformUpdate = Partial<Omit<Platform, "id" | "user_id" | "created_at">>;
@@ -118,10 +122,17 @@ export type PlatformUpdate = Partial<Omit<Platform, "id" | "user_id" | "created_
 export type AssetInsert = Omit<Asset, "id" | "created_at" | "updated_at">;
 export type AssetUpdate = Partial<Omit<Asset, "id" | "user_id" | "created_at" | "updated_at">>;
 
-export type HoldingInsert = Omit<Holding, "id" | "created_at" | "updated_at">;
-export type HoldingUpdate = Partial<Omit<Holding, "id" | "user_id" | "created_at" | "updated_at">>;
+export type HoldingInsert = Omit<Holding, "id" | "balance" | "created_at" | "updated_at"> & {
+  balance: number | string;
+};
+export type HoldingUpdate = Partial<Omit<Holding, "id" | "user_id" | "balance" | "created_at" | "updated_at"> & {
+  balance: number | string;
+}>;
 
 export type TransactionInsert = Omit<Transaction, "id" | "created_at">;
 export type TransactionUpdate = Partial<Omit<Transaction, "id" | "user_id" | "created_at">>;
 
-export type SnapshotInsert = Omit<Snapshot, "id" | "created_at">;
+export type SnapshotInsert = Omit<Snapshot, "id" | "total_usd" | "total_try" | "created_at"> & {
+  total_usd: number | string | null;
+  total_try: number | string | null;
+};

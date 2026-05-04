@@ -1,21 +1,21 @@
 # Portfolio Tracker — Product Requirements Document
 
-**Version:** 2.0  
-**Date:** April 2, 2026  
+**Version:** 2.1  
+**Date:** May 4, 2026  
 **Author:** —  
-**Status:** In Progress (MVP ~85% complete)
+**Status:** In Progress (MVP ~90% complete)
 
 ---
 
 ## 1. Problem Statement
 
-Managing a diversified portfolio across multiple platforms (IBKR, Midas, Paribu, OKX, bank accounts, physical assets) using spreadsheets is fragile and unsustainable. There is no unified view of total net worth, no automated performance tracking over time, and no reliable way to calculate realized P&L from trades. The user needs a single system that consolidates everything, tracks performance monthly, and works seamlessly on both desktop and mobile.
+Managing a diversified portfolio across multiple platforms (IBKR, Midas, Paribu, OKX, bank accounts, physical assets) using spreadsheets is fragile and unsustainable. There is no unified view of total net worth, no automated performance tracking over time, and no reliable way to calculate realized P&L from trades. The user needs a single system that consolidates everything, tracks performance daily (rolled up to monthly/yearly views), and works seamlessly on both desktop and mobile.
 
 ## 2. Goals
 
 - **Unified net worth dashboard** — See total portfolio value in USD and TRY at a glance, broken down by platform, asset category, and individual asset.
 - **Transaction log with P&L** — Record every buy/sell/transfer. Automatically compute realized and unrealized P&L using FIFO cost basis.
-- **Monthly performance tracking** — Automated snapshots on the 1st of each month. Month-over-month and year-over-year returns, with attribution (which asset class drove gains/losses).
+- **Daily performance tracking** — Automated daily snapshots driven by pg_cron. Month-over-month and year-over-year returns derived from the daily series, with attribution (which asset class drove gains/losses).
 - **Multi-device access** — Fully responsive web app, installable as PWA on mobile.
 - **Zero ongoing cost** — Run entirely on free tiers (Supabase, Netlify/Vercel).
 - **Long-term durability** — Simple enough to maintain solo for years. Portable data (easy export).
@@ -48,7 +48,7 @@ A single user (the developer/owner) who:
 | Price Data | TCMB, CoinGecko, Yahoo Finance | All free, details in §10 |
 | Financial Math | BigNumber.js | Decimal-safe arithmetic for all money/quantity operations |
 | Routing | React Router v7 | File-based page structure |
-| Scheduled Jobs | Supabase Edge Functions + pg_cron | Monthly snapshots, daily price cache refresh |
+| Scheduled Jobs | Supabase Edge Functions + pg_cron | Daily snapshots (23:55 UTC), periodic price cache refresh |
 
 ## 6. Data Model
 
@@ -137,15 +137,15 @@ Latest known price for each ticker.
 
 ### 6.6 `snapshots`
 
-Monthly portfolio photograph.
+Daily portfolio photograph.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid | PK |
 | user_id | uuid | FK → auth.users |
-| snapshot_date | date | Always 1st of month |
-| total_usd | numeric | |
-| total_try | numeric | |
+| snapshot_date | date | One row per user per day |
+| total_usd | numeric | Stored as string from BigNumber.toFixed for full precision |
+| total_try | numeric | Stored as string from BigNumber.toFixed for full precision |
 | breakdown | jsonb | See §8.2 for structure |
 | created_at | timestamptz | |
 
@@ -239,15 +239,15 @@ Transfers between platforms do NOT affect P&L. A `transfer_out` from Platform A 
 
 ### 8.1 Snapshot Generation
 
-A scheduled job (Supabase Edge Function triggered by pg_cron) runs on the 1st of every month at 00:05 UTC+3:
+A scheduled job (pg_cron → `take-snapshots` Edge Function) runs **daily at 23:55 UTC**, chained after `fetch-prices`:
 
-1. Fetch latest prices for all user's asset tickers.
-2. For each asset: `value_usd = balance × price_usd`.
-3. Aggregate by category, platform, and individual asset.
-4. Insert into `snapshots`.
-5. Log exchange rates into `exchange_rates`.
+1. `fetch-prices` refreshes `price_cache` and `exchange_rates`.
+2. `take-snapshots` reads current `holdings` for every user.
+3. For each holding: `value_usd = balance × price_usd`, `value_try = balance × price_try`.
+4. Aggregate by category, platform, tag, and individual asset (see §8.2).
+5. Upsert one row per user into `snapshots` keyed on (user_id, snapshot_date).
 
-The user can also trigger a manual snapshot at any time (button in UI).
+Historical snapshots (one per month-start since the earliest transaction, plus daily for the last 30 days, or one per transaction date) are produced by the on-demand `backfill-snapshots` Edge Function, surfaced in Settings → Snapshots.
 
 ### 8.2 Snapshot Breakdown Schema
 
@@ -365,15 +365,22 @@ Filters: date range, asset, platform, type.
 
 ### 9.5 Settings Page
 
-- **Platforms**: CRUD (PlatformList, PlatformCard, PlatformForm).
-- **Assets**: manage tickers, categories, tags, price_source (AssetList, AssetForm, AssetRow).
-- **Display currency**: USD/TRY toggle (persisted in localStorage via DisplayContext).
-- **Obfuscation toggle**: hide/show actual values (persisted in localStorage).
-- **Manual snapshot**: trigger button (SnapshotManager).
-- **Price refresh**: manual trigger + staleness indicator (PriceRefreshButton).
-- **Manual price entry**: for assets with `price_source = 'manual'` (ManualPriceEntry).
-- **Export data**: JSON or CSV dump of all tables. *(not yet implemented)*
-- **Import data**: bulk transaction import from CSV. *(not yet implemented)*
+Implemented as a tabbed page (`SettingsPage.tsx`):
+
+- **Platforms tab**: CRUD (PlatformList, PlatformCard, PlatformForm).
+- **Assets tab**: manage tickers, categories, tags, price_source (AssetList, AssetForm, AssetRow).
+- **Snapshots tab**: historical-snapshot backfill (SnapshotBackfillCard) — granularity + overwrite controls, runs the `backfill-snapshots` Edge Function.
+
+Surfaced elsewhere (not in Settings):
+
+- **Display currency** (USD/TRY) and **obfuscation** toggles — live in the global `Header`, persisted via `DisplayContext` to localStorage.
+
+*Not yet implemented:*
+
+- **Manual snapshot trigger** ("snapshot now" button) — daily cron covers automated case; no UI button yet.
+- **Price refresh** manual trigger + staleness indicator (PriceRefreshButton) — daily cron covers it; no manual UI yet.
+- **Export data** (JSON / CSV).
+- **Import data** (CSV transaction import).
 
 ## 10. Price Data Sources
 
@@ -507,7 +514,7 @@ These are explicitly out of scope for v1 but worth keeping in mind architectural
 | P0 | Dashboard with net worth (USD+TRY), allocation, top movers | Done |
 | P0 | Portfolio page with grouped assets + P&L | Done |
 | P1 | FIFO P&L calculation (realized + unrealized) | Done |
-| P1 | Monthly snapshots (manual trigger) | Done |
+| P1 | Manual snapshot trigger ("snapshot now" button) | Not started |
 | P1 | Performance page (charts, drawdown, attribution, summary stats) | Done |
 | P1 | Transfer between platforms (cost basis carry-over) | Done |
 | P2 | PWA manifest + icons | Done (no service worker yet) |
@@ -515,7 +522,8 @@ These are explicitly out of scope for v1 but worth keeping in mind architectural
 | P2 | Settings (platforms + assets management) | Done |
 | P2 | CSV import/export | Not started |
 | P2 | Service worker (offline shell) | Not started |
-| P2 | Automated monthly snapshots (pg_cron) | Not started |
+| P2 | Automated daily snapshots (pg_cron → take-snapshots Edge Function) | Done |
+| P2 | Historical snapshot backfill (Settings UI + backfill-snapshots Edge Function) | Done |
 | P2 | Data export (JSON/CSV dumps) | Not started |
 
 ## 17. Open Questions

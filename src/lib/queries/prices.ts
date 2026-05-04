@@ -30,29 +30,3 @@ export async function fetchPrice(ticker: string): Promise<PriceCache | null> {
   return data
 }
 
-export async function upsertManualPrice(
-  ticker: string,
-  priceUsd: number | null,
-  priceTry: number | null
-): Promise<PriceCache> {
-  const { data, error } = await supabase
-    .from("price_cache")
-    .upsert(
-      {
-        ticker,
-        price_usd: priceUsd,
-        price_try: priceTry,
-        source: "manual",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "ticker" }
-    )
-    .select()
-    .single()
-
-  if (error) {
-    throw new Error(`Failed to upsert manual price: ${error.message}`)
-  }
-
-  return data
-}
