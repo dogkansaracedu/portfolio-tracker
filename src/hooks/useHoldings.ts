@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/hooks/useAuth"
+import { useTransactionModal } from "@/contexts/TransactionContext"
 import { bn, BN_ZERO } from "@/lib/config"
 import {
   fetchHoldings,
@@ -8,6 +9,7 @@ import {
 
 export function useHoldings() {
   const { user } = useAuth()
+  const { txVersion } = useTransactionModal()
   const [holdings, setHoldings] = useState<HoldingWithDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,9 +30,12 @@ export function useHoldings() {
     }
   }, [user])
 
+  // Re-fetch on user change AND whenever any tx mutation bumps txVersion —
+  // recalculateBalance writes to holdings server-side, so the cached state
+  // is stale until we re-pull.
   useEffect(() => {
     refetch()
-  }, [refetch])
+  }, [refetch, txVersion])
 
   /** Filter already-loaded holdings for a specific asset. */
   const getHoldingsForAsset = useCallback(

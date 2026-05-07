@@ -43,8 +43,11 @@ interface Props {
 export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const { user } = useAuth()
   const { modalState, closeTransactionModal } = useTransactionModal()
-  const { addTransaction } = useTransactions()
+  const { addTransaction, editTransaction } = useTransactions()
   const { getTotalBalance, getHoldingsForAsset } = useHoldings()
+
+  const editing = modalState.editingTransaction
+  const isEdit = Boolean(editing)
 
   const [type, setType] = useState<TransactionType>("buy")
   const [assetId, setAssetId] = useState<string>("")
@@ -60,32 +63,42 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
 
-  // Pre-fill asset and platform when modal opens with presets
+  // Hydrate form from edit target / prefill / defaults whenever the modal opens.
+  // Prior implementation only handled prefilledAssetId on its own effect, which
+  // left edit fields stale across openings.
   useEffect(() => {
-    if (modalState.prefilledAssetId) {
-      setAssetId(modalState.prefilledAssetId)
-    }
-    if (modalState.prefilledPlatformId) {
-      setPlatformId(modalState.prefilledPlatformId)
-    }
-  }, [modalState.prefilledAssetId, modalState.prefilledPlatformId])
-
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!modalState.isOpen) {
-      setType("buy")
-      setAssetId("")
-      setPlatformId("")
-      setDate(new Date())
-      setAmount("")
-      setUnitPrice("")
-      setPriceCurrency("USD")
-      setFee("")
-      setFeeCurrency("USD")
+    if (!modalState.isOpen) return
+    if (editing) {
+      setType(editing.type)
+      setAssetId(editing.asset_id)
+      setPlatformId(editing.platform_id)
+      setDate(new Date(editing.date))
+      setAmount(String(editing.amount))
+      setUnitPrice(String(editing.unit_price))
+      setPriceCurrency(editing.price_currency || "USD")
+      setFee(editing.fee ? String(editing.fee) : "")
+      setFeeCurrency(editing.fee_currency || "USD")
       setDestPlatformId("")
-      setNotes("")
+      setNotes(editing.notes ?? "")
+      return
     }
-  }, [modalState.isOpen])
+    setType("buy")
+    setAssetId(modalState.prefilledAssetId ?? "")
+    setPlatformId(modalState.prefilledPlatformId ?? "")
+    setDate(new Date())
+    setAmount("")
+    setUnitPrice("")
+    setPriceCurrency("USD")
+    setFee("")
+    setFeeCurrency("USD")
+    setDestPlatformId("")
+    setNotes("")
+  }, [
+    modalState.isOpen,
+    editing,
+    modalState.prefilledAssetId,
+    modalState.prefilledPlatformId,
+  ])
 
   const selectedAsset = assets.find((a) => a.id === assetId)
   const parsedAmount = parseFloat(amount) || 0
@@ -104,8 +117,11 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const selectedPlatformBalance = selectedHolding?.balance ?? 0
   const totalBalance = assetId ? getTotalBalance(assetId) : 0
 
-  // Validation: check balance on the specific platform for sell/transfer/fee
+  // Validation: check balance on the specific platform for sell/transfer/fee.
+  // Skip in edit mode because the existing tx is already counted in the balance —
+  // a strict check would falsely flag the very tx being edited as overdrawing.
   const isOverBalance =
+    !isEdit &&
     (type === "sell" || type === "transfer_out" || type === "fee") &&
     parsedAmount > selectedPlatformBalance
 
@@ -116,15 +132,14 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     !isOverBalance &&
     !submitting &&
     (showPriceFields ? parsedPrice > 0 : true) &&
-    (isTransfer ? destPlatformId && destPlatformId !== platformId : true)
+    (isTransfer && !isEdit ? destPlatformId && destPlatformId !== platformId : true)
 
   const handleSubmit = async () => {
     if (!user || !canSubmit) return
     setSubmitting(true)
 
     try {
-      // Create main transaction
-      await addTransaction({
+      const payload = {
         asset_id: assetId,
         platform_id: platformId,
         type,
@@ -137,35 +152,46 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         fee_currency: fee ? feeCurrency : null,
         related_asset_id: null,
         notes: notes || null,
-      })
-
-      // For transfer_out, create matching transfer_in on the destination platform
-      if (isTransfer && destPlatformId) {
-        const selectedPlatform = platforms.find((p) => p.id === platformId)
-        await addTransaction({
-          asset_id: assetId,
-          platform_id: destPlatformId,
-          type: "transfer_in",
-          date: date.toISOString(),
-          amount: parsedAmount,
-          unit_price: parsedPrice || 0,
-          price_currency: priceCurrency,
-          total_cost: totalCost,
-          fee: 0,
-          fee_currency: null,
-          related_asset_id: null,
-          notes: notes
-            ? `Transfer from ${selectedPlatform?.name ?? "unknown"}: ${notes}`
-            : `Transfer from ${selectedPlatform?.name ?? "unknown"}`,
-        })
       }
 
-      toast.success("Transaction recorded")
+      if (isEdit && editing) {
+        await editTransaction(editing.id, payload, {
+          assetId: editing.asset_id,
+          platformId: editing.platform_id,
+        })
+        toast.success("Transaction updated")
+      } else {
+        await addTransaction(payload)
+
+        // For transfer_out, create matching transfer_in on the destination platform.
+        // We don't auto-pair on edit — the source side and the destination side
+        // are independent rows after creation, edit them individually.
+        if (isTransfer && destPlatformId) {
+          const selectedPlatform = platforms.find((p) => p.id === platformId)
+          await addTransaction({
+            asset_id: assetId,
+            platform_id: destPlatformId,
+            type: "transfer_in",
+            date: date.toISOString(),
+            amount: parsedAmount,
+            unit_price: parsedPrice || 0,
+            price_currency: priceCurrency,
+            total_cost: totalCost,
+            fee: 0,
+            fee_currency: null,
+            related_asset_id: null,
+            notes: notes
+              ? `Transfer from ${selectedPlatform?.name ?? "unknown"}: ${notes}`
+              : `Transfer from ${selectedPlatform?.name ?? "unknown"}`,
+          })
+        }
+        toast.success("Transaction recorded")
+      }
       closeTransactionModal()
       onSuccess?.()
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to create transaction",
+        err instanceof Error ? err.message : "Failed to save transaction",
       )
     } finally {
       setSubmitting(false)
@@ -176,7 +202,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     <Dialog open={modalState.isOpen} onOpenChange={(open) => !open && closeTransactionModal()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Transaction</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Transaction" : "Add Transaction"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -203,7 +229,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
 
           {/* Platform Selection */}
           <div className="space-y-2">
-            <Label>{isTransfer ? "Source Platform" : "Platform"}</Label>
+            <Label>{isTransfer && !isEdit ? "Source Platform" : "Platform"}</Label>
             <Select
               value={platformId}
               onValueChange={(v) => v && setPlatformId(v)}
@@ -232,8 +258,8 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             )}
           </div>
 
-          {/* Transfer destination platform */}
-          {isTransfer && (
+          {/* Transfer destination platform (creation only — paired tx) */}
+          {isTransfer && !isEdit && (
             <div className="space-y-2">
               <Label>Destination Platform</Label>
               <Select
@@ -338,7 +364,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           {/* Total Cost display */}
           {showPriceFields && totalCost > 0 && (
             <div className="rounded-md bg-muted px-3 py-2 text-sm">
-              Total: {priceCurrency === "TRY" ? "\u20BA" : priceCurrency === "EUR" ? "\u20AC" : "$"}
+              Total: {priceCurrency === "TRY" ? "₺" : priceCurrency === "EUR" ? "€" : "$"}
               {totalCost.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
@@ -393,7 +419,11 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!canSubmit}>
-            {submitting ? "Saving..." : "Add Transaction"}
+            {submitting
+              ? "Saving..."
+              : isEdit
+                ? "Save Changes"
+                : "Add Transaction"}
           </Button>
         </DialogFooter>
       </DialogContent>
