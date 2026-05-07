@@ -1,9 +1,10 @@
+import { Suspense } from "react"
 import { Link } from "react-router"
 import { useDashboard } from "@/hooks/useDashboard"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import DashboardHero from "@/components/dashboard/DashboardHero"
-import AllocationChart from "@/components/dashboard/AllocationChart"
+import { DashboardHero, AllocationChart } from "@/components/charts/LazyChart"
+import RouteSkeleton from "@/components/layout/RouteSkeleton"
 import TagBreakdown from "@/components/dashboard/TagBreakdown"
 import PlatformBreakdown from "@/components/dashboard/PlatformBreakdown"
 import TopMovers from "@/components/dashboard/TopMovers"
@@ -113,20 +114,24 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <DashboardHero
-        snapshots={snapshots}
-        currentValueUsd={totalValueUsd}
-        currentValueTry={totalValueTry}
-        usdTry={usdTry}
-      />
+      <Suspense fallback={<RouteSkeleton />}>
+        <DashboardHero
+          snapshots={snapshots}
+          currentValueUsd={totalValueUsd}
+          currentValueTry={totalValueTry}
+          usdTry={usdTry}
+        />
+      </Suspense>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TagBreakdown byTag={byTag} />
-        <AllocationChart
-          byCategory={byCategory}
-          totalValueUsd={totalValueUsd}
-          totalValueTry={totalValueTry}
-        />
+        <Suspense fallback={<RouteSkeleton />}>
+          <AllocationChart
+            byCategory={byCategory}
+            totalValueUsd={totalValueUsd}
+            totalValueTry={totalValueTry}
+          />
+        </Suspense>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
