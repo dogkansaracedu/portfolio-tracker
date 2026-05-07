@@ -1,14 +1,11 @@
 import { createClient } from "jsr:@supabase/supabase-js@2"
+import { corsHeaders } from "../_shared/cors.ts"
 
 Deno.serve(async (req) => {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
-  }
+  const origin = req.headers.get("origin")
 
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders })
+    return new Response("ok", { headers: corsHeaders(origin) })
   }
 
   const supabase = createClient(
@@ -328,6 +325,6 @@ Deno.serve(async (req) => {
   }
 
   return new Response(JSON.stringify(result), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
   })
 })
