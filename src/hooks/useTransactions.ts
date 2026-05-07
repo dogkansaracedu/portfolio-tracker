@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/hooks/useAuth"
 import { useTransactionModal } from "@/contexts/TransactionContext"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
 import {
   fetchTransactions,
   createTransaction,
@@ -42,6 +43,7 @@ async function ensureHistoricalRate(
 export function useTransactions(filters?: TransactionFilters) {
   const { user } = useAuth()
   const { txVersion, bumpTxVersion } = useTransactionModal()
+  const { refresh } = useTransactionData()
   const [transactions, setTransactions] = useState<TransactionWithDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -65,6 +67,12 @@ export function useTransactions(filters?: TransactionFilters) {
     load()
   }, [load, txVersion])
 
+  // After each mutation we call both refresh() and bumpTxVersion():
+  //   refresh()       — refetches the global SoT (TransactionDataContext) so
+  //                     all P&L / dashboard hooks see new data immediately.
+  //   bumpTxVersion() — signals locally-paginated views (useTransactionLog,
+  //                     useHoldings) to refetch their server-filtered slices.
+  // Both are load-bearing; they serve orthogonal consumers.
   const addTransaction = async (data: Omit<TransactionInsert, "user_id">) => {
     if (!user) throw new Error("Not authenticated")
 
@@ -74,6 +82,7 @@ export function useTransactions(filters?: TransactionFilters) {
     if (tx.related_asset_id) {
       await recalculateBalance(user.id, tx.asset_id, tx.related_asset_id)
     }
+    await refresh()
     bumpTxVersion()
     return tx
   }
@@ -100,6 +109,7 @@ export function useTransactions(filters?: TransactionFilters) {
     ) {
       await recalculateBalance(user.id, updated.asset_id, updated.platform_id)
     }
+    await refresh()
     bumpTxVersion()
     return updated
   }
@@ -112,6 +122,7 @@ export function useTransactions(filters?: TransactionFilters) {
     if (!user) throw new Error("Not authenticated")
     await deleteTransaction(id)
     await recalculateBalance(user.id, assetId, platformId)
+    await refresh()
     bumpTxVersion()
   }
 

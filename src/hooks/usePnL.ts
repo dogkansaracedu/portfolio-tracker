@@ -1,15 +1,10 @@
-import { useState, useEffect, useMemo } from "react"
+import { useMemo } from "react"
 import { bn, BN_ZERO } from "@/lib/config"
-import { useAuth } from "@/hooks/useAuth"
-import { useTransactionModal } from "@/contexts/TransactionContext"
-import {
-  fetchTransactionsForAllAssets,
-  fetchAllExchangeRates,
-} from "@/lib/queries/pnl"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { computeFIFOLots } from "@/lib/pnl/fifo"
 import { computeUnrealizedPnL } from "@/lib/pnl/unrealized"
 import { computeCurrentInvestedUsd } from "@/lib/performance"
-import type { Transaction, ExchangeRate, PriceCache } from "@/types/database"
+import type { Transaction, PriceCache } from "@/types/database"
 import type { AssetPnL, PortfolioPnL } from "@/lib/pnl/types"
 import type { HoldingWithDetails } from "@/lib/queries/holdings"
 
@@ -42,35 +37,7 @@ export function usePnL(
   holdings: HoldingWithDetails[],
   prices: Record<string, PriceCache>,
 ) {
-  const { user } = useAuth()
-  const { txVersion } = useTransactionModal()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [rates, setRates] = useState<ExchangeRate[]>([])
-  const [loading, setLoading] = useState(true)
-
-  // Re-fetch transactions whenever a mutation bumps txVersion so all P&L
-  // surfaces (Dashboard, Portfolio, Performance) stay in sync without F5.
-  useEffect(() => {
-    if (!user) return
-
-    const load = async () => {
-      setLoading(true)
-      try {
-        const [txs, exchangeRates] = await Promise.all([
-          fetchTransactionsForAllAssets(user.id),
-          fetchAllExchangeRates(),
-        ])
-        setTransactions(txs)
-        setRates(exchangeRates)
-      } catch (err) {
-        console.error("Failed to load P&L data:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [user, txVersion])
+  const { transactions, rates, loading } = useTransactionData()
 
   const result: PortfolioPnL = useMemo(() => {
     if (loading || holdings.length === 0) {

@@ -1,4 +1,5 @@
 import { createClient } from "jsr:@supabase/supabase-js@2"
+import { corsHeaders } from "../_shared/cors.ts"
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -186,28 +187,23 @@ function balanceSign(type: TransactionRow["type"]): number {
 
 // ─── Main handler ──────────────────────────────────────────────────
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-}
-
-const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" }
-
-function jsonError(message: string, status = 500): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: jsonHeaders,
-  })
-}
-
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin")
+  const jsonHeaders = { ...corsHeaders(origin), "Content-Type": "application/json" }
+
+  function jsonError(message: string, status = 500): Response {
+    return new Response(JSON.stringify({ error: message }), {
+      status,
+      headers: jsonHeaders,
+    })
+  }
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders })
+    return new Response("ok", { headers: corsHeaders(origin) })
   }
 
   try {
-    return await handle(req)
+    return await handle(req, jsonHeaders, jsonError)
   } catch (e) {
     // Catch-all so an uncaught throw inside handle() returns an actionable
     // JSON body instead of an opaque "non-2xx status code".
@@ -218,7 +214,11 @@ Deno.serve(async (req) => {
   }
 })
 
-async function handle(req: Request): Promise<Response> {
+async function handle(
+  req: Request,
+  jsonHeaders: HeadersInit,
+  jsonError: (message: string, status?: number) => Response,
+): Promise<Response> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
   if (!supabaseUrl || !serviceKey) {
