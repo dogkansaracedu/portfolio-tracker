@@ -8,7 +8,7 @@ Today is a single-user app, so most issues have a tiny real blast radius. Severi
 
 ## HIGH
 
-### H1. `seed_user_data` is callable for any user_id
+### H1. `seed_user_data` is callable for any user_id  ✅ Fixed in `79ff342`
 
 `supabase/migrations/20260402100010_seed_function.sql:4`
 
@@ -36,7 +36,7 @@ AS $$ ...
 - Move the seed to a `BEFORE INSERT ON auth.users` trigger so the client never calls it.
 - `REVOKE EXECUTE ... FROM authenticated;` and replace the client `rpc()` call with a server-side trigger.
 
-### H2. `backfill-snapshots` is a public, expensive, cross-user, write-capable endpoint
+### H2. `backfill-snapshots` is a public, expensive, cross-user, write-capable endpoint  ✅ Fixed in `011a41e`
 
 `supabase/config.toml:380` — `verify_jwt = false`
 `supabase/functions/backfill-snapshots/index.ts:190` — uses service role
@@ -55,7 +55,7 @@ AS $$ ...
 
 ## MEDIUM
 
-### M1. `take-snapshots` is also unauthenticated (mitigated but still public)
+### M1. `take-snapshots` is also unauthenticated (mitigated but still public)  ✅ Fixed in `b64d755`
 
 `supabase/config.toml:374` + `supabase/functions/take-snapshots/index.ts:102`
 
@@ -71,11 +71,11 @@ AS $$ ...
 
 Shared secret is simpler.
 
-### M2. CORS wildcard on every Edge Function
+### M2. CORS wildcard on every Edge Function  ✅ Fixed in `9571ec1`
 
 All six Edge Functions (`fetch-*`, `take-snapshots`, `backfill-snapshots`) set `Access-Control-Allow-Origin: *`. Combined with H2/M1, any browser tab on any site can call the snapshot functions. After fixing H2/M1, this becomes lower risk (Supabase JWTs are scoped), but tightening to your deployed frontend origin (or an env-driven allowlist) is best practice.
 
-### M3. Auth defaults are wide open for a single-user app
+### M3. Auth defaults are wide open for a single-user app  ✅ Fixed in `d4c4411`
 
 `supabase/config.toml`:
 
