@@ -79,7 +79,7 @@ export default function DashboardHero({
   const [viewMode, setViewMode] = useState<HeroViewMode>("value")
   const [timeRange, setTimeRange] = useState<TimeRange>("1M")
 
-  const { chartData, current, delta } = useDashboardHero({
+  const { chartData, xTicks, current, delta } = useDashboardHero({
     snapshots,
     currentValueUsd,
     currentValueTry,
@@ -140,9 +140,13 @@ export default function DashboardHero({
     }))
   }, [chartData, viewMode])
 
-  const isLoss = viewMode === "pnl" && delta.usd < 0
-  const strokeColor = isLoss ? "rgb(239, 68, 68)" : "hsl(var(--primary))"
-  const fillColor = isLoss ? "rgb(239 68 68 / 0.1)" : "hsl(var(--primary) / 0.1)"
+  // Color the chart by the period's direction in BOTH modes (Robinhood-style):
+  // green when up, red when down. The default theme is greyscale, so we set
+  // explicit RGB instead of `hsl(var(--primary))` to give the dashboard a
+  // distinct, branded feel.
+  const isLoss = delta.usd < 0
+  const strokeColor = isLoss ? "rgb(239, 68, 68)" : "rgb(16, 185, 129)"
+  const fillColor = isLoss ? "rgb(239 68 68 / 0.18)" : "rgb(16 185 129 / 0.18)"
 
   const hasChart = chartData.length >= 2
   const showZeroRef = viewMode === "pnl" && hasChart
@@ -196,8 +200,17 @@ export default function DashboardHero({
               className={cn("flex items-center gap-2 text-sm font-medium", periodColor)}
             >
               <span>{obfuscate(formatSigned(periodDeltaValue, currency), obfuscated)}</span>
-              <span>·</span>
-              <span>{obfuscate(formatPct(delta.pct), obfuscated)}</span>
+              {/* In ALL range, delta is "value − $0 anchor" while % falls
+                  back to lifetime return (pnl/invested). Mixing the two on
+                  one line reads as if you earned 3% on a $22k gain, which
+                  isn't what's happening — the same % already lives in the
+                  P&L tab's "Total" subtitle. Hide it here. */}
+              {timeRange !== "ALL" && (
+                <>
+                  <span>·</span>
+                  <span>{obfuscate(formatPct(delta.pct), obfuscated)}</span>
+                </>
+              )}
               <span className="font-normal text-muted-foreground">
                 {RANGE_LABELS[timeRange]}
               </span>
@@ -256,7 +269,12 @@ export default function DashboardHero({
                   vertical={false}
                 />
                 <XAxis
-                  dataKey="label"
+                  dataKey="date"
+                  type="category"
+                  ticks={xTicks}
+                  tickFormatter={(date: string) =>
+                    chartData.find((p) => p.date === date)?.label ?? date
+                  }
                   tick={{ fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
@@ -286,7 +304,18 @@ export default function DashboardHero({
                     ),
                     viewMode === "value" ? "Value" : "P&L",
                   ]}
-                  labelFormatter={(label) => String(label)}
+                  labelFormatter={(label) => {
+                    const dateStr = String(label ?? "")
+                    const point = chartData.find((p) => p.date === dateStr)
+                    if (point?.label === "Şimdi") return "Şimdi"
+                    const d = new Date(dateStr)
+                    if (Number.isNaN(d.getTime())) return dateStr
+                    return d.toLocaleDateString("tr-TR", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })
+                  }}
                 />
                 {showZeroRef && (
                   <ReferenceLine
