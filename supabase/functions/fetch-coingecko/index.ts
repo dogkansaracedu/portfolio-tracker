@@ -1,14 +1,11 @@
 import { createClient } from "jsr:@supabase/supabase-js@2"
+import { corsHeaders } from "../_shared/cors.ts"
 
 Deno.serve(async (req) => {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
-  }
+  const origin = req.headers.get("origin")
 
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders })
+    return new Response("ok", { headers: corsHeaders(origin) })
   }
 
   const supabase = createClient(
@@ -29,7 +26,7 @@ Deno.serve(async (req) => {
 
     if (!assets || assets.length === 0) {
       return new Response(JSON.stringify({ updated: 0, message: "No crypto assets found" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
       })
     }
 
@@ -96,13 +93,13 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ updated: priceRows.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error"
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
     })
   }
 })
