@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo } from "react"
+import { useMemo } from "react"
 import { BN_ZERO } from "@/lib/config"
-import { fetchTransactionsForPnL, fetchAllExchangeRates } from "@/lib/queries/pnl"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { computeFIFOLots } from "@/lib/pnl/fifo"
-import type { Transaction, ExchangeRate } from "@/types/database"
 import type { CostLot } from "@/lib/pnl/types"
 
 /**
@@ -13,41 +12,26 @@ export function useCostBasis(
   assetId: string | undefined,
   platformId: string | undefined,
 ) {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [rates, setRates] = useState<ExchangeRate[]>([])
-  const [loading, setLoading] = useState(true)
+  const { transactions, rates, loading } = useTransactionData()
 
-  useEffect(() => {
-    if (!assetId || !platformId) {
-      setLoading(false)
-      return
-    }
-
-    const load = async () => {
-      setLoading(true)
-      try {
-        const [txs, exchangeRates] = await Promise.all([
-          fetchTransactionsForPnL(assetId, platformId),
-          fetchAllExchangeRates(),
-        ])
-        setTransactions(txs)
-        setRates(exchangeRates)
-      } catch (err) {
-        console.error("Failed to load cost basis:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [assetId, platformId])
+  const txForPair = useMemo(
+    () =>
+      transactions
+        .filter((t) => t.asset_id === assetId && t.platform_id === platformId)
+        .sort(
+          (a, b) =>
+            a.date.localeCompare(b.date) ||
+            a.created_at.localeCompare(b.created_at)
+        ),
+    [transactions, assetId, platformId]
+  )
 
   const result = useMemo(() => {
     if (!assetId || !platformId || loading) {
       return { lots: [] as CostLot[], totalCostUsd: 0, avgCostUsd: 0 }
     }
 
-    const { lots } = computeFIFOLots(transactions, rates)
+    const { lots } = computeFIFOLots(txForPair, rates)
 
     const totalCostUsd = lots.reduce(
       (sum, lot) => sum.plus(lot.amount.times(lot.unitPriceUsd)),
@@ -64,7 +48,7 @@ export function useCostBasis(
       : totalCostUsd.div(totalAmount).toNumber()
 
     return { lots, totalCostUsd: totalCostUsd.toNumber(), avgCostUsd }
-  }, [assetId, platformId, transactions, rates, loading])
+  }, [assetId, platformId, txForPair, rates, loading])
 
   return { ...result, loading }
 }

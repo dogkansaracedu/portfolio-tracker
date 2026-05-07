@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/hooks/useAuth"
 import { useTransactionModal } from "@/contexts/TransactionContext"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
 import {
   fetchTransactions,
   createTransaction,
@@ -42,6 +43,7 @@ async function ensureHistoricalRate(
 export function useTransactions(filters?: TransactionFilters) {
   const { user } = useAuth()
   const { txVersion, bumpTxVersion } = useTransactionModal()
+  const { refresh } = useTransactionData()
   const [transactions, setTransactions] = useState<TransactionWithDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,6 +76,7 @@ export function useTransactions(filters?: TransactionFilters) {
     if (tx.related_asset_id) {
       await recalculateBalance(user.id, tx.asset_id, tx.related_asset_id)
     }
+    await refresh()
     bumpTxVersion()
     return tx
   }
@@ -100,6 +103,7 @@ export function useTransactions(filters?: TransactionFilters) {
     ) {
       await recalculateBalance(user.id, updated.asset_id, updated.platform_id)
     }
+    await refresh()
     bumpTxVersion()
     return updated
   }
@@ -112,6 +116,7 @@ export function useTransactions(filters?: TransactionFilters) {
     if (!user) throw new Error("Not authenticated")
     await deleteTransaction(id)
     await recalculateBalance(user.id, assetId, platformId)
+    await refresh()
     bumpTxVersion()
   }
 
