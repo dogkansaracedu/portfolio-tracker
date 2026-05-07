@@ -1,13 +1,20 @@
 import { BrowserRouter, Routes, Route } from "react-router"
+import { lazy, Suspense } from "react"
 import AppLayout from "@/components/layout/AppLayout"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
+import RouteSkeleton from "@/components/layout/RouteSkeleton"
 import DashboardPage from "@/pages/DashboardPage"
-import PortfolioPage from "@/pages/PortfolioPage"
-import TransactionsPage from "@/pages/TransactionsPage"
-import PerformancePage from "@/pages/PerformancePage"
-import SettingsPage from "@/pages/SettingsPage"
 import LoginPage from "@/pages/LoginPage"
 import SignupPage from "@/pages/SignupPage"
+
+const PortfolioPage = lazy(() => import("@/pages/PortfolioPage"))
+const TransactionsPage = lazy(() => import("@/pages/TransactionsPage"))
+const PerformancePage = lazy(() => import("@/pages/PerformancePage"))
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
+
+function Lazy({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<RouteSkeleton />}>{children}</Suspense>
+}
 
 export default function App() {
   return (
@@ -21,10 +28,10 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
-            <Route path="portfolio" element={<PortfolioPage />} />
-            <Route path="transactions" element={<TransactionsPage />} />
-            <Route path="performance" element={<PerformancePage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="portfolio" element={<Lazy><PortfolioPage /></Lazy>} />
+            <Route path="transactions" element={<Lazy><TransactionsPage /></Lazy>} />
+            <Route path="performance" element={<Lazy><PerformancePage /></Lazy>} />
+            <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />
           </Route>
         </Route>
       </Routes>

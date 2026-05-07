@@ -1,16 +1,12 @@
-import { useEffect, useMemo, useState } from "react"
-import { useAuth } from "@/hooks/useAuth"
-import {
-  fetchTransactionsForAllAssets,
-  fetchAllExchangeRates,
-} from "@/lib/queries/pnl"
+import { useMemo } from "react"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
 import {
   filterByTimeRange,
   computePnLTimeSeries,
   computeCurrentInvestedUsd,
   type TimeRange,
 } from "@/lib/performance"
-import type { Snapshot, Transaction, ExchangeRate } from "@/types/database"
+import type { Snapshot } from "@/types/database"
 
 export type HeroViewMode = "value" | "pnl"
 
@@ -83,33 +79,7 @@ export function useDashboardHero({
   timeRange,
   usdTry,
 }: UseDashboardHeroArgs): DashboardHeroData {
-  const { user } = useAuth()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [rates, setRates] = useState<ExchangeRate[]>([])
-  const [pnlLoading, setPnlLoading] = useState(true)
-
-  useEffect(() => {
-    if (!user) return
-    let cancelled = false
-    setPnlLoading(true)
-    Promise.all([
-      fetchTransactionsForAllAssets(user.id),
-      fetchAllExchangeRates(),
-    ])
-      .then(([txs, rs]) => {
-        if (!cancelled) {
-          setTransactions(txs)
-          setRates(rs)
-        }
-      })
-      .catch((err) => console.error("Failed to load hero data:", err))
-      .finally(() => {
-        if (!cancelled) setPnlLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [user])
+  const { transactions, rates, loading: pnlLoading } = useTransactionData()
 
   return useMemo<DashboardHeroData>(() => {
     if (snapshots.length === 0 && currentValueUsd === 0 && currentValueTry === 0) {
