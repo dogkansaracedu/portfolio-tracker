@@ -67,6 +67,12 @@ export function useTransactions(filters?: TransactionFilters) {
     load()
   }, [load, txVersion])
 
+  // After each mutation we call both refresh() and bumpTxVersion():
+  //   refresh()       — refetches the global SoT (TransactionDataContext) so
+  //                     all P&L / dashboard hooks see new data immediately.
+  //   bumpTxVersion() — signals locally-paginated views (useTransactionLog,
+  //                     useHoldings) to refetch their server-filtered slices.
+  // Both are load-bearing; they serve orthogonal consumers.
   const addTransaction = async (data: Omit<TransactionInsert, "user_id">) => {
     if (!user) throw new Error("Not authenticated")
 
