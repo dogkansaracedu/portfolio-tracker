@@ -2,7 +2,9 @@
 
 **Date:** 2026-05-07
 **Status:** Approved (pending implementation plan)
-**Scope:** Security hardening (Audit A) + Code cleanup (Project review B). Deploy (C) is a separate spec.
+**Scope:** Security hardening (Audit A) + remaining code cleanup (Project review B). Deploy (C) is a separate spec.
+
+> **Update note (2026-05-07):** Initial spec planned 11 items. Verification during the writing-plans phase showed that commit `62b8c98 chore: apply 2026-05-04 project review` (3 days before this spec was written) already closed B1, B5, B6 (delete + language sweep — direction was English, not Turkish), and B7. Final spec covers **7 items**: 5 security + 2 cleanup.
 
 ---
 
@@ -10,46 +12,43 @@
 
 ### Problem
 
-The codebase has accumulated two parking-lot documents:
-- `docs/security-audit-2026-05-04.md` — 2 HIGH, 4 MEDIUM, 4 LOW findings, all still open as of 2026-05-07.
-- `docs/project-review-2026-05-04.md` — 7 actionable code-quality items.
-
-We want to deploy the app for free (Supabase Cloud + a static frontend host) for use by exactly two users (the developer and his spouse). Before deploying, we need to:
-1. Close the security findings that matter at this exposure level.
-2. Clean the code so deploy isn't shipping known regressions.
+`docs/security-audit-2026-05-04.md` lists 2 HIGH and 4 MEDIUM findings, all still open as of 2026-05-07. We want to deploy the app for free (Supabase Cloud + a static frontend host) for use by exactly two users (the developer and his spouse). Before deploying, we close the security findings that matter at this exposure level and the remaining code-quality items that affect deploy.
 
 ### Goal
 
-Single bundled branch `chore/pre-deploy-stabilization` containing 11 fixes, mantıksal commits, manual smoke-tested, merged to `main` as one PR. After this lands, the project is in a state where deploy can begin.
+Single bundled branch `chore/pre-deploy-stabilization` containing 7 fixes, logical commits, manual smoke-tested, merged to `main` as one PR. After this lands, the project is in a state where deploy can begin.
 
-### In scope (11 items)
+### In scope (7 items)
 
 **Security (Audit):**
 - **H1** — `seed_user_data` RLS bypass guard
 - **H2** — `backfill-snapshots` requires JWT
 - **M1** — `take-snapshots` shared-secret header (cron stays public-able)
 - **M2** — CORS allowlist on all 7 Edge Functions
-- **M3** — Auth defaults: password length 10+, signup remains open until two accounts exist
+- **M3** — Auth defaults: password length 10+; signup will be flipped off in deploy phase (C)
 
-**Cleanup (Project review):**
-- **B1** — `BigNumber.toNumber()` → `.toFixed()` strings for Postgres `numeric` writes
+**Cleanup (remaining):**
 - **B2** — Bundle size: route-level `React.lazy()` + lazy recharts
-- **B4** — `TransactionDataContext` SoT, eliminate 3-4× duplicate fetches
-- **B5** — `useDashboard` single-pass accumulator
-- **B6** — Settings page Turkish (consistency); delete `ManualPriceEntry`
-- **B7** — FIFO fee handling docstring
+- **B4** — `TransactionDataContext` SoT, eliminate 3-4× duplicate fetches in dashboard hooks
+
+### Already closed (verified, not in scope)
+
+- **B1** `BigNumber.toFixed` strings — closed in `62b8c98` (`balance.ts:40-47` writes string; `snapshots.ts` top-level numeric columns write strings; jsonb breakdown values intentionally stay as `number` per inline comment).
+- **B5** `useDashboard` single-pass — closed in `62b8c98`.
+- **B6** Language sweep — closed in `62b8c98` with **English as default** (opposite direction from earlier discussion; no further translation work).
+- **B6** `ManualPriceEntry` deletion — closed in `62b8c98`.
+- **B7** FIFO fee comment — closed in `62b8c98`.
 
 ### Explicitly out of scope
 
 - **M4** (input validation), **L1-L4** (audit low/info) — kept open in audit doc, deferred.
 - **B3** (public Edge Functions) — covered by H2/M1 in this spec.
 - **Deploy** (C) — separate brainstorm, separate spec.
-- **PRD updates** (monthly→daily snapshots etc.) — small docs commit after deploy.
 - **Budget feature** — separate spec already exists.
 
 ### Exposure model assumption
 
-The deployed app is for two users (dev + spouse). After both accounts are created, signup will be disabled. Email confirmation stays off (avoid forcing spouse into a managed mailbox). This determines which audit items need real fixes vs. can stay deferred.
+The deployed app is for two users. After both accounts are created (during deploy phase), signup is disabled. Email confirmation stays off (avoid forcing the spouse into a managed mailbox). This determines which audit items need real fixes vs. can stay deferred.
 
 ---
 
@@ -61,20 +60,17 @@ The deployed app is for two users (dev + spouse). After both accounts are create
 |---|---|---|
 | `supabase/migrations/` | New: `seed_user_data` guard (H1) | +1 |
 | `supabase/migrations/` | New: cron schedule with `X-Cron-Token` header (M1) | +1 |
-| `supabase/config.toml` | `verify_jwt`, password length (H2, M3) | edit |
+| `supabase/config.toml` | `verify_jwt` (H2), password length (M3) | edit |
 | `supabase/functions/take-snapshots/index.ts` | Token check (M1) | edit |
 | `supabase/functions/_shared/cors.ts` | New shared CORS util (M2) | +1 |
 | `supabase/functions/*/index.ts` (7 functions) | Use shared CORS util (M2) | edit |
-| `src/lib/balance.ts`, `src/lib/queries/snapshots.ts` | `.toFixed(decimals)` strings (B1) | edit |
 | `src/App.tsx` | Route-level `React.lazy()` (B2) | edit |
 | `src/components/layout/RouteSkeleton.tsx` | New Suspense fallback (B2) | +1 |
 | `src/components/charts/LazyChart.tsx` | New lazy chart wrappers (B2) | +1 |
 | `src/contexts/TransactionDataContext.tsx` | New: tx + rates SoT (B4) | +1 |
+| `src/main.tsx` | Wrap with `TransactionDataProvider` (B4) | edit |
 | `src/hooks/useDashboardHero.ts`, `usePnL.ts`, `useCostBasis.ts`, `useTransactionLog.ts` | Read from context (B4) | edit |
-| `src/hooks/useDashboard.ts` | Single-pass accumulator (B5) | edit |
-| `src/pages/SettingsPage.tsx` and subcomponents | TR strings (B6) | edit |
-| `src/components/prices/ManualPriceEntry.tsx` | Delete (B6) | delete |
-| `src/lib/fifo.ts` | Single comment (B7) | edit |
+| `src/hooks/useTransactions.ts` | Mutations call `refresh()` (B4) | edit |
 
 ### Surfaces left intentionally untouched
 
@@ -82,17 +78,18 @@ The deployed app is for two users (dev + spouse). After both accounts are create
 - Existing `src/contexts/TransactionContext.tsx` (modal state) — unchanged; new `TransactionDataContext` is a separate provider.
 - Database schema (tables, RLS policies) — only `seed_user_data` function body changes.
 - `useAuth`, `usePrices`, `usePlatforms`, `useAssets` — unaffected.
+- Strings / language — left as-is (English default per `62b8c98`).
 
 ### Branch & commit strategy
 
 - Single branch: `chore/pre-deploy-stabilization`.
-- Commits grouped logically per fix (`security/H1`, `security/H2`, `cleanup/B1`, …) so review can proceed commit-by-commit.
+- Commits grouped logically per fix (`security/H1`, `security/H2`, `cleanup/B2`, …) so review can proceed commit-by-commit.
 - Merge with a merge commit (not squash) — preserves logical separation in history.
 
 ### Migration ordering
 
 1. `seed_user_data` guard migration first — backwards compatible (calling with own UUID still works).
-2. Cron schedule migration second — drops old schedule, recreates with `X-Cron-Token`.
+2. Cron schedule migration second — drops old `daily-portfolio-snapshot` schedule, recreates with `X-Cron-Token`.
 3. `config.toml` changes ship together with `supabase functions deploy` (deploy phase).
 
 ---
@@ -124,9 +121,7 @@ GRANT EXECUTE ON FUNCTION public.seed_user_data(uuid) TO authenticated;
 
 **Decisions:**
 - Keep the `p_user_id` parameter (backwards compat with existing client call) but lock it via guard.
-- Add `SET search_path = public` (defense against search-path injection — small but free).
-
-**Down migration** (`20260507100000_seed_function_guard.down.sql`): restore body without guard. Held in repo, never run on remote unless rolling back.
+- Add `SET search_path = public` (defense against search-path injection).
 
 ### H2. `backfill-snapshots` requires JWT
 
@@ -142,7 +137,7 @@ GRANT EXECUTE ON FUNCTION public.seed_user_data(uuid) TO authenticated;
 
 ### M1. `take-snapshots` shared-secret
 
-**File:** `supabase/functions/take-snapshots/index.ts` — top of handler:
+**File:** `supabase/functions/take-snapshots/index.ts` — top of handler (after OPTIONS preflight, before any DB or external call):
 
 ```ts
 const expectedToken = Deno.env.get("CRON_TOKEN")
@@ -157,15 +152,46 @@ if (!expectedToken || providedToken !== expectedToken) {
 ```
 
 **Cron migration:** `supabase/migrations/20260507100100_cron_take_snapshots_token.sql`
-- `SELECT cron.unschedule('<old-job-name>');`
-- Reschedule via `pg_net.http_post` with `Authorization: Bearer <anon>` and `X-Cron-Token: <secret>` headers.
-- Token source: `vault.secrets` (preferred — managed secret) or `private.cron_token` table fallback if vault not enabled.
+
+The existing job is `daily-portfolio-snapshot` (`20260502120100_daily_snapshot_cron.sql:14`). The new migration:
+1. Drops the old schedule (`cron.unschedule('daily-portfolio-snapshot')`).
+2. Recreates it with the `X-Cron-Token` header pulled from a Postgres GUC `app.cron_token`.
+3. Token GUC is set per environment via `ALTER DATABASE postgres SET app.cron_token = '<token>'` (documented in migration comment).
+
+```sql
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'daily-portfolio-snapshot') THEN
+    PERFORM cron.unschedule('daily-portfolio-snapshot');
+  END IF;
+END $$;
+
+SELECT cron.schedule(
+  'daily-portfolio-snapshot',
+  '55 23 * * *',
+  $cron$
+  SELECT net.http_post(
+    url := 'http://kong:8000/functions/v1/take-snapshots',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'X-Cron-Token', current_setting('app.cron_token', true)
+    ),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 60000
+  );
+  $cron$
+);
+
+-- Required GUC (set per environment, not in migration):
+-- ALTER DATABASE postgres SET app.cron_token = '<32-hex>';
+```
 
 **Env vars:**
-- Local: `supabase/.env.local` → `CRON_TOKEN=<32-char random>`
-- Prod: `supabase secrets set CRON_TOKEN=<random>` — done in deploy phase (C).
+- Local: `supabase/.env.local` → `CRON_TOKEN=<32-char random>` (Edge Function side).
+- Local Postgres GUC: `ALTER DATABASE postgres SET app.cron_token = '<same-token>';` (cron side).
+- Prod: `supabase secrets set CRON_TOKEN=<random>` for the function; same `ALTER DATABASE` SQL run via dashboard.
 
-**`config.toml:375` (`take-snapshots` `verify_jwt = false`) stays.** Auth is via shared secret, not JWT — so JWT verification stays off.
+**`config.toml:375` (`take-snapshots` `verify_jwt = false`) stays.** Auth is via shared secret, not JWT.
 
 ### M2. CORS allowlist
 
@@ -192,25 +218,24 @@ export function corsHeaders(origin: string | null): HeadersInit {
 }
 ```
 
-**All 7 Edge Functions** (`backfill-snapshots`, `fetch-coingecko`, `fetch-historical-rate`, `fetch-prices`, `fetch-tcmb`, `fetch-yahoo`, `take-snapshots`) replace inline `corsHeaders` const with this util.
+**All 7 Edge Functions** (`backfill-snapshots`, `fetch-coingecko`, `fetch-historical-rate`, `fetch-prices`, `fetch-tcmb`, `fetch-yahoo`, `take-snapshots`) replace inline `corsHeaders` const with this util. Calls switch from `corsHeaders` (constant) to `corsHeaders(req.headers.get("origin"))` (function call).
 
-**Local env:** `ALLOWED_ORIGINS=http://localhost:5173`
-**Pre-deploy temporary:** `ALLOWED_ORIGINS=*` until deploy phase, then narrow to real domain.
+**Local env (`supabase/.env.local`):** `ALLOWED_ORIGINS=http://localhost:5173`
+**Pre-deploy temporary:** keep `ALLOWED_ORIGINS=*` in spec; narrow to real domain in deploy phase.
 
 ### M3. Auth defaults
 
-**File:** `supabase/config.toml`
+**File:** `supabase/config.toml:175`
 
 ```diff
 -minimum_password_length = 6
 +minimum_password_length = 10
 ```
 
-`enable_signup = true` **stays** in this spec — needed for the dev to create both accounts locally and on prod after deploy.
+`enable_signup = true` **stays** in this spec — needed for the dev to create both accounts on prod after deploy.
+`enable_confirmations = false` **stays** — explicit decision.
 
-`enable_confirmations = false` **stays** — explicit decision to avoid forcing the spouse into a managed mailbox.
-
-**Deferred to deploy phase (C):** flipping `enable_signup = false` after both accounts exist on prod.
+**Deferred to deploy phase (C):** flipping `enable_signup = false` after both accounts exist.
 
 ### Items deferred (audit reference preserved)
 
@@ -220,29 +245,6 @@ export function corsHeaders(origin: string | null): HeadersInit {
 ---
 
 ## 4. Cleanup
-
-### B1. BigNumber → Postgres `numeric` strings
-
-**Files:**
-- `src/lib/balance.ts:37`
-- `src/lib/queries/snapshots.ts:86, 87, 111, 112, 121, 122, 132, 133, 141, 142, 143`
-
-**Pattern:**
-```ts
-// Quantity (asset-aware decimals):
-balance: bn(...).toFixed(asset.decimals ?? 8)
-
-// USD/TRY (fiat-style):
-usd: vals.usd.toFixed(8)
-try: vals.try_val.toFixed(8)
-
-// Percentages (display only, lower precision OK):
-pct: ratio.toFixed(4)
-```
-
-Postgres `numeric` columns accept strings; BigNumber's `.toFixed()` returns a non-exponential string. Precision preserved end-to-end.
-
-**Optional helper:** `src/lib/bn.ts::toDbString(bn, decimals)` — added if `bn.ts` exists and is small. Otherwise inline.
 
 ### B2. Bundle size — lazy routes + lazy recharts
 
@@ -257,17 +259,17 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
 // DashboardPage stays eager (it's the index route).
 ```
 
-`<Suspense fallback={<RouteSkeleton />}>` wraps the route outlet inside `AppLayout`. `RouteSkeleton` is a minimal shimmer (`src/components/layout/RouteSkeleton.tsx`).
+`<Suspense fallback={<RouteSkeleton />}>` wraps each lazy route element. `RouteSkeleton` is a minimal shimmer (`src/components/layout/RouteSkeleton.tsx`).
 
 **Charts (`src/components/charts/LazyChart.tsx`):**
 
 ```ts
 import { lazy } from "react"
 export const PerformanceChart = lazy(() => import("./PerformanceChart"))
-export const HeroSparkline = lazy(() => import("./HeroSparkline"))
+// add additional chart components here as discovered during implementation
 ```
 
-Pages import `PerformanceChart` from `LazyChart` and wrap in `<Suspense fallback={<ChartSkeleton />}>`. Recharts ends up in chart-page chunks, not the main bundle.
+Pages import chart components from `LazyChart.tsx` and wrap usage in `<Suspense fallback={<ChartSkeleton />}>`. Recharts ends up in chart-page chunks, not the main bundle.
 
 **Target:** Initial JS gzip `<200kB` (currently ~400kB). Recharts chunk should appear in network tab only when navigating to a chart page.
 
@@ -286,14 +288,14 @@ interface TransactionDataValue {
 
 - Mounted in `main.tsx` outside the existing `TransactionProvider` (modal).
 - On mount: `Promise.all([fetchTransactionsForAllAssets(user.id), fetchAllExchangeRates()])` once.
-- `useTransactions().addTransaction / editTransaction / removeTransaction` call `refresh()` after mutation success.
+- Mutation handlers in `useTransactions` (add/edit/remove) call `refresh()` after success.
 
 **Migrated consumers:**
 
 | Hook | Before | After |
 |---|---|---|
-| `useDashboardHero` | own fetch | `useTransactionData()` |
-| `usePnL` | own fetch | `useTransactionData()` |
+| `useDashboardHero` (line 87-109) | own `Promise.all` fetch | `useTransactionData()` |
+| `usePnL` (line 53-69) | own `Promise.all` fetch | `useTransactionData()` |
 | `useTransactionLog` | own `fetchAllExchangeRates` | `useTransactionData().rates` |
 | `useCostBasis` | per-pair `fetchTransactionsForPnL(assetId, platformId)` | client-side filter on `transactions` |
 
@@ -304,7 +306,10 @@ const txForPair = useMemo(
   () =>
     transactions
       .filter((t) => t.asset_id === assetId && t.platform_id === platformId)
-      .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at)),
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at)
+      ),
   [transactions, assetId, platformId]
 )
 ```
@@ -312,31 +317,6 @@ const txForPair = useMemo(
 The original `fetchTransactionsForPnL` orders by `(date, created_at)`. After filtering the master array (ordered by `asset_id, platform_id, date, created_at`), an explicit re-sort guarantees FIFO inputs are stable. Both queries share `select("*")` so columns are identical — no shape divergence risk.
 
 **`fetchTransactionsForPnL` is not deleted yet** — leave for now; remove in a follow-up cleanup if no consumers remain.
-
-### B5. `useDashboard` single-pass
-
-**File:** `src/hooks/useDashboard.ts`
-
-Replace 4 separate loops with a single `for` loop computing `value = computeHoldingValue(h, prices)` once and updating four accumulators (totalUsd, byCategory Map, byPlatform Map, byTag Map). Pure mechanical refactor — outputs identical.
-
-### B6. Turkish standardization + delete `ManualPriceEntry`
-
-**Files:**
-- `src/pages/SettingsPage.tsx` and direct subcomponents: replace English strings with Turkish.
-- Toast messages, empty states, button labels checked.
-- **Delete** `src/components/prices/ManualPriceEntry.tsx` (not mounted anywhere — confirmed by project review).
-
-No centralized i18n — strings inline.
-
-### B7. FIFO fee handling comment
-
-**File:** `src/lib/fifo.ts`, above the fee-handling block (around line 104):
-
-```ts
-// Fees consume cost-basis lots and are also recorded as -feeCostUsd in
-// realized P&L. When cost basis ≠ market value at fee time, this creates
-// a small intentional double-count (conservative side).
-```
 
 ---
 
@@ -363,7 +343,7 @@ gzip -c dist/assets/index-*.js | wc -c   # initial bundle gzipped
 - Initial bundle (gzip): _to be filled_
 - Recharts location: in main bundle vs separate chunk: _to be filled_
 
-**Target after:** `<200kB` initial gzip; recharts in a separate chunk loaded only on `/performance` (and dashboard hero).
+**Target after:** `<200kB` initial gzip; recharts in a separate chunk loaded only on `/performance` (and dashboard hero if applicable).
 
 ### Security verify (manual)
 
@@ -371,25 +351,25 @@ gzip -c dist/assets/index-*.js | wc -c   # initial bundle gzipped
 |---|---|---|
 | H1 | Browser console: `await supabase.rpc("seed_user_data", { p_user_id: crypto.randomUUID() })` | Throws `cannot seed for another user` |
 | H1 | Same with `(await supabase.auth.getUser()).data.user.id` | Resolves OK (idempotent) |
-| H2 | `curl -X POST <project>/functions/v1/backfill-snapshots` | 401 |
-| H2 | UI Backfill button | Works (session JWT attached) |
-| M1 | `curl -X POST <project>/functions/v1/take-snapshots -d '{}'` | 401 |
-| M1 | Supabase logs after next cron tick | 200 |
-| M2 | `fetch("<func-url>", ...)` from a non-allowlisted origin | CORS error |
+| H2 | `curl -X POST <project>/functions/v1/backfill-snapshots` (no auth) | 401 |
+| H2 | UI Backfill button (logged in) | Works (session JWT attached) |
+| M1 | `curl -X POST <project>/functions/v1/take-snapshots -d '{}'` (no token) | 401 |
+| M1 | Same with `-H "X-Cron-Token: $CRON_TOKEN"` | 200 |
+| M1 | Wait for next cron tick or trigger via `cron.schedule_run` | Edge Function logs show 200 |
+| M2 | OPTIONS preflight from non-allowlisted origin | Allow-Origin doesn't reflect that origin |
+| M2 | OPTIONS preflight from `http://localhost:5173` | `Access-Control-Allow-Origin: http://localhost:5173` |
 | M3 | Signup with 6-char password | Rejected |
 
 ### Cleanup verify
 
 | ID | Test | Expected |
 |---|---|---|
-| B1 | `select balance::text from holdings limit 5` | All decimals preserved (e.g. `1.00000001`) |
-| B1 | `select usd::text from snapshots order by date desc limit 1` | 8 decimal places visible |
+| B2 | `gzip -c dist/assets/index-*.js \| wc -c` | < 200000 (was ~400000) |
+| B2 | DevTools Network on Dashboard | recharts chunk not loaded |
+| B2 | Navigate to Performance | recharts chunk arrives |
 | B4 | Dashboard mount, network tab `transactions` queries | 1× (was 3-4×) |
-| B4 | Add new transaction | Dashboard refreshes |
-| B5 | Dashboard numbers (visual) | Identical pre/post refactor |
-| B6 | Settings page | Fully Turkish |
-| B6 | `grep -rn "Settings\|Manage your" src/pages/SettingsPage.tsx` | Zero matches |
-| B7 | `src/lib/fifo.ts` | Comment present |
+| B4 | Dashboard numbers (visual) | Identical pre/post refactor |
+| B4 | Add new transaction | Dashboard refreshes without reload |
 
 ### Smoke flow (~10 min, before merge)
 
@@ -398,7 +378,7 @@ gzip -c dist/assets/index-*.js | wc -c   # initial bundle gzipped
 3. Edit it → Numbers update.
 4. Delete it → Portfolio updates.
 5. Navigate to Performance → Chart loads (recharts chunk arrives in network tab now).
-6. Settings → all tabs Turkish, working.
+6. Settings → all tabs working.
 7. Logout → Login → state clean.
 
 ---
@@ -409,18 +389,16 @@ gzip -c dist/assets/index-*.js | wc -c   # initial bundle gzipped
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| B4 context refactor introduces wrong filter → missing tx | Medium | High | Compare Dashboard numbers to pre-refactor screenshot; uçtan uca smoke. |
-| B1 `toFixed(asset.decimals)` when `decimals` undefined → RangeError | Low | Medium | Fallback `?? 8`; raw SQL verify after first holdings write. |
+| B4 context refactor introduces wrong filter → missing tx | Medium | High | Capture pre-refactor Dashboard screenshot; uçtan uca smoke. |
 | B2 Suspense fallback flashes on slow network | Low | Low | Minimal skeleton + 100ms fade; visual smoke. |
 | M1 cron token misconfigured → snapshots silently fail | Medium | Medium | Weekly check of Edge Function logs (operational note). |
 | H2 `verify_jwt = true` accidentally applied to `take-snapshots` → cron breaks | Low | High | Only the `backfill-snapshots` block edited; diff-review catches. |
-| TR translation typos | Low | Low | Visual smoke. |
-| Large PR review fatigue | High | Low | Logical commits per fix; review commit-by-commit. |
+| Large PR review fatigue | Medium | Low | Logical commits per fix; review commit-by-commit. |
 
 ### Rollback playbook
 
 **Migration breakage (H1, M1):**
-- Down migration files included in repo.
+- Down migration files included in repo (not auto-run).
 - Local: `supabase db reset`.
 - Prod: write a new forward migration (Supabase doesn't auto-run downs).
 
@@ -441,13 +419,13 @@ gzip -c dist/assets/index-*.js | wc -c   # initial bundle gzipped
 
 This spec is "done" when:
 
-- [ ] 11 fixes implemented with logical commits on `chore/pre-deploy-stabilization`
+- [ ] 7 fixes implemented with logical commits on `chore/pre-deploy-stabilization`
 - [ ] `npm run build` and `npm run lint` exit zero
 - [ ] All verify checks above pass
 - [ ] Smoke flow successful
 - [ ] PR opened, self-reviewed, merged
 - [ ] `docs/security-audit-2026-05-04.md` updated: H1/H2/M1/M2/M3 marked `Fixed in <commit>`
-- [ ] `docs/project-review-2026-05-04.md` updated: items 1, 2, 4, 5, 6, 7 marked `Fixed`
+- [ ] `docs/project-review-2026-05-04.md` updated: items 2 and 4 marked `Fixed`
 
 After merge, the project is ready for the deploy (C) brainstorm.
 
@@ -457,5 +435,4 @@ After merge, the project is ready for the deploy (C) brainstorm.
 
 - **C — Free deploy:** host selection (Vercel / Netlify / CF Pages), custom domain, Supabase Cloud project provisioning, env var management, prod migration push, `enable_signup = false` flip after both accounts created, `ALLOWED_ORIGINS` real-domain narrowing, `CRON_TOKEN` rotation policy.
 - **M4** input validation, **L1-L4** — remain open in audit doc.
-- **PRD updates** — §8.1, §16, §9.5 small edits to reflect daily snapshots and current Settings state. Post-deploy.
 - **Budget feature** — separate spec already exists (`docs/budget-feature-plan.md`).
