@@ -1,9 +1,8 @@
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { useTransactions } from "@/hooks/useTransactions"
-import { useAuth } from "@/hooks/useAuth"
-import { fetchAllExchangeRates } from "@/lib/queries/pnl"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { normalizeToUsd } from "@/lib/pnl/currency"
-import type { TransactionType, ExchangeRate } from "@/types/database"
+import type { TransactionType } from "@/types/database"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 
 export interface TransactionLogFilters {
@@ -21,14 +20,8 @@ export interface TransactionLogSummary {
 }
 
 export function useTransactionLog() {
-  const { user } = useAuth()
   const [filters, setFilters] = useState<TransactionLogFilters>({})
-  const [rates, setRates] = useState<ExchangeRate[]>([])
-
-  useEffect(() => {
-    if (!user) return
-    fetchAllExchangeRates().then(setRates).catch(console.error)
-  }, [user])
+  const { rates } = useTransactionData()
 
   // Pass date, asset, and platform filters to the server query
   const serverFilters = useMemo(
