@@ -36,7 +36,7 @@ The plan is detailed and implementation-ready (14 numbered steps, file paths, sc
 
 Same issue in `snapshots.ts:154-155`, `:111-112`, `:121-122`, `:132-133` — `.toNumber()` on aggregated values before insert.
 
-### 2. Bundle size: 1.35MB unminified JS (400kB gzip)
+### 2. Bundle size: 1.35MB unminified JS (400kB gzip)  ✅ Fixed in `8f4a965` (lazy routes + lazy recharts; initial bundle 401kB → 135kB gzip)
 
 Your PRD targets PWA-on-mobile. Recharts is the biggest offender. Easy wins:
 
@@ -45,11 +45,11 @@ Your PRD targets PWA-on-mobile. Recharts is the biggest offender. Easy wins:
 
 First-paint on 3G drops noticeably — worth it.
 
-### 3. Public unauthenticated Edge Functions
+### 3. Public unauthenticated Edge Functions  ✅ Fixed in `011a41e` (H2) + `b64d755` (M1)
 
 `config.toml:374-381` sets `verify_jwt = false` on `take-snapshots` and `backfill-snapshots`. They both use the service role internally. Anyone with the URL can trigger writes. For `take-snapshots` it's idempotent (upsert today's snapshot) so the blast radius is small. For `backfill-snapshots` it's heavier — long-running, hits external APIs, can overwrite. Even for a personal app, consider a shared-secret header check inside the function, or restrict `backfill-snapshots` to JWT-authenticated only and have the cron call only `take-snapshots`.
 
-### 4. Duplicate fetching across dashboard hooks
+### 4. Duplicate fetching across dashboard hooks  ✅ Fixed in `c794ec4` + `d8e7952` (TransactionDataContext SoT plus cancellation safety)
 
 `useDashboard`, `usePnL`, `useDashboardHero`, `useCostBasis` each make their own `fetchTransactionsForAllAssets` + `fetchAllExchangeRates` calls. On Dashboard mount you're fetching the same transactions 3-4× over. The `TransactionContext` you added recently is the right place to put this — make it the single source of truth for transactions and rates.
 
