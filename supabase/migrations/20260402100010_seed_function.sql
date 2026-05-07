@@ -38,7 +38,7 @@ BEGIN
 
   -- Gold — tokenized
   INSERT INTO public.assets (user_id, category, ticker, name, tags, price_source) VALUES
-    (p_user_id, 'gold', 'paxgold',     'Pax Gold (PAXG)',    ARRAY['crypto'], 'coingecko'),
+    (p_user_id, 'gold', 'pax-gold',    'Pax Gold (PAXG)',    ARRAY['crypto'], 'coingecko'),
     (p_user_id, 'gold', 'tether-gold', 'Tether Gold (XAUT)', ARRAY['crypto'], 'coingecko');
 
   -- Gold — physical

@@ -70,7 +70,7 @@ export interface DashboardData {
 const OZ_TO_GRAMS = 31.1035
 
 /** Tickers whose balance should be converted from oz to grams for display. */
-const GOLD_OZ_TICKERS = new Set(["paxgold", "tether-gold"])
+const GOLD_OZ_TICKERS = new Set(["pax-gold", "tether-gold"])
 
 // ─── Hook ───────────────────────────────────────────────────────────
 

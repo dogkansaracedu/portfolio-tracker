@@ -206,7 +206,32 @@ export async function triggerBackfillSnapshots(
     "backfill-snapshots",
     { body: opts },
   )
-  if (error) throw error
+  if (error) {
+    // FunctionsHttpError carries the Response in error.context. Surface its
+    // body so we don't leave the user staring at "non-2xx status code" with
+    // no clue what actually broke.
+    const ctx = (error as { context?: Response }).context
+    if (ctx && typeof ctx.text === "function") {
+      try {
+        const body = await ctx.text()
+        if (body) {
+          let parsed = body
+          try {
+            const json = JSON.parse(body)
+            parsed = json.error ?? json.message ?? body
+          } catch {
+            // body wasn't JSON — use raw text
+          }
+          throw new Error(`${error.message}: ${parsed}`)
+        }
+      } catch (extractErr) {
+        if (extractErr instanceof Error && extractErr.message !== error.message) {
+          throw extractErr
+        }
+      }
+    }
+    throw error
+  }
   if (!data) throw new Error("backfill-snapshots returned no data")
   return data
 }

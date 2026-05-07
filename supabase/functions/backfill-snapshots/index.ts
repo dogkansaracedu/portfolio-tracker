@@ -109,11 +109,20 @@ function lookupAtOrBefore(
 async function fetchCoinGeckoHistory(
   coinId: string,
 ): Promise<Map<string, number>> {
-  const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=max&interval=daily`
-  const res = await fetch(url)
+  // CoinGecko's free Public API gates `interval=daily` behind Pro
+  // (returns 401 Unauthorized) and caps `days` at 365. Their docs say
+  // free will auto-return daily granularity for `days > 90`, so we
+  // just drop `interval` and request the maximum free window.
+  const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=365`
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" },
+  })
   if (!res.ok) {
+    const body = await res.text().catch(() => "")
     throw new Error(
-      `CoinGecko ${coinId} HTTP ${res.status} ${res.statusText}`,
+      `CoinGecko ${coinId} HTTP ${res.status} ${res.statusText}${
+        body ? `: ${body.slice(0, 200)}` : ""
+      }`,
     )
   }
   const data = (await res.json()) as { prices?: [number, number][] }
@@ -177,21 +186,50 @@ function balanceSign(type: TransactionRow["type"]): number {
 
 // ─── Main handler ──────────────────────────────────────────────────
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+}
+
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" }
+
+function jsonError(message: string, status = 500): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: jsonHeaders,
+  })
+}
+
 Deno.serve(async (req) => {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
-  }
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false } },
-  )
+  try {
+    return await handle(req)
+  } catch (e) {
+    // Catch-all so an uncaught throw inside handle() returns an actionable
+    // JSON body instead of an opaque "non-2xx status code".
+    const message = e instanceof Error
+      ? `${e.message}\n${e.stack ?? ""}`.trim()
+      : String(e)
+    return jsonError(`backfill-snapshots crashed: ${message}`)
+  }
+})
+
+async function handle(req: Request): Promise<Response> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+  if (!supabaseUrl || !serviceKey) {
+    return jsonError(
+      "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars",
+    )
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  })
 
   // Parse body (optional)
   let body: {
@@ -213,10 +251,7 @@ Deno.serve(async (req) => {
     .from("assets")
     .select("id, ticker, name, category, tags, price_source, is_active")
   if (assetsErr) {
-    return new Response(JSON.stringify({ error: assetsErr.message }), {
-      status: 500,
-      headers: corsHeaders,
-    })
+    return jsonError(`load assets: ${assetsErr.message}`)
   }
   const assets = (assetsRaw ?? []) as AssetRow[]
   const assetsById = new Map<string, AssetRow>()
@@ -230,10 +265,7 @@ Deno.serve(async (req) => {
     .from("platforms")
     .select("id, name, color")
   if (platformsErr) {
-    return new Response(JSON.stringify({ error: platformsErr.message }), {
-      status: 500,
-      headers: corsHeaders,
-    })
+    return jsonError(`load platforms: ${platformsErr.message}`)
   }
   const platformsById = new Map<string, PlatformRow>()
   for (const p of (platformsRaw ?? []) as PlatformRow[]) {
@@ -247,16 +279,23 @@ Deno.serve(async (req) => {
     )
     .order("date", { ascending: true })
   if (txErr) {
-    return new Response(JSON.stringify({ error: txErr.message }), {
-      status: 500,
-      headers: corsHeaders,
-    })
+    return jsonError(`load transactions: ${txErr.message}`)
   }
   const txs = (txRaw ?? []) as TransactionRow[]
   if (txs.length === 0) {
+    // Return a valid BackfillResult shape so the client doesn't trip on missing
+    // fields when there is genuinely nothing to do.
     return new Response(
-      JSON.stringify({ message: "no transactions to backfill" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({
+        target_dates: [],
+        target_count: 0,
+        snapshots_written: 0,
+        tickers_priced: [],
+        sample: [],
+        errors: ["No transactions to backfill"],
+        timestamp: new Date().toISOString(),
+      }),
+      { headers: jsonHeaders },
     )
   }
 
@@ -396,6 +435,7 @@ Deno.serve(async (req) => {
         balances.set(t.asset_id, inner)
       }
 
+
       // Rates at date
       const usdTry = lookupAtOrBefore(usdTryMap, date) ?? 30
       const eurTry = lookupAtOrBefore(eurTryMap, date) ?? 33
@@ -481,8 +521,19 @@ Deno.serve(async (req) => {
       for (const k of Object.keys(byTag))
         byTag[k].pct = safePct(byTag[k].usd)
 
-      // Skip dates where nothing was held yet
-      if (totalUsd <= 0 && byAsset.length === 0) continue
+      // Skip the date when:
+      //   - nothing was held yet (no balances)            → empty snapshot
+      //   - at least one held asset couldn't be priced    → partial data
+      //
+      // The second case matters for crypto held before CoinGecko's free
+      // 365-day window: writing a 0-valued snapshot would later anchor a
+      // 1Y/3Y range delta against $0 and blow the percentage to millions.
+      // Honest answer: don't write a snapshot we can't trust.
+      if (byAsset.length === 0) continue
+      const hasUnpriced = byAsset.some(
+        (a) => a.amount > 0 && a.price_usd <= 0,
+      )
+      if (hasUnpriced) continue
 
       inserts.push({
         user_id: userId,
@@ -541,6 +592,6 @@ Deno.serve(async (req) => {
       errors: errors.length > 0 ? errors : undefined,
       timestamp: new Date().toISOString(),
     }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    { headers: jsonHeaders },
   )
-})
+}
