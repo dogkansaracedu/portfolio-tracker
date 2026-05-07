@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { useHoldings } from "@/hooks/useHoldings"
 import { useSnapshots } from "@/hooks/useSnapshots"
 import { usePerformance } from "@/hooks/usePerformance"
@@ -7,10 +7,13 @@ import { usePnL } from "@/hooks/usePnL"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { TimeRangeSelector } from "@/components/performance/TimeRangeSelector"
 import { PerformanceSummary } from "@/components/performance/PerformanceSummary"
-import { PortfolioValueChart } from "@/components/performance/PortfolioValueChart"
-import { MonthlyReturnsChart } from "@/components/performance/MonthlyReturnsChart"
+import {
+  PortfolioValueChart,
+  MonthlyReturnsChart,
+  DrawdownChart,
+} from "@/components/charts/LazyChart"
+import RouteSkeleton from "@/components/layout/RouteSkeleton"
 import { CategoryAttribution } from "@/components/performance/CategoryAttribution"
-import { DrawdownChart } from "@/components/performance/DrawdownChart"
 import { SnapshotManager } from "@/components/performance/SnapshotManager"
 import { Card, CardContent } from "@/components/ui/card"
 import type { TimeRange } from "@/lib/performance"
@@ -95,19 +98,25 @@ export default function PerformancePage() {
           />
 
           {/* Portfolio value chart */}
-          <PortfolioValueChart
-            snapshots={filteredSnapshots}
-            currency={currency}
-          />
+          <Suspense fallback={<RouteSkeleton />}>
+            <PortfolioValueChart
+              snapshots={filteredSnapshots}
+              currency={currency}
+            />
+          </Suspense>
 
           {/* Monthly returns + Category attribution */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <MonthlyReturnsChart returns={monthlyReturns} />
+            <Suspense fallback={<RouteSkeleton />}>
+              <MonthlyReturnsChart returns={monthlyReturns} />
+            </Suspense>
             <CategoryAttribution data={categoryAttribution} />
           </div>
 
           {/* Drawdown */}
-          <DrawdownChart data={drawdownSeries} />
+          <Suspense fallback={<RouteSkeleton />}>
+            <DrawdownChart data={drawdownSeries} />
+          </Suspense>
         </>
       )}
 
