@@ -28,6 +28,8 @@ export function TransactionDataProvider({ children }: { children: ReactNode }) {
   const [rates, setRates] = useState<ExchangeRate[]>([])
   const [loading, setLoading] = useState(true)
 
+  // External (mutation-driven) refresh. Mutation flows are user-initiated
+  // single events, so cancellation is unnecessary here.
   const refresh = useCallback(async () => {
     if (!user) {
       setTransactions([])
@@ -50,9 +52,42 @@ export function TransactionDataProvider({ children }: { children: ReactNode }) {
     }
   }, [user])
 
+  // Mount/auth-change load. Uses a cancellation flag so a logout (or user
+  // switch) mid-fetch can't clobber the new state with the previous user's
+  // data once the in-flight Promise.all settles.
   useEffect(() => {
-    refresh()
-  }, [refresh])
+    let cancelled = false
+
+    ;(async () => {
+      if (!user) {
+        if (!cancelled) {
+          setTransactions([])
+          setRates([])
+          setLoading(false)
+        }
+        return
+      }
+      if (!cancelled) setLoading(true)
+      try {
+        const [tx, rt] = await Promise.all([
+          fetchTransactionsForAllAssets(user.id),
+          fetchAllExchangeRates(),
+        ])
+        if (!cancelled) {
+          setTransactions(tx)
+          setRates(rt)
+        }
+      } catch (err) {
+        console.error("TransactionDataProvider load failed:", err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   return (
     <TransactionDataContext.Provider value={{ transactions, rates, loading, refresh }}>
