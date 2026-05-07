@@ -378,7 +378,7 @@ verify_jwt = false
 # snapshots from external price APIs. No JWT needed; service role is
 # loaded from env inside the function.
 [functions.backfill-snapshots]
-verify_jwt = false
+verify_jwt = true
 
 # Lazy historical-rate cache. Frontend invokes this whenever a non-USD
 # transaction is saved so `exchange_rates` carries the TCMB rate for that
