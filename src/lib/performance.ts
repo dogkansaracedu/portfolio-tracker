@@ -519,7 +519,15 @@ export function computePnLTimeSeries(
   for (const snap of snapshots) {
     const cutoff = snap.snapshot_date
 
-    while (txIdx < txs.length && txs[txIdx].date <= cutoff) {
+    // tx.date carries a time component (e.g. "2026-05-03 21:00:00+00")
+    // while snap.snapshot_date is date-only ("2026-05-03"). String-comparing
+    // the two with `<=` excludes same-day deposits because the longer
+    // timestamp sorts after the bare date. Slice to YYYY-MM-DD so a deposit
+    // recorded on snapshot day counts toward that day's invested capital.
+    while (
+      txIdx < txs.length &&
+      txs[txIdx].date.slice(0, 10) <= cutoff
+    ) {
       cumInvested = applyTxToInvested(txs[txIdx], rates, cumInvested)
       txIdx++
     }

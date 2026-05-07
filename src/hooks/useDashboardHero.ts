@@ -24,6 +24,11 @@ export interface HeroPoint {
 
 export interface DashboardHeroData {
   chartData: HeroPoint[]
+  /** Date strings (matching `chartData[i].date`) chosen as X-axis tick
+   *  positions: at most one per visible bucket (month for ≥1M ranges,
+   *  day for shorter), plus the final "now" anchor. Prevents the same
+   *  month label rendering 8× when daily snapshots cluster. */
+  xTicks: string[]
   current: { usd: number; try: number }
   rangeStart: { usd: number; try: number; date: string | null }
   delta: { usd: number; try: number; pct: number }
@@ -110,6 +115,7 @@ export function useDashboardHero({
     if (snapshots.length === 0 && currentValueUsd === 0 && currentValueTry === 0) {
       return {
         chartData: [],
+        xTicks: [],
         current: { usd: 0, try: 0 },
         rangeStart: { usd: 0, try: 0, date: null },
         delta: { usd: 0, try: 0, pct: 0 },
@@ -151,18 +157,13 @@ export function useDashboardHero({
       raw.push({ date: today, usd: pnlNowUsd, try: pnlNowUsd * ratio })
     }
 
-    // For P&L mode, prepend a synthetic zero-anchor one day before the
-    // earliest transaction. This ensures the "ALL" range delta equals
-    // lifetime cumulative P&L (instead of "P&L change since first
-    // snapshot", which silently drops any unrealized gain that already
-    // existed at the moment of the first snapshot — a pre-existing bug
-    // that made the headline number disagree with the "Total" subtitle).
-    //
-    // For shorter ranges (1M/3M/YTD/1Y), filterByTimeRange picks the
-    // closest snapshot before the cutoff as anchor, so this 0-point only
-    // wins when the requested cutoff is older than the earliest tx —
-    // i.e. effectively just for "ALL".
-    if (viewMode === "pnl" && transactions.length > 0 && raw.length > 0) {
+    // For the "ALL" range only, prepend a synthetic zero-anchor one day
+    // before the earliest transaction. This makes ΔValue(ALL) =
+    // currentValue and ΔP&L(ALL) = total cumulative P&L — i.e. "since
+    // money first entered the portfolio", not "since the first snapshot
+    // we happened to record". Shorter ranges keep snapshot-anchored
+    // semantics (handled by filterByTimeRange's anchor logic).
+    if (timeRange === "ALL" && transactions.length > 0 && raw.length > 0) {
       let earliest = transactions[0].date.slice(0, 10)
       for (let i = 1; i < transactions.length; i++) {
         const d = transactions[i].date.slice(0, 10)
@@ -210,6 +211,24 @@ export function useDashboardHero({
       chartData[chartData.length - 1].label = "Şimdi"
     }
 
+    // Pick one tick per unique label (e.g. "Nis 2026") so the X-axis
+    // doesn't repeat the same month/day string for every dense daily
+    // snapshot. The last point's label is "Şimdi" — always include it.
+    const seen = new Set<string>()
+    const xTicks: string[] = []
+    for (const p of chartData) {
+      if (!seen.has(p.label)) {
+        seen.add(p.label)
+        xTicks.push(p.date)
+      }
+    }
+    if (
+      chartData.length > 0 &&
+      xTicks[xTicks.length - 1] !== chartData[chartData.length - 1].date
+    ) {
+      xTicks.push(chartData[chartData.length - 1].date)
+    }
+
     const start = chartData[0]
     const end = chartData[chartData.length - 1]
     const startUsd = start?.valueUsd ?? 0
@@ -217,8 +236,8 @@ export function useDashboardHero({
     const startTry = start?.valueTry ?? 0
     const endTry = end?.valueTry ?? 0
 
-    let deltaUsd = endUsd - startUsd
-    let deltaTry = endTry - startTry
+    const deltaUsd = endUsd - startUsd
+    const deltaTry = endTry - startTry
     // Percent denominator:
     //  · Value mode → divide by the period's starting portfolio value
     //    (classic "% return on the value that was sitting there").
@@ -227,33 +246,29 @@ export function useDashboardHero({
     //    "+674%" when the period P&L grew from $1,452 → $11,244) and bears
     //    no relation to actual return on investment.
     let pctDenom: number
+    let pctNumer: number = deltaUsd
     if (viewMode === "pnl") {
       const investedNow = computeCurrentInvestedUsd(transactions, rates)
       pctDenom = Math.abs(investedNow) || 1
+    } else if (timeRange === "ALL" || Math.abs(startUsd) < 1) {
+      // ΔValue / startUsd is meaningless when startUsd is ~$0 — either we
+      // synthesized a $0 anchor (ALL range) or the period began before the
+      // portfolio had any pricable holdings (e.g. crypto bought before
+      // CoinGecko's 365-day free window). Falling back to delta/1 prints
+      // millions-of-percent. Use lifetime return (totalPnL / invested)
+      // instead so the % stays meaningful and matches the P&L subtitle.
+      const investedNow = computeCurrentInvestedUsd(transactions, rates)
+      pctDenom = Math.abs(investedNow) || 1
+      pctNumer = currentValueUsd - investedNow
     } else {
       pctDenom = Math.abs(startUsd) || 1
     }
 
-    // Value-mode "ALL" override: the snapshot-to-snapshot delta misses any
-    // unrealized gain that already existed at the time of the first snapshot
-    // (e.g. a deposit happened before snapshots started recording, or prices
-    // moved between deposit and first snapshot). For lifetime semantics the
-    // honest answer is "current value − total invested" = total P&L. Shorter
-    // ranges keep snapshot-delta semantics because there "value change for
-    // the period" is the right reading (deposits in-period included).
-    if (viewMode === "value" && timeRange === "ALL") {
-      const investedNow = computeCurrentInvestedUsd(transactions, rates)
-      const totalPnlUsd = currentValueUsd - investedNow
-      const ratio =
-        currentValueUsd > 0 ? currentValueTry / currentValueUsd : usdTry
-      deltaUsd = totalPnlUsd
-      deltaTry = totalPnlUsd * ratio
-      pctDenom = Math.abs(investedNow) || 1
-    }
-    const deltaPct = pctDenom !== 0 ? (deltaUsd / pctDenom) * 100 : 0
+    const deltaPct = pctDenom !== 0 ? (pctNumer / pctDenom) * 100 : 0
 
     return {
       chartData,
+      xTicks,
       current: { usd: endUsd, try: endTry },
       rangeStart: { usd: startUsd, try: startTry, date: start?.date ?? null },
       delta: { usd: deltaUsd, try: deltaTry, pct: deltaPct },
