@@ -43,6 +43,7 @@ export function TransactionList({ transactions, loading, currency }: Props) {
           <TableHead>Unit Price</TableHead>
           <TableHead>Total</TableHead>
           <TableHead>Notes</TableHead>
+          <TableHead className="w-12 text-right" />
         </TableRow>
       </TableHeader>
       <TableBody>

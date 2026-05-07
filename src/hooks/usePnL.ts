@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { bn, BN_ZERO } from "@/lib/config"
 import { useAuth } from "@/hooks/useAuth"
+import { useTransactionModal } from "@/contexts/TransactionContext"
 import {
   fetchTransactionsForAllAssets,
   fetchAllExchangeRates,
@@ -42,10 +43,13 @@ export function usePnL(
   prices: Record<string, PriceCache>,
 ) {
   const { user } = useAuth()
+  const { txVersion } = useTransactionModal()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [rates, setRates] = useState<ExchangeRate[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Re-fetch transactions whenever a mutation bumps txVersion so all P&L
+  // surfaces (Dashboard, Portfolio, Performance) stay in sync without F5.
   useEffect(() => {
     if (!user) return
 
@@ -66,7 +70,7 @@ export function usePnL(
     }
 
     load()
-  }, [user])
+  }, [user, txVersion])
 
   const result: PortfolioPnL = useMemo(() => {
     if (loading || holdings.length === 0) {

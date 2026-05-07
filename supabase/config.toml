@@ -380,6 +380,12 @@ verify_jwt = false
 [functions.backfill-snapshots]
 verify_jwt = false
 
+# Lazy historical-rate cache. Frontend invokes this whenever a non-USD
+# transaction is saved so `exchange_rates` carries the TCMB rate for that
+# day. Same {service-role-from-env} pattern as the other two.
+[functions.fetch-historical-rate]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

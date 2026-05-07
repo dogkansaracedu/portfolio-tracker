@@ -119,7 +119,7 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
         <Button
           variant="ghost"
           size="icon-xs"
-          onClick={() => openTransactionModal(asset.id)}
+          onClick={() => openTransactionModal({ assetId: asset.id })}
         >
           <Plus className="size-3.5" />
           <span className="sr-only">Add Transaction</span>
@@ -178,7 +178,7 @@ export function PortfolioRowCard({ asset }: PortfolioRowProps) {
           <Button
             variant="ghost"
             size="xs"
-            onClick={() => openTransactionModal(asset.id)}
+            onClick={() => openTransactionModal({ assetId: asset.id })}
             className="mt-1"
           >
             <Plus className="size-3" />
