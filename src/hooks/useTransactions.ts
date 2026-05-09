@@ -198,8 +198,22 @@ export function useTransactions(filters?: TransactionFilters) {
     platformId: string,
   ) => {
     if (!user) throw new Error("Not authenticated")
+
+    // Capture child lens BEFORE delete — Postgres ON DELETE CASCADE will
+    // remove the child row alongside the parent, but we still need to
+    // recalc the cash-asset balance.
+    const child = await fetchLinkedChild(id)
+
     await deleteTransaction(id)
-    await recalculateBalance(user.id, assetId, platformId)
+
+    const lenses = new Set<string>([`${assetId}::${platformId}`])
+    if (child) {
+      lenses.add(`${child.asset_id}::${child.platform_id}`)
+    }
+    for (const lens of lenses) {
+      const [a, p] = lens.split("::")
+      await recalculateBalance(user.id, a, p)
+    }
     await refresh()
     bumpTxVersion()
   }
