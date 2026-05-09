@@ -32,12 +32,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Listen for auth state changes (login, logout, token refresh)
+    // Listen for auth state changes (login, logout, token refresh).
+    //
+    // TOKEN_REFRESHED fires on every tab focus return after the JWT TTL
+    // window. Naively calling setUser/setSession every time would replace
+    // the user object reference, invalidating every `[user]` effect
+    // dependency across the app — refetching all data and re-rendering
+    // tables. We bail out when the identity hasn't actually changed.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+      setSession((prev) => {
+        if (prev?.access_token === session?.access_token) return prev;
+        return session;
+      });
+      setUser((prev) => {
+        const next = session?.user ?? null;
+        if (prev?.id === next?.id) return prev;
+        return next;
+      });
       setLoading(false);
     });
 

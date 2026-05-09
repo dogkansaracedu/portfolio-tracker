@@ -15,23 +15,50 @@ export default function AppLayout() {
   const mainRef = useRef<HTMLElement>(null)
   const location = useLocation()
 
-  // Persist + restore scroll position per route. The main element re-mounts
-  // when auth tokens refresh on tab focus return, which would otherwise
-  // reset scroll to 0. sessionStorage scope ties this to the tab session.
+  // Persist + restore scroll position per route. Async data + lazy charts
+  // mean content height grows after first paint; a single rAF restore
+  // misses (saved scrollTop > current scrollHeight). Retry until content
+  // is tall enough or 1s elapses, then settle. sessionStorage keeps state
+  // tab-scoped.
   useEffect(() => {
     const el = mainRef.current
     if (!el) return
     const key = `scroll:${location.pathname}`
     const saved = sessionStorage.getItem(key)
-    if (saved) {
-      const top = parseFloat(saved)
-      if (!Number.isNaN(top)) {
-        // Restore after first paint so any layout shifts settle first.
-        requestAnimationFrame(() => {
-          el.scrollTop = top
-        })
+    const target = saved !== null ? parseFloat(saved) : NaN
+
+    if (!Number.isNaN(target) && target > 0) {
+      let cancelled = false
+      const start = performance.now()
+      const tryRestore = () => {
+        if (cancelled || !el) return
+        const maxTop = el.scrollHeight - el.clientHeight
+        if (maxTop >= target) {
+          el.scrollTop = target
+          return
+        }
+        if (performance.now() - start < 1000) {
+          requestAnimationFrame(tryRestore)
+        } else {
+          // Content never grew enough; clamp to current max.
+          el.scrollTop = Math.max(0, maxTop)
+        }
+      }
+      requestAnimationFrame(tryRestore)
+      // Cleanup will set cancelled = true if route changes mid-restore.
+      const cleanup = () => {
+        cancelled = true
+      }
+      const onScroll = () => {
+        sessionStorage.setItem(key, String(el.scrollTop))
+      }
+      el.addEventListener("scroll", onScroll, { passive: true })
+      return () => {
+        cleanup()
+        el.removeEventListener("scroll", onScroll)
       }
     }
+
     const onScroll = () => {
       sessionStorage.setItem(key, String(el.scrollTop))
     }
