@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
+import { usePersistedState } from "@/hooks/usePersistedState"
 import {
   AreaChart,
   Area,
@@ -76,8 +77,17 @@ export default function DashboardHero({
   usdTry,
 }: DashboardHeroProps) {
   const { currency, obfuscated } = useDisplayCurrency()
-  const [viewMode, setViewMode] = useState<HeroViewMode>("value")
-  const [timeRange, setTimeRange] = useState<TimeRange>("1M")
+  // Persist view/range across tab-visibility-driven re-mounts (auth token
+  // refresh on tab focus return causes consumer re-renders that can reset
+  // local state).
+  const [viewMode, setViewMode] = usePersistedState<HeroViewMode>(
+    "dashboardHero.viewMode",
+    "value",
+  )
+  const [timeRange, setTimeRange] = usePersistedState<TimeRange>(
+    "dashboardHero.timeRange",
+    "1M",
+  )
 
   const { chartData, xTicks, current, delta } = useDashboardHero({
     snapshots,
