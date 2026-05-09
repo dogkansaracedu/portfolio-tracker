@@ -534,15 +534,13 @@ async function handle(
       for (const k of Object.keys(byTag))
         byTag[k].pct = safePct(byTag[k].usd)
 
-      // Skip the date when:
-      //   - nothing was held yet (no balances)            → empty snapshot
-      //   - at least one held asset couldn't be priced    → partial data
-      //
-      // The second case matters for crypto held before CoinGecko's free
-      // 365-day window: writing a 0-valued snapshot would later anchor a
-      // 1Y/3Y range delta against $0 and blow the percentage to millions.
-      // Honest answer: don't write a snapshot we can't trust.
-      if (byAsset.length === 0) continue
+      // Skip only when at least one held asset couldn't be priced
+      // (partial data — typically crypto outside CoinGecko's free 365-day
+      // window). An empty portfolio is a real, honest state: the user
+      // closed all positions. Write a 0-valued snapshot so charts render
+      // a flat $0 line through that period instead of an interpolated
+      // gap. Percent-change consumers handle 0-anchor by falling back to
+      // invested-capital as denominator.
       const hasUnpriced = byAsset.some(
         (a) => a.amount > 0 && a.price_usd <= 0,
       )
