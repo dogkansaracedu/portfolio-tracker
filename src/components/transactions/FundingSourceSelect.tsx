@@ -69,7 +69,23 @@ export function FundingSourceSelect({
       onValueChange={(v) => onChange(v === EXTERNAL_CASH_VALUE ? null : v)}
     >
       <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select funding source..." />
+        <SelectValue>
+          {(value: string) => {
+            if (!value) return "Select funding source..."
+            if (value === EXTERNAL_CASH_VALUE) return "External cash (no deduction)"
+            const p = platforms.find((x) => x.id === value)
+            if (!p) return "Select funding source..."
+            return (
+              <span className="flex items-center gap-2">
+                <span
+                  className="inline-block size-2.5 rounded-full"
+                  style={{ backgroundColor: p.color }}
+                />
+                {p.name}
+              </span>
+            )
+          }}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={EXTERNAL_CASH_VALUE}>

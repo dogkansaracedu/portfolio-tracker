@@ -202,7 +202,13 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
           }}
         >
           <SelectTrigger className="min-w-[140px]" size="sm">
-            <SelectValue placeholder="All assets" />
+            <SelectValue>
+              {(value: string) => {
+                const a = value ? assets.find((x) => x.id === value) : null
+                if (!a) return "All assets"
+                return `${a.name} (${a.ticker})`
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">All assets</SelectItem>
@@ -225,7 +231,21 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
           }}
         >
           <SelectTrigger className="min-w-[140px]" size="sm">
-            <SelectValue placeholder="All platforms" />
+            <SelectValue>
+              {(value: string) => {
+                const p = value ? platforms.find((x) => x.id === value) : null
+                if (!p) return "All platforms"
+                return (
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="inline-block size-2.5 rounded-full"
+                      style={{ backgroundColor: p.color }}
+                    />
+                    {p.name}
+                  </span>
+                )
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">All platforms</SelectItem>

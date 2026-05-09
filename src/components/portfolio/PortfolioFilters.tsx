@@ -10,6 +10,12 @@ import {
 } from "@/components/ui/select"
 import type { GroupBy, SortBy } from "@/hooks/usePortfolio"
 
+const SORT_LABELS: Record<SortBy, string> = {
+  value: "Sort: Value",
+  pnl: "Sort: P&L",
+  name: "Sort: Name",
+}
+
 interface PortfolioFiltersProps {
   search: string
   onSearchChange: (value: string) => void
@@ -67,12 +73,14 @@ export function PortfolioFilters({
           }}
         >
           <SelectTrigger size="sm" className="w-[130px]">
-            <SelectValue placeholder="Sort by" />
+            <SelectValue>
+              {(value: string) => SORT_LABELS[value as SortBy] ?? "Sort by"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="value">Sort: Value</SelectItem>
-            <SelectItem value="pnl">Sort: P&L</SelectItem>
-            <SelectItem value="name">Sort: Name</SelectItem>
+            <SelectItem value="value">{SORT_LABELS.value}</SelectItem>
+            <SelectItem value="pnl">{SORT_LABELS.pnl}</SelectItem>
+            <SelectItem value="name">{SORT_LABELS.name}</SelectItem>
           </SelectContent>
         </Select>
       </div>
