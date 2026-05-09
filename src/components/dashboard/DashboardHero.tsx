@@ -279,11 +279,13 @@ export default function DashboardHero({
                   vertical={false}
                 />
                 <XAxis
-                  dataKey="date"
-                  type="category"
+                  dataKey="dateMs"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
                   ticks={xTicks}
-                  tickFormatter={(date: string) =>
-                    chartData.find((p) => p.date === date)?.label ?? date
+                  tickFormatter={(ms: number) =>
+                    chartData.find((p) => p.dateMs === ms)?.label ?? ""
                   }
                   tick={{ fontSize: 11 }}
                   axisLine={false}
@@ -315,15 +317,16 @@ export default function DashboardHero({
                     viewMode === "value" ? "Value" : "P&L",
                   ]}
                   labelFormatter={(label) => {
-                    const dateStr = String(label ?? "")
-                    const point = chartData.find((p) => p.date === dateStr)
+                    const ms = Number(label)
+                    if (Number.isNaN(ms)) return ""
+                    const point = chartData.find((p) => p.dateMs === ms)
                     if (point?.label === "Şimdi") return "Şimdi"
-                    const d = new Date(dateStr)
-                    if (Number.isNaN(d.getTime())) return dateStr
+                    const d = new Date(ms)
                     return d.toLocaleDateString("tr-TR", {
                       day: "2-digit",
                       month: "long",
                       year: "numeric",
+                      timeZone: "UTC",
                     })
                   }}
                 />
@@ -336,7 +339,7 @@ export default function DashboardHero({
                   />
                 )}
                 <Area
-                  type="monotone"
+                  type="stepAfter"
                   dataKey={currency === "USD" ? "valueUsd" : "valueTry"}
                   stroke={strokeColor}
                   fill={fillColor}

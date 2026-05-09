@@ -12,6 +12,10 @@ export type HeroViewMode = "value" | "pnl"
 
 export interface HeroPoint {
   date: string
+  /** Epoch milliseconds for `date` at UTC midnight. Used by Recharts as
+   *  the X-axis numeric value so points are positioned by actual time
+   *  span (not by uniform array index). */
+  dateMs: number
   label: string
   /** Underlying value in USD (raw — value mode) or P&L in USD (pnl mode). */
   valueUsd: number
@@ -20,11 +24,11 @@ export interface HeroPoint {
 
 export interface DashboardHeroData {
   chartData: HeroPoint[]
-  /** Date strings (matching `chartData[i].date`) chosen as X-axis tick
+  /** Epoch ms (matching `chartData[i].dateMs`) chosen as X-axis tick
    *  positions: at most one per visible bucket (month for ≥1M ranges,
    *  day for shorter), plus the final "now" anchor. Prevents the same
    *  month label rendering 8× when daily snapshots cluster. */
-  xTicks: string[]
+  xTicks: number[]
   current: { usd: number; try: number }
   rangeStart: { usd: number; try: number; date: string | null }
   delta: { usd: number; try: number; pct: number }
@@ -173,6 +177,7 @@ export function useDashboardHero({
 
     const chartData: HeroPoint[] = filtered.map((s) => ({
       date: s.snapshot_date,
+      dateMs: new Date(`${s.snapshot_date}T00:00:00Z`).getTime(),
       label: formatLabel(s.snapshot_date, timeRange),
       valueUsd: s.total_usd ?? 0,
       valueTry: s.total_try ?? 0,
@@ -186,18 +191,18 @@ export function useDashboardHero({
     // doesn't repeat the same month/day string for every dense daily
     // snapshot. The last point's label is "Şimdi" — always include it.
     const seen = new Set<string>()
-    const xTicks: string[] = []
+    const xTicks: number[] = []
     for (const p of chartData) {
       if (!seen.has(p.label)) {
         seen.add(p.label)
-        xTicks.push(p.date)
+        xTicks.push(p.dateMs)
       }
     }
     if (
       chartData.length > 0 &&
-      xTicks[xTicks.length - 1] !== chartData[chartData.length - 1].date
+      xTicks[xTicks.length - 1] !== chartData[chartData.length - 1].dateMs
     ) {
-      xTicks.push(chartData[chartData.length - 1].date)
+      xTicks.push(chartData[chartData.length - 1].dateMs)
     }
 
     const start = chartData[0]
