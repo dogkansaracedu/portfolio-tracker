@@ -35,7 +35,12 @@ import { useAuth } from "@/hooks/useAuth"
 import { fetchLinkedChild } from "@/lib/queries/transactions"
 import { validateFundingCash } from "@/lib/cash"
 import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
-import { CURRENCY_SYMBOLS, type FiatCurrency } from "@/lib/constants/currencies"
+import {
+  CURRENCY_SYMBOLS,
+  SUPPORTED_FIAT_CURRENCIES,
+  DEFAULT_CURRENCY,
+  type FiatCurrency,
+} from "@/lib/constants/currencies"
 import { toast } from "sonner"
 import type { TransactionType, Asset, Platform } from "@/types/database"
 
@@ -129,9 +134,9 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     setDate(new Date())
     setAmount("")
     setUnitPrice("")
-    setPriceCurrency("USD")
+    setPriceCurrency(DEFAULT_CURRENCY)
     setFee("")
-    setFeeCurrency("USD")
+    setFeeCurrency(DEFAULT_CURRENCY)
     setDestPlatformId("")
     setNotes("")
     setFundingPlatformId(null)
@@ -447,9 +452,11 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="TRY">TRY</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
+                    {SUPPORTED_FIAT_CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -459,7 +466,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           {/* Total Cost display */}
           {showPriceFields && totalCost > 0 && (
             <div className="rounded-md bg-muted px-3 py-2 text-sm">
-              Total: {priceCurrency === "TRY" ? "₺" : priceCurrency === "EUR" ? "€" : "$"}
+              Total: {CURRENCY_SYMBOLS[priceCurrency as FiatCurrency] ?? ""}
               {totalCost.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
@@ -488,9 +495,11 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="TRY">TRY</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
+                    {SUPPORTED_FIAT_CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
