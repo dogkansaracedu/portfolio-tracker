@@ -2,6 +2,14 @@
 
 ## Status: Done
 
+## Recent updates (post-deploy)
+
+- **Snapshot density:** the default `monthly` granularity is *weekly + last 30 days daily* — one snapshot every 7 days walking back from earliest tx, plus daily for the last month. Long ranges (1Y / ALL) stay lightweight; recent ranges keep daily detail. The `tx_dates` mode (one per transaction day) is still available.
+- **Empty-portfolio snapshots:** when the user has sold everything, backfill writes a `total_usd = 0` snapshot for those dates so charts show a flat $0 line through the closed-position period instead of an interpolated gap.
+- **Cron auth:** `take-snapshots` accepts an `X-Cron-Token` header; the cron command reads it (and the Edge Functions URL) from Postgres Vault. See `supabase/migrations/20260507100300_cron_via_vault.sql`.
+- **Charts:** Dashboard hero uses time-scale x-axis (`type="number"`, `scale="time"`) with `monotone` smoothing so points are placed by elapsed time rather than uniform array index. Earlier 30-day cluster no longer dominates 1Y / ALL ranges.
+- **Synthetic zero-anchor:** chart prepends a $0 anchor one day before the earliest transaction across *all* time ranges (was ALL-only). 1Y / YTD on portfolios that started inside the window now begin at the actual entry point with $0, like brokers do for newly-listed instruments.
+
 ## Overview
 Build the snapshot system (manual trigger, snapshot viewing) and full performance page with charts: portfolio value over time, monthly returns, category attribution, drawdown, and summary statistics.
 
