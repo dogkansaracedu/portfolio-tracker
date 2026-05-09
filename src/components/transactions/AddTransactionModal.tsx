@@ -335,7 +335,21 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
               onValueChange={(v) => v && setPlatformId(v)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select platform..." />
+                <SelectValue>
+                  {(value: string) => {
+                    const p = value ? platforms.find((x) => x.id === value) : null
+                    if (!p) return "Select platform..."
+                    return (
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="inline-block size-2.5 rounded-full"
+                          style={{ backgroundColor: p.color }}
+                        />
+                        {p.name}
+                      </span>
+                    )
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {platforms.map((p) => (
@@ -367,7 +381,21 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                 onValueChange={(v) => v && setDestPlatformId(v)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select destination..." />
+                  <SelectValue>
+                    {(value: string) => {
+                      const p = value ? platforms.find((x) => x.id === value) : null
+                      if (!p) return "Select destination..."
+                      return (
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="inline-block size-2.5 rounded-full"
+                            style={{ backgroundColor: p.color }}
+                          />
+                          {p.name}
+                        </span>
+                      )
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {platforms
