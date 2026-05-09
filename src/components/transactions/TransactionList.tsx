@@ -12,9 +12,15 @@ interface Props {
   transactions: TransactionWithDetails[]
   loading: boolean
   currency: "USD" | "TRY"
+  childMap?: Map<string, TransactionWithDetails>
 }
 
-export function TransactionList({ transactions, loading, currency }: Props) {
+export function TransactionList({
+  transactions,
+  loading,
+  currency,
+  childMap,
+}: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -48,7 +54,12 @@ export function TransactionList({ transactions, loading, currency }: Props) {
       </TableHeader>
       <TableBody>
         {transactions.map((tx) => (
-          <TransactionRow key={tx.id} transaction={tx} currency={currency} />
+          <TransactionRow
+            key={tx.id}
+            transaction={tx}
+            currency={currency}
+            linkedChild={childMap?.get(tx.id) ?? null}
+          />
         ))}
       </TableBody>
     </Table>
