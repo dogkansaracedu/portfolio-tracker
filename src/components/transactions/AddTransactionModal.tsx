@@ -27,10 +27,15 @@ import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { TransactionTypeSelector } from "./TransactionTypeSelector"
 import { AssetSearchSelect } from "./AssetSearchSelect"
+import { FundingSourceSelect } from "./FundingSourceSelect"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useHoldings } from "@/hooks/useHoldings"
 import { useAuth } from "@/hooks/useAuth"
+import { fetchLinkedChild } from "@/lib/queries/transactions"
+import { validateFundingCash } from "@/lib/cash"
+import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
+import { CURRENCY_SYMBOLS, type FiatCurrency } from "@/lib/constants/currencies"
 import { toast } from "sonner"
 import type { TransactionType, Asset, Platform } from "@/types/database"
 
@@ -56,7 +61,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const { user } = useAuth()
   const { modalState, closeTransactionModal } = useTransactionModal()
   const { addTransaction, editTransaction } = useTransactions()
-  const { getTotalBalance, getHoldingsForAsset } = useHoldings()
+  const { holdings, getTotalBalance, getHoldingsForAsset } = useHoldings()
 
   const editing = modalState.editingTransaction
   const isEdit = Boolean(editing)
@@ -74,6 +79,12 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
+  const [fundingPlatformId, setFundingPlatformId] = useState<string | null>(null)
+  const [existingChild, setExistingChild] = useState<{
+    amount: string
+    platformId: string
+  } | null>(null)
+  const [fundingError, setFundingError] = useState<string | null>(null)
 
   // Hydrate form from edit target / prefill / defaults whenever the modal opens.
   // Prior implementation only handled prefilledAssetId on its own effect, which
@@ -92,6 +103,24 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
       setFeeCurrency(editing.fee_currency || "USD")
       setDestPlatformId("")
       setNotes(editing.notes ?? "")
+      ;(async () => {
+        if (editing.type !== TRANSACTION_TYPES.BUY) {
+          setFundingPlatformId(null)
+          setExistingChild(null)
+          return
+        }
+        const child = await fetchLinkedChild(editing.id)
+        if (child) {
+          setFundingPlatformId(child.platform_id)
+          setExistingChild({
+            amount: String(child.amount),
+            platformId: child.platform_id,
+          })
+        } else {
+          setFundingPlatformId(null)
+          setExistingChild(null)
+        }
+      })()
       return
     }
     setType("buy")
@@ -105,6 +134,9 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     setFeeCurrency("USD")
     setDestPlatformId("")
     setNotes("")
+    setFundingPlatformId(null)
+    setExistingChild(null)
+    setFundingError(null)
   }, [
     modalState.isOpen,
     editing,
@@ -116,6 +148,52 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const parsedAmount = parseFloat(amount) || 0
   const parsedPrice = parseFloat(unitPrice) || 0
   const totalCost = parsedAmount * parsedPrice
+
+  useEffect(() => {
+    if (type !== TRANSACTION_TYPES.BUY || !fundingPlatformId) {
+      setFundingError(null)
+      return
+    }
+    const fiatAsset = assets.find(
+      (a) => a.category === "fiat" && a.ticker === priceCurrency,
+    )
+    if (!fiatAsset) {
+      setFundingError(null)
+      return
+    }
+    const fiatHolding = holdings.find(
+      (h) => h.asset_id === fiatAsset.id && h.platform_id === fundingPlatformId,
+    )
+    const cashOnFunding = String(fiatHolding?.balance ?? "0")
+    const fundingPlatformName =
+      platforms.find((p) => p.id === fundingPlatformId)?.name ?? "platform"
+    const offset =
+      existingChild && existingChild.platformId === fundingPlatformId
+        ? existingChild.amount
+        : null
+    const err = validateFundingCash({
+      cashOnFunding,
+      totalCost: parsedAmount * parsedPrice,
+      fee: parseFloat(fee) || 0,
+      feeCurrency: fee ? feeCurrency : null,
+      priceCurrency,
+      existingChildOffset: offset,
+      fundingPlatformName,
+    })
+    setFundingError(err)
+  }, [
+    type,
+    fundingPlatformId,
+    priceCurrency,
+    parsedAmount,
+    parsedPrice,
+    fee,
+    feeCurrency,
+    assets,
+    platforms,
+    existingChild,
+    holdings,
+  ])
 
   const showPriceFields = ["buy", "sell", "dividend", "interest"].includes(type)
   const showFeeFields = ["buy", "sell"].includes(type)
@@ -142,6 +220,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     platformId &&
     parsedAmount > 0 &&
     !isOverBalance &&
+    !fundingError &&
     !submitting &&
     (showPriceFields ? parsedPrice > 0 : true) &&
     (isTransfer && !isEdit ? destPlatformId && destPlatformId !== platformId : true)
@@ -168,13 +247,15 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
       }
 
       if (isEdit && editing) {
-        await editTransaction(editing.id, payload, {
-          assetId: editing.asset_id,
-          platformId: editing.platform_id,
-        })
+        await editTransaction(
+          editing.id,
+          payload,
+          { assetId: editing.asset_id, platformId: editing.platform_id },
+          { fundingPlatformId },
+        )
         toast.success("Transaction updated")
       } else {
-        await addTransaction(payload)
+        await addTransaction(payload, { fundingPlatformId })
 
         // For transfer_out, create matching transfer_in on the destination platform.
         // We don't auto-pair on edit — the source side and the destination side
@@ -413,6 +494,39 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          )}
+
+          {/* Funding source (buy only) */}
+          {type === TRANSACTION_TYPES.BUY && (
+            <div className="space-y-2">
+              <Label>Funding source</Label>
+              <FundingSourceSelect
+                value={fundingPlatformId}
+                onChange={setFundingPlatformId}
+                assets={assets}
+                platforms={platforms}
+                priceCurrency={priceCurrency}
+                existingChildAmount={existingChild?.amount ?? null}
+                existingChildPlatformId={existingChild?.platformId ?? null}
+              />
+              {fundingError && (
+                <p className="text-xs text-destructive">{fundingError}</p>
+              )}
+            </div>
+          )}
+
+          {/* Sale proceeds confirmation (sell only) */}
+          {type === TRANSACTION_TYPES.SELL && parsedAmount > 0 && parsedPrice > 0 && (
+            <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+              Sale proceeds: {CURRENCY_SYMBOLS[priceCurrency as FiatCurrency] ?? ""}
+              {(parsedAmount * parsedPrice - (parseFloat(fee) || 0)).toLocaleString(
+                undefined,
+                { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+              )}{" "}
+              → credited to{" "}
+              {platforms.find((p) => p.id === platformId)?.name ?? "the trading platform"}{" "}
+              {priceCurrency}
             </div>
           )}
 
