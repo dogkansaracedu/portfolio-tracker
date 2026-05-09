@@ -78,9 +78,9 @@ supabase/
   config.toml        # Supabase CLI config (verify_jwt, auth, etc.)
 
 docs/
-  budget-feature-plan.md           # Implementation plan for the budget feature
-  project-review-2026-05-04.md     # Latest end-to-end review
-  security-audit-2026-05-04.md     # Parking list of security gaps (deferred)
+  budget-feature-plan.md             # Implementation plan for the budget feature
+  cash-flow-feature-discussion.md    # Brainstorm baseline for cash linkage feature
+  post-deploy-gaps.md                # Open items remaining after the production deploy
 ```
 
 ## Environment variables
@@ -102,7 +102,7 @@ For historical backfill (one-shot, on demand), use **Settings → Snapshots → 
 
 ## Production deploy (Vercel + Supabase Cloud)
 
-The project ships with no GitHub integration — frontend deploys via the Vercel CLI directly from your machine, backend via the Supabase CLI. See [`docs/superpowers/specs/2026-05-07-free-deploy-design.md`](./docs/superpowers/specs/2026-05-07-free-deploy-design.md) for the full first-time playbook. Quick reference:
+The project ships with no GitHub integration — frontend deploys via the Vercel CLI directly from your machine, backend via the Supabase CLI.
 
 ### One-time setup
 
