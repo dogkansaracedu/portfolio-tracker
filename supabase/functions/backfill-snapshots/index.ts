@@ -311,6 +311,9 @@ async function handle(
   // "today" is always included.
   const targetSet = new Set<string>()
   if (granularity === "monthly") {
+    // Anchor on the first transaction so dashboard charts (YTD/1Y) start
+    // at the actual entry point, not the next month-start.
+    targetSet.add(earliestTxDate)
     for (const d of monthStartsBetween(earliestTxDate, today)) targetSet.add(d)
     for (const d of dailyRange(today, 30)) {
       if (d >= earliestTxDate) targetSet.add(d)
