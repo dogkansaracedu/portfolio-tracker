@@ -98,7 +98,88 @@ For a deployed environment, point these at your hosted Supabase project.
 
 A pg_cron job (`daily-portfolio-snapshot`) calls the `take-snapshots` Edge Function every day at 23:55 UTC. The function chains after `fetch-prices` so price cache and exchange rates are fresh before snapshotting. See [`supabase/migrations/20260502120100_daily_snapshot_cron.sql`](./supabase/migrations/20260502120100_daily_snapshot_cron.sql).
 
-For historical backfill (one-shot, on demand), use **Settings → Snapshots → Run backfill**, which invokes the `backfill-snapshots` Edge Function.
+For historical backfill (one-shot, on demand), use **Settings → Snapshots → Run backfill**, which invokes the `backfill-snapshots` Edge Function. Density: daily for the last 30 days, weekly for everything older (configured in [`supabase/functions/backfill-snapshots/index.ts`](./supabase/functions/backfill-snapshots/index.ts)).
+
+## Production deploy (Vercel + Supabase Cloud)
+
+The project ships with no GitHub integration — frontend deploys via the Vercel CLI directly from your machine, backend via the Supabase CLI. See [`docs/superpowers/specs/2026-05-07-free-deploy-design.md`](./docs/superpowers/specs/2026-05-07-free-deploy-design.md) for the full first-time playbook. Quick reference:
+
+### One-time setup
+
+**Backend (Supabase Cloud):**
+```bash
+supabase login
+supabase link --project-ref <ref>
+supabase db push                                       # apply all migrations
+supabase secrets set CRON_TOKEN=$(openssl rand -hex 32)
+supabase secrets set ALLOWED_ORIGINS="https://<vercel-url>"
+for fn in backfill-snapshots fetch-coingecko fetch-historical-rate \
+          fetch-prices fetch-tcmb fetch-yahoo take-snapshots; do
+  supabase functions deploy $fn
+done
+```
+
+Then in the Supabase Dashboard SQL Editor (one-time), seed the cron's secrets into Postgres Vault:
+```sql
+SELECT vault.create_secret(
+  '<same CRON_TOKEN value>', 'cron_token',
+  'X-Cron-Token for take-snapshots');
+
+SELECT vault.create_secret(
+  'https://<ref>.supabase.co/functions/v1', 'functions_url',
+  'Edge Functions base URL for cron callbacks');
+```
+
+The cron migration reads both via `vault.decrypted_secrets`. `ALTER DATABASE ... SET app.*` is not allowed on Supabase Cloud — Vault is the supported path for runtime config that Postgres needs to read.
+
+**Frontend (Vercel):**
+```bash
+npm i -g vercel
+export VERCEL_TOKEN=<personal-access-token>            # avoids `vercel login` hostname bugs
+vercel env add VITE_SUPABASE_URL production            # paste https://<ref>.supabase.co
+vercel env add VITE_SUPABASE_ANON_KEY production       # paste anon JWT from Settings → API
+vercel deploy --prod --yes
+```
+
+`vercel.json` rewrites all paths to `/` (SPA fallback) — required for client-side React Router.
+
+### Subsequent deploys
+
+```bash
+npm run deploy            # = npm run build && vercel --prod
+```
+
+Backend changes ship via `supabase db push` (migrations) or `supabase functions deploy <name>` (edge functions).
+
+### Secrets summary
+
+| Where | What | Used by |
+|---|---|---|
+| `.env.production.local` (gitignored, local only) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Local prod-mode build verification |
+| Vercel project env (production) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Cloud build |
+| Supabase function secrets | `CRON_TOKEN`, `ALLOWED_ORIGINS` | Edge functions runtime |
+| Supabase Vault (`vault.secrets`) | `cron_token`, `functions_url` | pg_cron job (Postgres-side) |
+
+The token must match between Edge Function env and Vault — the function rejects requests where `req.headers.get('X-Cron-Token') !== Deno.env.get('CRON_TOKEN')`, and the cron job sends whatever's in the Vault row.
+
+### Token rotation
+
+Six-month hygiene:
+```bash
+NEW=$(openssl rand -hex 32)
+supabase secrets set CRON_TOKEN=$NEW
+# Then SQL Editor: UPDATE vault.secrets SET secret = '<NEW>' WHERE name = 'cron_token';
+supabase functions deploy take-snapshots
+```
+
+### Common deploy snags
+
+- **`vercel login` HTTP header error** on macOS with non-ASCII hostname → use a personal access token (`vercel.com/account/tokens`) and `export VERCEL_TOKEN=...` to bypass interactive login.
+- **`supabaseUrl is required` after first deploy** → env vars not set in Vercel. `vercel env add` then redeploy.
+- **`404 NOT_FOUND` on `/login`, `/portfolio`** → `vercel.json` SPA rewrite missing.
+- **`ERROR: 42501: permission denied to set parameter "app.*"`** in Supabase Cloud SQL Editor → use Vault, not `ALTER ROLE/DATABASE SET`.
+
+For ongoing tasks not yet finished on production, see [`docs/post-deploy-gaps.md`](./docs/post-deploy-gaps.md).
 
 ## Conventions
 
