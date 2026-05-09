@@ -1,10 +1,8 @@
 # Post-Deploy Gaps
 
-**Snapshot date:** 2026-05-09 (end of Phase D session)
+**Snapshot date:** 2026-05-09 (end of deploy session)
 
 Production is live: frontend on Vercel, backend on Supabase Cloud. This doc lists what's *not* yet finished — pickups for a fresh session.
-
-The deploy spec is `docs/superpowers/specs/2026-05-07-free-deploy-design.md` and most of it is done. The items below are the residue.
 
 ---
 
@@ -20,21 +18,19 @@ The dev account is created. The spouse account is not yet. Plan when she has tim
 4. In the Supabase dashboard: **Authentication → Providers → Email → "Allow new users to sign up" → off**. Save.
 5. Verify: from a new browser, visiting `/signup` and submitting should be rejected.
 
-Audit reference: M3.
-
 ---
 
-## 2. Audit items still open
+## 2. Deferred security items
 
-These are deferred from `docs/security-audit-2026-05-04.md`. None block the current usage but should be revisited.
+None block current usage but worth revisiting.
 
-| ID | Item | Notes |
-|---|---|---|
-| M4 | Edge function input validation | Add zod-style schema to `backfill-snapshots` POST body. Defensive; not a current attack surface. |
-| L1 | Network restrictions | Single-user app on Supabase Cloud free tier; CIDR allowlist not applicable yet. Revisit if going multi-user. |
-| L2 | Edge function rate limiting | Same as L1 — not pressing while we're the only callers. |
-| L3 | Service-role key in every function | Convention. Split out a read-only function only if a third-party caller is ever added. |
-| L4 | Auth email rate limit (`2/hour`) | UX nit, not security. Note for future. |
+| Item | Notes |
+|---|---|
+| Edge function input validation | Add zod-style schema to `backfill-snapshots` POST body. Defensive; not a current attack surface. |
+| Network restrictions on Supabase Cloud | Single-user free tier; CIDR allowlist not applicable yet. Revisit if going multi-user. |
+| Edge function rate limiting | Same as above — not pressing while we're the only callers. |
+| Service-role key in every function | Convention. Split out a read-only function only if a third-party caller is ever added. |
+| Auth email rate limit (`2/hour`) | UX nit (legitimate password reset blocked on second try in an hour). |
 
 ---
 
@@ -165,7 +161,5 @@ The unchecked items are quick clicks; do them in one sitting next time you open 
 
 - Production frontend: https://portfolio-tracker-theta-seven.vercel.app
 - Supabase project: `hhqwxygrtqcugaxamrtu` (Frankfurt, free tier)
-- Spec: `docs/superpowers/specs/2026-05-07-free-deploy-design.md`
-- Audit: `docs/security-audit-2026-05-04.md`
-- Project review: `docs/project-review-2026-05-04.md`
-- Cash flow design (next big feature): `docs/cash-flow-feature-discussion.md`
+- Cash flow design (next big feature): [`./cash-flow-feature-discussion.md`](./cash-flow-feature-discussion.md)
+- Deploy how-to: [`README.md`](../README.md#production-deploy-vercel--supabase-cloud)
