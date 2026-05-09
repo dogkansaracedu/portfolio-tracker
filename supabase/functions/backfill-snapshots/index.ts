@@ -32,6 +32,8 @@ interface TransactionRow {
     | "dividend"
     | "interest"
     | "fee"
+    | "cash_credit"
+    | "cash_debit"
   date: string
   amount: number
   unit_price: number
@@ -175,10 +177,12 @@ function balanceSign(type: TransactionRow["type"]): number {
     case "transfer_in":
     case "dividend":
     case "interest":
+    case "cash_credit":
       return 1
     case "sell":
     case "transfer_out":
     case "fee":
+    case "cash_debit":
       return -1
     default:
       return 0
