@@ -11,6 +11,7 @@ import {
   type TransactionFilters,
 } from "@/lib/queries/transactions"
 import { recalculateBalance } from "@/lib/balance"
+import { resolveFiatAsset, buildChildRow, shouldCreateChild } from "@/lib/cash"
 import { supabase } from "@/lib/supabase"
 import type { TransactionInsert, TransactionUpdate } from "@/types/database"
 
@@ -73,18 +74,44 @@ export function useTransactions(filters?: TransactionFilters) {
   //   bumpTxVersion() — signals locally-paginated views (useTransactionLog,
   //                     useHoldings) to refetch their server-filtered slices.
   // Both are load-bearing; they serve orthogonal consumers.
-  const addTransaction = async (data: Omit<TransactionInsert, "user_id">) => {
+  const addTransaction = async (
+    data: Omit<TransactionInsert, "user_id">,
+    options?: { fundingPlatformId?: string | null },
+  ) => {
     if (!user) throw new Error("Not authenticated")
 
-    const tx = await createTransaction({ ...data, user_id: user.id })
-    await ensureHistoricalRate(tx.price_currency, tx.fee_currency, tx.date)
-    await recalculateBalance(user.id, tx.asset_id, tx.platform_id)
-    if (tx.related_asset_id) {
-      await recalculateBalance(user.id, tx.asset_id, tx.related_asset_id)
+    const parent = await createTransaction({ ...data, user_id: user.id })
+    await ensureHistoricalRate(parent.price_currency, parent.fee_currency, parent.date)
+
+    // Track every (asset, platform) lens we need to recalc.
+    const lenses = new Set<string>()
+    const addLens = (assetId: string, platformId: string) =>
+      lenses.add(`${assetId}::${platformId}`)
+    addLens(parent.asset_id, parent.platform_id)
+    if (parent.related_asset_id) {
+      addLens(parent.asset_id, parent.related_asset_id)
+    }
+
+    const fundingPlatformId = options?.fundingPlatformId ?? null
+    if (shouldCreateChild(parent.type, fundingPlatformId)) {
+      const cashAssetId = await resolveFiatAsset(parent.price_currency, user.id)
+      const child = buildChildRow({
+        parent,
+        parentId: parent.id,
+        fundingPlatformId,
+        cashAssetId,
+      })
+      await createTransaction(child as TransactionInsert)
+      addLens(cashAssetId, child.platform_id)
+    }
+
+    for (const lens of lenses) {
+      const [assetId, platformId] = lens.split("::")
+      await recalculateBalance(user.id, assetId, platformId)
     }
     await refresh()
     bumpTxVersion()
-    return tx
+    return parent
   }
 
   const editTransaction = async (
