@@ -34,6 +34,18 @@ import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
 import type { TransactionType, Asset, Platform } from "@/types/database"
 
+// The date picker tracks a local-timezone Date. .toISOString() converts to
+// UTC, which can shift the calendar day backward (e.g. TR midnight on Jan 21
+// → 2026-01-20T21:00Z). Backend uses date.slice(0,10) for snapshots so the
+// recorded day must match the user's intent. This helper formats the
+// picker's local Y-M-D as UTC midnight, preserving the chosen day.
+function localDayAsUtcMidnight(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}T00:00:00Z`
+}
+
 interface Props {
   assets: Asset[]
   platforms: Platform[]
@@ -143,7 +155,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         asset_id: assetId,
         platform_id: platformId,
         type,
-        date: date.toISOString(),
+        date: localDayAsUtcMidnight(date),
         amount: parsedAmount,
         unit_price: parsedPrice || 0,
         price_currency: priceCurrency,
@@ -172,7 +184,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             asset_id: assetId,
             platform_id: destPlatformId,
             type: "transfer_in",
-            date: date.toISOString(),
+            date: localDayAsUtcMidnight(date),
             amount: parsedAmount,
             unit_price: parsedPrice || 0,
             price_currency: priceCurrency,
