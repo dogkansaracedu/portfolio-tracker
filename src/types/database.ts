@@ -7,7 +7,9 @@ export type TransactionType =
   | "transfer_out"
   | "dividend"
   | "interest"
-  | "fee";
+  | "fee"
+  | "cash_credit"
+  | "cash_debit";
 
 // ─── Table Row Interfaces ───────────────────────────────────────────
 
@@ -58,6 +60,7 @@ export interface Transaction {
   fee: number;
   fee_currency: string | null;
   related_asset_id: string | null;
+  linked_tx_id: string | null;
   notes: string | null;
   created_at: string;
 }

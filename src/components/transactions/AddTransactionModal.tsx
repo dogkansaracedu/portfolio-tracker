@@ -163,6 +163,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         fee: parseFloat(fee) || 0,
         fee_currency: fee ? feeCurrency : null,
         related_asset_id: null,
+        linked_tx_id: null,
         notes: notes || null,
       }
 
@@ -192,6 +193,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             fee: 0,
             fee_currency: null,
             related_asset_id: null,
+            linked_tx_id: null,
             notes: notes
               ? `Transfer from ${selectedPlatform?.name ?? "unknown"}: ${notes}`
               : `Transfer from ${selectedPlatform?.name ?? "unknown"}`,
