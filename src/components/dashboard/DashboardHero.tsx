@@ -150,10 +150,8 @@ export default function DashboardHero({
     }))
   }, [chartData, viewMode])
 
-  // Color the chart by the period's direction in BOTH modes (Robinhood-style):
-  // green when up, red when down. The default theme is greyscale, so we set
-  // explicit RGB instead of `hsl(var(--primary))` to give the dashboard a
-  // distinct, branded feel.
+  // Color the chart by the period's direction (Robinhood-style):
+  // green when up, red when down — independent of theme primary.
   const isLoss = delta.usd < 0
   const strokeColor = isLoss ? "rgb(239, 68, 68)" : "rgb(16, 185, 129)"
   const fillColor = isLoss ? "rgb(239 68 68 / 0.18)" : "rgb(16 185 129 / 0.18)"
@@ -300,10 +298,11 @@ export default function DashboardHero({
                   tickFormatter={(v: number) => compactCurrency(v, currency)}
                 />
                 <Tooltip
-                  cursor={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1, strokeDasharray: "3 3" }}
+                  cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1, strokeDasharray: "3 3" }}
                   contentStyle={{
-                    background: "hsl(var(--background))",
-                    border: "1px solid hsl(var(--border))",
+                    background: "var(--background)",
+                    border: "1px solid var(--border)",
+                    color: "var(--foreground)",
                     borderRadius: 8,
                     fontSize: 12,
                   }}
@@ -333,7 +332,7 @@ export default function DashboardHero({
                 {showZeroRef && (
                   <ReferenceLine
                     y={0}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="var(--muted-foreground)"
                     strokeDasharray="4 4"
                     strokeOpacity={0.5}
                   />

@@ -57,8 +57,8 @@ export function PortfolioValueChart({ snapshots, currency }: Props) {
             <Area
               type="monotone"
               dataKey="value"
-              stroke="hsl(var(--primary))"
-              fill="hsl(var(--primary) / 0.1)"
+              stroke="var(--primary)"
+              fill="color-mix(in oklch, var(--primary) 12%, transparent)"
               strokeWidth={2}
             />
           </AreaChart>
