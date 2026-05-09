@@ -1,6 +1,7 @@
 import { useLocation } from "react-router"
 import { Eye, EyeOff } from "lucide-react"
 import CurrencyToggle from "@/components/common/CurrencyToggle"
+import ThemeToggle from "@/components/common/ThemeToggle"
 import PriceRefreshButton from "@/components/prices/PriceRefreshButton"
 import { usePrices } from "@/hooks/usePrices"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
@@ -46,6 +47,7 @@ export default function Header() {
             {obfuscated ? "Show values" : "Hide values"}
           </TooltipContent>
         </Tooltip>
+        <ThemeToggle />
         <CurrencyToggle />
         <PriceRefreshButton
           lastUpdated={lastUpdated}
