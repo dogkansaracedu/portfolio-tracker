@@ -127,13 +127,14 @@ export function useDashboardHero({
       raw.push({ date: today, usd: pnlNowUsd, try: pnlNowUsd * ratio })
     }
 
-    // For the "ALL" range only, prepend a synthetic zero-anchor one day
-    // before the earliest transaction. This makes ΔValue(ALL) =
-    // currentValue and ΔP&L(ALL) = total cumulative P&L — i.e. "since
-    // money first entered the portfolio", not "since the first snapshot
-    // we happened to record". Shorter ranges keep snapshot-anchored
-    // semantics (handled by filterByTimeRange's anchor logic).
-    if (timeRange === "ALL" && transactions.length > 0 && raw.length > 0) {
+    // Prepend a synthetic zero-anchor one day before the earliest
+    // transaction (any range). This makes the chart start at the user's
+    // actual entry point — "since money first entered the portfolio" —
+    // rather than at the requested window edge (where there were no
+    // positions yet). 1Y/YTD with no pre-cutoff history therefore behave
+    // like ALL: chart begins at first-tx-1, not at cutoff. Matches the
+    // pattern brokers use for newly-listed instruments.
+    if (transactions.length > 0 && raw.length > 0) {
       let earliest = transactions[0].date.slice(0, 10)
       for (let i = 1; i < transactions.length; i++) {
         const d = transactions[i].date.slice(0, 10)
