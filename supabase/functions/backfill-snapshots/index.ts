@@ -64,20 +64,6 @@ function todayIso(): string {
   return isoDate(new Date())
 }
 
-/** First day of every month from `from` (inclusive) to `to` (inclusive month). */
-function monthStartsBetween(from: string, to: string): string[] {
-  const out: string[] = []
-  const fromD = new Date(`${from}T00:00:00Z`)
-  const toD = new Date(`${to}T00:00:00Z`)
-  const cur = new Date(Date.UTC(fromD.getUTCFullYear(), fromD.getUTCMonth(), 1))
-  const end = new Date(Date.UTC(toD.getUTCFullYear(), toD.getUTCMonth(), 1))
-  while (cur.getTime() <= end.getTime()) {
-    out.push(isoDate(cur))
-    cur.setUTCMonth(cur.getUTCMonth() + 1)
-  }
-  return out
-}
-
 /** Every day from `daysBack` ago through `to` (inclusive). */
 function dailyRange(to: string, daysBack: number): string[] {
   const out: string[] = []
@@ -86,6 +72,20 @@ function dailyRange(to: string, daysBack: number): string[] {
     const d = new Date(toD.getTime())
     d.setUTCDate(d.getUTCDate() - i)
     out.push(isoDate(d))
+  }
+  return out
+}
+
+/** Every 7th day from `from` (inclusive) up to but not including `to`,
+ *  walking forward. The result starts on `from`'s weekday. */
+function weeklyBetween(from: string, to: string): string[] {
+  const out: string[] = []
+  const fromD = new Date(`${from}T00:00:00Z`)
+  const toD = new Date(`${to}T00:00:00Z`)
+  const cur = new Date(fromD.getTime())
+  while (cur.getTime() < toD.getTime()) {
+    out.push(isoDate(cur))
+    cur.setUTCDate(cur.getUTCDate() + 7)
   }
   return out
 }
@@ -311,12 +311,22 @@ async function handle(
   // "today" is always included.
   const targetSet = new Set<string>()
   if (granularity === "monthly") {
-    // Anchor on the first transaction so dashboard charts (YTD/1Y) start
-    // at the actual entry point, not the next month-start.
+    // Two-tier density:
+    //   Last 30 days  → daily (smooth recent ranges)
+    //   Older         → weekly walking back from 31 days ago to first tx
+    // Anchor first tx so charts start at the actual entry point.
     targetSet.add(earliestTxDate)
-    for (const d of monthStartsBetween(earliestTxDate, today)) targetSet.add(d)
-    for (const d of dailyRange(today, 30)) {
+
+    const daily = dailyRange(today, 30)
+    for (const d of daily) {
       if (d >= earliestTxDate) targetSet.add(d)
+    }
+
+    // Weekly tier: 31+ days back, walking from earliestTxDate forward in
+    // 7-day steps, stopping before the daily tier begins.
+    const dailyStart = daily[0] // 30 days ago
+    for (const d of weeklyBetween(earliestTxDate, dailyStart)) {
+      targetSet.add(d)
     }
   } else {
     for (const t of txs) targetSet.add(t.date.slice(0, 10))
