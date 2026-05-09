@@ -24,13 +24,13 @@ const GRANULARITY_OPTIONS: {
 }[] = [
   {
     value: "monthly",
-    label: "Monthly + last 30 days daily",
-    hint: "One snapshot for the 1st of every month, plus one snapshot for each of the last 30 days. Recommended so the 1D / 1W ranges look populated.",
+    label: "Weekly + last 30 days daily",
+    hint: "One snapshot every 7 days walking back from the earliest transaction, plus one snapshot for each of the last 30 days. Recommended — gives 1D / 1W ranges full daily detail and keeps long ranges (1Y / ALL) lightweight.",
   },
   {
     value: "tx_dates",
     label: "Each transaction day",
-    hint: "Only snapshots for days a transaction occurred. More precise, but more rows.",
+    hint: "Only snapshots for days a transaction occurred. More precise, but ranges with no activity will look sparse.",
   },
 ]
 

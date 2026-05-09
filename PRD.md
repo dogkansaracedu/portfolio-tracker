@@ -247,7 +247,14 @@ A scheduled job (pg_cron → `take-snapshots` Edge Function) runs **daily at 23:
 4. Aggregate by category, platform, tag, and individual asset (see §8.2).
 5. Upsert one row per user into `snapshots` keyed on (user_id, snapshot_date).
 
-Historical snapshots (one per month-start since the earliest transaction, plus daily for the last 30 days, or one per transaction date) are produced by the on-demand `backfill-snapshots` Edge Function, surfaced in Settings → Snapshots.
+In production, the cron job authenticates to the Edge Function with a shared `X-Cron-Token` header. The token lives in the function's env (`Deno.env.get("CRON_TOKEN")`) and in Postgres Vault (`vault.decrypted_secrets.cron_token`); the cron command reads from Vault and the function rejects requests whose header doesn't match. The Edge Functions base URL is also stored in Vault (`functions_url`) so the cron command is environment-agnostic.
+
+Historical snapshots are produced by the on-demand `backfill-snapshots` Edge Function, surfaced in Settings → Snapshots, in two density modes:
+
+- **Weekly + last 30 days daily** (default): one snapshot every 7 days walking back from the earliest transaction, plus daily for the last 30 days. Long ranges (1Y / ALL) stay lightweight; recent ranges keep daily detail.
+- **Each transaction day**: one snapshot per day a transaction occurred. More precise, but periods with no activity render as sparse points.
+
+When the portfolio is empty between a "sell all" event and the next buy, backfill writes a `total_usd = 0` snapshot for those dates so charts render a flat $0 line through the closed-position period instead of an interpolated gap.
 
 ### 8.2 Snapshot Breakdown Schema
 
@@ -524,6 +531,8 @@ These are explicitly out of scope for v1 but worth keeping in mind architectural
 | P2 | Service worker (offline shell) | Not started |
 | P2 | Automated daily snapshots (pg_cron → take-snapshots Edge Function) | Done |
 | P2 | Historical snapshot backfill (Settings UI + backfill-snapshots Edge Function) | Done |
+| P2 | Production deployment (Vercel frontend + Supabase Cloud, no GitHub) | Done |
+| P2 | Cash flow linkage (sell auto-credits cash, buy can deduct platform cash) | Not started — see `docs/cash-flow-feature-discussion.md` |
 | P2 | Data export (JSON/CSV dumps) | Not started |
 
 ## 17. Open Questions
