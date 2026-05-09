@@ -24,9 +24,14 @@ import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactions } from "@/hooks/useTransactions"
 import { toast } from "sonner"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
-import type { TransactionType } from "@/types/database"
-
-const POSITIVE_TYPES: TransactionType[] = ["buy", "transfer_in", "dividend", "interest"]
+import {
+  POSITIVE_TYPES,
+  TRANSACTION_TYPES,
+} from "@/lib/constants/transaction-types"
+import {
+  CURRENCY_SYMBOLS,
+  type FiatCurrency,
+} from "@/lib/constants/currencies"
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
@@ -44,10 +49,11 @@ function truncateNotes(notes: string | null, maxLen = 30): string {
 
 interface Props {
   transaction: TransactionWithDetails
+  linkedChild?: TransactionWithDetails | null
   currency: "USD" | "TRY"
 }
 
-export function TransactionRow({ transaction }: Props) {
+export function TransactionRow({ transaction, linkedChild }: Props) {
   const tx = transaction
   const { openTransactionModal } = useTransactionModal()
   const { removeTransaction } = useTransactions()
@@ -93,6 +99,18 @@ export function TransactionRow({ transaction }: Props) {
             <span className="text-xs text-muted-foreground">
               {tx.assets?.ticker ?? ""}
             </span>
+            {linkedChild && (
+              <span className="text-xs text-muted-foreground italic">
+                {linkedChild.type === TRANSACTION_TYPES.CASH_CREDIT
+                  ? `+${CURRENCY_SYMBOLS[linkedChild.price_currency as FiatCurrency] ?? ""}${Number(linkedChild.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${linkedChild.price_currency} → ${linkedChild.platforms?.name ?? "platform"}`
+                  : `−${CURRENCY_SYMBOLS[linkedChild.price_currency as FiatCurrency] ?? ""}${Number(linkedChild.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${linkedChild.price_currency} from ${linkedChild.platforms?.name ?? "platform"}`}
+              </span>
+            )}
+            {tx.type === TRANSACTION_TYPES.BUY && !linkedChild && (
+              <span className="text-xs text-muted-foreground italic">
+                external cash
+              </span>
+            )}
           </div>
         </TableCell>
 

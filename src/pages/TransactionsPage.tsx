@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { useTransactionLog } from "@/hooks/useTransactionLog"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { useTransactionModal } from "@/contexts/TransactionContext"
@@ -6,12 +7,37 @@ import { TransactionFilters } from "@/components/transactions/TransactionFilters
 import { TransactionList } from "@/components/transactions/TransactionList"
 import { Button } from "@/components/ui/button"
 import { PlusIcon } from "lucide-react"
+import {
+  fetchLinkedChildrenForParents,
+  type TransactionWithDetails,
+} from "@/lib/queries/transactions"
 
 export default function TransactionsPage() {
   const { transactions, loading, filters, setFilters, summary } =
     useTransactionLog()
   const { currency } = useDisplayCurrency()
   const { openTransactionModal } = useTransactionModal()
+  const [childMap, setChildMap] = useState<
+    Map<string, TransactionWithDetails>
+  >(new Map())
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const parentIds = transactions
+        .filter((t) => t.linked_tx_id == null)
+        .map((t) => t.id)
+      if (parentIds.length === 0) {
+        if (!cancelled) setChildMap(new Map())
+        return
+      }
+      const next = await fetchLinkedChildrenForParents(parentIds)
+      if (!cancelled) setChildMap(next)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [transactions])
 
   return (
     <div className="space-y-6">
@@ -40,6 +66,7 @@ export default function TransactionsPage() {
         transactions={transactions}
         loading={loading}
         currency={currency}
+        childMap={childMap}
       />
     </div>
   )
