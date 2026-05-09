@@ -339,7 +339,7 @@ export default function DashboardHero({
                   />
                 )}
                 <Area
-                  type="stepAfter"
+                  type="monotone"
                   dataKey={currency === "USD" ? "valueUsd" : "valueTry"}
                   stroke={strokeColor}
                   fill={fillColor}
