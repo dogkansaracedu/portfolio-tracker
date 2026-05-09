@@ -118,6 +118,20 @@ export function filterByTimeRange(
     if (anchorIdx >= 0) {
       return [snapshots[anchorIdx], ...inRange]
     }
+    // No real snapshot before cutoff (user joined the platform inside this
+    // window). Synthesize a zero-value anchor at the cutoff so the chart
+    // visually starts at the requested window edge with P&L = $0, instead
+    // of jumping in only at the first transaction date.
+    const syntheticAnchor: Snapshot = {
+      id: `__synthetic_${cutoffStr}`,
+      user_id: snapshots[0]?.user_id ?? "",
+      snapshot_date: cutoffStr,
+      total_usd: 0,
+      total_try: 0,
+      breakdown: null,
+      created_at: cutoffStr,
+    }
+    return [syntheticAnchor, ...inRange]
   }
 
   return inRange
