@@ -7,6 +7,7 @@ import {
   createTransaction,
   updateTransaction as updateTransactionQuery,
   deleteTransaction,
+  fetchLinkedChild,
   type TransactionWithDetails,
   type TransactionFilters,
 } from "@/lib/queries/transactions"
@@ -120,21 +121,71 @@ export function useTransactions(filters?: TransactionFilters) {
     /** original asset/platform so we can recalculate balances on either side
      * if they changed. */
     original: { assetId: string; platformId: string },
+    options?: { fundingPlatformId?: string | null },
   ) => {
     if (!user) throw new Error("Not authenticated")
+
+    // Capture pre-edit child (if any) BEFORE the parent update — once the
+    // parent's price_currency or platform changes we may need both old and
+    // new lenses for the cash side.
+    const existingChild = await fetchLinkedChild(id)
+
     const updated = await updateTransactionQuery(id, data)
-    await ensureHistoricalRate(
-      updated.price_currency,
-      updated.fee_currency,
-      updated.date,
-    )
-    // Recalc original (in case asset/platform changed) and current.
-    await recalculateBalance(user.id, original.assetId, original.platformId)
-    if (
-      updated.asset_id !== original.assetId ||
-      updated.platform_id !== original.platformId
-    ) {
-      await recalculateBalance(user.id, updated.asset_id, updated.platform_id)
+    await ensureHistoricalRate(updated.price_currency, updated.fee_currency, updated.date)
+
+    const lenses = new Set<string>()
+    const addLens = (assetId: string, platformId: string) =>
+      lenses.add(`${assetId}::${platformId}`)
+
+    // Parent lenses (old + new if they differ).
+    addLens(original.assetId, original.platformId)
+    addLens(updated.asset_id, updated.platform_id)
+
+    // Cash-side reconciliation.
+    const fundingPlatformId = options?.fundingPlatformId ?? null
+    const needsChild = shouldCreateChild(updated.type, fundingPlatformId)
+
+    if (existingChild) {
+      addLens(existingChild.asset_id, existingChild.platform_id)
+    }
+
+    if (needsChild) {
+      const cashAssetId = await resolveFiatAsset(updated.price_currency, user.id)
+      const childPayload = buildChildRow({
+        parent: updated,
+        parentId: updated.id,
+        fundingPlatformId,
+        cashAssetId,
+      })
+
+      if (existingChild) {
+        // Update in place — covers all the moving fields (asset, platform,
+        // amount, date, currency).
+        await updateTransactionQuery(existingChild.id, {
+          asset_id: childPayload.asset_id,
+          platform_id: childPayload.platform_id,
+          type: childPayload.type,
+          date: childPayload.date,
+          amount: childPayload.amount,
+          unit_price: childPayload.unit_price,
+          price_currency: childPayload.price_currency,
+          total_cost: childPayload.total_cost,
+          fee: childPayload.fee,
+          fee_currency: childPayload.fee_currency,
+        })
+      } else {
+        await createTransaction(childPayload as TransactionInsert)
+      }
+      addLens(childPayload.asset_id, childPayload.platform_id)
+    } else if (existingChild) {
+      // Edit removed the child requirement (e.g. buy switched from
+      // platform_deduct → external). Delete the orphan.
+      await deleteTransaction(existingChild.id)
+    }
+
+    for (const lens of lenses) {
+      const [assetId, platformId] = lens.split("::")
+      await recalculateBalance(user.id, assetId, platformId)
     }
     await refresh()
     bumpTxVersion()
