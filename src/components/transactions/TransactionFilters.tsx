@@ -19,7 +19,7 @@ import { CalendarIcon, XIcon } from "lucide-react"
 import type { TransactionType } from "@/types/database"
 import type { TransactionLogFilters } from "@/hooks/useTransactionLog"
 
-const TRANSACTION_TYPES: { value: TransactionType; label: string; color: string; bg: string }[] = [
+const TYPE_FILTER_CHIPS: { value: TransactionType; label: string; color: string; bg: string }[] = [
   { value: "buy", label: "Buy", color: "text-green-700", bg: "bg-green-100 border-green-300" },
   { value: "sell", label: "Sell", color: "text-red-700", bg: "bg-red-100 border-red-300" },
   { value: "transfer_in", label: "Transfer In", color: "text-blue-700", bg: "bg-blue-100 border-blue-300" },
@@ -255,7 +255,7 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
         <span className="flex items-center text-sm font-medium text-muted-foreground">
           Type:
         </span>
-        {TRANSACTION_TYPES.map((type) => {
+        {TYPE_FILTER_CHIPS.map((type) => {
           const isActive = filters.types?.includes(type.value) ?? false
           return (
             <button
