@@ -171,14 +171,39 @@ supabase secrets set CRON_TOKEN=$NEW
 supabase functions deploy take-snapshots
 ```
 
+### Onboarding a new user (signup allowlist)
+
+Signup is gated by `public.signup_allowlist`. Leave the Supabase Auth provider toggle "Allow new users to sign up" **on** — gating happens at the database trigger, not at the provider level.
+
+To onboard a new person:
+1. **Supabase Dashboard → SQL Editor**:
+   ```sql
+   INSERT INTO public.signup_allowlist (email, note)
+   VALUES (LOWER('person@example.com'), 'who they are');
+   ```
+   (Or use Table Editor → `signup_allowlist` → Insert row.)
+2. Share the production URL. They sign up with the email you allowlisted.
+3. The signup-trigger seeds their default platforms and assets automatically (Component 2 → seed function).
+
+To revoke (blocks *future* signups; does not delete an existing account):
+```sql
+DELETE FROM public.signup_allowlist WHERE email = LOWER('person@example.com');
+```
+
+To list:
+```sql
+SELECT email, added_at, note FROM public.signup_allowlist ORDER BY added_at;
+```
+
+When the allowlist migration was first applied, every then-existing `auth.users` email was auto-grandfathered, so the live accounts at the time were not locked out.
+
 ### Common deploy snags
 
 - **`vercel login` HTTP header error** on macOS with non-ASCII hostname → use a personal access token (`vercel.com/account/tokens`) and `export VERCEL_TOKEN=...` to bypass interactive login.
 - **`supabaseUrl is required` after first deploy** → env vars not set in Vercel. `vercel env add` then redeploy.
 - **`404 NOT_FOUND` on `/login`, `/portfolio`** → `vercel.json` SPA rewrite missing.
 - **`ERROR: 42501: permission denied to set parameter "app.*"`** in Supabase Cloud SQL Editor → use Vault, not `ALTER ROLE/DATABASE SET`.
-
-For ongoing tasks not yet finished on production, see [`docs/post-deploy-gaps.md`](./docs/post-deploy-gaps.md).
+- **`Database error saving new user`** on signup → the email isn't on `public.signup_allowlist`. Add it via SQL Editor and retry.
 
 ## Conventions
 

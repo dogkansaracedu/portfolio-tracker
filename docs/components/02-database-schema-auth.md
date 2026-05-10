@@ -49,10 +49,28 @@ src/
 | platforms | user-owned, simple CRUD, name + color |
 | assets | user-owned, **global** (one per ticker per user), category (text), tags (text[]), price_source |
 | holdings | user-owned, FK to assets + platforms, balance derived from transactions |
-| transactions | user-owned, FK to assets + platforms, type enum, related_asset_id for transfers |
+| transactions | user-owned, FK to assets + platforms, type enum, related_asset_id for transfers, linked_tx_id for cash-side rows (Component 4) |
 | price_cache | global, ticker PK, service-role writes |
 | snapshots | user-owned, unique (user_id, snapshot_date), jsonb breakdown |
 | exchange_rates | global, composite PK (date, source) |
+| signup_allowlist | admin-only (RLS on, no policies), email PK + note. Gates new signups via a BEFORE INSERT trigger on `auth.users`. |
+
+## Signup allowlist
+
+New signups are gated by a database-backed allowlist instead of leaving the Supabase "Allow new users to sign up" provider toggle wide open. Without this, the production URL is effectively a public signup page; with it, only emails the operator has explicitly added can complete signup.
+
+**Mechanism.** A BEFORE INSERT trigger on `auth.users` (function `public.enforce_signup_allowlist`) checks `LOWER(NEW.email)` against the `public.signup_allowlist` table. Hit → signup proceeds. Miss → trigger raises `signup blocked: <email> is not on the allowlist`, the auth.users insert rolls back, no account is created.
+
+**Why a table, not an env var.** Editable via SQL Editor or Table Editor without redeploying or restarting any function. Queryable, auditable, supports a `note` column for "who is this person", and the allowlist is visible in the dashboard alongside the rest of the data. An env var would require touching deployment configuration every time you onboard a friend.
+
+**Operator workflow** (Supabase Studio → SQL Editor):
+- **Add an email**: `INSERT INTO public.signup_allowlist (email, note) VALUES (LOWER('person@example.com'), 'who they are');`
+- **Remove**: `DELETE FROM public.signup_allowlist WHERE email = LOWER('person@example.com');` — blocks future signups; does not delete an existing account.
+- **List**: `SELECT email, added_at, note FROM public.signup_allowlist ORDER BY added_at;`
+
+**Grandfathering.** When the migration first applies, every existing `auth.users` email is auto-inserted into the allowlist with note `'pre-existing user (grandfathered)'` so live accounts aren't accidentally locked out. Subsequent signups need explicit allowlisting.
+
+**Error UX caveat.** Supabase auth surfaces the trigger's exception as a generic `Database error saving new user` to the signing-up user, not a clean "you're not on the allowlist" message. Acceptable for a small private tracker; if you ever need cleaner messaging, swap the trigger for a Supabase "Before User Created" Auth Hook (Postgres function) and shape the error JSON. The trigger does not require dashboard configuration; the Auth Hook does.
 
 ## Key Schema Changes from Initial Design
 
