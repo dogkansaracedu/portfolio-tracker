@@ -2,12 +2,6 @@
 
 ## Status: Done
 
-## Recent updates
-
-- **Snapshot is the single source of truth (2026-05-10):** `useDashboard` no longer recomputes from `holdings × prices`. Every aggregation (totals, by_category, by_platform, by_tag, top movers) is read from `snapshots[snapshots.length - 1].breakdown`. FIFO cost basis for top-mover P&L still comes from `transactions` (deterministic). See `docs/components/10-snapshots-performance.md` "Architectural guardrails" for the structural defenses to preserve.
-- **`formatSigned` shows the minus on negatives (2026-05-10):** earlier code rendered `-$940.79` as `$940.79` (no sign), which produced the worst possible silent failure for a P&L tracker — losses looked like gains. Fixed.
-- **Schema additions on `breakdown` (2026-05-10):** `by_platform[name].try`, `by_platform[name].color`, `by_tag[name].try`, and `by_asset[i].value_try`. Optional on legacy rows so older snapshots still parse — fallback uses the snapshot's recorded `usd_try` rate (never live, which would retro-convert old snapshots at today's rate).
-
 ## Overview
 Build the main dashboard page — the primary view after login. Shows total net worth (USD/TRY toggle), daily change, allocation donut chart, platform breakdown, top movers, and monthly performance sparkline from snapshots.
 
@@ -33,11 +27,12 @@ src/
 ```
 
 ## Tasks
-1. **useDashboard hook**: Combines useAssets + usePrices + usePnL. Computes:
-   - totalValueUsd / totalValueTry: SUM(balance * price) for all active assets
-   - byCategory: group by category, sum values, return { category, valueUsd, valueTry, percentage }[]
-   - byPlatform: group by platform, sum values, return { platformName, color, valueUsd, valueTry, percentage }[]
-   - topMovers: assets sorted by unrealized P&L % (as proxy for 24h change in MVP)
+1. **useDashboard hook**: Reads the latest snapshot's `breakdown` (Component 10) and exposes:
+   - totalValueUsd / totalValueTry: from `latest.total_usd` / `latest.total_try`
+   - byCategory: from `breakdown.by_category` — `{ category, valueUsd, valueTry, percentage }[]`
+   - byPlatform: from `breakdown.by_platform` — `{ platformName, color, valueUsd, valueTry, percentage }[]`
+   - topMovers: aggregate `breakdown.by_asset` per ticker, pair with FIFO cost basis from Component 6. Sorted by absolute USD change. (Unrealized P&L is the proxy for 24h change in MVP.)
+   - No `holdings × prices` recomputation. The snapshot is the single source of truth for current values; cost basis stays FIFO-from-transactions.
 
 2. **NetWorthCard**: Large card at top. Total value in selected currency ($51,409 or ₺2,288,312). Secondary: other currency (smaller). Daily change in green/red (compare to most recent snapshot, or hide if no snapshot exists). Uses shadcn Card
 
@@ -68,6 +63,9 @@ src/
 - **Custom**: NetWorthCard, AllocationChart, PlatformBreakdown, TopMovers, PerformanceSparkline
 
 ## Key Decisions
+- **Snapshot is the source of truth for current values**: every total/allocation/breakdown comes from the latest snapshot, never recomputed from `holdings × prices` on the client. Eliminates the bug class of two paths agreeing on data but disagreeing on aggregation rules.
+- **Cost basis stays FIFO-from-transactions**: deterministic, no second source to drift against.
+- **Negatives render with a leading minus**: a `-$940` displayed as `$940` is the worst silent failure for a P&L tracker — losses must always be visually distinct from gains.
 - **No real-time updates**: Fetched on page load + price refresh. No WebSocket
 - **Daily change approximate**: Compared to previous snapshot or omitted. Fine for "check once a day" use case
 - **TopMovers uses unrealized P&L**: True 24h change needs price history. P&L is a useful proxy

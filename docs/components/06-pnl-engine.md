@@ -2,12 +2,6 @@
 
 ## Status: Done
 
-## Recent updates
-
-- **Cash flow linkage (2026-05-09):** added two paired transaction types — `cash_credit` (auto-paired to a sell, lands cash on the trading platform) and `cash_debit` (auto-paired to a platform-funded buy, deducts cash from any platform). Linked to the parent via `transactions.linked_tx_id` (FK with `ON DELETE CASCADE`). FIFO **ignores** these types — they have no `case` arm in the switch, so they don't push lots or consume them. Cash is the medium of exchange, not a tradeable position; including cash rows would create meaningless lots on USD/TRY/EUR. See `docs/cash-flow-feature-design.md`.
-- **`applyTxToInvested` (`src/lib/performance.ts`) extended (2026-05-10):** the dashboard's net-invested-capital calculation now accounts for `cash_credit` (`+totalUsd`) and `cash_debit` (`-totalUsd`). Without this, modern sells double-counted: their proceeds left "invested" via the `sell` rule but stayed on-platform via the auto-paired `cash_credit` row in the snapshot, producing a +$1,176 dashboard-vs-portfolio P&L gap.
-- **`usePnL` reads `currentValueUsd` from the snapshot (2026-05-10):** per-(asset, platform) value now comes from `snapshot.breakdown.by_asset` keyed on `(ticker, platform_name)`. `balance × live price` is the fallback only when the snapshot has no entry for the lookup. Cost basis stays FIFO-from-`transactions` because it has no second source to drift against.
-
 ## Overview
 Implement the FIFO cost basis calculation engine for realized and unrealized P&L. Build the currency normalization layer that converts all transaction prices to USD using historical exchange rates. Pure computation layer — no new UI pages, provides data consumed by Dashboard, Portfolio, and Transactions pages.
 
@@ -45,6 +39,7 @@ src/
    - Transfer_out: pop lots FIFO (no P&L — lots move to destination)
    - Transfer_in: push lot with **original cost basis** from linked transfer_out
    - Fee: treated as realized loss
+   - Cash-side rows (`cash_credit`, `cash_debit` — auto-paired to a sell or to a platform-funded buy via `transactions.linked_tx_id`): **ignored**. Cash is a medium of exchange, not a tradeable position; including these rows would create meaningless lots on USD/TRY/EUR. See Component 4 for the linked-rows model.
 
 3. **Currency normalization** (`lib/pnl/currency.ts`):
    - `normalizeToUsd(amount, currency, date, exchangeRates)`: Convert to USD using rate for given date
@@ -85,6 +80,7 @@ src/
 - **Fiat P&L skipped**: Computing TRY/USD/EUR P&L is complex and low-value for MVP
 - **Fee transactions = realized losses**: `fee_amount * current_price_usd` keeps balance math correct
 - **No P&L stored in DB**: Computed on-the-fly. Avoids staleness and complex invalidation
+- **Cost basis stays FIFO-from-`transactions`** while current value comes from the snapshot (Component 10). Cost basis has no second source to drift against; current value is shared with the dashboard so totals always agree. Net-invested-capital (used for total-return % anchoring) accounts for cash-side rows so a sell that lands cash on-platform doesn't double-count: the proceeds leave "invested" via the sell rule and the paired `cash_credit` adds them back, netting zero invested change.
 
 ## Acceptance Criteria
 - [ ] Buy sequence correctly produces cost lots in FIFO order

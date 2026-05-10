@@ -2,44 +2,10 @@
 
 ## Status: Done
 
-## Recent updates (post-deploy)
-
-- **Snapshot density:** the default `monthly` granularity is *weekly + last 30 days daily* — one snapshot every 7 days walking back from earliest tx, plus daily for the last month. Long ranges (1Y / ALL) stay lightweight; recent ranges keep daily detail. The `tx_dates` mode (one per transaction day) is still available.
-- **Empty-portfolio snapshots:** when the user has sold everything, backfill writes a `total_usd = 0` snapshot for those dates so charts show a flat $0 line through the closed-position period instead of an interpolated gap.
-- **Cron auth:** `take-snapshots` accepts an `X-Cron-Token` header; the cron command reads it (and the Edge Functions URL) from Postgres Vault. See `supabase/migrations/20260507100300_cron_via_vault.sql`.
-- **Charts:** Dashboard hero uses time-scale x-axis (`type="number"`, `scale="time"`) with `monotone` smoothing so points are placed by elapsed time rather than uniform array index. Earlier 30-day cluster no longer dominates 1Y / ALL ranges.
-- **Synthetic zero-anchor:** chart prepends a $0 anchor one day before the earliest transaction across *all* time ranges (was ALL-only). 1Y / YTD on portfolios that started inside the window now begin at the actual entry point with $0, like brokers do for newly-listed instruments.
-
-### 2026-05-10: snapshot becomes the single source of truth
-
-- **Architecture:** `snapshot.breakdown` is now the only thing the dashboard / portfolio / performance pages read for "current portfolio value". One writer (the snapshot path: cron + backfill + in-browser `createSnapshot`), one reader. Eliminates the recurring class of bugs where three independent compute paths silently disagreed (most recent: +$1,176 dashboard-vs-portfolio P&L gap from `cash_credit` rows). Architectural guardrails are listed at the bottom of this file.
-- **`SnapshotsProvider` (`src/contexts/SnapshotsContext.tsx`):** shared snapshot store + auto-refresh effect. Watches two event sources to keep today's snapshot fresh:
-  - `lastUpdated` from `PricesProvider` — any price refresh.
-  - `txVersion` from `TransactionContext` — any transaction add/edit/delete.
-  - Debounced 5s so a typical page load (cache-load → stale-refresh) collapses to a single canonical write instead of two. Dedupes per-source so the effect can't loop on its own writes.
-- **`PricesProvider` (`src/contexts/PricesContext.tsx`):** lifts `usePrices` into a single shared instance so the header's manual "Refresh prices" button propagates to `SnapshotsProvider` (which previously had its own `usePrices` instance and stayed stale). Auto-stale-refresh runs once per app session instead of once per consumer.
-- **Defensive guard in all three writers (`take-snapshots`, `backfill-snapshots`, in-browser `createSnapshot`):** if any held asset has `price_usd <= 0`, skip the write rather than locking in a wrong total. This is the structural defense against the failure mode that produced the original 2026-04-09 orphan. The cron logs the skip reason; the in-browser path throws so the manual "Take Snapshot" button can toast.
-- **Schema additions (optional on legacy rows):** `by_platform[name].try`, `by_platform[name].color`, `by_tag[name].try`, `by_asset[i].value_try`. Frontend falls back to `usd × snapshot's recorded usd_try` for legacy rows (never live, which would retro-convert at today's rate).
-- **`overwrite=ON` semantics fix (commit `f99499e`):** earlier behavior deleted only the exact target dates the run was about to write — stale rows on dates outside the run's `targetSet` survived. Now `overwrite=true` deletes every snapshot in `[earliestTxDate, today]` for the affected user before the upsert, then writes fresh.
-- **`formatSigned` (`DashboardHero.tsx`):** shows the leading `−` on negatives (was rendering losses as if they were gains).
-
-### 2026-05-10 (later): staleness regression and follow-up fix
-
-The first pass of §5.1 read `snapshot.by_asset[i].value_usd` directly. That field is `amount × price` frozen at snapshot write time, so after a tx changed the balance the Value column briefly showed the pre-edit value (Quantity updated immediately from `holdings`, Value lagged for ~5s until the auto-refresh wrote a fresh snapshot). Fix: source only the **price-per-unit** from the snapshot and multiply by the **live balance**. Quantity is reflected immediately; the snapshot stays the source of truth for *prices*; the bounded ≤5s lag now only affects price refreshes (which barely move the value in 5 seconds).
-
-A complementary debounce tweak: tx-driven snapshot writes use a 200ms window (`TX_REFRESH_DEBOUNCE_MS`) so the dashboard total catches up to a fresh edit nearly instantly, while price-driven writes keep the 5s window (`PRICE_REFRESH_DEBOUNCE_MS`) so cache-load → stale-refresh bursts coalesce. When both triggers fire together the shorter window wins.
-
-### Architectural guardrails (do not undo)
-
-These are the structural defenses against the bug classes this architecture was created to eliminate. Future work touching the snapshot path should preserve them:
-
-- **No `holdings × prices` aggregation on the dashboard or portfolio page.** The whole point of the SoT refactor is one source of truth for derived totals. New dashboard features that need derived data go in `snapshot.breakdown` (extending the schema) and are read from there — not recomputed in `useDashboard` / `useHoldings × usePrices`. Quantity comes from live `holdings` so transactions feel responsive; price comes from the snapshot so totals are consistent across the dashboard, portfolio page, and `total_usd`.
-- **Do not remove the unpriced-holdings guards** in `take-snapshots`, `backfill-snapshots`, or `createSnapshot`. They're the structural defense against the failure mode that produced the original 2026-04-09 orphan (a holding silently dropped from totals because its price wasn't cached yet). If they get noisy, fix `fetch-prices` so the cache *is* complete; don't silence the guard.
-- **Do not weaken `formatSigned`** back to "no minus on negatives". A `−$940` rendered as `$940` is the worst possible silent failure for a P&L tracker — losses look like gains.
-- **`overwrite=ON` deletes the date range** `[earliestTxDate, today]` for the affected user, not just the dates the run is about to write. Reverting to "delete only target dates" reintroduces the orphan-survival bug fixed in commit `f99499e`.
-
 ## Overview
-Build the snapshot system (manual trigger, snapshot viewing) and full performance page with charts: portfolio value over time, monthly returns, category attribution, drawdown, and summary statistics.
+The snapshot system captures aggregated portfolio state per day (`snapshots` table, one row per user per date) and the performance page renders charts and metrics derived from that history: portfolio value over time, monthly returns, category attribution, drawdown, and summary statistics.
+
+The latest snapshot is also the single source of truth for *current* portfolio aggregations consumed by the dashboard and portfolio page (see Snapshot as Source of Truth below). Snapshot writers are: a daily cron, an on-demand backfill for historical dates, and an in-browser writer that keeps today's row trailing the freshest prices and balances.
 
 ## Dependencies
 - Component 5 (Price Engine)
@@ -69,13 +35,66 @@ src/
 │   └── performance.ts
 ```
 
+## Snapshot as Source of Truth
+
+The dashboard, portfolio page, and performance page read the latest snapshot's `breakdown` JSONB instead of recomputing aggregations from `holdings × prices`. One writer path, one reader. This eliminates an entire class of bugs where parallel compute paths silently disagree on aggregation rules (e.g. how a buy/sell/cash_credit contributes to "invested" capital).
+
+The split between fields is:
+- **Current value, allocation breakdowns, totals** — sourced from the snapshot.
+- **Cost basis, FIFO lots, realized P&L** — computed from `transactions` (deterministic, no second source).
+- **Live balances** — read from `holdings` so transaction edits reflect quantity changes immediately. Per-row value is then derived as `live balance × snapshot's recorded price-per-unit`. The snapshot's stored `value_usd` (which is `amount × price` frozen at write time) is *not* read directly; doing so would briefly show the pre-edit value after a transaction changes the balance.
+
+## Snapshot Density
+
+Two granularity modes for the on-demand backfill:
+
+- **Weekly + last 30 days daily** (default): one snapshot every 7 days walking back from the earliest transaction date, plus daily for the most recent 30 days. Long ranges (1Y / ALL) stay lightweight; recent ranges retain daily detail.
+- **Each transaction day**: one snapshot per day a transaction occurred. More precise on activity, sparser on quiet periods.
+
+The daily cron writes one snapshot per user per day at a fixed UTC hour, separate from these density modes.
+
+## Auto-Refresh of Today's Snapshot
+
+The browser-side snapshot writer keeps today's row trailing the freshest data the client has seen. It rewrites today's snapshot when either signal changes:
+
+- **Price refresh** (`lastUpdated` from the prices store moves) — debounced ~5s so a typical page load (cache-load → stale-refresh) collapses to one canonical write.
+- **Transaction add/edit/delete** (transaction context bumps a version) — debounced ~200ms so the dashboard total catches up to a fresh edit nearly instantly. Discrete user actions don't burst, so a smaller window is safe.
+
+When both signals fire together the shorter window wins. Each signal is independently deduped so the effect can't loop on its own writes.
+
+The shared snapshot store is loaded once and served to all consumers (dashboard, portfolio page, performance page, snapshot manager). When a writer succeeds it triggers a refetch so every reader sees the new row.
+
+## Defensive Guards
+
+All three snapshot writers — daily cron, on-demand backfill, in-browser writer — apply the same correctness guards:
+
+- **Skip on unpriceable holdings**: if any held asset has `price_usd <= 0` for the target date, the writer skips that date with a logged reason instead of writing a snapshot that silently omits the unpriced holding. Skipping for one day is recoverable; locking in a wrong total isn't. The browser path surfaces the skip as a thrown error so the manual "Take Snapshot" button can toast; the cron logs and continues to other users.
+- **Empty portfolio writes a $0 snapshot**: when the user has sold everything, the backfill writes `total_usd = 0` for those dates so charts render a flat $0 line through the closed-position period instead of interpolating a fictional value.
+- **`overwrite=ON` wipes the full date range**: when the user requests overwrite, the writer deletes every snapshot in `[earliestTxDate, today]` for the user before upserting fresh rows. Deleting only the target dates leaves stale rows from prior runs surviving; range-based wipe is the correct semantic for "rebuild the slate".
+
+## Cron Authentication
+
+The cron command authenticates to the snapshot writer with a shared `X-Cron-Token` header. Both the token and the writer's base URL live in Postgres Vault; the cron reads from Vault and the writer rejects unmatched headers. This keeps the cron command environment-agnostic.
+
+## Snapshot Breakdown Schema
+
+`snapshots.breakdown` is the JSONB blob that carries all aggregations. See PRD §8.2 for the canonical schema. Per-bucket TRY values are stored alongside USD; per-platform entries carry display color so the dashboard doesn't have to look it up. When a row is missing an optional TRY field, the reader falls back to `usd × the snapshot's recorded usd_try` rate — never the live rate, which would retro-convert old snapshots at today's exchange rate.
+
+## Performance Charts
+
+The performance page renders chronologically against `snapshots`:
+
+- A synthetic `$0` anchor is prepended one day before the earliest transaction across all time ranges. Portfolios that started inside a 1Y / YTD window begin at the actual entry point with $0, like brokers display newly-listed instruments.
+- Charts use a time-scale x-axis with monotone smoothing so points are placed by elapsed time, not uniform array index — recent dense daily points don't visually dominate older sparse weekly points on long ranges.
+- Negatives in summary tooltips render with a leading minus. Showing `-$940` as `$940` would be the worst silent failure for a P&L tracker.
+
 ## Tasks
 1. **Snapshot queries** (`lib/queries/snapshots.ts`):
    - fetchSnapshots(userId): all, date ASC
-   - createSnapshot(userId): fetch active assets + prices + rates → aggregate by category/platform → build breakdown JSONB (per PRD 8.2) → INSERT
+   - createSnapshot(userId): fetch active assets + prices + rates → aggregate by category/platform → build breakdown JSONB (per PRD 8.2) → INSERT. Apply the unpriceable-holdings guard.
    - deleteSnapshot(id): rare admin action
 
-2. **useSnapshots hook**: Fetch all on mount. Expose snapshots[], loading, takeSnapshot(), deleteSnapshot(), refetch()
+2. **Shared snapshot store**: load once on auth, serve all consumers, expose snapshots[], loading, takeSnapshot(), deleteSnapshot(), refetch(). Subscribe to price-update and transaction-version signals; rewrite today's row on either, with the debounce policy above.
 
 3. **Performance utilities** (`lib/performance.ts`):
    - computeMonthlyReturns(snapshots): (S[n]-S[n-1])/S[n-1] per pair
@@ -121,6 +140,10 @@ src/
 - **Custom**: TimeRangeSelector, PortfolioValueChart, MonthlyReturnsChart, CategoryAttribution, DrawdownChart, PerformanceSummary, SnapshotManager
 
 ## Key Decisions
+- **Snapshot is the single source of truth for current aggregations**: dashboard, portfolio page, and performance page read the snapshot; they never recompute from `holdings × prices`. One writer path, one reader, no drift class.
+- **Live balance × snapshot price per unit**: per-row values use `holdings.balance × snapshot.price_usd`, not the snapshot's frozen `value_usd`. Quantity changes (a fresh transaction) reflect immediately while the snapshot stays the source of truth for prices.
+- **Snapshot writers share a defensive guard**: unpriceable holdings cause a skip, not a silent omission. Empty portfolios write `$0` rather than a missing date.
+- **`overwrite=ON` is range-based**: deletes the full `[earliestTxDate, today]` window before rewriting. Deleting only target dates leaves stale rows from prior cadences alive.
 - **Monthly granularity**: Performance measured monthly, not daily. Aligns with long-term tracking goal
 - **All computation client-side**: <120 snapshots (10 years). Trivial computation
 - **CAGR only after 1+ year**: Show "N/A" if <12 months of data

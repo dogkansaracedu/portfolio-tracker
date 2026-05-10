@@ -26,13 +26,13 @@ src/
 ```
 
 ## Tasks
-1. **useTransactionLog hook**: Fetch all transactions with joins. Client-side filters: dateFrom, dateTo, assetId, platformId, type. Enrich sells with realized P&L (from FIFO). "Load more" pagination (50 at a time). Returns transactions[], loading, hasMore, loadMore(), filters, setFilters(), summary stats
+1. **useTransactionLog hook**: Fetch all transactions with joins. Client-side filters: dateFrom, dateTo, assetId, platformId, type. Enrich sells with realized P&L (from FIFO). "Load more" pagination (50 at a time). Returns transactions[], loading, hasMore, loadMore(), filters, setFilters(), summary stats. By default the main list filters out rows whose `linked_tx_id IS NOT NULL` (auto-paired cash children — they render as the parent row's subtitle). Asset-filtered views (e.g. viewing the USD fiat asset) include them so the user can audit "where did my Midas USD come from".
 
 2. **TransactionFilters**: Date range (preset buttons: Last 7d, 30d, This month, This year, All + custom date pickers). Asset filter (AssetSearchSelect reuse). Platform filter (Select). Type filter (multi-select chips for all 7 types). Mobile: collapse into "Filters" button → bottom sheet
 
 3. **TransactionRow columns**:
    - Date: formatted (e.g., "Mar 15, 2026")
-   - Asset: name + ticker
+   - Asset: name + ticker. For sells and platform-funded buys, a small subtitle shows the cash effect (e.g., `+$998.50 USD → Midas` for a sell auto-credit, or `−$1,001.50 USD from Bank` for a platform-funded buy). External-cash buys show `external cash`. Subtitle text comes from the linked child row (Component 4 cash-flow linkage).
    - Platform: name + color dot
    - Type: TransactionTypeBadge (color-coded)
    - Amount: quantity with +/- sign (+ for buy/transfer_in/dividend, - for sell/transfer_out/fee)

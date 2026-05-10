@@ -2,11 +2,6 @@
 
 ## Status: Done
 
-## Recent updates
-
-- **Snapshot-sourced values (2026-05-10):** `usePortfolio` and its dependency `usePnL` now source per-(asset, platform) `value_usd` and `value_try` from `snapshot.breakdown.by_asset` keyed on `(ticker, platform_name)`. Asset-level rollups sum across platforms from the same snapshot map. `currentPriceUsd` (the per-row price column) reads from the snapshot's recorded `price_usd` for the ticker. Live `prices × balance` is the fallback only when the snapshot has no entry for a holding — typically a new platform or fresh asset before the next auto-refresh write. Cost basis stays FIFO-from-`transactions`.
-- **Same-row consistency:** because the dashboard, portfolio page, and snapshot total all read from the same `snapshots[…].breakdown` row, the "Total Portfolio Value" on the portfolio page is always identical to the dashboard's net-worth — by construction, not by coincidence.
-
 ## Overview
 Full portfolio page showing all assets in a rich table with grouping (by platform or category), search/filter, current values, and P&L columns. The detailed asset view complementing the dashboard's summary.
 
@@ -33,7 +28,9 @@ src/
 ```
 
 ## Tasks
-1. **usePortfolio hook**: Combines useAssets + usePrices + usePnL. For each active asset computes: currentPrice, currentValue, unrealizedPnl, costBasis, allocation %. Returns enrichedAssets[], totals, groupedByPlatform, groupedByCategory. Supports sorting (value, P&L, name, allocation) and filtering (search string, platform, category)
+1. **usePortfolio hook**: Combines useAssets + useHoldings + usePnL + the latest snapshot from Component 10. For each active asset exposes: currentPrice, currentValue, unrealizedPnl, costBasis, allocation %. Returns enrichedAssets[], totals, groupedByPlatform, groupedByCategory. Supports sorting (value, P&L, name, allocation) and filtering (search string, platform, category).
+   - **Pricing rule**: per-unit `price_usd` comes from the latest snapshot's `by_asset` entry for the ticker (or per (ticker, platform) for the group-by-platform breakdown). Value = live balance × snapshot price. Cost basis = FIFO from transactions (Component 6). This way quantity changes (a fresh transaction) reflect immediately while prices stay consistent with the dashboard's snapshot-sourced totals.
+   - **Total consistency**: because the dashboard, the portfolio page, and the snapshot's stored `total_usd` all derive from the same snapshot row, the portfolio page's total equals the dashboard's net worth by construction.
 
 2. **PortfolioFilters**: Search Input (with icon), Group by toggle (Platform/Category), Category filter chips, Platform filter dropdown, Sort by dropdown
 
@@ -70,6 +67,7 @@ src/
 - **Custom**: PortfolioTable, PortfolioRow, PortfolioGroupHeader, PortfolioSummaryBar, PortfolioFilters, AssetDetailSheet
 
 ## Key Decisions
+- **Snapshot prices, live quantities**: per-unit price comes from the snapshot; balance comes from `holdings`. Quantity changes show instantly without sacrificing the snapshot's role as the source of truth for prices.
 - **Grouping is client-side**: All assets fetched, enriched, grouped in JS. <100 assets = instant
 - **Card layout on mobile**: Tables don't work on small screens. Cards below 640px
 - **Group collapse in local state**: Not persisted. All start expanded

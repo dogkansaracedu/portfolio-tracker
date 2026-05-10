@@ -3,10 +3,73 @@
 ## Status: Done
 
 ## Overview
-Build the transaction recording system: an "Add Transaction" modal with support for all transaction types (buy, sell, transfer, dividend, interest, fee). On transaction creation, recalculate the asset's cached balance. This is the core data-entry workflow.
+Build the transaction recording system: an "Add Transaction" modal with support for all transaction types (buy, sell, transfer, dividend, interest, fee). Plus the cash-flow linkage: every sell auto-credits cash on the trading platform, and a buy can optionally deduct cash from any platform that holds the buy's currency. On transaction creation, recalculate the affected `(asset, platform)` balances. This is the core data-entry workflow.
 
 ## Dependencies
 - Component 3 (Platform & Asset Management)
+
+## Cash-flow linkage
+
+### The problem this solves
+Without linkage, transactions describe one-sided effects on a single `(asset, platform)` lens. Sells remove shares but produce no cash; buys add shares but draw from nowhere. A `transfer_in` of $2,000 USD onto Midas, followed by a $1,000 buy on Midas, leaves the database still claiming $2,000 USD on Midas. Either the user never tracks cash (portfolio total understates by uninvested capital) or they track it manually and each buy double-counts. The linkage feature makes cash a first-class participant.
+
+### Requirements
+- **R1 — Auto-credit on sell.** Every sell creates a cash credit on the same platform in the sell's `price_currency`. No manual second step.
+- **R2 — Funding source on buy.** Every buy has an explicit funding source: either external cash (no deduction, current behavior) or "deduct from cash on platform X". X may be the trading platform, a separate bank/cash platform, or any platform holding the buy's `price_currency`.
+- **R3 — Single-row UI.** A sell or platform-funded buy appears as one entry in the main transactions list. The cash side renders as a subtitle on the parent row, not a separate line. (See Component 9 for the rendering rules.)
+
+### Storage shape: linked rows
+Each cash effect is its own `transactions` row, paired to its parent via a `linked_tx_id` foreign key with `ON DELETE CASCADE`. Two new transaction types — `cash_credit` (paired to a sell) and `cash_debit` (paired to a platform-funded buy) — encode the cash side. Rationale: matches conventional ledger practice (one row, one effect), keeps balance recalculation arithmetically simple (cash rows are just rows that happen to sit on a fiat asset), and surfaces cash flow as proper transaction history.
+
+A CHECK constraint enforces the invariant: `cash_credit`/`cash_debit` rows must have a `linked_tx_id`; non-cash rows must not.
+
+The presence or absence of a child row, plus its `platform_id`, encodes both the mode (external vs platform_deduct) and the funding platform. There is no separate `cash_effect` column.
+
+### Pairing rules per parent type
+
+| Parent type                | Funding source | Paired row created? | Paired row type   | Paired `(asset, platform)`                       | Paired `amount`                                            |
+|----------------------------|----------------|---------------------|-------------------|--------------------------------------------------|------------------------------------------------------------|
+| `buy` (default)            | external       | No                  | —                 | —                                                | —                                                          |
+| `buy` (platform_deduct)    | platform X     | Yes                 | `cash_debit`      | `(price_currency_asset, X)`                      | `total_cost + fee` if fee currency = price currency, else `total_cost` |
+| `sell`                     | (always)       | Yes                 | `cash_credit`     | `(price_currency_asset, parent's platform)`      | `total_cost − fee` if fee currency = price currency, else `total_cost` |
+| `transfer_in` / `transfer_out` | n/a        | No                  | —                 | —                                                | —                                                          |
+| `dividend` / `interest`    | n/a (v1)       | No                  | —                 | —                                                | —                                                          |
+| `fee` (standalone)         | n/a            | No                  | —                 | —                                                | —                                                          |
+
+### UI rules
+- **Buy form** shows a "Funding source" dropdown: "External cash (no deduction)" + every platform that holds the fiat asset for the buy's `price_currency`. Default is External. On edit, prefilled from the existing child if any.
+- **Sell form** has no funding selector — cash always lands on the trading platform. Display a confirmation line: `Sale proceeds: $X → credited to {platform} {currency}`.
+- **Insufficient cash on a platform_deduct buy** is rejected inline with the message `Insufficient {currency} on {platform} (X available, Y needed)`. No silent overdraw, no warn-and-confirm. For margin/credit cases the user records a synthetic `transfer_in` of cash first.
+- **Edit-mode validation** adds back the existing child's amount when computing available cash on the same funding lens, so editing a row in place isn't falsely flagged as overdrawing because of itself.
+
+### Edit/delete cascade
+When a parent (sell or platform-funded buy) is edited, the child is reconciled against the post-edit parent:
+
+| Existing child | Post-edit needs child | Action                                                                 |
+|----------------|-----------------------|------------------------------------------------------------------------|
+| No             | No                    | Nothing.                                                               |
+| No             | Yes                   | Create new child.                                                      |
+| Yes            | No                    | Delete child (e.g. buy switched from platform_deduct → external).      |
+| Yes            | Yes                   | Update child fields in place: `asset_id`, `platform_id`, `date`, `amount`, etc. No delete/recreate. |
+
+After reconciliation, every touched `(asset, platform)` lens is recalculated: old parent, new parent, old child (if any), new child (if any).
+
+When a parent is deleted, Postgres' `ON DELETE CASCADE` removes the child automatically. The application captures the child's `(asset, platform)` *before* the delete and recalculates that lens explicitly afterwards.
+
+### Non-goals (v1)
+- Auto-credit for `dividend` / `interest` (current semantics preserved).
+- Forex conversions modeled as `sell` of one fiat for another.
+- Settle-currency override (e.g., a USD-denominated trade on a crypto exchange that physically settles in USDT).
+- Editing the cash row independently of its parent.
+- Migration of historical transactions — they keep their pre-feature semantics (no cash effect).
+- Negative cash via "warn" or "silent allow" — only "reject with inline error".
+
+### Selected edge cases
+- Edit a sell's `price_currency` from USD to TRY → child's `asset_id` flips. Recalc both old USD and new TRY balances.
+- Edit a buy's funding platform Bank → Midas → child's `platform_id` updates. Recalc both Bank and Midas USD balances.
+- Inline fee in a different currency than `price_currency` → fee stays informational only; the cash row carries `total_cost` unmodified.
+- Funding from a platform with exactly the required cash → allowed (insufficiency check uses `<`, not `≤`).
+
 
 ## File Structure
 ```

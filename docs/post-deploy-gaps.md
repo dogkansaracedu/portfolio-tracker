@@ -103,7 +103,7 @@ If you ever want to rotate (good hygiene every 6 months):
 - §5 Snapshots: the density model changed (daily-30 + weekly-older, no monthly tier) in commit `b359a22`.
 - §9 Settings: the backfill UI is the production interface; "Run backfill" wording should match.
 - §16 Status matrix: items closed by the pre-deploy stabilization branch should be marked Done.
-- Add a "Cash flow" line as a planned feature (see `docs/cash-flow-feature-discussion.md`).
+- Cash flow linkage is now implemented and documented in Component 4.
 
 Small docs commit, not a session of work.
 
@@ -161,5 +161,5 @@ The unchecked items are quick clicks; do them in one sitting next time you open 
 
 - Production frontend: https://portfolio-tracker-theta-seven.vercel.app
 - Supabase project: `hhqwxygrtqcugaxamrtu` (Frankfurt, free tier)
-- Cash flow design (now implemented): [`./cash-flow-feature-design.md`](./cash-flow-feature-design.md)
+- Cash flow linkage (implemented): see Component 4
 - Deploy how-to: [`README.md`](../README.md#production-deploy-vercel--supabase-cloud)
