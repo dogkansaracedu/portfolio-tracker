@@ -445,13 +445,27 @@ export function computePerformanceMetrics(
  *   dividend       -> -total         (cash returned to the account)
  *   interest       -> -total         (cash returned to the account)
  *   fee            -> +fee || +total (standalone fee — pure cost)
+ *   cash_credit    -> +total         (auto-paired sell-side cash; cancels
+ *                                     the parent sell's "-total" so the
+ *                                     proceeds are correctly counted as
+ *                                     staying inside the tracked portfolio
+ *                                     instead of leaving as withdrawn cash)
+ *   cash_debit     -> -total         (auto-paired platform-funded-buy cash;
+ *                                     cancels the parent buy's "+total +fee"
+ *                                     so a buy funded from on-platform cash
+ *                                     doesn't double-count as new external
+ *                                     capital)
  *
  * For genuine platform-to-platform transfers (a transfer_out paired with a
  * transfer_in of equal cost basis), the two cancel and the net invested
  * stays unchanged. For "loading event" / opening-balance entries (a lone
  * transfer_in with no matching out), the cost basis recorded on the
  * transaction is added to invested capital — so the asset doesn't appear
- * to be "free" relative to its current value.
+ * to be "free" relative to its current value. The cash_credit / cash_debit
+ * cases follow the same cancellation pattern, but for the cash-flow linkage
+ * feature: legacy sells without a paired cash_credit still subtract proceeds
+ * (cash implicitly left the system); modern sells get a paired cash_credit
+ * that cancels the subtraction (cash stays on-platform).
  */
 function applyTxToInvested(
   tx: Transaction,
@@ -482,6 +496,10 @@ function applyTxToInvested(
       return cum.minus(totalUsd)
     case "fee":
       return cum.plus(feeUsd.isZero() ? totalUsd : feeUsd)
+    case "cash_credit":
+      return cum.plus(totalUsd)
+    case "cash_debit":
+      return cum.minus(totalUsd)
     default:
       return cum
   }
