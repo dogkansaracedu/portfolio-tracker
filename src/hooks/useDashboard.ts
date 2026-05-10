@@ -61,29 +61,6 @@ export interface DashboardData {
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-const PLATFORM_FALLBACK_COLOR = "#94a3b8"
-
-/**
- * Resolve the TRY value for a snapshot breakdown entry.
- *
- * New writers (post-2026-05-10) populate `try` directly. Legacy rows have only
- * `usd`; for those we fall back to `usd × the rate captured at snapshot time`.
- * Falling back to the live `usdTry` would silently retro-convert a year-old
- * snapshot's USD value at today's rate, producing nonsense for the TRY chart.
- */
-function tryValue(
-  entry: { usd: number; try?: number },
-  fallbackUsdTry: number,
-): number {
-  if (typeof entry.try === "number") return entry.try
-  return entry.usd * fallbackUsdTry
-}
-
-function pct(part: number, whole: number): number {
-  if (whole === 0) return 0
-  return (part / whole) * 100
-}
-
 /**
  * Compute top movers from the snapshot's per-asset values + FIFO cost basis.
  *
@@ -198,57 +175,40 @@ export function useDashboard(): DashboardData {
     const totalValueUsd = Number(latest.total_usd ?? 0)
     const totalValueTry = Number(latest.total_try ?? 0)
 
-    // Snapshot's recorded usd_try is the right fallback for any legacy
-    // row that doesn't yet carry per-bucket TRY values.
-    const fallbackUsdTry = breakdown.rates?.usd_try ?? usdTry
-
-    const byCategory: CategoryAllocation[] = Object.entries(
-      breakdown.by_category ?? {},
-    )
+    const byCategory: CategoryAllocation[] = Object.entries(breakdown.by_category)
       .map(([category, vals]) => ({
         category,
         valueUsd: vals.usd,
-        valueTry: vals.try ?? vals.usd * fallbackUsdTry,
+        valueTry: vals.try,
         percentage: vals.pct,
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
 
-    const byPlatform: PlatformAllocation[] = Object.entries(
-      breakdown.by_platform ?? {},
-    )
+    const byPlatform: PlatformAllocation[] = Object.entries(breakdown.by_platform)
       .map(([platformName, vals]) => ({
         platformName,
-        color: vals.color ?? PLATFORM_FALLBACK_COLOR,
+        color: vals.color,
         valueUsd: vals.usd,
-        valueTry: tryValue(vals, fallbackUsdTry),
+        valueTry: vals.try,
         percentage: vals.pct,
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
 
-    const byTag: TagAllocation[] = Object.entries(breakdown.by_tag ?? {})
+    const byTag: TagAllocation[] = Object.entries(breakdown.by_tag)
       .map(([tag, vals]) => ({
         tag,
         valueUsd: vals.usd,
-        valueTry: tryValue(vals, fallbackUsdTry),
+        valueTry: vals.try,
         percentage: vals.pct,
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
 
     const topMovers = deriveTopMovers(
-      breakdown.by_asset ?? [],
+      breakdown.by_asset,
       assets,
       transactions,
       txRates,
     )
-
-    // Recompute percentages defensively in case totals drift from a legacy
-    // breakdown's stored pct (e.g. a snapshot written when an asset was
-    // priceable but is now filtered out client-side).
-    if (totalValueUsd > 0) {
-      for (const c of byCategory) c.percentage = pct(c.valueUsd, totalValueUsd)
-      for (const p of byPlatform) p.percentage = pct(p.valueUsd, totalValueUsd)
-      for (const t of byTag) t.percentage = pct(t.valueUsd, totalValueUsd)
-    }
 
     return {
       totalValueUsd,
@@ -258,7 +218,7 @@ export function useDashboard(): DashboardData {
       byTag,
       topMovers,
     }
-  }, [latest, assets, transactions, txRates, usdTry])
+  }, [latest, assets, transactions, txRates])
 
   return { ...result, snapshots, usdTry, loading }
 }

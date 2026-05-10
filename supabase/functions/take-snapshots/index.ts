@@ -1,4 +1,4 @@
-import { createClient } from "jsr:@supabase/supabase-js@2"
+import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 
 interface HoldingRow {
@@ -72,11 +72,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false } }
-  )
+  const supabase = getServiceClient()
 
   const today = new Date().toISOString().slice(0, 10)
   const errors: string[] = []

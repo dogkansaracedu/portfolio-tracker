@@ -1,4 +1,4 @@
-import { createClient } from "jsr:@supabase/supabase-js@2"
+import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -223,17 +223,12 @@ async function handle(
   jsonHeaders: HeadersInit,
   jsonError: (message: string, status?: number) => Response,
 ): Promise<Response> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-  if (!supabaseUrl || !serviceKey) {
-    return jsonError(
-      "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars",
-    )
+  let supabase
+  try {
+    supabase = getServiceClient()
+  } catch (err) {
+    return jsonError(err instanceof Error ? err.message : String(err))
   }
-
-  const supabase = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false },
-  })
 
   // Parse body (optional)
   let body: {

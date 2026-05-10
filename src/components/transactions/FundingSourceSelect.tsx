@@ -5,6 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { PlatformDot } from "@/components/common/PlatformDot"
 import { useHoldings } from "@/hooks/useHoldings"
 
 import type { Asset, Platform } from "@/types/database"
@@ -77,10 +78,7 @@ export function FundingSourceSelect({
             if (!p) return "Select funding source..."
             return (
               <span className="flex items-center gap-2">
-                <span
-                  className="inline-block size-2.5 rounded-full"
-                  style={{ backgroundColor: p.color }}
-                />
+                <PlatformDot color={p.color} />
                 {p.name}
               </span>
             )
@@ -100,10 +98,7 @@ export function FundingSourceSelect({
           return (
             <SelectItem key={p.id} value={p.id}>
               <span className="flex items-center gap-2">
-                <span
-                  className="inline-block size-2.5 rounded-full"
-                  style={{ backgroundColor: p.color }}
-                />
+                <PlatformDot color={p.color} />
                 {p.name} — {base} {priceCurrency}
                 {offset !== "0" && (
                   <span className="text-xs text-muted-foreground">

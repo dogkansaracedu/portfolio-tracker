@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import { TransactionTypeBadge } from "@/components/transactions/TransactionTypeSelector"
+import { PlatformDot } from "@/components/common/PlatformDot"
 import { formatCurrency } from "@/lib/prices"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactions } from "@/hooks/useTransactions"
@@ -118,10 +119,7 @@ export function TransactionRow({ transaction, linkedChild }: Props) {
         <TableCell>
           {tx.platforms ? (
             <div className="flex items-center gap-1.5">
-              <span
-                className="inline-block size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: tx.platforms.color }}
-              />
+              <PlatformDot color={tx.platforms.color} />
               <span className="text-sm">{tx.platforms.name}</span>
             </div>
           ) : (
