@@ -2,7 +2,7 @@
 
 **Session date:** 2026-05-10
 **Triggering bug:** Dashboard chart dipped to ≈−$940 on 2026-04-09 only; surrounding days fine.
-**Decision taken:** Option 1 from `cash-flow-feature-discussion.md`-style menu — promote `snapshots` to the only source of truth for derived dashboard numbers; FIFO/cost basis stays on the frontend.
+**Decision taken:** Promote `snapshots` to the only source of truth for derived dashboard numbers; FIFO/cost basis stays on the frontend.
 
 This doc explains what shipped this session, what the next agent needs to *do* to finish closing the loop, and the deliberate gaps (what we *didn't* refactor and why). It is intended to be read by the next session before any further snapshot/dashboard work.
 

@@ -161,5 +161,5 @@ The unchecked items are quick clicks; do them in one sitting next time you open 
 
 - Production frontend: https://portfolio-tracker-theta-seven.vercel.app
 - Supabase project: `hhqwxygrtqcugaxamrtu` (Frankfurt, free tier)
-- Cash flow design (next big feature): [`./cash-flow-feature-discussion.md`](./cash-flow-feature-discussion.md)
+- Cash flow design (now implemented): [`./cash-flow-feature-design.md`](./cash-flow-feature-design.md)
 - Deploy how-to: [`README.md`](../README.md#production-deploy-vercel--supabase-cloud)
