@@ -79,7 +79,6 @@ supabase/
 
 docs/
   budget-feature-plan.md             # Brainstorm/plan for the future budget feature
-  post-deploy-gaps.md                # Open items remaining after the production deploy
   components/                        # Per-component product specs (build order, tasks, status)
 ```
 
