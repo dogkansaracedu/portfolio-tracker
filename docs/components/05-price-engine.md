@@ -2,6 +2,14 @@
 
 ## Status: Done
 
+## Recent updates
+
+- **`PricesProvider` (2026-05-10):** the `usePrices` hook is now backed by a single app-wide context (`src/contexts/PricesContext.tsx`). The `usePrices` import path is preserved as a thin alias re-export. Reasons:
+  - The header's "Refresh prices" button used to update only its own consumer's local state; `SnapshotsProvider` and other consumers stayed stale until their independent staleness checks fired.
+  - The auto-stale-refresh effect now fires once per app session instead of once per consumer (was a hidden cost).
+  - `lastUpdated` becomes a true app-wide event source that `SnapshotsProvider` watches to keep today's snapshot trailing the freshest prices.
+- Provider wiring (in `src/main.tsx`) places `PricesProvider` above `TransactionDataProvider` since snapshots and transactions both depend on prices.
+
 ## Overview
 Build the price fetching system: Supabase Edge Functions that fetch from TCMB (exchange rates + gold), CoinGecko (crypto), and Yahoo Finance (stocks). Prices cached in `price_cache` and `exchange_rates` tables. Client reads from cache and triggers refresh when stale. Manual price entry as fallback.
 

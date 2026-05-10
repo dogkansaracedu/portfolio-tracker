@@ -237,6 +237,12 @@ Transfers between platforms do NOT affect P&L. A `transfer_out` from Platform A 
 
 ## 8. Snapshots & Performance
 
+### 8.0 Snapshot as the Source of Truth
+
+The `snapshots.breakdown` JSONB is the **single source of truth** for every "current portfolio value" number rendered by the frontend (dashboard totals, allocation breakdowns, portfolio page values, top movers, performance charts). The frontend never re-derives totals from `holdings × price_cache`. Cost basis (FIFO) stays a pure function of `transactions` because it has no second source to drift against.
+
+This decision was taken on 2026-05-10 after a recurring class of bugs where three independent compute paths (`useDashboard`, `take-snapshots`, `backfill-snapshots`) silently disagreed on what a buy/sell/cash-credit contributes — most recently producing a +$1,176 dashboard-vs-portfolio P&L gap. With one writer (the snapshot path) and one reader (the dashboard + portfolio + performance pages), drift becomes structurally impossible. See `docs/snapshot-source-of-truth.md` for the full handoff.
+
 ### 8.1 Snapshot Generation
 
 A scheduled job (pg_cron → `take-snapshots` Edge Function) runs **daily at 23:55 UTC**, chained after `fetch-prices`:
@@ -249,10 +255,21 @@ A scheduled job (pg_cron → `take-snapshots` Edge Function) runs **daily at 23:
 
 In production, the cron job authenticates to the Edge Function with a shared `X-Cron-Token` header. The token lives in the function's env (`Deno.env.get("CRON_TOKEN")`) and in Postgres Vault (`vault.decrypted_secrets.cron_token`); the cron command reads from Vault and the function rejects requests whose header doesn't match. The Edge Functions base URL is also stored in Vault (`functions_url`) so the cron command is environment-agnostic.
 
+**Defensive guard (2026-05-10):** all three snapshot writers (cron, backfill, in-browser `createSnapshot`) skip the run when any held asset has `price_usd <= 0`. This prevents the "silently dropped a holding because its price wasn't cached yet" failure mode that produced the original 2026-04-09 orphan snapshot. Skipping for one day is recoverable; locking in a wrong total is not. The cron logs the skip reason; the in-browser path surfaces it as a thrown error so the manual "Take Snapshot" button can toast.
+
+**Auto-refresh trigger (in-browser):** `SnapshotsProvider` writes a fresh snapshot for today whenever either of these change:
+
+- `lastUpdated` from `PricesProvider` (price refresh, including the manual button in the header).
+- `txVersion` from `TransactionContext` (any transaction add/edit/delete).
+
+The effect is debounced by 5 seconds so a typical page load (cache-load → stale-refresh) collapses to a single canonical write instead of two. Without this trigger the dashboard would show yesterday's 23:55 UTC cron snapshot until the next cron cycle even after the user refreshed prices or recorded a transaction.
+
 Historical snapshots are produced by the on-demand `backfill-snapshots` Edge Function, surfaced in Settings → Snapshots, in two density modes:
 
 - **Weekly + last 30 days daily** (default): one snapshot every 7 days walking back from the earliest transaction, plus daily for the last 30 days. Long ranges (1Y / ALL) stay lightweight; recent ranges keep daily detail.
 - **Each transaction day**: one snapshot per day a transaction occurred. More precise, but periods with no activity render as sparse points.
+
+`overwrite=ON` deletes every snapshot in `[earliestTxDate, today]` for the affected user before the upsert, ensuring stale rows from prior runs (different cadences, abandoned dates) are cleaned out. The earlier "delete only the dates this run is about to write" semantic was a footgun and was fixed in 2026-05-10 (commit `f99499e`).
 
 When the portfolio is empty between a "sell all" event and the next buy, backfill writes a `total_usd = 0` snapshot for those dates so charts render a flat $0 line through the closed-position period instead of an interpolated gap.
 
@@ -273,27 +290,30 @@ When the portfolio is empty between a "sell all" event and the next buy, backfil
     "commodity": { "usd": 11000, "try": 489500, "pct": 25.9 }
   },
   "by_platform": {
-    "IBKR": { "usd": 6700, "pct": 15.8 },
-    "Midas": { "usd": 5000, "pct": 11.8 },
-    "Paribu": { "usd": 12000, "pct": 28.3 }
+    "IBKR":   { "usd": 6700,  "try": 298150, "color": "#0ea5e9", "pct": 15.8 },
+    "Midas":  { "usd": 5000,  "try": 222500, "color": "#10b981", "pct": 11.8 },
+    "Paribu": { "usd": 12000, "try": 534000, "color": "#f97316", "pct": 28.3 }
   },
   "by_tag": {
-    "crypto": { "usd": 15000, "pct": 35.4 },
-    "usd": { "usd": 8200, "pct": 19.3 },
-    "vehicle": { "usd": 21348, "pct": 5.0 }
+    "crypto":  { "usd": 15000, "try": 667500, "pct": 35.4 },
+    "usd":     { "usd": 8200,  "try": 364900, "pct": 19.3 },
+    "vehicle": { "usd": 21348, "try": 950086, "pct": 5.0 }
   },
   "by_asset": [
     {
-      "ticker": "bitcoin",
-      "name": "Bitcoin",
-      "platform": "Paribu",
-      "amount": 0.12,
+      "ticker":    "bitcoin",
+      "name":      "Bitcoin",
+      "platform":  "Paribu",
+      "amount":    0.12,
       "price_usd": 84500,
-      "value_usd": 10140
+      "value_usd": 10140,
+      "value_try": 451230
     }
   ]
 }
 ```
+
+**Field versioning:** `by_platform.try`, `by_platform.color`, `by_tag.try`, and `by_asset[i].value_try` were added on 2026-05-10. They are optional on the TypeScript interface so legacy snapshots written before that date still parse — the frontend falls back to `usd × snapshot's recorded usd_try` rate (never the live rate; that would retro-convert old snapshots at today's exchange rate).
 
 ### 8.3 Performance Metrics
 
@@ -328,6 +348,8 @@ The primary view. Shows at a glance:
 - **Top movers** — assets with highest absolute USD change since last check.
 - **Monthly performance sparkline** — last 12 months from snapshots.
 
+**Data source (2026-05-10 onward):** every aggregation on this page is read from `snapshots[snapshots.length - 1].breakdown`. `useDashboard` does no `holdings × prices` recomputation. FIFO cost basis for top-mover P&L still comes from `transactions` (deterministic).
+
 ### 9.2 Portfolio Page
 
 Full asset list, grouped by platform (default) or by category (toggle).
@@ -344,6 +366,8 @@ Each row shows:
 Subtotals per group. Search/filter bar at top.
 
 **Actions:** Add asset, edit, record transaction, delete (soft).
+
+**Data source (2026-05-10 onward):** `usePortfolio` and its dependency `usePnL` source per-(asset, platform) values from `snapshot.breakdown.by_asset`. Live `prices × balance` is the fallback only when a holding isn't yet captured in the latest snapshot (new platform, fresh asset before the next auto-refresh write). Cost basis stays FIFO-from-transactions. Result: the "Total" on the portfolio page is always identical to the dashboard's net worth — they read the same row.
 
 ### 9.3 Transactions Page
 
@@ -532,7 +556,9 @@ These are explicitly out of scope for v1 but worth keeping in mind architectural
 | P2 | Automated daily snapshots (pg_cron → take-snapshots Edge Function) | Done |
 | P2 | Historical snapshot backfill (Settings UI + backfill-snapshots Edge Function) | Done |
 | P2 | Production deployment (Vercel frontend + Supabase Cloud, no GitHub) | Done |
-| P2 | Cash flow linkage (sell auto-credits cash, buy can deduct platform cash) | Not started — see `docs/cash-flow-feature-discussion.md` |
+| P2 | Cash flow linkage (sell auto-credits cash, buy can deduct platform cash) | Done — linked-rows model with `cash_credit`/`cash_debit` types, see `docs/cash-flow-feature-design.md` |
+| P2 | Snapshot as single source of truth (one writer, one reader) | Done — see `docs/snapshot-source-of-truth.md` |
+| P2 | Auto-refresh today's snapshot on price/transaction events | Done — `SnapshotsProvider` debounced effect on `lastUpdated` / `txVersion` |
 | P2 | Data export (JSON/CSV dumps) | Not started |
 
 ## 17. Open Questions

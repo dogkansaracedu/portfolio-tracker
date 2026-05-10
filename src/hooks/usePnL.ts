@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { bn, BN_ZERO } from "@/lib/config"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
+import { useSnapshots } from "@/hooks/useSnapshots"
 import { computeFIFOLots } from "@/lib/pnl/fifo"
 import { computeUnrealizedPnL } from "@/lib/pnl/unrealized"
 import { computeCurrentInvestedUsd } from "@/lib/performance"
@@ -30,14 +31,24 @@ function groupByAssetPlatform(
 /**
  * Compute P&L from holdings (which carry asset + platform details) and current prices.
  *
- * FIFO runs per (asset, platform) pair. Results are then aggregated to the asset level
- * so callers get one `AssetPnL` per unique asset (summed across platforms).
+ * `currentValueUsd` for each (asset, platform) prefers the latest snapshot's
+ * per-(ticker, platform) value when available, falling back to
+ * `balance × live price` otherwise. This keeps the portfolio page and
+ * dashboard agreeing on "current value" — both read from the snapshot —
+ * without dragging FIFO cost basis into the snapshot path. Cost basis stays
+ * a pure function of `transactions` because it has no second source to
+ * drift against.
+ *
+ * FIFO runs per (asset, platform) pair. Results are then aggregated to the
+ * asset level so callers get one `AssetPnL` per unique asset (summed across
+ * platforms).
  */
 export function usePnL(
   holdings: HoldingWithDetails[],
   prices: Record<string, PriceCache>,
 ) {
   const { transactions, rates, loading } = useTransactionData()
+  const { snapshots } = useSnapshots()
 
   const result: PortfolioPnL = useMemo(() => {
     if (loading || holdings.length === 0) {
@@ -48,6 +59,19 @@ export function usePnL(
         totalUnrealizedPnlUsd: BN_ZERO,
         totalRealizedPnlUsd: BN_ZERO,
         totalInvestedUsd: BN_ZERO,
+      }
+    }
+
+    // Build (ticker, platform_name) → snapshot value_usd lookup once per
+    // recompute. Falls through to live `balance × price` for any holding
+    // not yet captured in the latest snapshot (new platform, fresh asset
+    // before the next auto-refresh writes).
+    const latest = snapshots[snapshots.length - 1]
+    const snapshotValueByTickerPlatform = new Map<string, number>()
+    if (latest?.breakdown?.by_asset) {
+      for (const entry of latest.breakdown.by_asset) {
+        const key = `${entry.ticker}|${entry.platform}`
+        snapshotValueByTickerPlatform.set(key, entry.value_usd)
       }
     }
 
@@ -70,13 +94,19 @@ export function usePnL(
     for (const h of holdings) {
       const ticker = h.assets.ticker
       const category = h.assets.category
+      const platformName = h.platforms.name
       const price = prices[ticker]
       const currentPriceUsd = price?.price_usd ?? 0
       const key = `${h.asset_id}|${h.platform_id}`
+      const snapshotKey = `${ticker}|${platformName}`
+      const snapshotValueUsd = snapshotValueByTickerPlatform.get(snapshotKey)
 
       if (category === "fiat") {
-        // Fiat: value = balance * price, zero P&L
-        const currentValueUsd = bn(h.balance).times(bn(currentPriceUsd))
+        // Fiat: value = snapshot's value (or balance × price as fallback);
+        // cost basis matches value (no realized P&L from price changes).
+        const liveValueUsd = bn(h.balance).times(bn(currentPriceUsd))
+        const currentValueUsd =
+          snapshotValueUsd != null ? bn(snapshotValueUsd) : liveValueUsd
         holdingPnLs.push({
           assetId: h.asset_id,
           ticker,
@@ -99,13 +129,22 @@ export function usePnL(
         BN_ZERO,
       )
 
+      // Prefer snapshot value_usd; fall back to FIFO's live-priced value.
+      // Unrealized P&L follows the chosen current value so the table's
+      // "Value" and "P&L" columns stay internally consistent.
+      const currentValueUsd =
+        snapshotValueUsd != null
+          ? bn(snapshotValueUsd)
+          : unrealized.currentValueUsd
+      const unrealizedPnlUsd = currentValueUsd.minus(unrealized.costBasisUsd)
+
       holdingPnLs.push({
         assetId: h.asset_id,
         ticker,
         category,
         costBasisUsd: unrealized.costBasisUsd,
-        currentValueUsd: unrealized.currentValueUsd,
-        unrealizedPnlUsd: unrealized.unrealizedPnlUsd,
+        currentValueUsd,
+        unrealizedPnlUsd,
         realizedPnlUsd: totalRealized,
       })
     }
@@ -188,7 +227,7 @@ export function usePnL(
       totalRealizedPnlUsd,
       totalInvestedUsd,
     }
-  }, [transactions, rates, holdings, prices, loading])
+  }, [transactions, rates, holdings, prices, loading, snapshots])
 
   return { ...result, transactions, rates, loading }
 }

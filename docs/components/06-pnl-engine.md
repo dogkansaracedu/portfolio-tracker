@@ -2,6 +2,12 @@
 
 ## Status: Done
 
+## Recent updates
+
+- **Cash flow linkage (2026-05-09):** added two paired transaction types — `cash_credit` (auto-paired to a sell, lands cash on the trading platform) and `cash_debit` (auto-paired to a platform-funded buy, deducts cash from any platform). Linked to the parent via `transactions.linked_tx_id` (FK with `ON DELETE CASCADE`). FIFO **ignores** these types — they have no `case` arm in the switch, so they don't push lots or consume them. Cash is the medium of exchange, not a tradeable position; including cash rows would create meaningless lots on USD/TRY/EUR. See `docs/cash-flow-feature-design.md`.
+- **`applyTxToInvested` (`src/lib/performance.ts`) extended (2026-05-10):** the dashboard's net-invested-capital calculation now accounts for `cash_credit` (`+totalUsd`) and `cash_debit` (`-totalUsd`). Without this, modern sells double-counted: their proceeds left "invested" via the `sell` rule but stayed on-platform via the auto-paired `cash_credit` row in the snapshot, producing a +$1,176 dashboard-vs-portfolio P&L gap.
+- **`usePnL` reads `currentValueUsd` from the snapshot (2026-05-10):** per-(asset, platform) value now comes from `snapshot.breakdown.by_asset` keyed on `(ticker, platform_name)`. `balance × live price` is the fallback only when the snapshot has no entry for the lookup. Cost basis stays FIFO-from-`transactions` because it has no second source to drift against.
+
 ## Overview
 Implement the FIFO cost basis calculation engine for realized and unrealized P&L. Build the currency normalization layer that converts all transaction prices to USD using historical exchange rates. Pure computation layer — no new UI pages, provides data consumed by Dashboard, Portfolio, and Transactions pages.
 
