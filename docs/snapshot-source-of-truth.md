@@ -130,6 +130,21 @@ Then in the app:
 
 After that, verify the diagnostic SQL returns `asset_count=2` for April 9 and that the dashboard chart no longer dips.
 
+### 4.1 Follow-up bug found while running §4 — fixed in `f99499e`
+
+`overwrite=ON` did **not** actually wipe the slate. It deleted only
+the exact set of dates the run was *about to write* — stale rows on
+dates outside the new run's `targetSet` (e.g. when an earlier run
+used a different cadence, or when a prior partial run wrote a date
+this run skips) survived. User-visible symptom: the recipe above
+appeared to work but the orphan / stale rows persisted, requiring a
+manual `DELETE FROM snapshots`.
+
+Fix: when `overwrite=true`, delete every snapshot in
+`[earliestTxDate, today]` for the affected users, then upsert. The
+function deploy commands above include this fix as of commit
+`f99499e`. Re-run §4's recipe after deploying.
+
 ---
 
 ## 5. Future work — what the next agent should pick up
@@ -213,3 +228,4 @@ Not a session of work; bundle with the next docs commit.
 | `src/hooks/useSnapshots.ts` | Now an alias re-export so existing imports work unchanged. |
 | `src/main.tsx` | Wires `SnapshotsProvider`. |
 | `src/components/dashboard/DashboardHero.tsx` | `formatSigned` shows the minus. |
+| `supabase/functions/backfill-snapshots/index.ts` | (post-doc) Range-based wipe when `overwrite=true` — see §4.1. |
