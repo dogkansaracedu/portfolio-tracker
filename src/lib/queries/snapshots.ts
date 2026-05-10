@@ -58,8 +58,11 @@ export async function createSnapshot(
 
   const byAsset: SnapshotBreakdown["by_asset"] = []
   const categoryTotals: Record<string, { usd: BigNumber; try_val: BigNumber }> = {}
-  const platformTotals: Record<string, { usd: BigNumber }> = {}
-  const tagTotals: Record<string, { usd: BigNumber }> = {}
+  const platformTotals: Record<
+    string,
+    { usd: BigNumber; try_val: BigNumber; color: string }
+  > = {}
+  const tagTotals: Record<string, { usd: BigNumber; try_val: BigNumber }> = {}
   let totalUsd = BN_ZERO
   let totalTry = BN_ZERO
 
@@ -85,6 +88,7 @@ export async function createSnapshot(
       amount: h.balance,
       price_usd: priceUsd.toNumber(),
       value_usd: valueUsd.toNumber(),
+      value_try: valueTry.toNumber(),
     })
 
     // Category aggregation (mutually exclusive)
@@ -95,13 +99,21 @@ export async function createSnapshot(
 
     // Platform aggregation
     const plat = h.platforms.name
-    if (!platformTotals[plat]) platformTotals[plat] = { usd: BN_ZERO }
+    if (!platformTotals[plat]) {
+      platformTotals[plat] = {
+        usd: BN_ZERO,
+        try_val: BN_ZERO,
+        color: h.platforms.color,
+      }
+    }
     platformTotals[plat].usd = platformTotals[plat].usd.plus(valueUsd)
+    platformTotals[plat].try_val = platformTotals[plat].try_val.plus(valueTry)
 
     // Tag aggregation (allows overlap)
     for (const tag of (h.assets.tags ?? [])) {
-      if (!tagTotals[tag]) tagTotals[tag] = { usd: BN_ZERO }
+      if (!tagTotals[tag]) tagTotals[tag] = { usd: BN_ZERO, try_val: BN_ZERO }
       tagTotals[tag].usd = tagTotals[tag].usd.plus(valueUsd)
+      tagTotals[tag].try_val = tagTotals[tag].try_val.plus(valueTry)
     }
   }
 
@@ -120,6 +132,8 @@ export async function createSnapshot(
   for (const [name, vals] of Object.entries(platformTotals)) {
     byPlatform[name] = {
       usd: vals.usd.toNumber(),
+      try: vals.try_val.toNumber(),
+      color: vals.color,
       pct: totalUsd.isGreaterThan(0)
         ? vals.usd.div(totalUsd).times(BN_HUNDRED).toNumber()
         : 0,
@@ -130,10 +144,28 @@ export async function createSnapshot(
   for (const [name, vals] of Object.entries(tagTotals)) {
     byTag[name] = {
       usd: vals.usd.toNumber(),
+      try: vals.try_val.toNumber(),
       pct: totalUsd.isGreaterThan(0)
         ? vals.usd.div(totalUsd).times(BN_HUNDRED).toNumber()
         : 0,
     }
+  }
+
+  // Refuse to write a snapshot when any held asset is unpriced. Since the
+  // dashboard now reads exclusively from the latest snapshot, a partial
+  // write here silently shows a smaller portfolio total — the same shape
+  // of bug that produced the 2026-04-09 orphan. Better to surface the
+  // failure to the caller; the auto-refresh path catches the throw and
+  // logs, the manual "Take Snapshot" button toasts.
+  const unpriced = byAsset.filter(
+    (a) => a.amount > 0 && (!Number.isFinite(a.price_usd) || a.price_usd <= 0),
+  )
+  if (unpriced.length > 0) {
+    throw new Error(
+      `Snapshot skipped — ${unpriced.length} unpriced holding(s): ${unpriced
+        .map((a) => a.ticker)
+        .join(", ")}. Refresh prices and try again.`,
+    )
   }
 
   const breakdown: SnapshotBreakdown = {
