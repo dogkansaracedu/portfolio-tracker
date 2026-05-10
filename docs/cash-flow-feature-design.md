@@ -1,8 +1,6 @@
 # Cash Flow & Buy/Sell Linkage — Design Spec
 
-**Status:** Locked design (2026-05-09). Ready for implementation planning.
-**Brainstorm source:** `docs/cash-flow-feature-discussion.md`
-**Implementation plan:** TBD (next step: writing-plans skill)
+**Status:** Implemented (2026-05-10). This file is now the canonical post-implementation reference.
 
 ---
 

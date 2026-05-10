@@ -78,9 +78,11 @@ supabase/
   config.toml        # Supabase CLI config (verify_jwt, auth, etc.)
 
 docs/
-  budget-feature-plan.md             # Implementation plan for the budget feature
-  cash-flow-feature-discussion.md    # Brainstorm baseline for cash linkage feature
+  budget-feature-plan.md             # Brainstorm/plan for the future budget feature
+  cash-flow-feature-design.md        # Spec for the implemented cash-flow linkage
   post-deploy-gaps.md                # Open items remaining after the production deploy
+  snapshot-source-of-truth.md        # Architecture: snapshot is the SoT for dashboard
+  components/                        # Per-component specs (build order, tasks, status)
 ```
 
 ## Environment variables
