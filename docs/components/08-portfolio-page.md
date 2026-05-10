@@ -2,6 +2,11 @@
 
 ## Status: Done
 
+## Recent updates
+
+- **Snapshot-sourced values (2026-05-10):** `usePortfolio` and its dependency `usePnL` now source per-(asset, platform) `value_usd` and `value_try` from `snapshot.breakdown.by_asset` keyed on `(ticker, platform_name)`. Asset-level rollups sum across platforms from the same snapshot map. `currentPriceUsd` (the per-row price column) reads from the snapshot's recorded `price_usd` for the ticker. Live `prices × balance` is the fallback only when the snapshot has no entry for a holding — typically a new platform or fresh asset before the next auto-refresh write. Cost basis stays FIFO-from-`transactions`.
+- **Same-row consistency:** because the dashboard, portfolio page, and snapshot total all read from the same `snapshots[…].breakdown` row, the "Total Portfolio Value" on the portfolio page is always identical to the dashboard's net-worth — by construction, not by coincidence.
+
 ## Overview
 Full portfolio page showing all assets in a rich table with grouping (by platform or category), search/filter, current values, and P&L columns. The detailed asset view complementing the dashboard's summary.
 

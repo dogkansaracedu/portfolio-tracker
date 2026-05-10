@@ -4,6 +4,7 @@ import { useAssets } from "@/hooks/useAssets"
 import { useHoldings } from "@/hooks/useHoldings"
 import { usePrices } from "@/hooks/usePrices"
 import { usePnL } from "@/hooks/usePnL"
+import { useSnapshots } from "@/hooks/useSnapshots"
 import type { Asset, PriceCache } from "@/types/database"
 import type { HoldingWithDetails } from "@/lib/queries/holdings"
 import type { AssetPnL } from "@/lib/pnl/types"
@@ -85,6 +86,7 @@ export function usePortfolio(): UsePortfolioReturn {
   const { assets, loading: assetsLoading, error, refetch: refetchAssets } = useAssets()
   const { holdings, loading: holdingsLoading, refetch: refetchHoldings } = useHoldings()
   const { prices, rates, loading: pricesLoading } = usePrices()
+  const { snapshots } = useSnapshots()
 
   const {
     assetPnLs,
@@ -109,6 +111,57 @@ export function usePortfolio(): UsePortfolioReturn {
     [assets],
   )
 
+  // Snapshot-derived lookups, keyed for fast per-(ticker, platform) and
+  // per-ticker access. Per-(ticker, platform) drives the "group by platform"
+  // breakdown; per-ticker is the asset-level rollup. Falls back to live
+  // `prices × balance` only when the snapshot has no entry for the lookup
+  // — typically a new asset/platform between snapshot writes (auto-refresh
+  // on price/tx changes catches up within seconds).
+  const snapshotLookups = useMemo(() => {
+    const latest = snapshots[snapshots.length - 1]
+    const byTickerPlatform = new Map<
+      string,
+      { value_usd: number; value_try?: number; price_usd: number }
+    >()
+    const tickerToValueUsd = new Map<string, number>()
+    const tickerToValueTry = new Map<string, number>()
+    const tickerToPriceUsd = new Map<string, number>()
+    const fallbackUsdTry = latest?.breakdown?.rates?.usd_try ?? usdTryRate
+    if (latest?.breakdown?.by_asset) {
+      for (const e of latest.breakdown.by_asset) {
+        byTickerPlatform.set(`${e.ticker}|${e.platform}`, {
+          value_usd: e.value_usd,
+          value_try: e.value_try,
+          price_usd: e.price_usd,
+        })
+        tickerToValueUsd.set(
+          e.ticker,
+          (tickerToValueUsd.get(e.ticker) ?? 0) + e.value_usd,
+        )
+        const tryVal =
+          typeof e.value_try === "number"
+            ? e.value_try
+            : e.value_usd * fallbackUsdTry
+        tickerToValueTry.set(
+          e.ticker,
+          (tickerToValueTry.get(e.ticker) ?? 0) + tryVal,
+        )
+        // Snapshot price_usd is identical across platforms for the same
+        // ticker on the same date, so first one wins.
+        if (!tickerToPriceUsd.has(e.ticker)) {
+          tickerToPriceUsd.set(e.ticker, e.price_usd)
+        }
+      }
+    }
+    return {
+      byTickerPlatform,
+      tickerToValueUsd,
+      tickerToValueTry,
+      tickerToPriceUsd,
+      fallbackUsdTry,
+    }
+  }, [snapshots, usdTryRate])
+
   const enrichedAssets = useMemo(() => {
     const pnlMap = new Map<string, AssetPnL>()
     for (const pnl of assetPnLs) {
@@ -128,11 +181,11 @@ export function usePortfolio(): UsePortfolioReturn {
     const totalValue = bn(totalCurrentValueUsd)
 
     return activeAssets.map((asset: Asset): EnrichedAsset => {
-      const price: PriceCache | undefined = prices[asset.ticker]
-      const bnPriceUsd = bn(price?.price_usd)
-      const bnPriceTry = price?.price_try
-        ? bn(price.price_try)
-        : bnPriceUsd.times(bn(usdTryRate))
+      const livePrice: PriceCache | undefined = prices[asset.ticker]
+      const liveBnPriceUsd = bn(livePrice?.price_usd)
+      const liveBnPriceTry = livePrice?.price_try
+        ? bn(livePrice.price_try)
+        : liveBnPriceUsd.times(bn(usdTryRate))
 
       const assetHoldings = holdingsByAsset.get(asset.id) ?? []
 
@@ -148,8 +201,26 @@ export function usePortfolio(): UsePortfolioReturn {
         BN_ZERO,
       )
 
-      const currentValueUsd = bnTotalBalance.times(bnPriceUsd)
-      const currentValueTry = bnTotalBalance.times(bnPriceTry)
+      // Prefer snapshot-recorded values; fall back to live × balance for
+      // assets not yet captured (new platform, fresh asset before next
+      // auto-refresh write).
+      const snapshotValueUsd = snapshotLookups.tickerToValueUsd.get(asset.ticker)
+      const snapshotValueTry = snapshotLookups.tickerToValueTry.get(asset.ticker)
+      const snapshotPriceUsd = snapshotLookups.tickerToPriceUsd.get(asset.ticker)
+
+      const currentValueUsd =
+        snapshotValueUsd != null
+          ? bn(snapshotValueUsd)
+          : bnTotalBalance.times(liveBnPriceUsd)
+      const currentValueTry =
+        snapshotValueTry != null
+          ? bn(snapshotValueTry)
+          : bnTotalBalance.times(liveBnPriceTry)
+      const currentPriceUsd =
+        snapshotPriceUsd != null ? bn(snapshotPriceUsd) : liveBnPriceUsd
+      const currentPriceTry = currentPriceUsd.times(
+        bn(snapshotLookups.fallbackUsdTry),
+      )
 
       const pnl = pnlMap.get(asset.id)
 
@@ -161,8 +232,8 @@ export function usePortfolio(): UsePortfolioReturn {
         tags: asset.tags ?? [],
         totalBalance: bnTotalBalance.toNumber(),
         holdings: holdingsData,
-        currentPriceUsd: bnPriceUsd.toNumber(),
-        currentPriceTry: bnPriceTry.toNumber(),
+        currentPriceUsd: currentPriceUsd.toNumber(),
+        currentPriceTry: currentPriceTry.toNumber(),
         currentValueUsd: currentValueUsd.toNumber(),
         currentValueTry: currentValueTry.toNumber(),
         costBasisUsd: bn(pnl?.costBasisUsd).toNumber(),
@@ -173,7 +244,15 @@ export function usePortfolio(): UsePortfolioReturn {
           : currentValueUsd.div(totalValue).times(100).toNumber(),
       }
     })
-  }, [activeAssets, holdings, prices, assetPnLs, totalCurrentValueUsd, usdTryRate])
+  }, [
+    activeAssets,
+    holdings,
+    prices,
+    assetPnLs,
+    totalCurrentValueUsd,
+    usdTryRate,
+    snapshotLookups,
+  ])
 
   const filteredAssets = useMemo(() => {
     if (!search.trim()) return enrichedAssets
@@ -213,8 +292,19 @@ export function usePortfolio(): UsePortfolioReturn {
             platformMeta.set(key, { name: h.platformName, color: h.platformColor })
           }
           const platformBalance = h.balance
-          const platformValueUsd = platformBalance * asset.currentPriceUsd
-          const platformValueTry = platformBalance * asset.currentPriceTry
+          // Prefer snapshot's per-(ticker, platform) value; fall back to
+          // balance × asset's current price (which itself prefers snapshot).
+          const snapshotPlatformEntry =
+            snapshotLookups.byTickerPlatform.get(`${asset.ticker}|${h.platformName}`)
+          const platformValueUsd =
+            snapshotPlatformEntry
+              ? snapshotPlatformEntry.value_usd
+              : platformBalance * asset.currentPriceUsd
+          const platformValueTry =
+            snapshotPlatformEntry
+              ? (snapshotPlatformEntry.value_try ??
+                  snapshotPlatformEntry.value_usd * snapshotLookups.fallbackUsdTry)
+              : platformBalance * asset.currentPriceTry
           const costPerUnit = asset.totalBalance > 0
             ? asset.costBasisUsd / asset.totalBalance
             : 0
@@ -352,7 +442,7 @@ export function usePortfolio(): UsePortfolioReturn {
 
     result.sort((a, b) => b.totalValueUsd - a.totalValueUsd)
     return result
-  }, [sortedAssets, groupBy])
+  }, [sortedAssets, groupBy, snapshotLookups, totalCurrentValueUsd])
 
   const totalValueTry = totalCurrentValueUsd.times(bn(usdTryRate)).toNumber()
   const totalUnrealizedPnlPct = totalCostBasisUsd.isZero()

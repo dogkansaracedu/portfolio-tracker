@@ -149,37 +149,17 @@ function deploy commands above include this fix as of commit
 
 ## 5. Future work — what the next agent should pick up
 
-### 5.1 Migrate `usePnL` / `usePortfolio` to read from snapshot (deliberate gap)
+### 5.1 Migrate `usePnL` / `usePortfolio` to read from snapshot — DONE (2026-05-10)
 
-**Why deferred:** the portfolio page is more involved (per-platform drill-down, group-by-category/tag/platform UI, FIFO-sourced cost basis). Doing it in this session would have ballooned the diff right after a heavy cash-flow refactor and risked breaking a working page. The dashboard duplication was the more pressing one.
+Done in the same follow-up session that fixed the `overwrite=ON` bug. `usePnL` now sources per-(asset, platform) `currentValueUsd` from `snapshot.breakdown.by_asset` keyed on `(ticker, platform_name)`; `usePortfolio` does the same for the per-platform "group by platform" breakdown and for the per-asset rollup (`currentValueUsd` / `currentValueTry` / `currentPriceUsd`). Live `prices × balance` is the fallback only when a holding isn't yet captured in the latest snapshot — covers new platforms / fresh assets between auto-refresh writes. Cost basis stays FIFO-from-`transactions`. Net effect: the dashboard, portfolio page, and the snapshot total all read the same row, so they're identical by construction.
 
-**What to do:**
-- `usePnL`'s per-asset `currentValueUsd` should come from `snapshot.by_asset` (sum `value_usd` across platforms keyed by `ticker`), not `bn(h.balance).times(bn(currentPriceUsd))`. The pattern to copy is `deriveTopMovers` in `src/hooks/useDashboard.ts:90`.
-- `costBasisUsd` keeps coming from `computeFIFOLots(txs, rates)` — no change.
-- `usePortfolio.ts`'s per-platform values (used by the "group by platform" view) need per-(asset, platform) `value_usd` and `value_try`. The snapshot's `by_asset` is *already* per (asset, platform) — each entry has both `ticker` and `platform` keys, so look up by that pair.
-- Guard against the empty-snapshot case. New users with no snapshot yet should still see something. Either fall back to live computation, or trigger a snapshot eagerly on their first dashboard load.
+### 5.2 `usePrices` should be a context too — DONE (2026-05-10)
 
-When done, the *entire* "current portfolio value" math lives in one place: the snapshot path.
+Done. `PricesProvider` (`src/contexts/PricesContext.tsx`) is now the app-wide store; `usePrices` is a thin alias re-export. The header's "Refresh prices" button propagates to `SnapshotsProvider`'s auto-refresh effect (which watches `lastUpdated`) immediately. The auto-stale-refresh effect that used to run once per consumer now runs once per app session.
 
-### 5.2 `usePrices` should be a context too
+### 5.3 Reduce `useFreshTodaySnapshot`'s write rate — DONE (2026-05-10)
 
-Currently `usePrices` is a hook with per-call state. `Header`, `SnapshotsProvider`, and `useDashboard` each have their own instance. Consequence: when the user clicks the **Refresh prices** button in the header, only `Header`'s `usePrices` instance reloads. `SnapshotsProvider`'s instance stays stale until *its own* staleness check fires. So the manual click does **not** immediately trigger a snapshot refresh.
-
-**What to do:** lift `usePrices` into `PricesProvider` mirroring `SnapshotsProvider`. Then `refreshPrices()` writes to a shared `lastUpdated`, which `SnapshotsProvider`'s effect already watches.
-
-Low-risk; mostly mechanical. Worth doing before adding any more snapshot-dependent UI.
-
-### 5.3 Consider reducing `useFreshTodaySnapshot`'s write rate
-
-Right now `SnapshotsProvider`'s auto-refresh fires **every time `lastUpdated` changes**. On a normal page load, that's:
-1. `usePrices.loadPrices()` reads cache → `lastUpdated` set → write #1.
-2. `usePrices` auto-stale-refresh runs → fetch-prices → cache reloaded → `lastUpdated` updates → write #2.
-
-Two snapshot writes on every page load is fine for cost (Supabase free tier, JSONB column, sub-millisecond write) but not great for `created_at` history if anyone ever audits when snapshots were taken.
-
-**Possible fix:** debounce by 5–10s, or only write when `lastUpdated` is *fresher* than the previous write *and* differs by more than a threshold.
-
-Not urgent; flagged for awareness.
+Done. The auto-refresh effect in `SnapshotsProvider` is now debounced by 5 seconds (`AUTO_REFRESH_DEBOUNCE_MS` constant). A typical page load (cache-load → stale-refresh) used to write two snapshots; it now collapses to one canonical write per burst. The dedupe ref still skips redundant writes when the same `lastUpdated` value re-fires, and a parallel ref handles `txVersion` so transaction edits also drive a snapshot write without prices needing to change.
 
 ### 5.4 Cron monitoring still owed (carryover from `post-deploy-gaps.md`)
 

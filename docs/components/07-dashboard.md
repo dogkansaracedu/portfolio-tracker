@@ -2,6 +2,12 @@
 
 ## Status: Done
 
+## Recent updates
+
+- **Snapshot is the single source of truth (2026-05-10):** `useDashboard` no longer recomputes from `holdings × prices`. Every aggregation (totals, by_category, by_platform, by_tag, top movers) is read from `snapshots[snapshots.length - 1].breakdown`. FIFO cost basis for top-mover P&L still comes from `transactions` (deterministic). See `docs/snapshot-source-of-truth.md` for the full handoff including the bug class this eliminated (most recent: +$1,176 dashboard-vs-portfolio P&L gap).
+- **`formatSigned` shows the minus on negatives (2026-05-10):** earlier code rendered `-$940.79` as `$940.79` (no sign), which produced the worst possible silent failure for a P&L tracker — losses looked like gains. Fixed.
+- **Schema additions on `breakdown` (2026-05-10):** `by_platform[name].try`, `by_platform[name].color`, `by_tag[name].try`, and `by_asset[i].value_try`. Optional on legacy rows so older snapshots still parse — fallback uses the snapshot's recorded `usd_try` rate (never live, which would retro-convert old snapshots at today's rate).
+
 ## Overview
 Build the main dashboard page — the primary view after login. Shows total net worth (USD/TRY toggle), daily change, allocation donut chart, platform breakdown, top movers, and monthly performance sparkline from snapshots.
 

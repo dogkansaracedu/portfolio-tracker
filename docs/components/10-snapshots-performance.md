@@ -10,6 +10,19 @@
 - **Charts:** Dashboard hero uses time-scale x-axis (`type="number"`, `scale="time"`) with `monotone` smoothing so points are placed by elapsed time rather than uniform array index. Earlier 30-day cluster no longer dominates 1Y / ALL ranges.
 - **Synthetic zero-anchor:** chart prepends a $0 anchor one day before the earliest transaction across *all* time ranges (was ALL-only). 1Y / YTD on portfolios that started inside the window now begin at the actual entry point with $0, like brokers do for newly-listed instruments.
 
+### 2026-05-10: snapshot becomes the single source of truth
+
+- **Architecture:** `snapshot.breakdown` is now the only thing the dashboard / portfolio / performance pages read for "current portfolio value". One writer (the snapshot path: cron + backfill + in-browser `createSnapshot`), one reader. Eliminates the recurring class of bugs where three independent compute paths silently disagreed (most recent: +$1,176 dashboard-vs-portfolio P&L gap from `cash_credit` rows). Full handoff: `docs/snapshot-source-of-truth.md`.
+- **`SnapshotsProvider` (`src/contexts/SnapshotsContext.tsx`):** shared snapshot store + auto-refresh effect. Watches two event sources to keep today's snapshot fresh:
+  - `lastUpdated` from `PricesProvider` — any price refresh.
+  - `txVersion` from `TransactionContext` — any transaction add/edit/delete.
+  - Debounced 5s so a typical page load (cache-load → stale-refresh) collapses to a single canonical write instead of two. Dedupes per-source so the effect can't loop on its own writes.
+- **`PricesProvider` (`src/contexts/PricesContext.tsx`):** lifts `usePrices` into a single shared instance so the header's manual "Refresh prices" button propagates to `SnapshotsProvider` (which previously had its own `usePrices` instance and stayed stale). Auto-stale-refresh runs once per app session instead of once per consumer.
+- **Defensive guard in all three writers (`take-snapshots`, `backfill-snapshots`, in-browser `createSnapshot`):** if any held asset has `price_usd <= 0`, skip the write rather than locking in a wrong total. This is the structural defense against the failure mode that produced the original 2026-04-09 orphan. The cron logs the skip reason; the in-browser path throws so the manual "Take Snapshot" button can toast.
+- **Schema additions (optional on legacy rows):** `by_platform[name].try`, `by_platform[name].color`, `by_tag[name].try`, `by_asset[i].value_try`. Frontend falls back to `usd × snapshot's recorded usd_try` for legacy rows (never live, which would retro-convert at today's rate).
+- **`overwrite=ON` semantics fix (commit `f99499e`):** earlier behavior deleted only the exact target dates the run was about to write — stale rows on dates outside the run's `targetSet` survived. Now `overwrite=true` deletes every snapshot in `[earliestTxDate, today]` for the affected user before the upsert, then writes fresh.
+- **`formatSigned` (`DashboardHero.tsx`):** shows the leading `−` on negatives (was rendering losses as if they were gains).
+
 ## Overview
 Build the snapshot system (manual trigger, snapshot viewing) and full performance page with charts: portfolio value over time, monthly returns, category attribution, drawdown, and summary statistics.
 

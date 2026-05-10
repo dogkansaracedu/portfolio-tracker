@@ -9,12 +9,22 @@ import {
 } from "react"
 import { useAuth } from "@/hooks/useAuth"
 import { usePrices } from "@/hooks/usePrices"
+import { useTransactionModal } from "@/contexts/TransactionContext"
 import {
   fetchSnapshots,
   createSnapshot,
   deleteSnapshot,
 } from "@/lib/queries/snapshots"
 import type { Snapshot, PriceCache, ExchangeRate } from "@/types/database"
+
+/**
+ * Burst-coalescing window for the auto-snapshot effect. On a normal page
+ * load, prices reload from cache (`lastUpdated` set), then a stale-refresh
+ * fetch runs and updates `lastUpdated` again seconds later. Without
+ * debouncing, both events would each write a snapshot. 5s gives the burst
+ * time to settle into a single canonical write.
+ */
+const AUTO_REFRESH_DEBOUNCE_MS = 5000
 
 interface SnapshotsContextValue {
   snapshots: Snapshot[]
@@ -33,6 +43,7 @@ const SnapshotsContext = createContext<SnapshotsContextValue | null>(null)
 export function SnapshotsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const { prices, rates, lastUpdated } = usePrices()
+  const { txVersion } = useTransactionModal()
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -80,50 +91,71 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
     [load],
   )
 
-  // ── Auto-refresh today's snapshot whenever prices update ───────────
+  // ── Auto-refresh today's snapshot ──────────────────────────────────
   //
   // The dashboard reads aggregations exclusively from the latest snapshot
-  // (Option 1 architecture). Without this trigger, a morning page load
-  // would show yesterday's 23:55 UTC cron snapshot indefinitely — even
-  // after `usePrices` quietly fetches today's prices. Tying the snapshot
-  // refresh to `lastUpdated` keeps the snapshot trailing the freshest
-  // price the client has seen, so the dashboard reflects "now" without
-  // each consumer needing to wire up its own refresh.
+  // (Option 1 architecture). For the chart to reflect "now" we keep
+  // today's snapshot trailing two event sources:
   //
-  // We dedupe by `lastUpdated` (the latest price's `updated_at`): when a
-  // refresh produces no newer price than the snapshot we already wrote
-  // for that timestamp, we skip the round-trip. `user` flips re-arm the
-  // ref so a new login still gets a snapshot on first price load.
-  const lastTriggeredRef = useRef<string | null>(null)
+  //   1. `lastUpdated` from prices — a price refresh arrives, the
+  //      portfolio's USD/TRY values change, snapshot needs to follow.
+  //   2. `txVersion` from the transaction modal context — a transaction
+  //      add/edit/delete changes balances, snapshot needs to follow even
+  //      when prices haven't moved.
+  //
+  // We dedupe price-driven writes by `lastUpdated` so a refresh that
+  // produces no newer price doesn't burn an extra round-trip. We dedupe
+  // tx-driven writes by `txVersion` so the same effect doesn't loop on
+  // its own snapshot writes (which trigger `load()` and don't bump
+  // txVersion). `user` flips reset both refs so a new login still gets
+  // a snapshot on first event.
+  //
+  // Burst coalescing: a typical page load sets `lastUpdated` from cache,
+  // then sets it again ~seconds later when stale-refresh completes. We
+  // delay the actual write by AUTO_REFRESH_DEBOUNCE_MS and clear the
+  // pending timer when either trigger changes again, so the burst
+  // collapses to one canonical write.
+  const lastTriggeredPriceRef = useRef<string | null>(null)
+  const lastTriggeredTxVersionRef = useRef<number | null>(null)
   const userIdRef = useRef<string | null>(null)
   useEffect(() => {
     if (userIdRef.current !== (user?.id ?? null)) {
       userIdRef.current = user?.id ?? null
-      lastTriggeredRef.current = null
+      lastTriggeredPriceRef.current = null
+      lastTriggeredTxVersionRef.current = null
     }
   }, [user])
 
   useEffect(() => {
     if (!user || !lastUpdated) return
     if (Object.keys(prices).length === 0) return
-    if (lastTriggeredRef.current === lastUpdated) return
-    lastTriggeredRef.current = lastUpdated
+
+    const priceUnseen = lastTriggeredPriceRef.current !== lastUpdated
+    const txUnseen = lastTriggeredTxVersionRef.current !== txVersion
+    if (!priceUnseen && !txUnseen) return
 
     let cancelled = false
-    void (async () => {
-      try {
-        await createSnapshot(user.id, prices, rates)
-        if (!cancelled) await load()
-      } catch (err) {
-        // Non-fatal: the dashboard will fall back to the previous
-        // snapshot. Surface in the console for debugging.
-        console.warn("Auto-refresh today's snapshot failed:", err)
-      }
-    })()
+    const timer = setTimeout(() => {
+      if (cancelled) return
+      lastTriggeredPriceRef.current = lastUpdated
+      lastTriggeredTxVersionRef.current = txVersion
+      void (async () => {
+        try {
+          await createSnapshot(user.id, prices, rates)
+          if (!cancelled) await load()
+        } catch (err) {
+          // Non-fatal: the dashboard will fall back to the previous
+          // snapshot. Surface in the console for debugging.
+          console.warn("Auto-refresh today's snapshot failed:", err)
+        }
+      })()
+    }, AUTO_REFRESH_DEBOUNCE_MS)
+
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
-  }, [user, prices, rates, lastUpdated, load])
+  }, [user, prices, rates, lastUpdated, txVersion, load])
 
   return (
     <SnapshotsContext.Provider
