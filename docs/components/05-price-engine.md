@@ -69,6 +69,10 @@ src/
 - **Edge functions on Deno**: Use string parsing for TCMB XML. CoinGecko/Yahoo return JSON
 - **Single shared price store**: All consumers (header, snapshot writer, dashboard, portfolio) read from one app-wide instance. A manual refresh propagates to every consumer at once; the staleness/auto-refresh check runs once per app session, not once per consumer.
 
+## Known Limitations
+
+- **CoinGecko free tier returns ~365 days of price history.** The historical backfill fetches with `days=365`, so crypto positions held longer than ~12 months won't be priced for dates outside that rolling window. Affected snapshots are skipped by the unpriceable-holdings guard (Component 10) rather than written with a wrong total. Workarounds: pay for CoinGecko Pro tier (~$129/mo, overkill), mirror crypto prices from another source (CryptoCompare or Yahoo `BTC-USD`-style tickers), or accept that long-history charts will have visible gaps in older crypto periods until those dates fall within the rolling window.
+
 ## Acceptance Criteria
 - [ ] `supabase.functions.invoke('fetch-prices')` populates price_cache
 - [ ] Exchange rates appear in exchange_rates table after TCMB fetch
