@@ -579,15 +579,22 @@ async function handle(
     }
   }
 
-  // ── Optionally wipe existing snapshots in the target range ─────
+  // ── Optionally wipe existing snapshots in the affected range ─────
+  // Range-based wipe (not date-list wipe). Earlier behavior deleted
+  // only the exact dates this run is about to write — but stale rows
+  // from prior runs with different cadences (e.g. an old weekly
+  // snapshot the new run doesn't target this time) survived. The user
+  // expectation for "overwrite existing snapshots" is "wipe the slate
+  // for the affected user-history window, then rewrite", so we delete
+  // every snapshot in [earliestTxDate, today] for the affected users.
   if (overwrite && inserts.length > 0) {
     const userIds = [...new Set(inserts.map((i) => i.user_id))]
-    const dates = [...new Set(inserts.map((i) => i.snapshot_date))]
     const { error: delErr } = await supabase
       .from("snapshots")
       .delete()
       .in("user_id", userIds)
-      .in("snapshot_date", dates)
+      .gte("snapshot_date", earliestTxDate)
+      .lte("snapshot_date", today)
     if (delErr) errors.push(`delete existing: ${delErr.message}`)
   }
 
