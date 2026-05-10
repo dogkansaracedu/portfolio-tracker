@@ -241,7 +241,7 @@ Transfers between platforms do NOT affect P&L. A `transfer_out` from Platform A 
 
 The `snapshots.breakdown` JSONB is the **single source of truth** for every "current portfolio value" number rendered by the frontend (dashboard totals, allocation breakdowns, portfolio page values, top movers, performance charts). The frontend never re-derives totals from `holdings × price_cache`. Cost basis (FIFO) stays a pure function of `transactions` because it has no second source to drift against.
 
-This decision was taken on 2026-05-10 after a recurring class of bugs where three independent compute paths (`useDashboard`, `take-snapshots`, `backfill-snapshots`) silently disagreed on what a buy/sell/cash-credit contributes — most recently producing a +$1,176 dashboard-vs-portfolio P&L gap. With one writer (the snapshot path) and one reader (the dashboard + portfolio + performance pages), drift becomes structurally impossible. The `docs/components/10-snapshots-performance.md` "Architectural guardrails" section enumerates the structural defenses to preserve.
+The motivation: parallel compute paths (the dashboard's client-side aggregation, the cron snapshot writer, the historical backfill writer) silently disagreed on aggregation rules — particularly when new transaction types were added — and produced visible mismatches like a dashboard P&L that diverged from the portfolio P&L. With one writer (the snapshot path) and one reader (the dashboard + portfolio + performance pages), drift becomes structurally impossible.
 
 ### 8.1 Snapshot Generation
 
@@ -255,7 +255,7 @@ A scheduled job (pg_cron → `take-snapshots` Edge Function) runs **daily at 23:
 
 In production, the cron job authenticates to the Edge Function with a shared `X-Cron-Token` header. The token lives in the function's env (`Deno.env.get("CRON_TOKEN")`) and in Postgres Vault (`vault.decrypted_secrets.cron_token`); the cron command reads from Vault and the function rejects requests whose header doesn't match. The Edge Functions base URL is also stored in Vault (`functions_url`) so the cron command is environment-agnostic.
 
-**Defensive guard (2026-05-10):** all three snapshot writers (cron, backfill, in-browser `createSnapshot`) skip the run when any held asset has `price_usd <= 0`. This prevents the "silently dropped a holding because its price wasn't cached yet" failure mode that produced the original 2026-04-09 orphan snapshot. Skipping for one day is recoverable; locking in a wrong total is not. The cron logs the skip reason; the in-browser path surfaces it as a thrown error so the manual "Take Snapshot" button can toast.
+**Defensive guard:** all three snapshot writers (cron, backfill, in-browser `createSnapshot`) skip the run when any held asset has `price_usd <= 0`. This prevents the failure mode where a holding gets silently dropped from totals because its price wasn't cached yet. Skipping for one day is recoverable; locking in a wrong total is not. The cron logs the skip reason; the in-browser path surfaces it as a thrown error so the manual "Take Snapshot" button can toast.
 
 **Auto-refresh trigger (in-browser):** `SnapshotsProvider` writes a fresh snapshot for today whenever either of these change:
 
@@ -269,7 +269,7 @@ Historical snapshots are produced by the on-demand `backfill-snapshots` Edge Fun
 - **Weekly + last 30 days daily** (default): one snapshot every 7 days walking back from the earliest transaction, plus daily for the last 30 days. Long ranges (1Y / ALL) stay lightweight; recent ranges keep daily detail.
 - **Each transaction day**: one snapshot per day a transaction occurred. More precise, but periods with no activity render as sparse points.
 
-`overwrite=ON` deletes every snapshot in `[earliestTxDate, today]` for the affected user before the upsert, ensuring stale rows from prior runs (different cadences, abandoned dates) are cleaned out. The earlier "delete only the dates this run is about to write" semantic was a footgun and was fixed in 2026-05-10 (commit `f99499e`).
+`overwrite=ON` deletes every snapshot in `[earliestTxDate, today]` for the affected user before the upsert, ensuring stale rows from prior runs (different cadences, abandoned dates) are cleaned out.
 
 When the portfolio is empty between a "sell all" event and the next buy, backfill writes a `total_usd = 0` snapshot for those dates so charts render a flat $0 line through the closed-position period instead of an interpolated gap.
 
@@ -313,7 +313,7 @@ When the portfolio is empty between a "sell all" event and the next buy, backfil
 }
 ```
 
-**Field versioning:** `by_platform.try`, `by_platform.color`, `by_tag.try`, and `by_asset[i].value_try` were added on 2026-05-10. They are optional on the TypeScript interface so legacy snapshots written before that date still parse — the frontend falls back to `usd × snapshot's recorded usd_try` rate (never the live rate; that would retro-convert old snapshots at today's exchange rate).
+**Optional fields:** `by_platform.try`, `by_platform.color`, `by_tag.try`, and `by_asset[i].value_try` are optional on the TypeScript interface so historical snapshots that don't carry them still parse — the frontend falls back to `usd × the snapshot's recorded usd_try` rate (never the live rate; that would retro-convert old snapshots at today's exchange rate).
 
 ### 8.3 Performance Metrics
 
@@ -348,7 +348,7 @@ The primary view. Shows at a glance:
 - **Top movers** — assets with highest absolute USD change since last check.
 - **Monthly performance sparkline** — last 12 months from snapshots.
 
-**Data source (2026-05-10 onward):** every aggregation on this page is read from `snapshots[snapshots.length - 1].breakdown`. `useDashboard` does no `holdings × prices` recomputation. FIFO cost basis for top-mover P&L still comes from `transactions` (deterministic).
+**Data source:** every aggregation on this page is read from `snapshots[snapshots.length - 1].breakdown`. `useDashboard` does no `holdings × prices` recomputation. FIFO cost basis for top-mover P&L still comes from `transactions` (deterministic).
 
 ### 9.2 Portfolio Page
 
@@ -367,7 +367,7 @@ Subtotals per group. Search/filter bar at top.
 
 **Actions:** Add asset, edit, record transaction, delete (soft).
 
-**Data source (2026-05-10 onward):** `usePortfolio` and its dependency `usePnL` source per-(asset, platform) values from `snapshot.breakdown.by_asset`. Live `prices × balance` is the fallback only when a holding isn't yet captured in the latest snapshot (new platform, fresh asset before the next auto-refresh write). Cost basis stays FIFO-from-transactions. Result: the "Total" on the portfolio page is always identical to the dashboard's net worth — they read the same row.
+**Data source:** `usePortfolio` and its dependency `usePnL` source per-unit price from `snapshot.breakdown.by_asset` and multiply by the live balance from `holdings`. Live prices are the fallback only when a holding isn't yet captured in the latest snapshot (new platform, fresh asset before the next auto-refresh write). Cost basis stays FIFO-from-transactions. Result: the "Total" on the portfolio page is always identical to the dashboard's net worth — they read the same snapshot row.
 
 ### 9.3 Transactions Page
 
@@ -556,8 +556,8 @@ These are explicitly out of scope for v1 but worth keeping in mind architectural
 | P2 | Automated daily snapshots (pg_cron → take-snapshots Edge Function) | Done |
 | P2 | Historical snapshot backfill (Settings UI + backfill-snapshots Edge Function) | Done |
 | P2 | Production deployment (Vercel frontend + Supabase Cloud, no GitHub) | Done |
-| P2 | Cash flow linkage (sell auto-credits cash, buy can deduct platform cash) | Done — linked-rows model with `cash_credit`/`cash_debit` types, see `docs/cash-flow-feature-design.md` |
-| P2 | Snapshot as single source of truth (one writer, one reader) | Done — see PRD §8.0 + `docs/components/10-snapshots-performance.md` |
+| P2 | Cash flow linkage (sell auto-credits cash, buy can deduct platform cash) | Done — linked-rows model with `cash_credit`/`cash_debit` types; see Components 4 and 6 |
+| P2 | Snapshot as single source of truth (one writer, one reader) | Done — see §8.0 and Component 10 |
 | P2 | Auto-refresh today's snapshot on price/transaction events | Done — `SnapshotsProvider` debounced effect on `lastUpdated` / `txVersion` |
 | P2 | Data export (JSON/CSV dumps) | Not started |
 
