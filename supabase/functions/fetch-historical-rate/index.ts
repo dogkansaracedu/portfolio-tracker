@@ -1,4 +1,4 @@
-import { createClient } from "jsr:@supabase/supabase-js@2"
+import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 
 function pad2(n: number): string {
@@ -72,15 +72,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-    if (!supabaseUrl || !serviceKey) {
-      return new Response(
-        JSON.stringify({ error: "Missing service env vars" }),
-        { status: 500, headers: jsonHeaders },
-      )
-    }
-
     let body: { date?: string } = {}
     try {
       body = await req.json()
@@ -95,9 +86,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const supabase = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false },
-    })
+    const supabase = getServiceClient()
 
     // Fast path: already cached.
     const { data: existing } = await supabase

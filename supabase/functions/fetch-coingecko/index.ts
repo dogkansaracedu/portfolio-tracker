@@ -1,4 +1,4 @@
-import { createClient } from "jsr:@supabase/supabase-js@2"
+import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 
 Deno.serve(async (req) => {
@@ -8,10 +8,7 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders(origin) })
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  )
+  const supabase = getServiceClient()
 
   try {
     // Get distinct crypto tickers from assets

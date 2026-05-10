@@ -99,10 +99,6 @@ export interface ExchangeRate {
 // number — never re-derives from `holdings + price_cache`. That keeps a single
 // source of truth and prevents the kind of drift that produced the
 // "+$515.26 vs +$1,691.76" gap fixed in commit 3a3cc45.
-//
-// Fields marked OPTIONAL are absent from snapshots written before this shape
-// was extended on 2026-05-10. Consumers must default to 0 / undefined and
-// tolerate the gap until a backfill rewrites the row.
 
 export interface SnapshotBreakdown {
   rates: {
@@ -113,24 +109,9 @@ export interface SnapshotBreakdown {
   by_category: Record<string, { usd: number; try: number; pct: number }>;
   by_platform: Record<
     string,
-    {
-      usd: number;
-      /** TRY value — added 2026-05-10. Optional on legacy rows. */
-      try?: number;
-      /** Display color — added 2026-05-10. Optional on legacy rows. */
-      color?: string;
-      pct: number;
-    }
+    { usd: number; try: number; color: string; pct: number }
   >;
-  by_tag: Record<
-    string,
-    {
-      usd: number;
-      /** TRY value — added 2026-05-10. Optional on legacy rows. */
-      try?: number;
-      pct: number;
-    }
-  >;
+  by_tag: Record<string, { usd: number; try: number; pct: number }>;
   by_asset: Array<{
     ticker: string;
     name: string;
@@ -138,8 +119,7 @@ export interface SnapshotBreakdown {
     amount: number;
     price_usd: number;
     value_usd: number;
-    /** TRY value — added 2026-05-10. Optional on legacy rows. */
-    value_try?: number;
+    value_try: number;
   }>;
 }
 

@@ -60,3 +60,20 @@ export const USER_PICKABLE_TYPES: TransactionType[] = [
   TRANSACTION_TYPES.INTEREST,
   TRANSACTION_TYPES.FEE,
 ]
+
+/** Per-type display label and Tailwind color classes — single source for
+ *  every UI that renders a transaction type (selector, filter chips, badge). */
+export const TRANSACTION_TYPE_DISPLAY: Record<
+  TransactionType,
+  { label: string; color: string; bg: string }
+> = {
+  buy: { label: "Buy", color: "text-green-700", bg: "bg-green-100 border-green-300" },
+  sell: { label: "Sell", color: "text-red-700", bg: "bg-red-100 border-red-300" },
+  transfer_in: { label: "Transfer In", color: "text-blue-700", bg: "bg-blue-100 border-blue-300" },
+  transfer_out: { label: "Transfer Out", color: "text-orange-700", bg: "bg-orange-100 border-orange-300" },
+  dividend: { label: "Dividend", color: "text-purple-700", bg: "bg-purple-100 border-purple-300" },
+  interest: { label: "Interest", color: "text-teal-700", bg: "bg-teal-100 border-teal-300" },
+  fee: { label: "Fee", color: "text-gray-700", bg: "bg-gray-100 border-gray-300" },
+  cash_credit: { label: "Cash credit", color: "text-green-700", bg: "bg-green-100 border-green-300" },
+  cash_debit: { label: "Cash debit", color: "text-red-700", bg: "bg-red-100 border-red-300" },
+}

@@ -15,19 +15,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import { PlatformDot } from "@/components/common/PlatformDot"
 import { CalendarIcon, XIcon } from "lucide-react"
+import {
+  TRANSACTION_TYPE_DISPLAY,
+  USER_PICKABLE_TYPES,
+} from "@/lib/constants/transaction-types"
 import type { TransactionType } from "@/types/database"
 import type { TransactionLogFilters } from "@/hooks/useTransactionLog"
-
-const TYPE_FILTER_CHIPS: { value: TransactionType; label: string; color: string; bg: string }[] = [
-  { value: "buy", label: "Buy", color: "text-green-700", bg: "bg-green-100 border-green-300" },
-  { value: "sell", label: "Sell", color: "text-red-700", bg: "bg-red-100 border-red-300" },
-  { value: "transfer_in", label: "Transfer In", color: "text-blue-700", bg: "bg-blue-100 border-blue-300" },
-  { value: "transfer_out", label: "Transfer Out", color: "text-orange-700", bg: "bg-orange-100 border-orange-300" },
-  { value: "dividend", label: "Dividend", color: "text-purple-700", bg: "bg-purple-100 border-purple-300" },
-  { value: "interest", label: "Interest", color: "text-teal-700", bg: "bg-teal-100 border-teal-300" },
-  { value: "fee", label: "Fee", color: "text-gray-700", bg: "bg-gray-100 border-gray-300" },
-]
 
 interface Props {
   filters: TransactionLogFilters
@@ -237,10 +232,7 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
                 if (!p) return "All platforms"
                 return (
                   <span className="flex items-center gap-2">
-                    <span
-                      className="inline-block size-2.5 rounded-full"
-                      style={{ backgroundColor: p.color }}
-                    />
+                    <PlatformDot color={p.color} />
                     {p.name}
                   </span>
                 )
@@ -251,10 +243,7 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
             <SelectItem value="">All platforms</SelectItem>
             {platforms.map((platform) => (
               <SelectItem key={platform.id} value={platform.id}>
-                <span
-                  className="inline-block size-2.5 rounded-full"
-                  style={{ backgroundColor: platform.color }}
-                />
+                <PlatformDot color={platform.color} />
                 {platform.name}
               </SelectItem>
             ))}
@@ -275,20 +264,21 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
         <span className="flex items-center text-sm font-medium text-muted-foreground">
           Type:
         </span>
-        {TYPE_FILTER_CHIPS.map((type) => {
-          const isActive = filters.types?.includes(type.value) ?? false
+        {USER_PICKABLE_TYPES.map((type) => {
+          const config = TRANSACTION_TYPE_DISPLAY[type]
+          const isActive = filters.types?.includes(type) ?? false
           return (
             <button
-              key={type.value}
+              key={type}
               type="button"
-              onClick={() => toggleType(type.value)}
+              onClick={() => toggleType(type)}
               className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                 isActive
-                  ? `${type.bg} ${type.color}`
+                  ? `${config.bg} ${config.color}`
                   : "border-border bg-background text-muted-foreground hover:bg-muted"
               }`}
             >
-              {type.label}
+              {config.label}
             </button>
           )
         })}

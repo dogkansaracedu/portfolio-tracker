@@ -28,12 +28,14 @@ import { format } from "date-fns"
 import { TransactionTypeSelector } from "./TransactionTypeSelector"
 import { AssetSearchSelect } from "./AssetSearchSelect"
 import { FundingSourceSelect } from "./FundingSourceSelect"
+import { PlatformDot } from "@/components/common/PlatformDot"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useHoldings } from "@/hooks/useHoldings"
 import { useAuth } from "@/hooks/useAuth"
 import { fetchLinkedChild } from "@/lib/queries/transactions"
 import { validateFundingCash } from "@/lib/cash"
+import { bn } from "@/lib/config"
 import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
 import {
   CURRENCY_SYMBOLS,
@@ -150,9 +152,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   ])
 
   const selectedAsset = assets.find((a) => a.id === assetId)
-  const parsedAmount = parseFloat(amount) || 0
-  const parsedPrice = parseFloat(unitPrice) || 0
-  const totalCost = parsedAmount * parsedPrice
+  const parsedAmount = bn(amount)
+  const parsedPrice = bn(unitPrice)
+  const parsedFee = bn(fee)
+  const totalCost = parsedAmount.times(parsedPrice)
 
   useEffect(() => {
     if (type !== TRANSACTION_TYPES.BUY || !fundingPlatformId) {
@@ -178,8 +181,8 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         : null
     const err = validateFundingCash({
       cashOnFunding,
-      totalCost: parsedAmount * parsedPrice,
-      fee: parseFloat(fee) || 0,
+      totalCost: bn(amount).times(bn(unitPrice)).toNumber(),
+      fee: bn(fee).toNumber(),
       feeCurrency: fee ? feeCurrency : null,
       priceCurrency,
       existingChildOffset: offset,
@@ -190,8 +193,8 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     type,
     fundingPlatformId,
     priceCurrency,
-    parsedAmount,
-    parsedPrice,
+    amount,
+    unitPrice,
     fee,
     feeCurrency,
     assets,
@@ -218,16 +221,16 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const isOverBalance =
     !isEdit &&
     (type === "sell" || type === "transfer_out" || type === "fee") &&
-    parsedAmount > selectedPlatformBalance
+    parsedAmount.gt(selectedPlatformBalance)
 
   const canSubmit =
     assetId &&
     platformId &&
-    parsedAmount > 0 &&
+    parsedAmount.gt(0) &&
     !isOverBalance &&
     !fundingError &&
     !submitting &&
-    (showPriceFields ? parsedPrice > 0 : true) &&
+    (showPriceFields ? parsedPrice.gt(0) : true) &&
     (isTransfer && !isEdit ? destPlatformId && destPlatformId !== platformId : true)
 
   const handleSubmit = async () => {
@@ -240,11 +243,11 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         platform_id: platformId,
         type,
         date: localDayAsUtcMidnight(date),
-        amount: parsedAmount,
-        unit_price: parsedPrice || 0,
+        amount: parsedAmount.toNumber(),
+        unit_price: parsedPrice.toNumber(),
         price_currency: priceCurrency,
-        total_cost: totalCost,
-        fee: parseFloat(fee) || 0,
+        total_cost: totalCost.toNumber(),
+        fee: parsedFee.toNumber(),
         fee_currency: fee ? feeCurrency : null,
         related_asset_id: null,
         linked_tx_id: null,
@@ -272,10 +275,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             platform_id: destPlatformId,
             type: "transfer_in",
             date: localDayAsUtcMidnight(date),
-            amount: parsedAmount,
-            unit_price: parsedPrice || 0,
+            amount: parsedAmount.toNumber(),
+            unit_price: parsedPrice.toNumber(),
             price_currency: priceCurrency,
-            total_cost: totalCost,
+            total_cost: totalCost.toNumber(),
             fee: 0,
             fee_currency: null,
             related_asset_id: null,
@@ -341,10 +344,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                     if (!p) return "Select platform..."
                     return (
                       <span className="flex items-center gap-2">
-                        <span
-                          className="inline-block size-2.5 rounded-full"
-                          style={{ backgroundColor: p.color }}
-                        />
+                        <PlatformDot color={p.color} />
                         {p.name}
                       </span>
                     )
@@ -355,10 +355,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                 {platforms.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     <span className="flex items-center gap-2">
-                      <span
-                        className="inline-block size-2.5 rounded-full"
-                        style={{ backgroundColor: p.color }}
-                      />
+                      <PlatformDot color={p.color} />
                       {p.name}
                     </span>
                   </SelectItem>
@@ -387,10 +384,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                       if (!p) return "Select destination..."
                       return (
                         <span className="flex items-center gap-2">
-                          <span
-                            className="inline-block size-2.5 rounded-full"
-                            style={{ backgroundColor: p.color }}
-                          />
+                          <PlatformDot color={p.color} />
                           {p.name}
                         </span>
                       )
@@ -403,10 +397,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                     .map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         <span className="flex items-center gap-2">
-                          <span
-                            className="inline-block size-2.5 rounded-full"
-                            style={{ backgroundColor: p.color }}
-                          />
+                          <PlatformDot color={p.color} />
                           {p.name}
                         </span>
                       </SelectItem>
@@ -492,10 +483,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           )}
 
           {/* Total Cost display */}
-          {showPriceFields && totalCost > 0 && (
+          {showPriceFields && totalCost.gt(0) && (
             <div className="rounded-md bg-muted px-3 py-2 text-sm">
               Total: {CURRENCY_SYMBOLS[priceCurrency as FiatCurrency] ?? ""}
-              {totalCost.toLocaleString(undefined, {
+              {totalCost.toNumber().toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
@@ -554,10 +545,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           )}
 
           {/* Sale proceeds confirmation (sell only) */}
-          {type === TRANSACTION_TYPES.SELL && parsedAmount > 0 && parsedPrice > 0 && (
+          {type === TRANSACTION_TYPES.SELL && parsedAmount.gt(0) && parsedPrice.gt(0) && (
             <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
               Sale proceeds: {CURRENCY_SYMBOLS[priceCurrency as FiatCurrency] ?? ""}
-              {(parsedAmount * parsedPrice - (parseFloat(fee) || 0)).toLocaleString(
+              {totalCost.minus(parsedFee).toNumber().toLocaleString(
                 undefined,
                 { minimumFractionDigits: 2, maximumFractionDigits: 2 },
               )}{" "}
