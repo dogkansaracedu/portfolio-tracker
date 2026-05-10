@@ -468,8 +468,11 @@ async function handle(
         string,
         { usd: number; try: number; pct: number }
       > = {}
-      const byPlatform: Record<string, { usd: number; pct: number }> = {}
-      const byTag: Record<string, { usd: number; pct: number }> = {}
+      const byPlatform: Record<
+        string,
+        { usd: number; try: number; color: string; pct: number }
+      > = {}
+      const byTag: Record<string, { usd: number; try: number; pct: number }> = {}
       const byAsset: Array<{
         ticker: string
         name: string
@@ -477,6 +480,7 @@ async function handle(
         amount: number
         price_usd: number
         value_usd: number
+        value_try: number
       }> = []
 
       for (const [assetId, perPlatform] of balances) {
@@ -512,6 +516,7 @@ async function handle(
             amount: balance,
             price_usd: priceUsd,
             value_usd: valueUsd,
+            value_try: valueTry,
           })
 
           if (!byCategory[a.category])
@@ -519,12 +524,16 @@ async function handle(
           byCategory[a.category].usd += valueUsd
           byCategory[a.category].try += valueTry
 
-          if (!byPlatform[p.name]) byPlatform[p.name] = { usd: 0, pct: 0 }
+          if (!byPlatform[p.name]) {
+            byPlatform[p.name] = { usd: 0, try: 0, color: p.color, pct: 0 }
+          }
           byPlatform[p.name].usd += valueUsd
+          byPlatform[p.name].try += valueTry
 
           for (const tag of a.tags ?? []) {
-            if (!byTag[tag]) byTag[tag] = { usd: 0, pct: 0 }
+            if (!byTag[tag]) byTag[tag] = { usd: 0, try: 0, pct: 0 }
             byTag[tag].usd += valueUsd
+            byTag[tag].try += valueTry
           }
         }
       }

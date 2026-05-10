@@ -31,8 +31,15 @@ interface CategoryAgg {
   try_val: number
 }
 
-interface ScalarAgg {
+interface PlatformAgg {
   usd: number
+  try_val: number
+  color: string
+}
+
+interface TagAgg {
+  usd: number
+  try_val: number
 }
 
 interface AssetEntry {
@@ -42,6 +49,7 @@ interface AssetEntry {
   amount: number
   price_usd: number
   value_usd: number
+  value_try: number
 }
 
 Deno.serve(async (req) => {
@@ -148,8 +156,8 @@ Deno.serve(async (req) => {
   for (const [userId, userHoldings] of byUser) {
     const byAsset: AssetEntry[] = []
     const categoryTotals: Record<string, CategoryAgg> = {}
-    const platformTotals: Record<string, ScalarAgg> = {}
-    const tagTotals: Record<string, ScalarAgg> = {}
+    const platformTotals: Record<string, PlatformAgg> = {}
+    const tagTotals: Record<string, TagAgg> = {}
     let totalUsd = 0
     let totalTry = 0
 
@@ -173,6 +181,7 @@ Deno.serve(async (req) => {
         amount: h.balance,
         price_usd: priceUsd,
         value_usd: valueUsd,
+        value_try: valueTry,
       })
 
       const cat = asset.category
@@ -181,12 +190,16 @@ Deno.serve(async (req) => {
       categoryTotals[cat].try_val += valueTry
 
       const plat = platform.name
-      if (!platformTotals[plat]) platformTotals[plat] = { usd: 0 }
+      if (!platformTotals[plat]) {
+        platformTotals[plat] = { usd: 0, try_val: 0, color: platform.color }
+      }
       platformTotals[plat].usd += valueUsd
+      platformTotals[plat].try_val += valueTry
 
       for (const tag of asset.tags ?? []) {
-        if (!tagTotals[tag]) tagTotals[tag] = { usd: 0 }
+        if (!tagTotals[tag]) tagTotals[tag] = { usd: 0, try_val: 0 }
         tagTotals[tag].usd += valueUsd
+        tagTotals[tag].try_val += valueTry
       }
     }
 
@@ -197,14 +210,38 @@ Deno.serve(async (req) => {
       byCategory[k] = { usd: v.usd, try: v.try_val, pct: safeDiv(v.usd) }
     }
 
-    const byPlatform: Record<string, { usd: number; pct: number }> = {}
+    const byPlatform: Record<
+      string,
+      { usd: number; try: number; color: string; pct: number }
+    > = {}
     for (const [k, v] of Object.entries(platformTotals)) {
-      byPlatform[k] = { usd: v.usd, pct: safeDiv(v.usd) }
+      byPlatform[k] = {
+        usd: v.usd,
+        try: v.try_val,
+        color: v.color,
+        pct: safeDiv(v.usd),
+      }
     }
 
-    const byTag: Record<string, { usd: number; pct: number }> = {}
+    const byTag: Record<string, { usd: number; try: number; pct: number }> = {}
     for (const [k, v] of Object.entries(tagTotals)) {
-      byTag[k] = { usd: v.usd, pct: safeDiv(v.usd) }
+      byTag[k] = { usd: v.usd, try: v.try_val, pct: safeDiv(v.usd) }
+    }
+
+    // Skip the snapshot if any held asset is unpriced. The cron writes once
+    // per day; without this guard a stale price_cache (e.g. an upstream API
+    // 4xx during the 23:55 UTC run) silently encodes a wrong total that the
+    // dashboard then trusts indefinitely. This is exactly how the
+    // 2026-04-09 orphan was created — the cash holding had no price-cache
+    // entry yet so it dropped out of the totals. Honest answer: skip.
+    const unpriced = byAsset.filter((a) => a.amount > 0 && a.price_usd <= 0)
+    if (unpriced.length > 0) {
+      errors.push(
+        `user ${userId}: skipped — ${unpriced.length} unpriced holding(s): ${unpriced
+          .map((a) => a.ticker)
+          .join(", ")}`,
+      )
+      continue
     }
 
     snapshotInserts.push({

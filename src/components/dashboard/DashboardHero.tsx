@@ -57,7 +57,12 @@ function formatPct(value: number): string {
 }
 
 function formatSigned(value: number, currency: "USD" | "TRY"): string {
-  const sign = value >= 0 ? "+" : ""
+  // Always emit an explicit sign — both directions. The previous
+  // `value >= 0 ? "+" : ""` paired with `Math.abs(value)` silently
+  // dropped the minus on losses, so a tooltip on a -$940 dip read as
+  // a positive "$940.79". `compactCurrency` (Y-axis) already does this
+  // correctly; `formatSigned` (tooltips, headlines) now matches.
+  const sign = value > 0 ? "+" : value < 0 ? "-" : ""
   return `${sign}${formatCurrency(Math.abs(value), currency)}`
 }
 

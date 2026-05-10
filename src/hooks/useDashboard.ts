@@ -1,11 +1,17 @@
 import { useMemo } from "react"
-import BigNumber from "bignumber.js"
-import { bn, BN_ZERO } from "@/lib/config"
-import { useHoldings } from "@/hooks/useHoldings"
+import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
+import { useAssets } from "@/hooks/useAssets"
 import { usePrices } from "@/hooks/usePrices"
-import { usePnL } from "@/hooks/usePnL"
 import { useSnapshots } from "@/hooks/useSnapshots"
-import type { AssetPnL } from "@/lib/pnl/types"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
+import { computeFIFOLots } from "@/lib/pnl/fifo"
+import type {
+  Asset,
+  ExchangeRate,
+  Snapshot,
+  SnapshotBreakdown,
+  Transaction,
+} from "@/types/database"
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -29,7 +35,6 @@ export interface TagAllocation {
   valueUsd: number
   valueTry: number
   percentage: number
-  quantity: number
 }
 
 export interface TopMover {
@@ -41,14 +46,6 @@ export interface TopMover {
   currentValueUsd: number
 }
 
-export interface InvestmentPnL {
-  totalCostBasisUsd: number
-  totalUnrealizedPnlUsd: number
-  totalRealizedPnlUsd: number
-  totalPnlUsd: number
-  totalPnlPct: number
-}
-
 export interface DashboardData {
   totalValueUsd: number
   totalValueTry: number
@@ -56,175 +53,212 @@ export interface DashboardData {
   byPlatform: PlatformAllocation[]
   byTag: TagAllocation[]
   topMovers: TopMover[]
-  snapshots: import("@/types/database").Snapshot[]
+  snapshots: Snapshot[]
   /** Latest USD/TRY rate, or 1 if unavailable. */
   usdTry: number
-  /** FIFO-based current cumulative P&L. */
-  investmentPnL: InvestmentPnL
   loading: boolean
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-/** Troy ounce to grams conversion factor. */
-const OZ_TO_GRAMS = 31.1035
+const PLATFORM_FALLBACK_COLOR = "#94a3b8"
 
-/** Tickers whose balance should be converted from oz to grams for display. */
-const GOLD_OZ_TICKERS = new Set(["pax-gold", "tether-gold"])
+/**
+ * Resolve the TRY value for a snapshot breakdown entry.
+ *
+ * New writers (post-2026-05-10) populate `try` directly. Legacy rows have only
+ * `usd`; for those we fall back to `usd × the rate captured at snapshot time`.
+ * Falling back to the live `usdTry` would silently retro-convert a year-old
+ * snapshot's USD value at today's rate, producing nonsense for the TRY chart.
+ */
+function tryValue(
+  entry: { usd: number; try?: number },
+  fallbackUsdTry: number,
+): number {
+  if (typeof entry.try === "number") return entry.try
+  return entry.usd * fallbackUsdTry
+}
+
+function pct(part: number, whole: number): number {
+  if (whole === 0) return 0
+  return (part / whole) * 100
+}
+
+/**
+ * Compute top movers from the snapshot's per-asset values + FIFO cost basis.
+ *
+ * Per-asset breakdown in the snapshot is per (asset, platform). We aggregate
+ * to the asset level, then pair with FIFO cost basis (deterministic from
+ * transactions) to derive unrealized P&L. Same source of truth as the
+ * snapshot total — no holdings × prices recomputation on the frontend.
+ */
+function deriveTopMovers(
+  byAsset: SnapshotBreakdown["by_asset"],
+  assets: Asset[],
+  transactions: Transaction[],
+  rates: ExchangeRate[],
+): TopMover[] {
+  if (byAsset.length === 0) return []
+
+  // ticker → aggregated current value (sum across platforms)
+  const valueByTicker = new Map<string, number>()
+  for (const entry of byAsset) {
+    const cur = valueByTicker.get(entry.ticker) ?? 0
+    valueByTicker.set(entry.ticker, cur + entry.value_usd)
+  }
+
+  // ticker → asset (for id, name, category)
+  const assetByTicker = new Map<string, Asset>()
+  for (const a of assets) assetByTicker.set(a.ticker, a)
+
+  // assetId → transactions (for FIFO)
+  const txsByAssetId = new Map<string, Transaction[]>()
+  for (const tx of transactions) {
+    const list = txsByAssetId.get(tx.asset_id) ?? []
+    list.push(tx)
+    txsByAssetId.set(tx.asset_id, list)
+  }
+
+  const movers: TopMover[] = []
+  for (const [ticker, currentValueUsd] of valueByTicker) {
+    const asset = assetByTicker.get(ticker)
+    if (!asset) continue
+    if (asset.category === "fiat") continue // fiat has no meaningful P&L
+
+    const txs = txsByAssetId.get(asset.id) ?? []
+    const { lots } = computeFIFOLots(txs, rates)
+    const costBasisUsd = lots.reduce(
+      (sum, lot) => sum.plus(lot.amount.times(lot.unitPriceUsd)),
+      BN_ZERO,
+    )
+    const cv = bn(currentValueUsd)
+    const unrealizedPnlUsd = cv.minus(costBasisUsd)
+    const unrealizedPnlPct = costBasisUsd.isZero()
+      ? BN_ZERO
+      : unrealizedPnlUsd.div(costBasisUsd).times(BN_HUNDRED)
+
+    movers.push({
+      assetId: asset.id,
+      ticker,
+      name: asset.name,
+      unrealizedPnlUsd: unrealizedPnlUsd.toNumber(),
+      unrealizedPnlPct: unrealizedPnlPct.toNumber(),
+      currentValueUsd,
+    })
+  }
+
+  movers.sort((a, b) => Math.abs(b.unrealizedPnlUsd) - Math.abs(a.unrealizedPnlUsd))
+  return movers.slice(0, 5)
+}
 
 // ─── Hook ───────────────────────────────────────────────────────────
 
+/**
+ * Dashboard data derived entirely from the latest snapshot's breakdown.
+ *
+ * Every aggregation (totals, by_category, by_platform, by_tag) is read from
+ * the snapshot — never re-computed from `holdings × prices` on the client.
+ * This eliminates the duplicated math that produced bugs like the dashboard
+ * P&L disagreeing with the portfolio P&L (commit 3a3cc45). The snapshot is
+ * the single source of truth; freshness is the responsibility of whatever
+ * keeps it written (cron + on-load refresh).
+ *
+ * FIFO-based cost basis stays on the client because it's a pure function of
+ * `transactions` — no second source to drift against.
+ */
 export function useDashboard(): DashboardData {
-  const { holdings, loading: holdingsLoading } = useHoldings()
-  const { prices, rates, loading: pricesLoading } = usePrices()
-  const {
-    assetPnLs,
-    totalCostBasisUsd,
-    totalUnrealizedPnlUsd,
-    totalRealizedPnlUsd,
-    loading: pnlLoading,
-  } = usePnL(holdings, prices)
+  const { assets, loading: assetsLoading } = useAssets()
+  const { rates, loading: pricesLoading } = usePrices()
   const { snapshots, loading: snapshotsLoading } = useSnapshots()
+  const { transactions, rates: txRates, loading: txLoading } =
+    useTransactionData()
 
-  const loading = holdingsLoading || pricesLoading || pnlLoading || snapshotsLoading
+  const loading =
+    assetsLoading || pricesLoading || snapshotsLoading || txLoading
   const usdTry = rates?.usd_try ?? 1
 
-  const investmentPnL: InvestmentPnL = useMemo(() => {
-    const cost = bn(totalCostBasisUsd)
-    const unreal = bn(totalUnrealizedPnlUsd)
-    const real = bn(totalRealizedPnlUsd)
-    const total = unreal.plus(real)
-    return {
-      totalCostBasisUsd: cost.toNumber(),
-      totalUnrealizedPnlUsd: unreal.toNumber(),
-      totalRealizedPnlUsd: real.toNumber(),
-      totalPnlUsd: total.toNumber(),
-      totalPnlPct: cost.isZero() ? 0 : total.div(cost).times(100).toNumber(),
-    }
-  }, [totalCostBasisUsd, totalUnrealizedPnlUsd, totalRealizedPnlUsd])
+  const latest: Snapshot | undefined = snapshots[snapshots.length - 1]
 
-  const result = useMemo(() => {
-    let totalValueUsd = BN_ZERO
-    let totalValueTry = BN_ZERO
-
-    const categoryMap = new Map<string, { valueUsd: BigNumber; valueTry: BigNumber }>()
-    const platformMap = new Map<string, { color: string; valueUsd: BigNumber; valueTry: BigNumber }>()
-    const tagMap = new Map<string, { valueUsd: BigNumber; valueTry: BigNumber; quantity: BigNumber }>()
-
-    // Single pass: compute per-holding value once, then accumulate into
-    // totals and the category / platform / tag buckets.
-    for (const h of holdings) {
-      const price = prices[h.assets.ticker]
-      const balance = bn(h.balance)
-      const usd = balance.times(bn(price?.price_usd))
-      const try_ = balance.times(bn(price?.price_try))
-
-      totalValueUsd = totalValueUsd.plus(usd)
-      totalValueTry = totalValueTry.plus(try_)
-
-      const cat = h.assets.category
-      const catExisting = categoryMap.get(cat)
-      if (catExisting) {
-        catExisting.valueUsd = catExisting.valueUsd.plus(usd)
-        catExisting.valueTry = catExisting.valueTry.plus(try_)
-      } else {
-        categoryMap.set(cat, { valueUsd: usd, valueTry: try_ })
-      }
-
-      const platKey = h.platforms.name
-      const platExisting = platformMap.get(platKey)
-      if (platExisting) {
-        platExisting.valueUsd = platExisting.valueUsd.plus(usd)
-        platExisting.valueTry = platExisting.valueTry.plus(try_)
-      } else {
-        platformMap.set(platKey, { color: h.platforms.color, valueUsd: usd, valueTry: try_ })
-      }
-
-      const tags = h.assets.tags ?? []
-      if (tags.length > 0) {
-        const quantity = GOLD_OZ_TICKERS.has(h.assets.ticker)
-          ? balance.times(OZ_TO_GRAMS)
-          : balance
-        for (const tag of tags) {
-          const tagExisting = tagMap.get(tag)
-          if (tagExisting) {
-            tagExisting.valueUsd = tagExisting.valueUsd.plus(usd)
-            tagExisting.valueTry = tagExisting.valueTry.plus(try_)
-            tagExisting.quantity = tagExisting.quantity.plus(quantity)
-          } else {
-            tagMap.set(tag, { valueUsd: usd, valueTry: try_, quantity })
-          }
-        }
-      }
+  const result = useMemo((): Omit<
+    DashboardData,
+    "snapshots" | "usdTry" | "loading"
+  > => {
+    const empty = {
+      totalValueUsd: 0,
+      totalValueTry: 0,
+      byCategory: [],
+      byPlatform: [],
+      byTag: [],
+      topMovers: [],
     }
 
-    const byCategory: CategoryAllocation[] = Array.from(categoryMap.entries())
-      .map(([category, { valueUsd, valueTry }]) => ({
-        category,
-        valueUsd: valueUsd.toNumber(),
-        valueTry: valueTry.toNumber(),
-        percentage: totalValueUsd.isZero()
-          ? 0
-          : valueUsd.div(totalValueUsd).times(100).toNumber(),
-      }))
-      .sort((a, b) => b.valueUsd - a.valueUsd)
+    if (!latest || !latest.breakdown) return empty
 
-    const byPlatform: PlatformAllocation[] = Array.from(platformMap.entries())
-      .map(([platformName, { color, valueUsd, valueTry }]) => ({
-        platformName,
-        color,
-        valueUsd: valueUsd.toNumber(),
-        valueTry: valueTry.toNumber(),
-        percentage: totalValueUsd.isZero()
-          ? 0
-          : valueUsd.div(totalValueUsd).times(100).toNumber(),
-      }))
-      .sort((a, b) => b.valueUsd - a.valueUsd)
+    const breakdown = latest.breakdown
+    const totalValueUsd = Number(latest.total_usd ?? 0)
+    const totalValueTry = Number(latest.total_try ?? 0)
 
-    const byTag: TagAllocation[] = Array.from(
-      tagMap.entries(),
+    // Snapshot's recorded usd_try is the right fallback for any legacy
+    // row that doesn't yet carry per-bucket TRY values.
+    const fallbackUsdTry = breakdown.rates?.usd_try ?? usdTry
+
+    const byCategory: CategoryAllocation[] = Object.entries(
+      breakdown.by_category ?? {},
     )
-      .map(([tag, { valueUsd, valueTry, quantity }]) => ({
-        tag,
-        valueUsd: valueUsd.toNumber(),
-        valueTry: valueTry.toNumber(),
-        percentage: totalValueUsd.isZero()
-          ? 0
-          : valueUsd.div(totalValueUsd).times(100).toNumber(),
-        quantity: quantity.toNumber(),
+      .map(([category, vals]) => ({
+        category,
+        valueUsd: vals.usd,
+        valueTry: vals.try ?? vals.usd * fallbackUsdTry,
+        percentage: vals.pct,
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
 
-    // ── Top movers ───────────────────────────────────────────────
-    const topMovers: TopMover[] = assetPnLs
-      .filter((p: AssetPnL) => p.category !== "fiat")
-      .sort(
-        (a: AssetPnL, b: AssetPnL) =>
-          bn(b.unrealizedPnlUsd).abs().comparedTo(bn(a.unrealizedPnlUsd).abs()) ?? 0,
-      )
-      .slice(0, 5)
-      .map((p: AssetPnL) => {
-        const holding = holdings.find((h) => h.asset_id === p.assetId)
-        return {
-          assetId: p.assetId,
-          ticker: p.ticker,
-          name: holding?.assets.name ?? p.ticker,
-          unrealizedPnlUsd: bn(p.unrealizedPnlUsd).toNumber(),
-          unrealizedPnlPct: bn(p.unrealizedPnlPct).toNumber(),
-          currentValueUsd: bn(p.currentValueUsd).toNumber(),
-        }
-      })
+    const byPlatform: PlatformAllocation[] = Object.entries(
+      breakdown.by_platform ?? {},
+    )
+      .map(([platformName, vals]) => ({
+        platformName,
+        color: vals.color ?? PLATFORM_FALLBACK_COLOR,
+        valueUsd: vals.usd,
+        valueTry: tryValue(vals, fallbackUsdTry),
+        percentage: vals.pct,
+      }))
+      .sort((a, b) => b.valueUsd - a.valueUsd)
+
+    const byTag: TagAllocation[] = Object.entries(breakdown.by_tag ?? {})
+      .map(([tag, vals]) => ({
+        tag,
+        valueUsd: vals.usd,
+        valueTry: tryValue(vals, fallbackUsdTry),
+        percentage: vals.pct,
+      }))
+      .sort((a, b) => b.valueUsd - a.valueUsd)
+
+    const topMovers = deriveTopMovers(
+      breakdown.by_asset ?? [],
+      assets,
+      transactions,
+      txRates,
+    )
+
+    // Recompute percentages defensively in case totals drift from a legacy
+    // breakdown's stored pct (e.g. a snapshot written when an asset was
+    // priceable but is now filtered out client-side).
+    if (totalValueUsd > 0) {
+      for (const c of byCategory) c.percentage = pct(c.valueUsd, totalValueUsd)
+      for (const p of byPlatform) p.percentage = pct(p.valueUsd, totalValueUsd)
+      for (const t of byTag) t.percentage = pct(t.valueUsd, totalValueUsd)
+    }
 
     return {
-      totalValueUsd: totalValueUsd.toNumber(),
-      totalValueTry: totalValueTry.toNumber(),
+      totalValueUsd,
+      totalValueTry,
       byCategory,
       byPlatform,
       byTag,
       topMovers,
-      snapshots,
     }
-  }, [holdings, prices, assetPnLs, snapshots])
+  }, [latest, assets, transactions, txRates, usdTry])
 
-  return { ...result, usdTry, investmentPnL, loading }
+  return { ...result, snapshots, usdTry, loading }
 }
