@@ -62,16 +62,22 @@ export function usePnL(
       }
     }
 
-    // Build (ticker, platform_name) → snapshot value_usd lookup once per
-    // recompute. Falls through to live `balance × price` for any holding
-    // not yet captured in the latest snapshot (new platform, fresh asset
-    // before the next auto-refresh writes).
+    // Build (ticker, platform_name) → snapshot price_usd lookup. We read
+    // *price-per-unit* from the snapshot, not the frozen value_usd. The
+    // snapshot's value_usd is `amount × price` captured at write time;
+    // after a tx adds/removes shares it describes yesterday's portfolio
+    // at today's display. Reading price-per-unit and multiplying by the
+    // *live* balance keeps the Value column correct on quantity changes
+    // (immediate) while still treating the snapshot as the source of
+    // truth for prices (≤5s lag on price refreshes is bounded and fine).
+    // Falls through to live price for any holding not yet captured in the
+    // latest snapshot (new platform, fresh asset before next auto-refresh).
     const latest = snapshots[snapshots.length - 1]
-    const snapshotValueByTickerPlatform = new Map<string, number>()
+    const snapshotPriceByTickerPlatform = new Map<string, number>()
     if (latest?.breakdown?.by_asset) {
       for (const entry of latest.breakdown.by_asset) {
         const key = `${entry.ticker}|${entry.platform}`
-        snapshotValueByTickerPlatform.set(key, entry.value_usd)
+        snapshotPriceByTickerPlatform.set(key, entry.price_usd)
       }
     }
 
@@ -95,18 +101,17 @@ export function usePnL(
       const ticker = h.assets.ticker
       const category = h.assets.category
       const platformName = h.platforms.name
-      const price = prices[ticker]
-      const currentPriceUsd = price?.price_usd ?? 0
+      const livePrice = prices[ticker]?.price_usd ?? 0
       const key = `${h.asset_id}|${h.platform_id}`
       const snapshotKey = `${ticker}|${platformName}`
-      const snapshotValueUsd = snapshotValueByTickerPlatform.get(snapshotKey)
+      const snapshotPriceUsd =
+        snapshotPriceByTickerPlatform.get(snapshotKey) ?? livePrice
+      const liveBalanceBn = bn(h.balance)
 
       if (category === "fiat") {
-        // Fiat: value = snapshot's value (or balance × price as fallback);
-        // cost basis matches value (no realized P&L from price changes).
-        const liveValueUsd = bn(h.balance).times(bn(currentPriceUsd))
-        const currentValueUsd =
-          snapshotValueUsd != null ? bn(snapshotValueUsd) : liveValueUsd
+        // Fiat: value = balance × snapshot-or-live price; cost basis
+        // matches value (no realized P&L from price changes).
+        const currentValueUsd = liveBalanceBn.times(bn(snapshotPriceUsd))
         holdingPnLs.push({
           assetId: h.asset_id,
           ticker,
@@ -122,29 +127,24 @@ export function usePnL(
       const holdingTxs = grouped[key] ?? []
       const { lots, realized } = computeFIFOLots(holdingTxs, rates)
 
-      const unrealized = computeUnrealizedPnL(lots, currentPriceUsd, h.balance)
+      const unrealized = computeUnrealizedPnL(
+        lots,
+        snapshotPriceUsd,
+        h.balance,
+      )
 
       const totalRealized = realized.reduce(
         (sum, r) => sum.plus(r.realizedPnlUsd),
         BN_ZERO,
       )
 
-      // Prefer snapshot value_usd; fall back to FIFO's live-priced value.
-      // Unrealized P&L follows the chosen current value so the table's
-      // "Value" and "P&L" columns stay internally consistent.
-      const currentValueUsd =
-        snapshotValueUsd != null
-          ? bn(snapshotValueUsd)
-          : unrealized.currentValueUsd
-      const unrealizedPnlUsd = currentValueUsd.minus(unrealized.costBasisUsd)
-
       holdingPnLs.push({
         assetId: h.asset_id,
         ticker,
         category,
         costBasisUsd: unrealized.costBasisUsd,
-        currentValueUsd,
-        unrealizedPnlUsd,
+        currentValueUsd: unrealized.currentValueUsd,
+        unrealizedPnlUsd: unrealized.unrealizedPnlUsd,
         realizedPnlUsd: totalRealized,
       })
     }

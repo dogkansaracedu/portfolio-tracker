@@ -18,13 +18,22 @@ import {
 import type { Snapshot, PriceCache, ExchangeRate } from "@/types/database"
 
 /**
- * Burst-coalescing window for the auto-snapshot effect. On a normal page
- * load, prices reload from cache (`lastUpdated` set), then a stale-refresh
- * fetch runs and updates `lastUpdated` again seconds later. Without
- * debouncing, both events would each write a snapshot. 5s gives the burst
- * time to settle into a single canonical write.
+ * Debounce windows for the auto-snapshot effect.
+ *
+ * - PRICE: a normal page load loads prices from cache (sets `lastUpdated`),
+ *   then the stale-refresh fetch runs and updates `lastUpdated` again
+ *   seconds later. 5s gives the burst time to settle into a single
+ *   canonical write.
+ * - TX: a transaction add/edit/delete is a discrete user action — there
+ *   is no burst to coalesce. We still use a small window so e.g. a CSV
+ *   import that fires a dozen tx-saves in succession doesn't write a
+ *   dozen snapshots, but it's small enough to feel instant in normal use.
+ *
+ * When both triggers fire at once we use the shorter window so the user
+ * doesn't wait 5 seconds for the dashboard total to update after editing.
  */
-const AUTO_REFRESH_DEBOUNCE_MS = 5000
+const PRICE_REFRESH_DEBOUNCE_MS = 5000
+const TX_REFRESH_DEBOUNCE_MS = 200
 
 interface SnapshotsContextValue {
   snapshots: Snapshot[]
@@ -112,9 +121,10 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
   //
   // Burst coalescing: a typical page load sets `lastUpdated` from cache,
   // then sets it again ~seconds later when stale-refresh completes. We
-  // delay the actual write by AUTO_REFRESH_DEBOUNCE_MS and clear the
-  // pending timer when either trigger changes again, so the burst
-  // collapses to one canonical write.
+  // delay the actual write and clear the pending timer when either
+  // trigger changes again, so the burst collapses to one canonical write.
+  // Tx-driven writes use a much shorter window because they're discrete
+  // user actions — see the constants above.
   const lastTriggeredPriceRef = useRef<string | null>(null)
   const lastTriggeredTxVersionRef = useRef<number | null>(null)
   const userIdRef = useRef<string | null>(null)
@@ -134,6 +144,12 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
     const txUnseen = lastTriggeredTxVersionRef.current !== txVersion
     if (!priceUnseen && !txUnseen) return
 
+    // Pick the shorter window when tx is the trigger so the dashboard
+    // total catches up to a fresh edit in ~200ms instead of 5s.
+    const delay = txUnseen
+      ? TX_REFRESH_DEBOUNCE_MS
+      : PRICE_REFRESH_DEBOUNCE_MS
+
     let cancelled = false
     const timer = setTimeout(() => {
       if (cancelled) return
@@ -149,7 +165,7 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
           console.warn("Auto-refresh today's snapshot failed:", err)
         }
       })()
-    }, AUTO_REFRESH_DEBOUNCE_MS)
+    }, delay)
 
     return () => {
       cancelled = true

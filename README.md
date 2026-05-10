@@ -81,7 +81,6 @@ docs/
   budget-feature-plan.md             # Brainstorm/plan for the future budget feature
   cash-flow-feature-design.md        # Spec for the implemented cash-flow linkage
   post-deploy-gaps.md                # Open items remaining after the production deploy
-  snapshot-source-of-truth.md        # Architecture: snapshot is the SoT for dashboard
   components/                        # Per-component specs (build order, tasks, status)
 ```
 
