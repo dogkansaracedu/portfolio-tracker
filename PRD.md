@@ -241,7 +241,7 @@ Transfers between platforms do NOT affect P&L. A `transfer_out` from Platform A 
 
 The `snapshots.breakdown` JSONB is the **single source of truth** for every "current portfolio value" number rendered by the frontend (dashboard totals, allocation breakdowns, portfolio page values, top movers, performance charts). The frontend never re-derives totals from `holdings × price_cache`. Cost basis (FIFO) stays a pure function of `transactions` because it has no second source to drift against.
 
-This decision was taken on 2026-05-10 after a recurring class of bugs where three independent compute paths (`useDashboard`, `take-snapshots`, `backfill-snapshots`) silently disagreed on what a buy/sell/cash-credit contributes — most recently producing a +$1,176 dashboard-vs-portfolio P&L gap. With one writer (the snapshot path) and one reader (the dashboard + portfolio + performance pages), drift becomes structurally impossible. See `docs/snapshot-source-of-truth.md` for the full handoff.
+This decision was taken on 2026-05-10 after a recurring class of bugs where three independent compute paths (`useDashboard`, `take-snapshots`, `backfill-snapshots`) silently disagreed on what a buy/sell/cash-credit contributes — most recently producing a +$1,176 dashboard-vs-portfolio P&L gap. With one writer (the snapshot path) and one reader (the dashboard + portfolio + performance pages), drift becomes structurally impossible. The `docs/components/10-snapshots-performance.md` "Architectural guardrails" section enumerates the structural defenses to preserve.
 
 ### 8.1 Snapshot Generation
 
@@ -557,7 +557,7 @@ These are explicitly out of scope for v1 but worth keeping in mind architectural
 | P2 | Historical snapshot backfill (Settings UI + backfill-snapshots Edge Function) | Done |
 | P2 | Production deployment (Vercel frontend + Supabase Cloud, no GitHub) | Done |
 | P2 | Cash flow linkage (sell auto-credits cash, buy can deduct platform cash) | Done — linked-rows model with `cash_credit`/`cash_debit` types, see `docs/cash-flow-feature-design.md` |
-| P2 | Snapshot as single source of truth (one writer, one reader) | Done — see `docs/snapshot-source-of-truth.md` |
+| P2 | Snapshot as single source of truth (one writer, one reader) | Done — see PRD §8.0 + `docs/components/10-snapshots-performance.md` |
 | P2 | Auto-refresh today's snapshot on price/transaction events | Done — `SnapshotsProvider` debounced effect on `lastUpdated` / `txVersion` |
 | P2 | Data export (JSON/CSV dumps) | Not started |
 

@@ -12,7 +12,7 @@
 
 ### 2026-05-10: snapshot becomes the single source of truth
 
-- **Architecture:** `snapshot.breakdown` is now the only thing the dashboard / portfolio / performance pages read for "current portfolio value". One writer (the snapshot path: cron + backfill + in-browser `createSnapshot`), one reader. Eliminates the recurring class of bugs where three independent compute paths silently disagreed (most recent: +$1,176 dashboard-vs-portfolio P&L gap from `cash_credit` rows). Full handoff: `docs/snapshot-source-of-truth.md`.
+- **Architecture:** `snapshot.breakdown` is now the only thing the dashboard / portfolio / performance pages read for "current portfolio value". One writer (the snapshot path: cron + backfill + in-browser `createSnapshot`), one reader. Eliminates the recurring class of bugs where three independent compute paths silently disagreed (most recent: +$1,176 dashboard-vs-portfolio P&L gap from `cash_credit` rows). Architectural guardrails are listed at the bottom of this file.
 - **`SnapshotsProvider` (`src/contexts/SnapshotsContext.tsx`):** shared snapshot store + auto-refresh effect. Watches two event sources to keep today's snapshot fresh:
   - `lastUpdated` from `PricesProvider` — any price refresh.
   - `txVersion` from `TransactionContext` — any transaction add/edit/delete.
@@ -22,6 +22,21 @@
 - **Schema additions (optional on legacy rows):** `by_platform[name].try`, `by_platform[name].color`, `by_tag[name].try`, `by_asset[i].value_try`. Frontend falls back to `usd × snapshot's recorded usd_try` for legacy rows (never live, which would retro-convert at today's rate).
 - **`overwrite=ON` semantics fix (commit `f99499e`):** earlier behavior deleted only the exact target dates the run was about to write — stale rows on dates outside the run's `targetSet` survived. Now `overwrite=true` deletes every snapshot in `[earliestTxDate, today]` for the affected user before the upsert, then writes fresh.
 - **`formatSigned` (`DashboardHero.tsx`):** shows the leading `−` on negatives (was rendering losses as if they were gains).
+
+### 2026-05-10 (later): staleness regression and follow-up fix
+
+The first pass of §5.1 read `snapshot.by_asset[i].value_usd` directly. That field is `amount × price` frozen at snapshot write time, so after a tx changed the balance the Value column briefly showed the pre-edit value (Quantity updated immediately from `holdings`, Value lagged for ~5s until the auto-refresh wrote a fresh snapshot). Fix: source only the **price-per-unit** from the snapshot and multiply by the **live balance**. Quantity is reflected immediately; the snapshot stays the source of truth for *prices*; the bounded ≤5s lag now only affects price refreshes (which barely move the value in 5 seconds).
+
+A complementary debounce tweak: tx-driven snapshot writes use a 200ms window (`TX_REFRESH_DEBOUNCE_MS`) so the dashboard total catches up to a fresh edit nearly instantly, while price-driven writes keep the 5s window (`PRICE_REFRESH_DEBOUNCE_MS`) so cache-load → stale-refresh bursts coalesce. When both triggers fire together the shorter window wins.
+
+### Architectural guardrails (do not undo)
+
+These are the structural defenses against the bug classes this architecture was created to eliminate. Future work touching the snapshot path should preserve them:
+
+- **No `holdings × prices` aggregation on the dashboard or portfolio page.** The whole point of the SoT refactor is one source of truth for derived totals. New dashboard features that need derived data go in `snapshot.breakdown` (extending the schema) and are read from there — not recomputed in `useDashboard` / `useHoldings × usePrices`. Quantity comes from live `holdings` so transactions feel responsive; price comes from the snapshot so totals are consistent across the dashboard, portfolio page, and `total_usd`.
+- **Do not remove the unpriced-holdings guards** in `take-snapshots`, `backfill-snapshots`, or `createSnapshot`. They're the structural defense against the failure mode that produced the original 2026-04-09 orphan (a holding silently dropped from totals because its price wasn't cached yet). If they get noisy, fix `fetch-prices` so the cache *is* complete; don't silence the guard.
+- **Do not weaken `formatSigned`** back to "no minus on negatives". A `−$940` rendered as `$940` is the worst possible silent failure for a P&L tracker — losses look like gains.
+- **`overwrite=ON` deletes the date range** `[earliestTxDate, today]` for the affected user, not just the dates the run is about to write. Reverting to "delete only target dates" reintroduces the orphan-survival bug fixed in commit `f99499e`.
 
 ## Overview
 Build the snapshot system (manual trigger, snapshot viewing) and full performance page with charts: portfolio value over time, monthly returns, category attribution, drawdown, and summary statistics.

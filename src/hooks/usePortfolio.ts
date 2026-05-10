@@ -111,41 +111,29 @@ export function usePortfolio(): UsePortfolioReturn {
     [assets],
   )
 
-  // Snapshot-derived lookups, keyed for fast per-(ticker, platform) and
-  // per-ticker access. Per-(ticker, platform) drives the "group by platform"
-  // breakdown; per-ticker is the asset-level rollup. Falls back to live
-  // `prices × balance` only when the snapshot has no entry for the lookup
-  // — typically a new asset/platform between snapshot writes (auto-refresh
-  // on price/tx changes catches up within seconds).
+  // Snapshot-derived price lookups. We read *price-per-unit* from the
+  // snapshot and multiply by the *live* balance from `holdings`. This
+  // keeps quantity changes (after a tx) reflected immediately while
+  // treating the snapshot as the source of truth for prices (≤5s lag on
+  // a price refresh is bounded and unnoticeable). Reading the frozen
+  // value_usd directly would briefly show pre-tx values whenever the
+  // balance changed — a real UX regression for a tracker the user
+  // stares at while editing.
+  //
+  // tickerToPriceUsd is the per-asset rollup price; byTickerPlatform
+  // carries the same per-(ticker, platform) for the "group by platform"
+  // breakdown. fallbackUsdTry comes from the snapshot's recorded rate
+  // (never live — that would retro-convert old snapshots at today's rate).
   const snapshotLookups = useMemo(() => {
     const latest = snapshots[snapshots.length - 1]
-    const byTickerPlatform = new Map<
-      string,
-      { value_usd: number; value_try?: number; price_usd: number }
-    >()
-    const tickerToValueUsd = new Map<string, number>()
-    const tickerToValueTry = new Map<string, number>()
+    const byTickerPlatform = new Map<string, { price_usd: number }>()
     const tickerToPriceUsd = new Map<string, number>()
     const fallbackUsdTry = latest?.breakdown?.rates?.usd_try ?? usdTryRate
     if (latest?.breakdown?.by_asset) {
       for (const e of latest.breakdown.by_asset) {
         byTickerPlatform.set(`${e.ticker}|${e.platform}`, {
-          value_usd: e.value_usd,
-          value_try: e.value_try,
           price_usd: e.price_usd,
         })
-        tickerToValueUsd.set(
-          e.ticker,
-          (tickerToValueUsd.get(e.ticker) ?? 0) + e.value_usd,
-        )
-        const tryVal =
-          typeof e.value_try === "number"
-            ? e.value_try
-            : e.value_usd * fallbackUsdTry
-        tickerToValueTry.set(
-          e.ticker,
-          (tickerToValueTry.get(e.ticker) ?? 0) + tryVal,
-        )
         // Snapshot price_usd is identical across platforms for the same
         // ticker on the same date, so first one wins.
         if (!tickerToPriceUsd.has(e.ticker)) {
@@ -155,8 +143,6 @@ export function usePortfolio(): UsePortfolioReturn {
     }
     return {
       byTickerPlatform,
-      tickerToValueUsd,
-      tickerToValueTry,
       tickerToPriceUsd,
       fallbackUsdTry,
     }
@@ -183,9 +169,6 @@ export function usePortfolio(): UsePortfolioReturn {
     return activeAssets.map((asset: Asset): EnrichedAsset => {
       const livePrice: PriceCache | undefined = prices[asset.ticker]
       const liveBnPriceUsd = bn(livePrice?.price_usd)
-      const liveBnPriceTry = livePrice?.price_try
-        ? bn(livePrice.price_try)
-        : liveBnPriceUsd.times(bn(usdTryRate))
 
       const assetHoldings = holdingsByAsset.get(asset.id) ?? []
 
@@ -201,26 +184,20 @@ export function usePortfolio(): UsePortfolioReturn {
         BN_ZERO,
       )
 
-      // Prefer snapshot-recorded values; fall back to live × balance for
-      // assets not yet captured (new platform, fresh asset before next
-      // auto-refresh write).
-      const snapshotValueUsd = snapshotLookups.tickerToValueUsd.get(asset.ticker)
-      const snapshotValueTry = snapshotLookups.tickerToValueTry.get(asset.ticker)
+      // Snapshot-priced. Prefer the snapshot's price_usd for the ticker
+      // (same across platforms on the same date), fall back to live for
+      // assets the snapshot doesn't yet cover. Value = balance × price
+      // ensures the Value column tracks live quantity changes from
+      // transactions while still treating the snapshot as the source of
+      // truth for prices.
       const snapshotPriceUsd = snapshotLookups.tickerToPriceUsd.get(asset.ticker)
-
-      const currentValueUsd =
-        snapshotValueUsd != null
-          ? bn(snapshotValueUsd)
-          : bnTotalBalance.times(liveBnPriceUsd)
-      const currentValueTry =
-        snapshotValueTry != null
-          ? bn(snapshotValueTry)
-          : bnTotalBalance.times(liveBnPriceTry)
       const currentPriceUsd =
         snapshotPriceUsd != null ? bn(snapshotPriceUsd) : liveBnPriceUsd
       const currentPriceTry = currentPriceUsd.times(
         bn(snapshotLookups.fallbackUsdTry),
       )
+      const currentValueUsd = bnTotalBalance.times(currentPriceUsd)
+      const currentValueTry = bnTotalBalance.times(currentPriceTry)
 
       const pnl = pnlMap.get(asset.id)
 
@@ -292,19 +269,19 @@ export function usePortfolio(): UsePortfolioReturn {
             platformMeta.set(key, { name: h.platformName, color: h.platformColor })
           }
           const platformBalance = h.balance
-          // Prefer snapshot's per-(ticker, platform) value; fall back to
-          // balance × asset's current price (which itself prefers snapshot).
+          // platformValue = live balance × snapshot-priced per-unit.
+          // Per-(ticker, platform) snapshot entry overrides the asset
+          // rollup's price; falls back to asset.currentPriceUsd (which
+          // itself prefers snapshot) when no entry exists.
           const snapshotPlatformEntry =
             snapshotLookups.byTickerPlatform.get(`${asset.ticker}|${h.platformName}`)
-          const platformValueUsd =
-            snapshotPlatformEntry
-              ? snapshotPlatformEntry.value_usd
-              : platformBalance * asset.currentPriceUsd
-          const platformValueTry =
-            snapshotPlatformEntry
-              ? (snapshotPlatformEntry.value_try ??
-                  snapshotPlatformEntry.value_usd * snapshotLookups.fallbackUsdTry)
-              : platformBalance * asset.currentPriceTry
+          const platformPriceUsd = snapshotPlatformEntry
+            ? snapshotPlatformEntry.price_usd
+            : asset.currentPriceUsd
+          const platformPriceTry =
+            platformPriceUsd * snapshotLookups.fallbackUsdTry
+          const platformValueUsd = platformBalance * platformPriceUsd
+          const platformValueTry = platformBalance * platformPriceTry
           const costPerUnit = asset.totalBalance > 0
             ? asset.costBasisUsd / asset.totalBalance
             : 0
