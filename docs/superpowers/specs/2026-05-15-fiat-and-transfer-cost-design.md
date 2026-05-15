@@ -23,6 +23,7 @@ The handoff document `docs/pnl-divergence-handoff.md` hypothesized unpaired sell
 - Separate "is this a currency?" from "what bucket does this live in on my dashboard?"
 - Treat USDT/USDC as real crypto assets — full FIFO, market price, P&L surfaced — without changing how they appear in the dashboard's allocation view.
 - Keep the schema and code paths simple enough that adding the user's planned APR-tracking on stablecoins requires no further schema work.
+- Minimize the data-entry friction introduced by moving USDT/USDC out of the fiat short-circuit, by pre-filling `unit_price` from the latest cached market price.
 
 ## Non-goals
 
@@ -84,6 +85,18 @@ Data migration:
 
 The modal already has `selectedAsset` in scope; reading `selectedAsset.is_currency` and `selectedAsset.denomination` is a one-line change in the existing effect that controls field visibility.
 
+### Unit price prefill from price cache
+
+Once USDT/USDC are out of the fiat short-circuit, the user has to enter a real `unit_price` for every USDT/USDC `buy`/`sell`/`interest` transaction (and lone opening-balance `transfer_in`). In the old model the value was ignored, so no entry was needed. To keep entry frictionless without re-introducing special cases:
+
+- On asset selection, the modal reads the latest cached price from `price_cache` (joined to the selected asset's ticker) and pre-fills `unit_price` with that value.
+- For USDT/USDC this lands at ≈ `1.00` automatically — the user types nothing if the day's price is at par.
+- For BTC/AAPL/etc. it lands at the current market price — also a useful default; the user adjusts if they paid more or less.
+- If `price_cache` has no entry for the ticker (new asset, cold cache), the field stays empty and the user types as today.
+- The prefill is a one-time hint on asset change. It is not re-applied as the cache refreshes, and the user can always type over it. This is generic — no hardcoded "USDT = 1" rule.
+
+This is the single mitigation for the entry-friction the FIFO promotion introduces, and it incidentally improves entry for every other asset too.
+
 ### Asset form
 
 `src/components/assets/AssetForm.tsx` needs two changes:
@@ -112,11 +125,11 @@ If discipline-driven tagging becomes annoying (typos, forgotten tags), the follo
 | File | Change |
 |---|---|
 | `supabase/migrations/<new>_fiat_system_currency.sql` | Schema additions, CHECKs, data backfill (USD/TRY/EUR → is_currency, USDT/USDC → category='crypto'). |
-| `supabase/migrations/20260402100010_seed_function.sql` | Update seed to set is_currency / denomination / category='currency' on the 3 fiat rows. |
+| `supabase/migrations/20260402100010_seed_function.sql` | Update seed to set `is_currency=true` and `denomination=ticker` on USD/TRY/EUR; `category` stays `'fiat'`. |
 | `src/types/database.ts` | Add `is_currency: boolean` and `denomination: 'USD' \| 'TRY' \| 'EUR'` to the Asset interface. |
 | `src/hooks/usePnL.ts` | Replace `category === "fiat"` short-circuit with `asset.is_currency`. |
-| `src/components/transactions/AddTransactionModal.tsx` | Show & auto-fill cost fields for transfers per the rules above. Wire `computeTransferCostBasis` for non-currency paired transfers. |
-| `src/components/assets/AssetForm.tsx` | Add denomination dropdown; remove 'currency' from user-selectable categories. |
+| `src/components/transactions/AddTransactionModal.tsx` | (a) Show & auto-fill cost fields for transfers per the rules above. Wire `computeTransferCostBasis` for non-currency paired transfers. (b) Pre-fill `unit_price` from `price_cache` on asset change for buy/sell/interest/dividend/lone-transfer_in. |
+| `src/components/assets/AssetForm.tsx` | Add `denomination` dropdown for new assets, defaulted to `USD`. |
 | `src/components/assets/AssetList.tsx` (or equivalent) | Hide edit/delete affordances on `is_currency=true` rows. |
 | `docs/pnl-divergence-handoff.md` | Delete (resolved). |
 
@@ -132,7 +145,8 @@ This project has no test suite by convention (per CLAUDE.md). Verification is vi
 4. **Transfer cost auto-fill — paired crypto:** open modal, pick asset=AAPL (or a crypto with FIFO history), type=transfer_out, amount=N, destination=other platform. Verify auto-fill matches `computeTransferCostBasis` output; submit; confirm both rows have the matching cost.
 5. **Transfer cost — lone non-currency:** pick asset=BTC, type=transfer_in, amount=0.5, leave cost empty. Verify submit is blocked client-side with a clear message; fill cost; verify success.
 6. **DB CHECK:** attempt manual SQL `INSERT INTO transactions (..., type='transfer_in', total_cost=0, ...)` — verify it's rejected.
-7. **P&L regression:** confirm hero P&L still matches portfolio P&L within $1 after the migration. The Mar 3 row is fine; USDT/USDC repricing will introduce small (<$10) P&L noise — verify the noise is reasonable.
+7. **Unit price prefill:** open the modal, pick asset=USDT, type=buy → confirm `unit_price` pre-fills to ~`1.00`. Switch to asset=BTC → confirm prefill changes to the current BTC market price. Confirm the user can still type over the prefilled value.
+8. **P&L regression:** confirm hero P&L still matches portfolio P&L within $1 after the migration. The Mar 3 row is fine; USDT/USDC repricing will introduce small (<$10) P&L noise — verify the noise is reasonable.
 
 ## Rollout
 
