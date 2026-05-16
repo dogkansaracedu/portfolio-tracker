@@ -206,7 +206,9 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     holdings,
   ])
 
-  const showPriceFields = ["buy", "sell", "dividend", "interest"].includes(type)
+  const showPriceFields =
+    ["buy", "sell", "dividend", "interest"].includes(type) ||
+    (type === "transfer_in" && !!selectedAsset && !selectedAsset.is_currency)
   const showFeeFields = ["buy", "sell"].includes(type)
   const isTransfer = type === "transfer_out"
   const isTransferEither = type === "transfer_out" || type === "transfer_in"
@@ -545,6 +547,12 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
               })}{" "}
               (auto)
             </div>
+          )}
+
+          {type === "transfer_in" && selectedAsset && !selectedAsset.is_currency && parsedAmount.gt(0) && !parsedPrice.gt(0) && (
+            <p className="text-xs text-destructive">
+              Opening-balance transfer_in requires an original cost (price per unit).
+            </p>
           )}
 
           {/* Fee */}
