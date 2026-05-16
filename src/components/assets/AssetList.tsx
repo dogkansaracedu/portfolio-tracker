@@ -142,6 +142,7 @@ export function AssetList() {
               name: data.name,
               tags: data.tags,
               price_source: data.price_source,
+              denomination: data.denomination,
             });
           } else {
             await addAsset(data);
