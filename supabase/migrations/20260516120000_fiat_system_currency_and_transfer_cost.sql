@@ -38,8 +38,13 @@ CREATE OR REPLACE FUNCTION public.seed_user_data(p_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
+  IF p_user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'cannot seed for another user';
+  END IF;
+
   INSERT INTO public.platforms (user_id, name, color) VALUES
     (p_user_id, 'IBKR',          '#3b82f6'),
     (p_user_id, 'Midas',         '#8b5cf6'),
