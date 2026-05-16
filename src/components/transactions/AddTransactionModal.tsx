@@ -30,11 +30,13 @@ import { AssetSearchSelect } from "./AssetSearchSelect"
 import { FundingSourceSelect } from "./FundingSourceSelect"
 import { PlatformDot } from "@/components/common/PlatformDot"
 import { useTransactionModal } from "@/contexts/TransactionContext"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useHoldings } from "@/hooks/useHoldings"
 import { useAuth } from "@/hooks/useAuth"
 import { fetchLinkedChild } from "@/lib/queries/transactions"
 import { validateFundingCash } from "@/lib/cash"
+import { computeTransferCostBasis } from "@/lib/pnl/fifo"
 import { bn } from "@/lib/config"
 import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
 import {
@@ -69,6 +71,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const { modalState, closeTransactionModal } = useTransactionModal()
   const { addTransaction, editTransaction } = useTransactions()
   const { holdings, getTotalBalance, getHoldingsForAsset } = useHoldings()
+  const { transactions, rates } = useTransactionData()
 
   const editing = modalState.editingTransaction
   const isEdit = Boolean(editing)
@@ -218,6 +221,33 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     setUnitPrice("1")
     setPriceCurrency(selectedAsset.denomination)
   }, [isTransferEither, isCurrencyAsset, selectedAsset])
+
+  // Paired non-currency transfer: compute FIFO weighted-average cost from
+  // the source platform's prior lots and apply it to both the transfer_out
+  // and the auto-created transfer_in.
+  useEffect(() => {
+    if (
+      type !== "transfer_out" ||
+      !selectedAsset ||
+      selectedAsset.is_currency ||
+      !platformId ||
+      !parsedAmount.gt(0)
+    ) {
+      return
+    }
+    const sourceTxs = transactions.filter(
+      (t) => t.asset_id === selectedAsset.id && t.platform_id === platformId,
+    )
+    const avgUsd = computeTransferCostBasis(
+      sourceTxs,
+      rates,
+      parsedAmount.toNumber(),
+    )
+    if (avgUsd.gt(0)) {
+      setUnitPrice(avgUsd.toString())
+      setPriceCurrency(selectedAsset.denomination)
+    }
+  }, [type, selectedAsset, platformId, parsedAmount, transactions, rates])
 
   // Get the balance for the selected asset on the selected platform
   const holdingsForAsset = assetId ? getHoldingsForAsset(assetId) : []
@@ -505,11 +535,11 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             </div>
           )}
 
-          {/* Currency transfer auto-cost display (read-only) */}
-          {isTransferEither && isCurrencyAsset && selectedAsset && parsedAmount.gt(0) && (
+          {/* Transfer auto-cost display (read-only) */}
+          {isTransferEither && parsedAmount.gt(0) && parsedPrice.gt(0) && selectedAsset && (isCurrencyAsset || type === "transfer_out") && (
             <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-              Cost basis: {CURRENCY_SYMBOLS[selectedAsset.denomination] ?? ""}
-              {parsedAmount.toNumber().toLocaleString(undefined, {
+              Cost basis: {CURRENCY_SYMBOLS[priceCurrency as FiatCurrency] ?? ""}
+              {totalCost.toNumber().toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}{" "}
