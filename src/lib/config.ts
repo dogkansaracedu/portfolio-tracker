@@ -56,9 +56,11 @@ export const CURRENCY_CONFIG = {
 
 // ─── BigNumber Helpers ──────────────────────────────────────────────
 
-/** Create a BigNumber from any value, defaulting to 0 for null/undefined */
+/** Create a BigNumber from any value, defaulting to 0 for null/undefined/"" */
 export function bn(value: BigNumber.Value | null | undefined): BigNumber {
-  if (value === null || value === undefined) return new BigNumber(0)
+  if (value === null || value === undefined || value === "") {
+    return new BigNumber(0)
+  }
   const result = new BigNumber(value)
   return result.isNaN() ? new BigNumber(0) : result
 }
