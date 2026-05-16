@@ -2,7 +2,14 @@ import { supabase } from "@/lib/supabase"
 import type { Holding, HoldingInsert } from "@/types/database"
 
 export interface HoldingWithDetails extends Holding {
-  assets: { name: string; ticker: string; category: string; tags: string[] }
+  assets: {
+    name: string
+    ticker: string
+    category: string
+    tags: string[]
+    is_currency: boolean
+    denomination: "USD" | "TRY" | "EUR"
+  }
   platforms: { name: string; color: string }
 }
 
@@ -11,7 +18,7 @@ export async function fetchHoldings(
 ): Promise<HoldingWithDetails[]> {
   const { data, error } = await supabase
     .from("holdings")
-    .select("*, assets(name, ticker, category, tags), platforms(name, color)")
+    .select("*, assets(name, ticker, category, tags, is_currency, denomination), platforms(name, color)")
     .eq("user_id", userId)
     .neq("balance", 0)
     .order("assets(name)")
@@ -25,7 +32,7 @@ export async function fetchHoldingsByAsset(
 ): Promise<HoldingWithDetails[]> {
   const { data, error } = await supabase
     .from("holdings")
-    .select("*, assets(name, ticker, category, tags), platforms(name, color)")
+    .select("*, assets(name, ticker, category, tags, is_currency, denomination), platforms(name, color)")
     .eq("asset_id", assetId)
 
   if (error) throw error

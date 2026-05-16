@@ -108,7 +108,7 @@ export function usePnL(
         snapshotPriceByTickerPlatform.get(snapshotKey) ?? livePrice
       const liveBalanceBn = bn(h.balance)
 
-      if (category === "fiat") {
+      if (h.assets.is_currency) {
         // Fiat: value = balance × snapshot-or-live price; cost basis
         // matches value (no realized P&L from price changes).
         const currentValueUsd = liveBalanceBn.times(bn(snapshotPriceUsd))
