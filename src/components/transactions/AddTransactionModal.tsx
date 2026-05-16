@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -97,6 +97,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     platformId: string
   } | null>(null)
   const [fundingError, setFundingError] = useState<string | null>(null)
+  const lastPrefilledTickerRef = useRef<string | null>(null)
 
   // Hydrate form from edit target / prefill / defaults whenever the modal opens.
   // Prior implementation only handled prefilledAssetId on its own effect, which
@@ -222,9 +223,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   // the values; the corresponding UI shows them as read-only below.
   useEffect(() => {
     if (!isTransferEither || !isCurrencyAsset || !selectedAsset) return
+    if (isEdit) return
     setUnitPrice("1")
     setPriceCurrency(selectedAsset.denomination)
-  }, [isTransferEither, isCurrencyAsset, selectedAsset])
+  }, [isTransferEither, isCurrencyAsset, selectedAsset, isEdit])
 
   // Paired non-currency transfer: compute FIFO weighted-average cost from
   // the source platform's prior lots and apply it to both the transfer_out
@@ -239,6 +241,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     ) {
       return
     }
+    if (isEdit) return
     const sourceTxs = transactions.filter(
       (t) => t.asset_id === selectedAsset.id && t.platform_id === platformId,
     )
@@ -250,8 +253,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     if (avgUsd.gt(0)) {
       setUnitPrice(avgUsd.toString())
       setPriceCurrency(selectedAsset.denomination)
+    } else {
+      setUnitPrice("")
     }
-  }, [type, selectedAsset, platformId, parsedAmount, transactions, rates])
+  }, [type, selectedAsset, platformId, parsedAmount, transactions, rates, isEdit])
 
   // Prefill unit_price from the latest cached market price when the user
   // picks an asset. Helps every tx type that exposes a price input:
@@ -263,12 +268,22 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     if (selectedAsset.is_currency) return
     if (type === "transfer_out") return
     if (isEdit) return // never overwrite an existing tx's price
+    if (lastPrefilledTickerRef.current === selectedAsset.ticker) return
     const cached = prices[selectedAsset.ticker]?.price_usd
     if (cached && cached > 0) {
       setUnitPrice(String(cached))
       setPriceCurrency("USD")
+      lastPrefilledTickerRef.current = selectedAsset.ticker
     }
   }, [selectedAsset, type, prices, isEdit])
+
+  // Reset prefill tracking when the modal closes so reopening on the same
+  // ticker re-applies the prefill cleanly.
+  useEffect(() => {
+    if (!modalState.isOpen) {
+      lastPrefilledTickerRef.current = null
+    }
+  }, [modalState.isOpen])
 
   // Get the balance for the selected asset on the selected platform
   const holdingsForAsset = assetId ? getHoldingsForAsset(assetId) : []
