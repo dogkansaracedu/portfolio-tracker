@@ -55,7 +55,7 @@ export function AssetRow({ asset, onEdit, onDeactivate }: AssetRowProps) {
         </Badge>
       </TableCell>
       <TableCell className="text-right">
-        {asset.is_active && (
+        {asset.is_active && !asset.is_currency && (
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
