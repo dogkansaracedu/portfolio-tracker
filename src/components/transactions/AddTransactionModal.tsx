@@ -206,6 +206,18 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const showPriceFields = ["buy", "sell", "dividend", "interest"].includes(type)
   const showFeeFields = ["buy", "sell"].includes(type)
   const isTransfer = type === "transfer_out"
+  const isTransferEither = type === "transfer_out" || type === "transfer_in"
+  const isCurrencyAsset = !!selectedAsset?.is_currency
+
+  // Currency transfer auto-fill: when transferring a system currency
+  // (USD/TRY/EUR), cost basis is trivially `amount` of its own denomination.
+  // We write directly into the form state so the eventual payload picks up
+  // the values; the corresponding UI shows them as read-only below.
+  useEffect(() => {
+    if (!isTransferEither || !isCurrencyAsset || !selectedAsset) return
+    setUnitPrice("1")
+    setPriceCurrency(selectedAsset.denomination)
+  }, [isTransferEither, isCurrencyAsset, selectedAsset])
 
   // Get the balance for the selected asset on the selected platform
   const holdingsForAsset = assetId ? getHoldingsForAsset(assetId) : []
@@ -490,6 +502,18 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
+            </div>
+          )}
+
+          {/* Currency transfer auto-cost display (read-only) */}
+          {isTransferEither && isCurrencyAsset && selectedAsset && parsedAmount.gt(0) && (
+            <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+              Cost basis: {CURRENCY_SYMBOLS[selectedAsset.denomination] ?? ""}
+              {parsedAmount.toNumber().toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{" "}
+              (auto)
             </div>
           )}
 
