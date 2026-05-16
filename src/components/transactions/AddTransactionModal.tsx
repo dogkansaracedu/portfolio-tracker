@@ -34,6 +34,7 @@ import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useHoldings } from "@/hooks/useHoldings"
 import { useAuth } from "@/hooks/useAuth"
+import { usePrices } from "@/hooks/usePrices"
 import { fetchLinkedChild } from "@/lib/queries/transactions"
 import { validateFundingCash } from "@/lib/cash"
 import { computeTransferCostBasis } from "@/lib/pnl/fifo"
@@ -72,6 +73,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const { addTransaction, editTransaction } = useTransactions()
   const { holdings, getTotalBalance, getHoldingsForAsset } = useHoldings()
   const { transactions, rates } = useTransactionData()
+  const { prices } = usePrices()
 
   const editing = modalState.editingTransaction
   const isEdit = Boolean(editing)
@@ -250,6 +252,23 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
       setPriceCurrency(selectedAsset.denomination)
     }
   }, [type, selectedAsset, platformId, parsedAmount, transactions, rates])
+
+  // Prefill unit_price from the latest cached market price when the user
+  // picks an asset. Helps every tx type that exposes a price input:
+  // buy, sell, dividend, interest, and lone non-currency transfer_in.
+  // Skipped for currency assets (Task 4 already forces unit_price=1) and
+  // for transfer_out (Task 5 already populates from FIFO).
+  useEffect(() => {
+    if (!selectedAsset) return
+    if (selectedAsset.is_currency) return
+    if (type === "transfer_out") return
+    if (isEdit) return // never overwrite an existing tx's price
+    const cached = prices[selectedAsset.ticker]?.price_usd
+    if (cached && cached > 0) {
+      setUnitPrice(String(cached))
+      setPriceCurrency("USD")
+    }
+  }, [selectedAsset, type, prices, isEdit])
 
   // Get the balance for the selected asset on the selected platform
   const holdingsForAsset = assetId ? getHoldingsForAsset(assetId) : []
