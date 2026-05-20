@@ -31,7 +31,6 @@ export interface Asset {
   tags: string[];
   price_source: string;
   is_currency: boolean;
-  denomination: "USD" | "TRY" | "EUR";
   is_active: boolean;
   created_at: string;
   updated_at: string;

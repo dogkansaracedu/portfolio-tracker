@@ -53,7 +53,6 @@ interface AssetFormProps {
     name: string;
     tags: string[];
     price_source: string;
-    denomination: "USD" | "TRY" | "EUR";
     is_active: boolean;
   }) => Promise<void>;
 }
@@ -69,7 +68,6 @@ export function AssetForm({
   const [displayName, setDisplayName] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [priceSource, setPriceSource] = useState("manual");
-  const [denomination, setDenomination] = useState<"USD" | "TRY" | "EUR">("USD");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +80,6 @@ export function AssetForm({
       setDisplayName(asset?.name ?? "");
       setTagsInput(asset?.tags?.join(", ") ?? "");
       setPriceSource(asset?.price_source ?? "manual");
-      setDenomination(asset?.denomination ?? "USD");
       setError(null);
     }
   }, [open, asset]);
@@ -115,7 +112,6 @@ export function AssetForm({
         name: trimmedName,
         tags,
         price_source: priceSource,
-        denomination,
         is_active: true,
       });
       onOpenChange(false);
@@ -211,26 +207,6 @@ export function AssetForm({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label>Denomination</Label>
-            <Select
-              value={denomination}
-              onValueChange={(val) => setDenomination(val as "USD" | "TRY" | "EUR")}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="USD">USD</SelectItem>
-                <SelectItem value="TRY">TRY</SelectItem>
-                <SelectItem value="EUR">EUR</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              The currency this asset's price is quoted in. Almost always USD.
-            </p>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

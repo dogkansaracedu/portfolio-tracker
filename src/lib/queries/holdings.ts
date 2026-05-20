@@ -8,7 +8,6 @@ export interface HoldingWithDetails extends Holding {
     category: string
     tags: string[]
     is_currency: boolean
-    denomination: "USD" | "TRY" | "EUR"
   }
   platforms: { name: string; color: string }
 }
@@ -18,7 +17,7 @@ export async function fetchHoldings(
 ): Promise<HoldingWithDetails[]> {
   const { data, error } = await supabase
     .from("holdings")
-    .select("*, assets(name, ticker, category, tags, is_currency, denomination), platforms(name, color)")
+    .select("*, assets(name, ticker, category, tags, is_currency), platforms(name, color)")
     .eq("user_id", userId)
     .neq("balance", 0)
     .order("assets(name)")
@@ -32,7 +31,7 @@ export async function fetchHoldingsByAsset(
 ): Promise<HoldingWithDetails[]> {
   const { data, error } = await supabase
     .from("holdings")
-    .select("*, assets(name, ticker, category, tags, is_currency, denomination), platforms(name, color)")
+    .select("*, assets(name, ticker, category, tags, is_currency), platforms(name, color)")
     .eq("asset_id", assetId)
 
   if (error) throw error
