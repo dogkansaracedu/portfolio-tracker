@@ -155,3 +155,7 @@ Single-user, no PR process. Apply migration → ship code → smoke-test in dev 
 ## Open questions
 
 - None at design time. The "future APR/yield tracking" feature is explicitly out of scope and the existing `interest` transaction type already supports it without further schema work.
+
+## Addendum
+
+**2026-05-20:** The `denomination` column described above was removed as redundant — `transactions.price_currency` already captures per-row input currency, and the asset-level default was wrong for assets like physical gold (defaulted to USD but always paid in TRY). Migration history was also collapsed into a single `20260520000000_init.sql` baseline. See `docs/denomination-rollback-handoff.md` for the full rationale.

@@ -218,14 +218,14 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const isCurrencyAsset = !!selectedAsset?.is_currency
 
   // Currency transfer auto-fill: when transferring a system currency
-  // (USD/TRY/EUR), cost basis is trivially `amount` of its own denomination.
+  // (USD/TRY/EUR), cost basis is trivially `amount` of its own ticker (USD/TRY/EUR).
   // We write directly into the form state so the eventual payload picks up
   // the values; the corresponding UI shows them as read-only below.
   useEffect(() => {
     if (!isTransferEither || !isCurrencyAsset || !selectedAsset) return
     if (isEdit) return
     setUnitPrice("1")
-    setPriceCurrency(selectedAsset.denomination)
+    setPriceCurrency(selectedAsset.ticker)
   }, [isTransferEither, isCurrencyAsset, selectedAsset, isEdit])
 
   // Paired non-currency transfer: compute FIFO weighted-average cost from
@@ -252,7 +252,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     )
     if (avgUsd.gt(0)) {
       setUnitPrice(avgUsd.toString())
-      setPriceCurrency(selectedAsset.denomination)
+      setPriceCurrency("USD")
     } else {
       setUnitPrice("")
     }
