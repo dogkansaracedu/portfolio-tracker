@@ -144,6 +144,19 @@ CREATE INDEX transactions_linked_tx_id_idx
 CREATE INDEX idx_snapshots_user_date
   ON public.snapshots(user_id, snapshot_date);
 
+-- ─── Default Grants ────────────────────────────────────────────────
+-- Supabase normally pre-grants these to the API roles; recreating the
+-- public schema from scratch wipes them, so a fresh init must restore
+-- them explicitly. Row-level access is still gated by the policies below.
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES    IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+
 -- ─── Row Level Security ────────────────────────────────────────────
 ALTER TABLE public.signup_allowlist ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.platforms        ENABLE ROW LEVEL SECURITY;
