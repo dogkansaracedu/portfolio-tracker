@@ -386,6 +386,12 @@ verify_jwt = true
 [functions.fetch-historical-rate]
 verify_jwt = false
 
+# Benchmark history backfill — pulls SPY/QQQ daily closes from Yahoo
+# into `benchmark_prices`. Caller can't inject data (function ignores
+# request body and writes hardcoded tickers only), so no JWT needed.
+[functions.fetch-benchmark-history]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

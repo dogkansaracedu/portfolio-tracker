@@ -93,6 +93,13 @@ export interface ExchangeRate {
   gold_gram_try: number | null;
 }
 
+export interface BenchmarkPrice {
+  ticker: string;
+  date: string;
+  close_usd: number;
+  updated_at: string;
+}
+
 // ─── Snapshot Breakdown Shape ───────────────────────────────────────
 //
 // The snapshot's `breakdown` is the authoritative aggregation of a portfolio's
