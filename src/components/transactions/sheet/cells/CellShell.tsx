@@ -14,13 +14,18 @@ interface Props {
 }
 
 /** Visual wrapper for every editable cell. Adds a red ring + tooltip when the
- *  cell has a validation error. Keeps cell editors free of error-display logic. */
+ *  cell has a validation error. SWS-style: generous padding, no inset borders;
+ *  the focus state comes from the inner input/trigger. */
 export function CellShell({ error, className, children }: Props) {
   if (!error) {
-    return <TableCell className={cn("p-1 align-middle", className)}>{children}</TableCell>
+    return (
+      <TableCell className={cn("px-2 py-2 align-middle", className)}>
+        {children}
+      </TableCell>
+    )
   }
   return (
-    <TableCell className={cn("p-1 align-middle", className)}>
+    <TableCell className={cn("px-2 py-2 align-middle", className)}>
       <Tooltip>
         <TooltipTrigger
           render={
