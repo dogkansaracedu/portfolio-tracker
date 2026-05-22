@@ -9,7 +9,7 @@ interface PortfolioSummaryBarProps {
   totalPnlPct: number
   totalUnrealizedPnlUsd: number
   totalRealizedPnlUsd: number
-  activeAssetCount: number
+  heldAssetCount: number
 }
 
 function signedCurrency(value: number, currency: "USD" | "TRY"): string {
@@ -24,7 +24,7 @@ export function PortfolioSummaryBar({
   totalPnlPct,
   totalUnrealizedPnlUsd,
   totalRealizedPnlUsd,
-  activeAssetCount,
+  heldAssetCount,
 }: PortfolioSummaryBarProps) {
   const { currency, obfuscated } = useDisplayCurrency()
   const o = (v: string) => obfuscate(v, obfuscated)
@@ -80,15 +80,15 @@ export function PortfolioSummaryBar({
         </CardContent>
       </Card>
 
-      {/* Active Assets */}
+      {/* Held Assets */}
       <Card size="sm">
         <CardContent>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">
-              Active Assets
+              Held Assets
             </span>
             <span className="text-xl font-bold tabular-nums">
-              {activeAssetCount}
+              {heldAssetCount}
             </span>
           </div>
         </CardContent>

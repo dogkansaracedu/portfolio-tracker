@@ -15,7 +15,7 @@ export default function PortfolioPage() {
     totalPnlPct,
     totalUnrealizedPnlUsd,
     totalRealizedPnlUsd,
-    activeAssetCount,
+    heldAssetCount,
     loading,
     search,
     setSearch,
@@ -49,7 +49,7 @@ export default function PortfolioPage() {
         totalPnlPct={totalPnlPct}
         totalUnrealizedPnlUsd={totalUnrealizedPnlUsd}
         totalRealizedPnlUsd={totalRealizedPnlUsd}
-        activeAssetCount={activeAssetCount}
+        heldAssetCount={heldAssetCount}
       />
 
       {/* Filters */}
