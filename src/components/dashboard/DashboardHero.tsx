@@ -87,9 +87,62 @@ function compactCurrency(value: number, currency: "USD" | "TRY"): string {
   const symbol = currency === "USD" ? "$" : "₺"
   const abs = Math.abs(value)
   const sign = value < 0 ? "-" : ""
-  if (abs >= 1_000_000) return `${sign}${symbol}${(abs / 1_000_000).toFixed(1)}M`
-  if (abs >= 1_000) return `${sign}${symbol}${(abs / 1_000).toFixed(0)}k`
+  // 1 decimal when below 10 so half-k ticks (e.g. $1.5k) render as "$1.5k"
+  // instead of rounding up to "$2k". Drop trailing ".0" so $2.0k becomes
+  // $2k. Same logic for M.
+  const trim = (s: string) => s.replace(/\.0$/, "")
+  if (abs >= 1_000_000) {
+    const v = abs / 1_000_000
+    return `${sign}${symbol}${trim(v.toFixed(v < 10 ? 1 : 0))}M`
+  }
+  if (abs >= 1_000) {
+    const v = abs / 1_000
+    return `${sign}${symbol}${trim(v.toFixed(v < 10 ? 1 : 0))}k`
+  }
   return `${sign}${symbol}${abs.toFixed(0)}`
+}
+
+/**
+ * "Nice" step size for axis ticks given a value span. Picks 1/2/5 × 10^n
+ * so steps land on round numbers humans expect (1, 2, 5, 10, 20, 50, …).
+ */
+function niceStep(span: number, target: number): number {
+  if (!Number.isFinite(span) || span <= 0) return 1
+  const rough = span / Math.max(target, 1)
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)))
+  const norm = rough / mag
+  if (norm < 1.5) return 1 * mag
+  if (norm < 3) return 2 * mag
+  if (norm < 7) return 5 * mag
+  return 10 * mag
+}
+
+/**
+ * Generate round tick values from [min, max] at a "nice" step, always
+ * including 0 (forced when min and max are both same sign, since the
+ * niceStep grid wouldn't otherwise pin 0 to the axis).
+ */
+function niceTicks(
+  min: number,
+  max: number,
+  targetCount: number = 5,
+): number[] {
+  if (min === max) return [0, min].sort((a, b) => a - b)
+  const step = niceStep(max - min, targetCount)
+  const start = Math.floor(min / step) * step
+  const end = Math.ceil(max / step) * step
+  const ticks: number[] = []
+  for (let i = 0; i <= 20; i++) {
+    const v = start + i * step
+    // Step-aligned rounding eliminates float drift like 0.30000000000000004.
+    ticks.push(Math.round(v / step) * step)
+    if (v >= end) break
+  }
+  if (!ticks.some((t) => Math.abs(t) < step * 1e-6)) {
+    ticks.push(0)
+    ticks.sort((a, b) => a - b)
+  }
+  return ticks
 }
 
 export default function DashboardHero({
@@ -203,35 +256,50 @@ export default function DashboardHero({
   const denom = currency === "USD" ? denomUsd : denomTry
 
   // Calibrate left (USD/TRY) and right (%) axes so position(left) /
-  // denom × 100 = position(right). The union of the portfolio %-equivalent
-  // range and the benchmark %-range is the right-axis domain; the left
-  // domain is back-derived from it so both lines fit and 0 is always on
-  // both axes (we seed `pctValues` with 0).
+  // denom × 100 = position(right). Pick "nice" round USD/TRY ticks (and
+  // force 0 to be one of them — niceTicks already does this when 0 is
+  // inside the padded data range), then derive the matching % ticks at
+  // those same physical positions. Both axes share gridlines, the left
+  // reads as round monetary amounts (the user's headline frame), the
+  // right shows the exact %-equivalent at each gridline.
   const axisDomains = useMemo<{
     pnl?: [number, number]
     pct?: [number, number]
+    pnlTicks?: number[]
+    pctTicks?: number[]
   }>(() => {
     if (viewMode !== "pnl" || displayChartData.length === 0) return {}
     const pnlValues = displayChartData.map((p) =>
       currency === "USD" ? p.valueUsd : p.valueTry,
     )
-    const pnlPctValues = pnlValues.map((v) => (v / denom) * 100)
-    const benchValues = displayChartData.map((p) => p.benchmarkPct)
-    const pctValues = [...pnlPctValues, ...benchValues, 0]
-    const pctMin = Math.min(...pctValues)
-    const pctMax = Math.max(...pctValues)
-    const pad = Math.max((pctMax - pctMin) * 0.08, 0.5)
-    const finalPctMin = pctMin - pad
-    const finalPctMax = pctMax + pad
+    // Express the benchmark in USD/TRY so both lines participate in the
+    // same min/max bound — otherwise a benchmark that out- or under-
+    // performs the portfolio would clip on the chart.
+    const benchValuesInCurrency = displayChartData.map(
+      (p) => (p.benchmarkPct / 100) * denom,
+    )
+    const pnlAllValues = [...pnlValues, ...benchValuesInCurrency, 0]
+    const pnlMin = Math.min(...pnlAllValues)
+    const pnlMax = Math.max(...pnlAllValues)
+    const pad = Math.max((pnlMax - pnlMin) * 0.08, Math.abs(denom) * 0.01)
+    const pnlTicks = niceTicks(pnlMin - pad, pnlMax + pad, 5)
+    const tickMinUsd = pnlTicks[0]
+    const tickMaxUsd = pnlTicks[pnlTicks.length - 1]
+    const pctTicks = pnlTicks.map((t) => (t / denom) * 100)
     return {
-      pnl: [(finalPctMin / 100) * denom, (finalPctMax / 100) * denom],
-      pct: [finalPctMin, finalPctMax],
+      pnl: [tickMinUsd, tickMaxUsd],
+      pct: [(tickMinUsd / denom) * 100, (tickMaxUsd / denom) * 100],
+      pnlTicks,
+      pctTicks,
     }
   }, [viewMode, displayChartData, currency, denom])
 
   const formatRightAxisTick = (v: number) => {
     const sign = v > 0 ? "+" : ""
-    return `${sign}${v.toFixed(v >= 100 || v <= -100 ? 0 : 1)}%`
+    // niceTicks emits integers for any span >= 5%, so the .toFixed(0) is
+    // safe in practice. Keep one decimal for sub-5% spans (rare).
+    const decimals = Number.isInteger(v) ? 0 : 1
+    return `${sign}${v.toFixed(decimals)}%`
   }
 
   const renderPnlTooltip = (props: {
@@ -466,6 +534,7 @@ export default function DashboardHero({
                   tickLine={false}
                   width={56}
                   domain={axisDomains.pnl ?? ["auto", "auto"]}
+                  ticks={axisDomains.pnlTicks}
                   tickFormatter={(v: number) => compactCurrency(v, currency)}
                 />
                 {viewMode === "pnl" && (
@@ -473,11 +542,13 @@ export default function DashboardHero({
                   // in %. position(left) / denom × 100 = position(right), so
                   // the green line reads consistently off both axes. The
                   // grey benchmark line is plotted in % directly on this
-                  // axis.
+                  // axis. Both axes share the same `ticks` positions so
+                  // gridlines align.
                   <YAxis
                     yAxisId="compare"
                     orientation="right"
                     domain={axisDomains.pct ?? ["auto", "auto"]}
+                    ticks={axisDomains.pctTicks}
                     tick={{ fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
@@ -548,10 +619,11 @@ export default function DashboardHero({
                   name="compare"
                   stroke="var(--muted-foreground)"
                   fill="transparent"
-                  strokeWidth={1.5}
-                  // Solid grey in P&L mode (it's the benchmark, the focal
-                  // comparison) — dashed only in Value mode where the cost-
-                  // basis line is intentionally secondary.
+                  // De-emphasized: thin stroke + partial opacity so the
+                  // benchmark reads as a reference line, not a peer to the
+                  // portfolio line.
+                  strokeWidth={1}
+                  strokeOpacity={0.45}
                   strokeDasharray={viewMode === "pnl" ? undefined : "4 4"}
                   isAnimationActive={false}
                 />
