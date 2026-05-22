@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { useTransactionModal } from "@/contexts/TransactionContext"
+import { useAssetSheet } from "@/contexts/AssetSheetContext"
 import { formatCurrency, formatCryptoAmount, obfuscate } from "@/lib/prices"
 import type { EnrichedAsset } from "@/hooks/usePortfolio"
 
@@ -30,6 +31,7 @@ function formatQuantity(balance: number, category: string): string {
 export function PortfolioRow({ asset }: PortfolioRowProps) {
   const { currency, obfuscated } = useDisplayCurrency()
   const { openTransactionModal } = useTransactionModal()
+  const { open: openAssetSheet } = useAssetSheet()
   const o = (v: string) => obfuscate(v, obfuscated)
 
   const displayPrice =
@@ -41,10 +43,15 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
   return (
     <TableRow>
       <TableCell>
-        <div className="flex flex-col">
+        <button
+          type="button"
+          onClick={() => openAssetSheet(asset.id)}
+          className="flex flex-col items-start text-left hover:underline focus:outline-none focus-visible:underline"
+          title="View transactions"
+        >
           <span className="font-medium">{asset.name}</span>
           <span className="text-xs text-muted-foreground">{asset.ticker}</span>
-        </div>
+        </button>
       </TableCell>
 
       <TableCell>
@@ -134,6 +141,7 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
 export function PortfolioRowCard({ asset }: PortfolioRowProps) {
   const { currency } = useDisplayCurrency()
   const { openTransactionModal } = useTransactionModal()
+  const { open: openAssetSheet } = useAssetSheet()
 
   const displayValue =
     currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
@@ -142,7 +150,11 @@ export function PortfolioRowCard({ asset }: PortfolioRowProps) {
   return (
     <Card size="sm">
       <CardContent className="flex items-center justify-between">
-        <div className="flex flex-col gap-0.5">
+        <button
+          type="button"
+          onClick={() => openAssetSheet(asset.id)}
+          className="flex flex-col items-start gap-0.5 text-left focus:outline-none"
+        >
           <div className="flex items-center gap-2">
             <span className="font-medium">{asset.name}</span>
             <Badge variant="secondary">{asset.ticker}</Badge>
@@ -158,7 +170,7 @@ export function PortfolioRowCard({ asset }: PortfolioRowProps) {
               </span>
             ))}
           </div>
-        </div>
+        </button>
 
         <div className="flex flex-col items-end gap-0.5">
           <span className="font-semibold">
