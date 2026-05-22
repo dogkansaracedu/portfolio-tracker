@@ -12,12 +12,14 @@ import { usePlatforms } from "@/hooks/usePlatforms"
 
 const PLACEHOLDER_ROWS = 6
 
-/** SimplyWallSt-style full-page transactions editor. Route:
- *   /transactions/edit            → all transactions, bulk edit
- *   /transactions/edit/:assetId   → per-asset, asset column locked
+/** SimplyWallSt-style full-page transactions editor.
+ *  Routes (both rendered OUTSIDE AppLayout so the page owns the entire viewport):
+ *    /transactions/edit            → all transactions, bulk edit
+ *    /transactions/edit/:assetId   → per-asset, asset column locked
  *
- *  Layout: dark sticky header (title + Import) → spreadsheet grid → dark
- *  sticky footer (Discard + counts + Save). */
+ *  Layout: dark header bar (flex item, no sticky math needed) → scrollable
+ *  spreadsheet area (overflow-auto, owns the only Y scroll on the page) →
+ *  dark footer bar. The grid's <thead> sticks to the top of the scroll area. */
 export default function TransactionsEditPage() {
   const { assetId } = useParams<{ assetId?: string }>()
   const { assets } = useAssets()
@@ -28,9 +30,9 @@ export default function TransactionsEditPage() {
   const title = asset ? `Add ${asset.ticker} transactions` : "Add your transactions"
 
   return (
-    <div className="-m-4 flex h-[calc(100vh-3rem)] flex-col md:-m-6 md:h-[calc(100vh-3rem)]">
-      {/* Dark sticky header */}
-      <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b bg-zinc-900 px-6 py-4 text-zinc-100 dark:bg-zinc-950">
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      {/* Dark header (flex item — height auto, no sticky needed) */}
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b bg-zinc-900 px-6 py-4 text-zinc-100">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-medium">{title}</h1>
           {asset && (
@@ -45,20 +47,19 @@ export default function TransactionsEditPage() {
             />
           )}
         </div>
-        <div className="flex items-center gap-4 text-sm">
-          <Button
-            variant="ghost"
-            size="sm"
-            nativeButton={false}
-            render={<Link to={assetId ? "/portfolio" : "/transactions"} />}
-            className="text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
-          >
-            Cancel
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          nativeButton={false}
+          render={<Link to={assetId ? "/portfolio" : "/transactions"} />}
+          className="text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+        >
+          Cancel
+        </Button>
       </header>
 
-      {/* Spreadsheet grid — fills the remaining space and scrolls internally */}
+      {/* The single Y-scroll container on the page. The grid's thead sticks
+       *  to the top of this element via `sticky top-0`. */}
       <main className="min-h-0 flex-1 overflow-auto bg-background">
         <TransactionsSheetGrid
           assetId={assetId}
@@ -69,8 +70,8 @@ export default function TransactionsEditPage() {
         />
       </main>
 
-      {/* Dark sticky footer */}
-      <footer className="sticky bottom-0 z-20 flex items-center justify-between gap-4 border-t bg-zinc-900 px-6 py-4 text-zinc-100 dark:bg-zinc-950">
+      {/* Dark footer */}
+      <footer className="flex shrink-0 items-center justify-between gap-4 border-t bg-zinc-900 px-6 py-4 text-zinc-100">
         <Button
           variant="ghost"
           size="sm"
