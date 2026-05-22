@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Trash2, Plus } from "lucide-react"
 import { useTransactionsSheetState } from "./useTransactionsSheetState"
+import { ImportPopover } from "./ImportPopover"
 import type { SheetRow } from "./types"
 import { validateRow } from "./validation"
 import { CellShell } from "./cells/CellShell"
@@ -62,6 +63,7 @@ export function TransactionsSheetGrid({ assetId, assets, platforms }: Props) {
     loadRows,
     editCell,
     addBlankRow,
+    appendRows,
     deleteRow,
     discardAll,
     validateAll,
@@ -360,6 +362,12 @@ export function TransactionsSheetGrid({ assetId, assets, platforms }: Props) {
             <Plus className="size-3.5" />
             Add row
           </Button>
+          <ImportPopover
+            assets={assets}
+            platforms={platforms}
+            lockedAssetId={assetId}
+            onAppend={appendRows}
+          />
           <span className="text-xs text-muted-foreground tabular-nums">
             {counts.new} new · {counts.dirty} dirty · {counts.deleted} deleted
             {counts.invalid > 0 && (
