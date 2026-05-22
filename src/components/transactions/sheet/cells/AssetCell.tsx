@@ -11,7 +11,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
-import { ChevronsUpDown, Check } from "lucide-react"
+import { Check } from "lucide-react"
 import { CellShell } from "./CellShell"
 import type { Asset } from "@/types/database"
 
@@ -23,21 +23,26 @@ interface Props {
   onChange: (id: string) => void
 }
 
+/** Ticker on top (compact code), company name below (lighter). Matches the
+ *  SWS "Ticker / Company / ISIN" layout. In per-asset mode the cell is
+ *  read-only and serves as a reminder of the locked asset. */
 export function AssetCell({ value, assets, error, readOnly, onChange }: Props) {
   const [open, setOpen] = useState(false)
   const selected = assets.find((a) => a.id === value)
 
   if (readOnly) {
     return (
-      <CellShell error={error} className="w-[200px]">
-        <div className="px-2 py-1.5 text-sm">
+      <CellShell error={error} className="w-[240px]">
+        <div className="px-2 py-1">
           {selected ? (
-            <span className="flex flex-col">
-              <span className="font-medium">{selected.name}</span>
-              <span className="text-xs text-muted-foreground">
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-medium tabular-nums">
                 {selected.ticker}
               </span>
-            </span>
+              <span className="text-xs text-muted-foreground">
+                {selected.name}
+              </span>
+            </div>
           ) : (
             <span className="text-muted-foreground">—</span>
           )}
@@ -47,20 +52,21 @@ export function AssetCell({ value, assets, error, readOnly, onChange }: Props) {
   }
 
   return (
-    <CellShell error={error} className="w-[200px]">
+    <CellShell error={error} className="w-[240px]">
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger className="inline-flex h-8 w-full items-center justify-between rounded-md border border-transparent px-2 text-sm hover:border-input">
+        <PopoverTrigger className="inline-flex w-full items-start rounded-md px-2 py-1 text-left hover:bg-accent/40">
           {selected ? (
-            <span className="truncate">
-              {selected.name}{" "}
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-medium">{selected.ticker}</span>
               <span className="text-xs text-muted-foreground">
-                {selected.ticker}
+                {selected.name}
               </span>
-            </span>
+            </div>
           ) : (
-            <span className="text-muted-foreground">Pick asset…</span>
+            <span className="py-1 text-sm text-muted-foreground">
+              Pick asset…
+            </span>
           )}
-          <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
         </PopoverTrigger>
         <PopoverContent className="w-[320px] p-0" align="start">
           <Command>
@@ -81,9 +87,9 @@ export function AssetCell({ value, assets, error, readOnly, onChange }: Props) {
                       value === a.id ? "opacity-100" : "opacity-0"
                     }`}
                   />
-                  <span className="font-medium">{a.name}</span>
+                  <span className="font-medium">{a.ticker}</span>
                   <span className="ml-2 text-xs text-muted-foreground">
-                    {a.ticker}
+                    {a.name}
                   </span>
                 </CommandItem>
               ))}

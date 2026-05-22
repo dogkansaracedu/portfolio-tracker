@@ -4,7 +4,6 @@ import Sidebar from "./Sidebar"
 import MobileNav from "./MobileNav"
 import Header from "./Header"
 import { AddTransactionModal } from "@/components/transactions/AddTransactionModal"
-import { AssetTransactionsSheet } from "@/components/portfolio/AssetTransactionsSheet"
 import { useAssets } from "@/hooks/useAssets"
 import { usePlatforms } from "@/hooks/usePlatforms"
 import { useHoldings } from "@/hooks/useHoldings"
@@ -85,7 +84,6 @@ export default function AppLayout() {
         platforms={platforms}
         onSuccess={refetchHoldings}
       />
-      <AssetTransactionsSheet />
     </div>
   )
 }

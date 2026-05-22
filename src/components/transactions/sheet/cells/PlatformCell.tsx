@@ -12,7 +12,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { PlatformDot } from "@/components/common/PlatformDot"
-import { ChevronsUpDown, Check } from "lucide-react"
+import { Check } from "lucide-react"
 import { CellShell } from "./CellShell"
 import type { Platform } from "@/types/database"
 
@@ -28,9 +28,9 @@ export function PlatformCell({ value, platforms, error, onChange }: Props) {
   const selected = platforms.find((p) => p.id === value)
 
   return (
-    <CellShell error={error} className="w-[160px]">
+    <CellShell error={error} className="w-[180px]">
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger className="inline-flex h-8 w-full items-center justify-between rounded-md border border-transparent px-2 text-sm hover:border-input">
+        <PopoverTrigger className="inline-flex h-10 w-full items-center rounded-md px-2 text-left text-sm hover:bg-accent/40">
           {selected ? (
             <span className="flex items-center gap-1.5 truncate">
               <PlatformDot color={selected.color} />
@@ -39,7 +39,6 @@ export function PlatformCell({ value, platforms, error, onChange }: Props) {
           ) : (
             <span className="text-muted-foreground">Pick platform…</span>
           )}
-          <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
         </PopoverTrigger>
         <PopoverContent className="w-[280px] p-0" align="start">
           <Command>

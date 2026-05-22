@@ -9,9 +9,8 @@ import {
   TableCell,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Trash2, Plus } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { useTransactionsSheetState } from "./useTransactionsSheetState"
-import { ImportPopover } from "./ImportPopover"
 import type { SheetRow } from "./types"
 import { validateRow } from "./validation"
 import { CellShell } from "./cells/CellShell"
@@ -20,8 +19,7 @@ import { AssetCell } from "./cells/AssetCell"
 import { PlatformCell } from "./cells/PlatformCell"
 import { TypeCell } from "./cells/TypeCell"
 import { NumberCell } from "./cells/NumberCell"
-import { CurrencyCell } from "./cells/CurrencyCell"
-import { TextCell } from "./cells/TextCell"
+import { TotalCostCell } from "./cells/TotalCostCell"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import {
@@ -33,18 +31,34 @@ import { bn } from "@/lib/config"
 import type { Asset, Platform, TransactionInsert } from "@/types/database"
 import { cn } from "@/lib/utils"
 
+interface Controls {
+  hasChanges: boolean
+  saving: boolean
+  loading: boolean
+  counts: { new: number; dirty: number; deleted: number; invalid: number; clean: number }
+  addBlankRow: () => void
+  appendRows: (rows: Partial<SheetRow>[]) => void
+  save: () => Promise<void>
+  discard: () => void
+}
+
 interface Props {
   /** When set, asset column is locked and new rows prefill this asset. */
   assetId?: string
   assets: Asset[]
   platforms: Platform[]
+  /** Number of empty placeholder rows to render below the real rows. */
+  placeholderRowCount?: number
+  /** The grid lifts its imperative controls + state up so the page chrome
+   *  (header import button, footer save/discard) can drive them. */
+  onControlsReady?: (controls: Controls) => void
 }
 
 const ROW_STATUS_TINT: Record<SheetRow["status"], string> = {
   clean: "",
-  dirty: "border-l-4 border-l-amber-400",
-  new: "border-l-4 border-l-emerald-400",
-  invalid: "border-l-4 border-l-destructive",
+  dirty: "border-l-2 border-l-amber-400",
+  new: "border-l-2 border-l-emerald-400",
+  invalid: "border-l-2 border-l-destructive",
   deleted: "",
 }
 
@@ -52,7 +66,15 @@ function localDayAsUtcMidnight(date: string): string {
   return `${date}T00:00:00Z`
 }
 
-export function TransactionsSheetGrid({ assetId, assets, platforms }: Props) {
+const COL_COUNT = 8
+
+export function TransactionsSheetGrid({
+  assetId,
+  assets,
+  platforms,
+  placeholderRowCount = 5,
+  onControlsReady,
+}: Props) {
   const { user } = useAuth()
   const { txVersion } = useTransactionModal()
   const {
@@ -73,11 +95,9 @@ export function TransactionsSheetGrid({ assetId, assets, platforms }: Props) {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  // Suppress the txVersion-driven re-load while *we* are the ones bumping it
-  // — each insert/edit/delete inside handleSave triggers bumpTxVersion, and
-  // we don't want that to clobber our in-flight buffer transitions. The
-  // user's edits in OTHER components will still flow in normally because
-  // savingRef is false then.
+  // Suppress txVersion-driven reloads while we're saving — each insert/edit
+  // bumps txVersion, and we don't want our own bumps to clobber the buffer
+  // before commitSaveSuccess lands.
   const savingRef = useRef(false)
   const { addTransaction, editTransaction, removeTransaction } = useTransactions(
     assetId
@@ -85,9 +105,6 @@ export function TransactionsSheetGrid({ assetId, assets, platforms }: Props) {
       : { includeLinkedChildren: false },
   )
 
-  // Load rows from server on mount, and re-load whenever the underlying tx
-  // version bumps (someone added/edited a tx elsewhere) — but only when the
-  // buffer is clean. Otherwise we'd clobber in-flight edits.
   useEffect(() => {
     if (!user) return
     if (savingRef.current) return
@@ -115,28 +132,21 @@ export function TransactionsSheetGrid({ assetId, assets, platforms }: Props) {
     return () => {
       cancelled = true
     }
-    // hasChanges intentionally NOT in deps — once dirty, the user owns the
-    // buffer until they Save or Discard.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, assetId, txVersion])
 
   const visibleRows = useMemo(
     () =>
       [...rows].sort((a, b) => {
-        // newest dates first; new rows (no original) sink to the top of their
-        // date so the user sees what they just added without scrolling.
         return b.date.localeCompare(a.date) || (a.txId == null ? -1 : 1)
       }),
     [rows],
   )
 
-  const canSave = hasChanges && !saving
-
-  const handleSave = async () => {
+  const save = async () => {
     if (!user) return
     setSaving(true)
     savingRef.current = true
-    // Bulk-validate first; any error blocks save.
     validateAll()
     const offenders = rows
       .map((r) => ({ row: r, errors: validateRow(r) }))
@@ -150,21 +160,15 @@ export function TransactionsSheetGrid({ assetId, assets, platforms }: Props) {
       return
     }
 
-    // Phase order: deletes → updates → inserts. Within each phase, route
-    // every write through the existing tx helpers so cash-pairing and
-    // balance-recompute stay single-sourced.
     let okCount = 0
     let errCount = 0
 
     for (const del of pendingDeletes) {
       const orig = rows.find((r) => r.rowKey === del.rowKey)
       try {
-        // We need asset/platform at delete time — fetch from row.original
-        // (always present for existing rows).
         const oAsset = orig?.original?.assetId
         const oPlat = orig?.original?.platformId
         if (!oAsset || !oPlat) {
-          // Falls back to the snapshot we cached earlier.
           throw new Error("Missing original asset/platform for delete")
         }
         await removeTransaction(del.txId, oAsset, oPlat)
@@ -172,9 +176,7 @@ export function TransactionsSheetGrid({ assetId, assets, platforms }: Props) {
       } catch (err) {
         errCount++
         toast.error(
-          err instanceof Error
-            ? `Delete failed: ${err.message}`
-            : "Delete failed",
+          err instanceof Error ? `Delete failed: ${err.message}` : "Delete failed",
         )
       }
     }
@@ -225,9 +227,8 @@ export function TransactionsSheetGrid({ assetId, assets, platforms }: Props) {
     }
   }
 
-  const handleDiscard = () => {
+  const discard = () => {
     discardAll()
-    // Re-load from server so pendingDeletes resurrect cleanly.
     if (user) {
       fetchTransactions(
         user.id,
@@ -237,159 +238,175 @@ export function TransactionsSheetGrid({ assetId, assets, platforms }: Props) {
       )
         .then(loadRows)
         .catch((err: unknown) => {
-          toast.error(
-            err instanceof Error ? err.message : "Failed to reload",
-          )
+          toast.error(err instanceof Error ? err.message : "Failed to reload")
         })
     }
   }
 
-  return (
-    <div className="flex h-full flex-col">
-      <div className="min-h-0 flex-1 overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-popover">
-            <TableRow>
-              <TableHead className="w-[140px]">Date</TableHead>
-              <TableHead className="w-[200px]">Asset</TableHead>
-              <TableHead className="w-[160px]">Platform</TableHead>
-              <TableHead className="w-[130px]">Type</TableHead>
-              <TableHead className="w-[130px] text-right">Amount</TableHead>
-              <TableHead className="w-[130px] text-right">Unit Price</TableHead>
-              <TableHead className="w-[80px]">Cur.</TableHead>
-              <TableHead className="w-[130px] text-right">Fee</TableHead>
-              <TableHead className="min-w-[160px]">Notes</TableHead>
-              <TableHead className="w-[40px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
-                  Loading transactions…
-                </TableCell>
-              </TableRow>
-            ) : visibleRows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
-                  No transactions yet. Click <span className="font-medium">+ Add row</span> below.
-                </TableCell>
-              </TableRow>
-            ) : (
-              visibleRows.map((row) => (
-                <TableRow
-                  key={row.rowKey}
-                  className={cn(ROW_STATUS_TINT[row.status])}
-                  data-status={row.status}
-                >
-                  <DateCell
-                    value={row.date}
-                    error={row.errors.date}
-                    onChange={(v) => editCell(row.rowKey, "date", v)}
-                  />
-                  <AssetCell
-                    value={row.assetId}
-                    assets={assets}
-                    error={row.errors.assetId}
-                    readOnly={Boolean(assetId)}
-                    onChange={(v) => editCell(row.rowKey, "assetId", v)}
-                  />
-                  <PlatformCell
-                    value={row.platformId}
-                    platforms={platforms}
-                    error={row.errors.platformId}
-                    onChange={(v) => editCell(row.rowKey, "platformId", v)}
-                  />
-                  <TypeCell
-                    value={row.type}
-                    error={row.errors.type}
-                    onChange={(v) => editCell(row.rowKey, "type", v)}
-                  />
-                  <NumberCell
-                    value={row.amount}
-                    error={row.errors.amount}
-                    placeholder="0"
-                    onChange={(v) => editCell(row.rowKey, "amount", v)}
-                  />
-                  <NumberCell
-                    value={row.unitPrice}
-                    error={row.errors.unitPrice}
-                    placeholder="0.00"
-                    onChange={(v) => editCell(row.rowKey, "unitPrice", v)}
-                  />
-                  <CurrencyCell
-                    value={row.priceCurrency}
-                    error={row.errors.priceCurrency}
-                    onChange={(v) => editCell(row.rowKey, "priceCurrency", v)}
-                  />
-                  <NumberCell
-                    value={row.fee}
-                    error={row.errors.fee}
-                    placeholder="0"
-                    onChange={(v) => editCell(row.rowKey, "fee", v)}
-                  />
-                  <TextCell
-                    value={row.notes}
-                    error={row.errors.notes}
-                    placeholder="—"
-                    onChange={(v) => editCell(row.rowKey, "notes", v)}
-                  />
-                  <CellShell className="w-[40px]">
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => deleteRow(row.rowKey)}
-                      title="Delete row"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </CellShell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+  // Lift controls up to the page chrome.
+  useEffect(() => {
+    onControlsReady?.({
+      hasChanges,
+      saving,
+      loading,
+      counts,
+      addBlankRow: () => addBlankRow({ assetId }),
+      appendRows: appendRows as Controls["appendRows"],
+      save,
+      discard,
+    })
+    // We intentionally re-emit on every relevant value change so the page
+    // chrome stays in sync without its own state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    hasChanges,
+    saving,
+    loading,
+    counts.new,
+    counts.dirty,
+    counts.deleted,
+    counts.invalid,
+    counts.clean,
+    rows,
+    pendingDeletes,
+  ])
 
-      {/* Footer bar */}
-      <div className="flex items-center justify-between gap-3 border-t bg-popover px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => addBlankRow({ assetId })}
-          >
-            <Plus className="size-3.5" />
-            Add row
-          </Button>
-          <ImportPopover
-            assets={assets}
-            platforms={platforms}
-            lockedAssetId={assetId}
-            onAppend={appendRows}
-          />
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {counts.new} new · {counts.dirty} dirty · {counts.deleted} deleted
-            {counts.invalid > 0 && (
-              <span className="ml-1 text-destructive">· {counts.invalid} invalid</span>
-            )}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDiscard}
-            disabled={!hasChanges || saving}
-          >
-            Discard
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={!canSave}>
-            {saving ? "Saving…" : "Save changes"}
-          </Button>
-        </div>
-      </div>
-    </div>
+  // Render N placeholder rows below the real ones. Clicking any cell in a
+  // placeholder adds a real new row. Gives the page the Excel-style "always
+  // some empty rows waiting" feel.
+  const placeholders = Array.from(
+    { length: Math.max(0, placeholderRowCount) },
+    (_, i) => i,
+  )
+
+  return (
+    <Table className="border-separate border-spacing-0">
+      <TableHeader className="sticky top-0 z-10 bg-background">
+        <TableRow className="border-b">
+          <TableHead className="w-10 px-2 py-3 text-right text-xs font-normal text-muted-foreground" />
+          <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Ticker / Company
+          </TableHead>
+          <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Transaction type
+          </TableHead>
+          <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Date
+            <span className="ml-1 normal-case text-muted-foreground/60">
+              YYYY-MM-DD
+            </span>
+          </TableHead>
+          <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Shares / Qty
+          </TableHead>
+          <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Price
+          </TableHead>
+          <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Total cost
+          </TableHead>
+          <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Platform
+          </TableHead>
+          <TableHead className="w-10" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {loading && (
+          <TableRow>
+            <TableCell
+              colSpan={COL_COUNT + 1}
+              className="py-12 text-center text-muted-foreground"
+            >
+              Loading transactions…
+            </TableCell>
+          </TableRow>
+        )}
+
+        {!loading &&
+          visibleRows.map((row, idx) => (
+            <TableRow
+              key={row.rowKey}
+              className={cn("border-b last:border-b", ROW_STATUS_TINT[row.status])}
+              data-status={row.status}
+            >
+              <TableCell className="w-10 px-2 py-2 text-right align-middle text-xs text-muted-foreground tabular-nums">
+                {idx + 1}
+              </TableCell>
+              <AssetCell
+                value={row.assetId}
+                assets={assets}
+                error={row.errors.assetId}
+                readOnly={Boolean(assetId)}
+                onChange={(v) => editCell(row.rowKey, "assetId", v)}
+              />
+              <TypeCell
+                value={row.type}
+                error={row.errors.type}
+                onChange={(v) => editCell(row.rowKey, "type", v)}
+              />
+              <DateCell
+                value={row.date}
+                error={row.errors.date}
+                onChange={(v) => editCell(row.rowKey, "date", v)}
+              />
+              <NumberCell
+                value={row.amount}
+                error={row.errors.amount}
+                placeholder="0"
+                onChange={(v) => editCell(row.rowKey, "amount", v)}
+              />
+              <NumberCell
+                value={row.unitPrice}
+                error={row.errors.unitPrice}
+                placeholder="0.00"
+                onChange={(v) => editCell(row.rowKey, "unitPrice", v)}
+              />
+              <TotalCostCell
+                amount={row.amount}
+                unitPrice={row.unitPrice}
+                currency={row.priceCurrency}
+              />
+              <PlatformCell
+                value={row.platformId}
+                platforms={platforms}
+                error={row.errors.platformId}
+                onChange={(v) => editCell(row.rowKey, "platformId", v)}
+              />
+              <CellShell className="w-10">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => deleteRow(row.rowKey)}
+                  title="Delete row"
+                >
+                  <Trash2 className="size-3.5 text-muted-foreground" />
+                </Button>
+              </CellShell>
+            </TableRow>
+          ))}
+
+        {!loading &&
+          placeholders.map((i) => {
+            const num = visibleRows.length + i + 1
+            return (
+              <TableRow
+                key={`placeholder-${i}`}
+                onClick={() => addBlankRow({ assetId })}
+                className="cursor-pointer border-b text-muted-foreground/50 hover:bg-accent/30"
+                title="Click to add a row"
+              >
+                <TableCell className="w-10 px-2 py-4 text-right text-xs tabular-nums">
+                  {num}
+                </TableCell>
+                <TableCell colSpan={COL_COUNT} className="px-2 py-4">
+                  &nbsp;
+                </TableCell>
+              </TableRow>
+            )
+          })}
+      </TableBody>
+    </Table>
   )
 }
 
@@ -414,3 +431,5 @@ function buildPayload(row: SheetRow): Omit<TransactionInsert, "user_id"> {
     notes: row.notes || null,
   }
 }
+
+export type { Controls as TransactionsSheetControls }
