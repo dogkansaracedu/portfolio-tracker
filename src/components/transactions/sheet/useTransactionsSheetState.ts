@@ -94,6 +94,7 @@ type Action =
   | { kind: "load"; txs: TransactionWithDetails[] }
   | { kind: "edit"; rowKey: string; field: SheetField; value: string }
   | { kind: "addBlank"; defaults?: BlankRowDefaults }
+  | { kind: "appendRows"; rows: Partial<SheetSnapshot>[] }
   | { kind: "delete"; rowKey: string }
   | { kind: "discardAll" }
   | { kind: "validateAll" }
@@ -132,6 +133,20 @@ function reduce(state: SheetState, action: Action): SheetState {
 
     case "addBlank":
       return { ...state, rows: [...state.rows, blankRow(action.defaults)] }
+
+    case "appendRows": {
+      const made: SheetRow[] = action.rows.map((partial) => {
+        const base = blankRow()
+        return {
+          ...base,
+          ...partial,
+          status: "new" as RowStatus,
+          original: null,
+          errors: {},
+        }
+      })
+      return { ...state, rows: [...state.rows, ...made] }
+    }
 
     case "delete": {
       const target = state.rows.find((r) => r.rowKey === action.rowKey)
@@ -244,6 +259,10 @@ export function useTransactionsSheetState() {
     dispatch({ kind: "addBlank", defaults })
   }, [])
 
+  const appendRows = useCallback((rows: Partial<SheetSnapshot>[]) => {
+    dispatch({ kind: "appendRows", rows })
+  }, [])
+
   const deleteRow = useCallback((rowKey: string) => {
     dispatch({ kind: "delete", rowKey })
   }, [])
@@ -291,6 +310,7 @@ export function useTransactionsSheetState() {
     loadRows,
     editCell,
     addBlankRow,
+    appendRows,
     deleteRow,
     discardAll,
     validateAll,
