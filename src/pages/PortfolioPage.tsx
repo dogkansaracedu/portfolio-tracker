@@ -1,6 +1,3 @@
-import { Link } from "react-router"
-import { Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { PortfolioSummaryBar } from "@/components/portfolio/PortfolioSummaryBar"
 import { PortfolioFilters } from "@/components/portfolio/PortfolioFilters"
 import { PortfolioTable } from "@/components/portfolio/PortfolioTable"
@@ -28,17 +25,11 @@ export default function PortfolioPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Portfolio</h1>
-          <p className="text-muted-foreground">
-            All your assets in one place.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" nativeButton={false} render={<Link to="/settings" />}>
-          <Plus className="size-4" />
-          Add Asset
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold">Portfolio</h1>
+        <p className="text-muted-foreground">
+          All your assets in one place.
+        </p>
       </div>
 
       {/* Summary bar */}
