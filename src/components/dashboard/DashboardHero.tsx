@@ -1,5 +1,7 @@
 import { useMemo } from "react"
+import { ChevronDown } from "lucide-react"
 import { usePersistedState } from "@/hooks/usePersistedState"
+import { useBenchmark } from "@/hooks/useBenchmark"
 import {
   AreaChart,
   Area,
@@ -11,10 +13,25 @@ import {
   ReferenceLine,
 } from "recharts"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { useDashboardHero, type HeroViewMode } from "@/hooks/useDashboardHero"
+import {
+  useDashboardHero,
+  type HeroPoint,
+  type HeroViewMode,
+} from "@/hooks/useDashboardHero"
 import { formatCurrency, obfuscate } from "@/lib/prices"
 import { cn } from "@/lib/utils"
+import {
+  BENCHMARKS,
+  DEFAULT_BENCHMARK_ID,
+  findBenchmark,
+} from "@/lib/constants/benchmarks"
 import type { TimeRange } from "@/lib/performance"
 import type { Snapshot } from "@/types/database"
 
@@ -93,14 +110,33 @@ export default function DashboardHero({
     "dashboardHero.timeRange",
     "1M",
   )
+  const [benchmarkId, setBenchmarkId] = usePersistedState<string>(
+    "dashboardHero.benchmark",
+    DEFAULT_BENCHMARK_ID,
+  )
 
-  const { chartData, xTicks, current, delta } = useDashboardHero({
+  // Benchmark is always picked (default = SPY). Only fetch in P&L view —
+  // the Value view doesn't render a benchmark line.
+  const activeBenchmark = findBenchmark(benchmarkId)
+  const benchmarkFetchKey = viewMode === "pnl" ? activeBenchmark.id : null
+  const { series: benchmarkSeries } = useBenchmark(benchmarkFetchKey)
+
+  const {
+    chartData,
+    xTicks,
+    current,
+    compareNow,
+    delta,
+    pnlDenom,
+  } = useDashboardHero({
     snapshots,
     currentValueUsd,
     currentValueTry,
     viewMode,
     timeRange,
     usdTry,
+    benchmarkTicker: benchmarkFetchKey,
+    benchmarkSeries,
   })
 
   // ── Headline figures ──────────────────────────────────────────────
@@ -144,6 +180,7 @@ export default function DashboardHero({
 
   // For the P&L chart we want the area to start at 0 (range start = baseline)
   // and climb/fall to the period delta. Subtract rangeStart from each point.
+  // `benchmarkPct` is already 0-anchored at range-start so it passes through.
   const displayChartData = useMemo(() => {
     if (viewMode === "value") return chartData
     const baseUsd = chartData[0]?.valueUsd ?? 0
@@ -154,6 +191,97 @@ export default function DashboardHero({
       valueTry: p.valueTry - baseTry,
     }))
   }, [chartData, viewMode])
+
+  // Denominator mapping the left axis (USD/TRY P&L) to the right axis (%).
+  // Falls back to current portfolio value when the visible window's start
+  // has no usable value (e.g. ALL range with synthetic $0 anchor) — keeps
+  // the right axis sensible instead of dividing by ~0.
+  const denomUsd =
+    Math.abs(pnlDenom.usd) > 0.01 ? pnlDenom.usd : Math.abs(currentValueUsd) || 1
+  const denomTry =
+    Math.abs(pnlDenom.try) > 0.01 ? pnlDenom.try : Math.abs(currentValueTry) || 1
+  const denom = currency === "USD" ? denomUsd : denomTry
+
+  // Calibrate left (USD/TRY) and right (%) axes so position(left) /
+  // denom × 100 = position(right). The union of the portfolio %-equivalent
+  // range and the benchmark %-range is the right-axis domain; the left
+  // domain is back-derived from it so both lines fit and 0 is always on
+  // both axes (we seed `pctValues` with 0).
+  const axisDomains = useMemo<{
+    pnl?: [number, number]
+    pct?: [number, number]
+  }>(() => {
+    if (viewMode !== "pnl" || displayChartData.length === 0) return {}
+    const pnlValues = displayChartData.map((p) =>
+      currency === "USD" ? p.valueUsd : p.valueTry,
+    )
+    const pnlPctValues = pnlValues.map((v) => (v / denom) * 100)
+    const benchValues = displayChartData.map((p) => p.benchmarkPct)
+    const pctValues = [...pnlPctValues, ...benchValues, 0]
+    const pctMin = Math.min(...pctValues)
+    const pctMax = Math.max(...pctValues)
+    const pad = Math.max((pctMax - pctMin) * 0.08, 0.5)
+    const finalPctMin = pctMin - pad
+    const finalPctMax = pctMax + pad
+    return {
+      pnl: [(finalPctMin / 100) * denom, (finalPctMax / 100) * denom],
+      pct: [finalPctMin, finalPctMax],
+    }
+  }, [viewMode, displayChartData, currency, denom])
+
+  const formatRightAxisTick = (v: number) => {
+    const sign = v > 0 ? "+" : ""
+    return `${sign}${v.toFixed(v >= 100 || v <= -100 ? 0 : 1)}%`
+  }
+
+  const renderPnlTooltip = (props: {
+    active?: boolean
+    payload?: ReadonlyArray<{ payload?: HeroPoint }>
+  }) => {
+    if (!props.active || !props.payload || props.payload.length === 0) return null
+    const point = props.payload[0].payload
+    if (!point) return null
+    const pnlVal = currency === "USD" ? point.valueUsd : point.valueTry
+    const pnlPctVal = denom !== 0 ? (pnlVal / denom) * 100 : 0
+    let dateLabel: string
+    if (point.label === "Şimdi") {
+      dateLabel = "Şimdi"
+    } else {
+      const d = new Date(point.dateMs)
+      dateLabel = d.toLocaleDateString("tr-TR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      })
+    }
+    return (
+      <div
+        className="rounded-lg border px-2.5 py-2 text-xs shadow-sm"
+        style={{
+          background: "var(--background)",
+          borderColor: "var(--border)",
+          color: "var(--foreground)",
+        }}
+      >
+        <p className="mb-1.5 font-medium text-muted-foreground">{dateLabel}</p>
+        <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
+          <span className="text-muted-foreground">Portfolio</span>
+          <span className="text-right font-medium">
+            {obfuscate(formatSigned(pnlVal, currency), obfuscated)}
+          </span>
+          <span className="text-muted-foreground">Portfolio</span>
+          <span className="text-right font-medium">
+            {obfuscate(formatPct(pnlPctVal), obfuscated)}
+          </span>
+          <span className="text-muted-foreground">{activeBenchmark.label}</span>
+          <span className="text-right font-medium">
+            {obfuscate(formatPct(point.benchmarkPct), obfuscated)}
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   // Color the chart by the period's direction (Robinhood-style):
   // green when up, red when down — independent of theme primary.
@@ -209,23 +337,35 @@ export default function DashboardHero({
             )}
           </p>
           {viewMode === "value" ? (
-            <div
-              className={cn("flex items-center gap-2 text-sm font-medium", periodColor)}
-            >
-              <span>{obfuscate(formatSigned(periodDeltaValue, currency), obfuscated)}</span>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span className={cn("font-medium", periodColor)}>
+                {obfuscate(formatSigned(periodDeltaValue, currency), obfuscated)}
+              </span>
               {/* In ALL range, delta is "value − $0 anchor" while % falls
                   back to lifetime return (pnl/invested). Mixing the two on
                   one line reads as if you earned 3% on a $22k gain, which
                   isn't what's happening — the same % already lives in the
                   P&L tab's "Total" subtitle. Hide it here. */}
               {timeRange !== "ALL" && (
-                <>
-                  <span>·</span>
-                  <span>{obfuscate(formatPct(delta.pct), obfuscated)}</span>
-                </>
+                <span className={cn("font-medium", periodColor)}>
+                  {obfuscate(formatPct(delta.pct), obfuscated)}
+                </span>
               )}
               <span className="font-normal text-muted-foreground">
                 {RANGE_LABELS[timeRange]}
+              </span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">
+                Cost basis{" "}
+                <span className="font-medium text-foreground">
+                  {obfuscate(
+                    formatCurrency(
+                      currency === "USD" ? compareNow.usd : compareNow.try,
+                      currency,
+                    ),
+                    obfuscated,
+                  )}
+                </span>
               </span>
             </div>
           ) : (
@@ -247,6 +387,30 @@ export default function DashboardHero({
                 </span>{" "}
                 ({obfuscate(formatPct(totalPnlPctNow), obfuscated)})
               </span>
+              <span className="text-muted-foreground">·</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-foreground"
+                >
+                  <span>
+                    {activeBenchmark.label}{" "}
+                    <span className="font-medium text-foreground">
+                      {obfuscate(formatPct(compareNow.pct), obfuscated)}
+                    </span>
+                  </span>
+                  <ChevronDown className="size-3" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {BENCHMARKS.map((b) => (
+                    <DropdownMenuItem
+                      key={b.id}
+                      onClick={() => setBenchmarkId(b.id)}
+                    >
+                      {b.fullName}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">
                 Invested{" "}
@@ -296,12 +460,31 @@ export default function DashboardHero({
                   minTickGap={24}
                 />
                 <YAxis
+                  yAxisId="primary"
                   tick={{ fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   width={56}
+                  domain={axisDomains.pnl ?? ["auto", "auto"]}
                   tickFormatter={(v: number) => compactCurrency(v, currency)}
                 />
+                {viewMode === "pnl" && (
+                  // Right axis: same physical scale as the left, relabeled
+                  // in %. position(left) / denom × 100 = position(right), so
+                  // the green line reads consistently off both axes. The
+                  // grey benchmark line is plotted in % directly on this
+                  // axis.
+                  <YAxis
+                    yAxisId="compare"
+                    orientation="right"
+                    domain={axisDomains.pct ?? ["auto", "auto"]}
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={48}
+                    tickFormatter={formatRightAxisTick}
+                  />
+                )}
                 <Tooltip
                   cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1, strokeDasharray: "3 3" }}
                   contentStyle={{
@@ -311,15 +494,15 @@ export default function DashboardHero({
                     borderRadius: 8,
                     fontSize: 12,
                   }}
-                  formatter={(value) => [
-                    obfuscate(
-                      viewMode === "pnl"
-                        ? formatSigned(Number(value), currency)
-                        : formatCurrency(Number(value), currency),
-                      obfuscated,
-                    ),
-                    viewMode === "value" ? "Value" : "P&L",
-                  ]}
+                  content={viewMode === "pnl" ? renderPnlTooltip : undefined}
+                  formatter={(value, name) => {
+                    const isCompare = name === "compare"
+                    const label = isCompare ? "Cost basis" : "Value"
+                    return [
+                      obfuscate(formatCurrency(Number(value), currency), obfuscated),
+                      label,
+                    ]
+                  }}
                   labelFormatter={(label) => {
                     const ms = Number(label)
                     if (Number.isNaN(ms)) return ""
@@ -336,6 +519,7 @@ export default function DashboardHero({
                 />
                 {showZeroRef && (
                   <ReferenceLine
+                    yAxisId="primary"
                     y={0}
                     stroke="var(--muted-foreground)"
                     strokeDasharray="4 4"
@@ -343,11 +527,33 @@ export default function DashboardHero({
                   />
                 )}
                 <Area
+                  yAxisId="primary"
                   type="monotone"
                   dataKey={currency === "USD" ? "valueUsd" : "valueTry"}
+                  name="primary"
                   stroke={strokeColor}
                   fill={fillColor}
                   strokeWidth={2}
+                />
+                <Area
+                  yAxisId={viewMode === "pnl" ? "compare" : "primary"}
+                  type="monotone"
+                  dataKey={
+                    viewMode === "pnl"
+                      ? "benchmarkPct"
+                      : currency === "USD"
+                        ? "compareUsd"
+                        : "compareTry"
+                  }
+                  name="compare"
+                  stroke="var(--muted-foreground)"
+                  fill="transparent"
+                  strokeWidth={1.5}
+                  // Solid grey in P&L mode (it's the benchmark, the focal
+                  // comparison) — dashed only in Value mode where the cost-
+                  // basis line is intentionally secondary.
+                  strokeDasharray={viewMode === "pnl" ? undefined : "4 4"}
+                  isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>

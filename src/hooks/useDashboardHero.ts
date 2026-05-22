@@ -6,9 +6,12 @@ import {
   computeCurrentInvestedUsd,
   type TimeRange,
 } from "@/lib/performance"
-import type { Snapshot } from "@/types/database"
+import type { BenchmarkPrice, Snapshot } from "@/types/database"
 
 export type HeroViewMode = "value" | "pnl"
+
+/** What the secondary chart line / chip represents at any moment. */
+export type CompareKind = "currency" | "percent"
 
 export interface HeroPoint {
   date: string
@@ -20,6 +23,13 @@ export interface HeroPoint {
   /** Underlying value in USD (raw — value mode) or P&L in USD (pnl mode). */
   valueUsd: number
   valueTry: number
+  /** Value-mode secondary series — cost basis (currency). Unused in P&L
+   *  mode; kept on the type so the data shape is uniform. */
+  compareUsd: number
+  compareTry: number
+  /** P&L-mode benchmark return as cumulative % from the chart's range start.
+   *  Always 0 in value mode and at the range-start anchor itself. */
+  benchmarkPct: number
 }
 
 export interface DashboardHeroData {
@@ -30,8 +40,18 @@ export interface DashboardHeroData {
    *  month label rendering 8× when daily snapshots cluster. */
   xTicks: number[]
   current: { usd: number; try: number }
+  /** Current value of the secondary series at "now". `usd`/`try` are
+   *  populated when `compareKind === 'currency'`; `pct` when 'percent'.
+   *  The unused fields stay at 0 so callers can ignore them safely. */
+  compareNow: { usd: number; try: number; pct: number }
+  compareKind: CompareKind
   rangeStart: { usd: number; try: number; date: string | null }
   delta: { usd: number; try: number; pct: number }
+  /** Denominator the chart uses to map left-axis (USD/TRY) to right-axis
+   *  (%) in P&L mode = portfolio value at the visible range's start. Zero
+   *  when there's no usable starting value (e.g. ALL range whose synthetic
+   *  zero-anchor lands before the first snapshot); callers must guard. */
+  pnlDenom: { usd: number; try: number }
   loading: boolean
 }
 
@@ -42,6 +62,37 @@ interface UseDashboardHeroArgs {
   viewMode: HeroViewMode
   timeRange: TimeRange
   usdTry: number
+  /** When set (P&L mode only), the secondary line shows the benchmark's
+   *  cumulative % return from the range start instead of market value. */
+  benchmarkTicker?: string | null
+  benchmarkSeries?: BenchmarkPrice[]
+}
+
+/**
+ * Two-pointer lookup: walk `series` (already sorted ascending by date) in
+ * lockstep with the caller's ascending date list. Returns the close at or
+ * before `target` for each target. `null` when no preceding close exists.
+ *
+ * Linear in the larger of the two lists — beats N × O(log N) binary searches
+ * when chart and benchmark are both dense (5y daily ≈ 1250 rows).
+ */
+function closesAtOrBefore(
+  series: BenchmarkPrice[],
+  targets: string[],
+): Array<number | null> {
+  const out: Array<number | null> = new Array(targets.length).fill(null)
+  if (series.length === 0) return out
+  let i = 0
+  let lastClose: number | null = null
+  for (let t = 0; t < targets.length; t++) {
+    const target = targets[t]
+    while (i < series.length && series[i].date <= target) {
+      lastClose = series[i].close_usd
+      i++
+    }
+    out[t] = lastClose
+  }
+  return out
 }
 
 function pad2(n: number): string {
@@ -82,8 +133,17 @@ export function useDashboardHero({
   viewMode,
   timeRange,
   usdTry,
+  benchmarkTicker = null,
+  benchmarkSeries = [],
 }: UseDashboardHeroArgs): DashboardHeroData {
   const { transactions, rates, loading: pnlLoading } = useTransactionData()
+
+  // Benchmark overlay only applies in P&L mode. Value mode keeps the
+  // existing cost-basis secondary line. Memoise the "is benchmark active"
+  // flag so the main useMemo dep array stays stable when the user toggles
+  // back to Value.
+  const benchmarkActive =
+    viewMode === "pnl" && !!benchmarkTicker && benchmarkSeries.length > 0
 
   return useMemo<DashboardHeroData>(() => {
     if (snapshots.length === 0 && currentValueUsd === 0 && currentValueTry === 0) {
@@ -91,44 +151,85 @@ export function useDashboardHero({
         chartData: [],
         xTicks: [],
         current: { usd: 0, try: 0 },
+        compareNow: { usd: 0, try: 0, pct: 0 },
+        compareKind: "currency",
         rangeStart: { usd: 0, try: 0, date: null },
         delta: { usd: 0, try: 0, pct: 0 },
+        pnlDenom: { usd: 0, try: 0 },
         loading: pnlLoading,
       }
     }
 
-    type RawPoint = { date: string; usd: number; try: number }
+    // Always compute the P&L series — we need invested capital at each
+    // snapshot for the secondary (cost basis / market value) line.
+    const pnlSeries = computePnLTimeSeries(snapshots, transactions, rates)
+    const investedAtSnap = new Map<string, number>()
+    for (const p of pnlSeries) investedAtSnap.set(p.date, p.investedUsd)
+
+    type RawPoint = {
+      date: string
+      usd: number
+      try: number
+      compareUsd: number
+      compareTry: number
+    }
     let raw: RawPoint[] = []
 
     if (viewMode === "value") {
-      raw = snapshots.map((s) => ({
-        date: s.snapshot_date,
-        usd: s.total_usd ?? 0,
-        try: s.total_try ?? 0,
-      }))
+      raw = snapshots.map((s) => {
+        const snapTotalUsd = s.total_usd ?? 0
+        const snapTotalTry = s.total_try ?? 0
+        const ratio =
+          snapTotalUsd > 0 ? snapTotalTry / snapTotalUsd : usdTry
+        const investedUsd = investedAtSnap.get(s.snapshot_date) ?? 0
+        return {
+          date: s.snapshot_date,
+          usd: snapTotalUsd,
+          try: snapTotalTry,
+          compareUsd: investedUsd,
+          compareTry: investedUsd * ratio,
+        }
+      })
     } else {
       // P&L: compute true money-weighted P&L per snapshot, then convert
       // to TRY using each snapshot's effective rate (try / usd ratio).
-      const pnlSeries = computePnLTimeSeries(snapshots, transactions, rates)
       raw = pnlSeries.map((p, i) => {
         const snap = snapshots[i]
         const snapTotalUsd = snap?.total_usd ?? 0
         const snapTotalTry = snap?.total_try ?? 0
         const ratio = snapTotalUsd > 0 ? snapTotalTry / snapTotalUsd : usdTry
-        return { date: p.date, usd: p.pnlUsd, try: p.pnlUsd * ratio }
+        return {
+          date: p.date,
+          usd: p.pnlUsd,
+          try: p.pnlUsd * ratio,
+          compareUsd: snapTotalUsd,
+          compareTry: snapTotalTry,
+        }
       })
     }
 
     // Append the live "now" point so the chart always anchors on today.
     const today = todayLocalIso()
+    const investedNow = computeCurrentInvestedUsd(transactions, rates)
+    const nowRatio =
+      currentValueUsd > 0 ? currentValueTry / currentValueUsd : usdTry
     if (viewMode === "value") {
-      raw.push({ date: today, usd: currentValueUsd, try: currentValueTry })
+      raw.push({
+        date: today,
+        usd: currentValueUsd,
+        try: currentValueTry,
+        compareUsd: investedNow,
+        compareTry: investedNow * nowRatio,
+      })
     } else {
-      const investedNow = computeCurrentInvestedUsd(transactions, rates)
       const pnlNowUsd = currentValueUsd - investedNow
-      const ratio =
-        currentValueUsd > 0 ? currentValueTry / currentValueUsd : usdTry
-      raw.push({ date: today, usd: pnlNowUsd, try: pnlNowUsd * ratio })
+      raw.push({
+        date: today,
+        usd: pnlNowUsd,
+        try: pnlNowUsd * nowRatio,
+        compareUsd: currentValueUsd,
+        compareTry: currentValueTry,
+      })
     }
 
     // Prepend a synthetic zero-anchor one day before the earliest
@@ -151,7 +252,13 @@ export function useDashboardHero({
       )}-${pad2(anchorDate.getUTCDate())}`
       // Avoid prepending if first raw point is already at/before this date.
       if (raw[0].date > anchorStr) {
-        raw.unshift({ date: anchorStr, usd: 0, try: 0 })
+        raw.unshift({
+          date: anchorStr,
+          usd: 0,
+          try: 0,
+          compareUsd: 0,
+          compareTry: 0,
+        })
       }
     }
 
@@ -165,6 +272,12 @@ export function useDashboardHero({
     }
 
     // Filter by time range (with anchor for ≥1M ranges — see filterByTimeRange).
+    // Keep compare values keyed by date so the filter (which only sees the
+    // canonical snapshot fields) doesn't drop them.
+    const compareByDate = new Map<string, { usd: number; try: number }>()
+    for (const p of raw) {
+      compareByDate.set(p.date, { usd: p.compareUsd, try: p.compareTry })
+    }
     const fakeSnapshots = raw.map(
       (p) =>
         ({
@@ -175,13 +288,49 @@ export function useDashboardHero({
     )
     const filtered = filterByTimeRange(fakeSnapshots, timeRange)
 
-    const chartData: HeroPoint[] = filtered.map((s) => ({
-      date: s.snapshot_date,
-      dateMs: new Date(`${s.snapshot_date}T00:00:00Z`).getTime(),
-      label: formatLabel(s.snapshot_date, timeRange),
-      valueUsd: s.total_usd ?? 0,
-      valueTry: s.total_try ?? 0,
-    }))
+    const chartData: HeroPoint[] = filtered.map((s) => {
+      const compare = compareByDate.get(s.snapshot_date) ?? { usd: 0, try: 0 }
+      return {
+        date: s.snapshot_date,
+        dateMs: new Date(`${s.snapshot_date}T00:00:00Z`).getTime(),
+        label: formatLabel(s.snapshot_date, timeRange),
+        valueUsd: s.total_usd ?? 0,
+        valueTry: s.total_try ?? 0,
+        // Value mode: snapshot's invested USD/TRY (cost basis line).
+        // P&L mode: snapshot's market value (= total). We read [0] below
+        // to derive the right-axis denominator before this field becomes
+        // dead-weight for P&L mode (which doesn't draw a compare line).
+        compareUsd: compare.usd,
+        compareTry: compare.try,
+        benchmarkPct: 0,
+      }
+    })
+
+    // Benchmark overlay (P&L mode, when series loaded): fill benchmarkPct
+    // as cumulative % return from chartData[0].date. The benchmark is
+    // anchored on the first point that has a usable close — earlier points
+    // stay at 0% so ranges starting before the benchmark's listing date
+    // still render cleanly. Yahoo's adjclose is USD-denominated; we expose
+    // the same value to both currency display modes (currency-adjusted
+    // benchmark return is a separate, future feature).
+    if (benchmarkActive && chartData.length > 0) {
+      const dates = chartData.map((p) => p.date)
+      const closes = closesAtOrBefore(benchmarkSeries, dates)
+      let base: number | null = null
+      for (const c of closes) {
+        if (c != null && c > 0) {
+          base = c
+          break
+        }
+      }
+      if (base != null && base > 0) {
+        for (let i = 0; i < chartData.length; i++) {
+          const c = closes[i]
+          chartData[i].benchmarkPct =
+            c != null && c > 0 ? (c / base - 1) * 100 : 0
+        }
+      }
+    }
 
     if (chartData.length > 0) {
       chartData[chartData.length - 1].label = "Şimdi"
@@ -242,12 +391,36 @@ export function useDashboardHero({
 
     const deltaPct = pctDenom !== 0 ? (pctNumer / pctDenom) * 100 : 0
 
+    // In P&L mode the secondary line is always the benchmark (percent);
+    // in value mode it's the cost-basis amount (currency). Loading state
+    // (P&L mode before the benchmark series arrives) reports percent with
+    // a 0 placeholder — a brief 0% blip on first paint, not a wrong unit.
+    const compareKind: CompareKind = viewMode === "pnl" ? "percent" : "currency"
+    const endCompare = end
+      ? viewMode === "pnl"
+        ? { usd: 0, try: 0, pct: end.benchmarkPct }
+        : { usd: end.compareUsd, try: end.compareTry, pct: 0 }
+      : { usd: 0, try: 0, pct: 0 }
+
+    // pnlDenom = portfolio value at the visible range's first point. In
+    // P&L mode this is the snapshot total we stashed on `compareUsd/Try`
+    // before computing the chart. It's the denominator that maps the
+    // left-axis (USD/TRY P&L) to the right-axis (%) so the green line
+    // reads consistently off both axes. 0 in value mode (caller ignores).
+    const pnlDenom =
+      viewMode === "pnl" && start
+        ? { usd: start.compareUsd, try: start.compareTry }
+        : { usd: 0, try: 0 }
+
     return {
       chartData,
       xTicks,
       current: { usd: endUsd, try: endTry },
+      compareNow: endCompare,
+      compareKind,
       rangeStart: { usd: startUsd, try: startTry, date: start?.date ?? null },
       delta: { usd: deltaUsd, try: deltaTry, pct: deltaPct },
+      pnlDenom,
       loading: pnlLoading,
     }
   }, [
@@ -260,5 +433,7 @@ export function useDashboardHero({
     timeRange,
     usdTry,
     pnlLoading,
+    benchmarkActive,
+    benchmarkSeries,
   ])
 }
