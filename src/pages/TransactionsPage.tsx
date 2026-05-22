@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Link } from "react-router"
 import { useTransactionLog } from "@/hooks/useTransactionLog"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { useTransactionModal } from "@/contexts/TransactionContext"
@@ -6,7 +7,7 @@ import { TransactionSummary } from "@/components/transactions/TransactionSummary
 import { TransactionFilters } from "@/components/transactions/TransactionFilters"
 import { TransactionList } from "@/components/transactions/TransactionList"
 import { Button } from "@/components/ui/button"
-import { PlusIcon } from "lucide-react"
+import { PlusIcon, TableIcon } from "lucide-react"
 import {
   fetchLinkedChildrenForParents,
   type TransactionWithDetails,
@@ -49,10 +50,20 @@ export default function TransactionsPage() {
             View and filter your transaction history.
           </p>
         </div>
-        <Button onClick={() => openTransactionModal()}>
-          <PlusIcon className="size-4" />
-          Add Transaction
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link to="/transactions/edit" />}
+          >
+            <TableIcon className="size-4" />
+            Bulk edit
+          </Button>
+          <Button onClick={() => openTransactionModal()}>
+            <PlusIcon className="size-4" />
+            Add Transaction
+          </Button>
+        </div>
       </div>
 
       {/* Summary cards */}
