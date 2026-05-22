@@ -27,12 +27,15 @@ export default function App() {
 
         {/* Protected routes */}
         <Route element={<ProtectedRoute />}>
+          {/* Dedicated full-screen pages — no sidebar, no app header. */}
+          <Route path="transactions/edit" element={<Lazy><TransactionsEditPage /></Lazy>} />
+          <Route path="transactions/edit/:assetId" element={<Lazy><TransactionsEditPage /></Lazy>} />
+
+          {/* Standard app layout. */}
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
             <Route path="portfolio" element={<Lazy><PortfolioPage /></Lazy>} />
             <Route path="transactions" element={<Lazy><TransactionsPage /></Lazy>} />
-            <Route path="transactions/edit" element={<Lazy><TransactionsEditPage /></Lazy>} />
-            <Route path="transactions/edit/:assetId" element={<Lazy><TransactionsEditPage /></Lazy>} />
             <Route path="performance" element={<Lazy><PerformancePage /></Lazy>} />
             <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />
           </Route>

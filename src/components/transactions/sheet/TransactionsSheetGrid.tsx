@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
-  Table,
   TableBody,
   TableHead,
   TableHeader,
@@ -280,9 +279,12 @@ export function TransactionsSheetGrid({
   )
 
   return (
-    <Table className="border-separate border-spacing-0">
-      <TableHeader className="sticky top-0 z-10 bg-background">
-        <TableRow className="border-b">
+    // Bare <table> — not shadcn <Table> — because the latter wraps in
+    // `overflow-x-auto` which creates a nested scroll container and breaks
+    // the sticky thead. The caller (the page) owns the actual scroll area.
+    <table className="w-full caption-bottom border-separate border-spacing-0 text-sm">
+      <TableHeader className="sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_var(--border)]">
+        <TableRow className="hover:bg-transparent">
           <TableHead className="w-10 px-2 py-3 text-right text-xs font-normal text-muted-foreground" />
           <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Ticker / Company
@@ -406,7 +408,7 @@ export function TransactionsSheetGrid({
             )
           })}
       </TableBody>
-    </Table>
+    </table>
   )
 }
 
