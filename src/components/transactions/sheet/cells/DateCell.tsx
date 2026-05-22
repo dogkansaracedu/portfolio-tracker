@@ -7,17 +7,14 @@ interface Props {
   onChange: (next: string) => void
 }
 
-/** Native date input keeps the cell compact and copy-paste friendly. The
- *  AddTransactionModal uses a full calendar popover, but inside a dense grid a
- *  one-line input is far better. */
 export function DateCell({ value, error, onChange }: Props) {
   return (
-    <CellShell error={error} className="w-[140px]">
+    <CellShell error={error} className="w-[150px]">
       <Input
         type="date"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 border-transparent bg-transparent px-2 hover:border-input focus:border-input"
+        className="h-10 border-transparent bg-transparent px-2 shadow-none hover:bg-accent/40 focus:bg-background"
       />
     </CellShell>
   )

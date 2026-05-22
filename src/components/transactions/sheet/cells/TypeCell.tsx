@@ -18,21 +18,23 @@ interface Props {
   onChange: (next: TransactionType) => void
 }
 
+/** Renders the selected type as bold uppercase colored text inline (SWS
+ *  style). Trigger has no border; the whole label is the click target. */
 export function TypeCell({ value, error, onChange }: Props) {
   return (
-    <CellShell error={error} className="w-[130px]">
+    <CellShell error={error} className="w-[140px]">
       <Select
         value={value}
         onValueChange={(v) => v && onChange(v as TransactionType)}
       >
-        <SelectTrigger className="h-8 border-transparent bg-transparent hover:border-input">
+        <SelectTrigger className="h-10 border-transparent bg-transparent px-2 font-semibold uppercase tracking-wide shadow-none hover:bg-accent/40">
           <SelectValue>
             {(v: string) => {
               const t = (v || value) as TransactionType
               const display = TRANSACTION_TYPE_DISPLAY[t]
               return (
                 <span className={display?.color ?? ""}>
-                  {display?.label ?? t}
+                  {display?.label.toUpperCase() ?? t}
                 </span>
               )
             }}
@@ -43,7 +45,9 @@ export function TypeCell({ value, error, onChange }: Props) {
             const display = TRANSACTION_TYPE_DISPLAY[t]
             return (
               <SelectItem key={t} value={t}>
-                <span className={display.color}>{display.label}</span>
+                <span className={`font-semibold uppercase ${display.color}`}>
+                  {display.label}
+                </span>
               </SelectItem>
             )
           })}
