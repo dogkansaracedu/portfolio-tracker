@@ -58,7 +58,7 @@ interface UsePortfolioReturn {
   totalRealizedPnlUsd: number
   totalPnlUsd: number
   totalPnlPct: number
-  activeAssetCount: number
+  heldAssetCount: number
   loading: boolean
   error: string | null
   search: string
@@ -171,15 +171,19 @@ export function usePortfolio(): UsePortfolioReturn {
       const liveBnPriceUsd = bn(livePrice?.price_usd)
 
       const assetHoldings = holdingsByAsset.get(asset.id) ?? []
+      // Match snapshot semantics (snapshots.ts:70 — `h.balance <= 0` skipped)
+      // so the platform-grouped view never renders empty positions and
+      // rollups stay consistent with the Dashboard.
+      const heldHoldings = assetHoldings.filter((h) => h.balance > 0)
 
-      const holdingsData = assetHoldings.map((h) => ({
+      const holdingsData = heldHoldings.map((h) => ({
         platformId: h.platform_id,
         platformName: h.platforms.name,
         platformColor: h.platforms.color,
         balance: h.balance,
       }))
 
-      const bnTotalBalance = assetHoldings.reduce(
+      const bnTotalBalance = heldHoldings.reduce(
         (sum, h) => sum.plus(bn(h.balance)),
         BN_ZERO,
       )
@@ -220,7 +224,7 @@ export function usePortfolio(): UsePortfolioReturn {
           ? 0
           : currentValueUsd.div(totalValue).times(100).toNumber(),
       }
-    })
+    }).filter((asset) => asset.totalBalance > 0)
   }, [
     activeAssets,
     holdings,
@@ -449,7 +453,7 @@ export function usePortfolio(): UsePortfolioReturn {
     totalRealizedPnlUsd: totalRealizedPnlUsd.toNumber(),
     totalPnlUsd: totalPnlUsdBn.toNumber(),
     totalPnlPct,
-    activeAssetCount: activeAssets.length,
+    heldAssetCount: enrichedAssets.length,
     loading,
     error,
     search,
