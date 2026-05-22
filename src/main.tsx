@@ -8,6 +8,7 @@ import { SnapshotsProvider } from "@/contexts/SnapshotsContext"
 import { ThemeProvider } from "@/contexts/ThemeContext"
 import { TransactionProvider } from "@/contexts/TransactionContext"
 import { TransactionDataProvider } from "@/contexts/TransactionDataContext"
+import { AssetSheetProvider } from "@/contexts/AssetSheetContext"
 import { Toaster } from "@/components/ui/sonner"
 import App from "./App"
 import "./index.css"
@@ -21,10 +22,12 @@ createRoot(document.getElementById("root")!).render(
             <PricesProvider>
               <TransactionDataProvider>
                 <TransactionProvider>
-                  <SnapshotsProvider>
-                    <App />
-                    <Toaster />
-                  </SnapshotsProvider>
+                  <AssetSheetProvider>
+                    <SnapshotsProvider>
+                      <App />
+                      <Toaster />
+                    </SnapshotsProvider>
+                  </AssetSheetProvider>
                 </TransactionProvider>
               </TransactionDataProvider>
             </PricesProvider>
