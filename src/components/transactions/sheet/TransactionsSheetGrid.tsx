@@ -270,9 +270,10 @@ export function TransactionsSheetGrid({
     pendingDeletes,
   ])
 
-  // Render N placeholder rows below the real ones. Clicking any cell in a
-  // placeholder adds a real new row. Gives the page the Excel-style "always
-  // some empty rows waiting" feel.
+  // Empty placeholder rows. Clicking any of them adds a real new row.
+  // Rendered ABOVE the existing data so the "you can add here" affordance
+  // is the first thing the user sees — otherwise they'd have to scroll past
+  // all existing transactions to find it.
   const placeholders = Array.from(
     { length: Math.max(0, placeholderRowCount) },
     (_, i) => i,
@@ -329,6 +330,26 @@ export function TransactionsSheetGrid({
         )}
 
         {!loading &&
+          placeholders.map((i) => {
+            const num = visibleRows.length + i + 1
+            return (
+              <TableRow
+                key={`placeholder-${i}`}
+                onClick={() => addBlankRow({ assetId })}
+                className="cursor-pointer border-b text-muted-foreground/60 hover:bg-accent/40"
+                title="Click to add a row"
+              >
+                <TableCell className="w-10 px-2 py-4 text-right align-middle text-xs tabular-nums">
+                  {num}
+                </TableCell>
+                <TableCell colSpan={COL_COUNT} className="px-2 py-4">
+                  &nbsp;
+                </TableCell>
+              </TableRow>
+            )
+          })}
+
+        {!loading &&
           visibleRows.map((row, idx) => (
             <TableRow
               key={row.rowKey}
@@ -336,7 +357,7 @@ export function TransactionsSheetGrid({
               data-status={row.status}
             >
               <TableCell className="w-10 px-2 py-2 text-right align-middle text-xs text-muted-foreground tabular-nums">
-                {idx + 1}
+                {placeholders.length + idx + 1}
               </TableCell>
               <AssetCell
                 value={row.assetId}
@@ -396,26 +417,6 @@ export function TransactionsSheetGrid({
               </CellShell>
             </TableRow>
           ))}
-
-        {!loading &&
-          placeholders.map((i) => {
-            const num = visibleRows.length + i + 1
-            return (
-              <TableRow
-                key={`placeholder-${i}`}
-                onClick={() => addBlankRow({ assetId })}
-                className="cursor-pointer border-b text-muted-foreground/50 hover:bg-accent/30"
-                title="Click to add a row"
-              >
-                <TableCell className="w-10 px-2 py-4 text-right text-xs tabular-nums">
-                  {num}
-                </TableCell>
-                <TableCell colSpan={COL_COUNT} className="px-2 py-4">
-                  &nbsp;
-                </TableCell>
-              </TableRow>
-            )
-          })}
       </TableBody>
     </table>
   )
