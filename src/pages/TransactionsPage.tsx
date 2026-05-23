@@ -57,7 +57,7 @@ export default function TransactionsPage() {
             render={<Link to="/transactions/edit" />}
           >
             <TableIcon className="size-4" />
-            Bulk edit
+            Bulk add
           </Button>
           <Button onClick={() => openTransactionModal()}>
             <PlusIcon className="size-4" />

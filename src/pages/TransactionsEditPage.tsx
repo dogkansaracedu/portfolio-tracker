@@ -11,12 +11,11 @@ import { ImportPopover } from "@/components/transactions/sheet/ImportPopover"
 import { useAssets } from "@/hooks/useAssets"
 import { usePlatforms } from "@/hooks/usePlatforms"
 
-const PLACEHOLDER_ROWS = 6
-
 /** SimplyWallSt-style full-page transactions editor.
  *  Routes (both rendered OUTSIDE AppLayout so the page owns the entire viewport):
- *    /transactions/edit            → all transactions, bulk edit
- *    /transactions/edit/:assetId   → per-asset, asset column locked
+ *    /transactions/edit            → bulk add, blank canvas (no existing rows)
+ *    /transactions/edit/:assetId   → per-asset, existing rows visible + editable,
+ *                                    asset column locked
  *
  *  Layout: dark header bar (flex item, no sticky math needed) → scrollable
  *  spreadsheet area (overflow-auto, owns the only Y scroll on the page) →
@@ -28,7 +27,11 @@ export default function TransactionsEditPage() {
   const [controls, setControls] = useState<TransactionsSheetControls | null>(null)
 
   const asset = assetId ? assets.find((a) => a.id === assetId) : null
-  const title = asset ? `Add ${asset.ticker} transactions` : "Add your transactions"
+  const isBulkAdd = !assetId
+  const placeholderRows = isBulkAdd ? 12 : 6
+  const title = asset
+    ? `Edit ${asset.ticker} transactions`
+    : "Add your transactions"
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -77,7 +80,8 @@ export default function TransactionsEditPage() {
           assetId={assetId}
           assets={assets}
           platforms={platforms}
-          placeholderRowCount={PLACEHOLDER_ROWS}
+          placeholderRowCount={placeholderRows}
+          loadExisting={!isBulkAdd}
           onControlsReady={setControls}
         />
       </main>
