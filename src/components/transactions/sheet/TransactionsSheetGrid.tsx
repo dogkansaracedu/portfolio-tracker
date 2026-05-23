@@ -65,7 +65,7 @@ function localDayAsUtcMidnight(date: string): string {
   return `${date}T00:00:00Z`
 }
 
-const COL_COUNT = 8
+const COL_COUNT = 9
 
 export function TransactionsSheetGrid({
   assetId,
@@ -307,6 +307,9 @@ export function TransactionsSheetGrid({
           <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Total cost
           </TableHead>
+          <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Fee
+          </TableHead>
           <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Platform
           </TableHead>
@@ -368,6 +371,12 @@ export function TransactionsSheetGrid({
                 amount={row.amount}
                 unitPrice={row.unitPrice}
                 currency={row.priceCurrency}
+              />
+              <NumberCell
+                value={row.fee}
+                error={row.errors.fee}
+                placeholder="0"
+                onChange={(v) => editCell(row.rowKey, "fee", v)}
               />
               <PlatformCell
                 value={row.platformId}
