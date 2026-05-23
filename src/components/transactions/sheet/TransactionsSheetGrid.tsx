@@ -48,6 +48,9 @@ interface Props {
   platforms: Platform[]
   /** Number of empty placeholder rows to render below the real rows. */
   placeholderRowCount?: number
+  /** When false, the grid never fetches existing transactions — pure
+   *  add-new canvas. Defaults to true. */
+  loadExisting?: boolean
   /** The grid lifts its imperative controls + state up so the page chrome
    *  (header import button, footer save/discard) can drive them. */
   onControlsReady?: (controls: Controls) => void
@@ -72,6 +75,7 @@ export function TransactionsSheetGrid({
   assets,
   platforms,
   placeholderRowCount = 5,
+  loadExisting = true,
   onControlsReady,
 }: Props) {
   const { user } = useAuth()
@@ -107,6 +111,12 @@ export function TransactionsSheetGrid({
   useEffect(() => {
     if (!user) return
     if (savingRef.current) return
+    // Add-only mode: start with an empty buffer. No fetch, no existing rows.
+    if (!loadExisting) {
+      loadRows([])
+      setLoading(false)
+      return
+    }
     let cancelled = false
     setLoading(true)
     fetchTransactions(
@@ -132,7 +142,7 @@ export function TransactionsSheetGrid({
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, assetId, txVersion])
+  }, [user?.id, assetId, txVersion, loadExisting])
 
   const visibleRows = useMemo(
     () =>
@@ -228,18 +238,19 @@ export function TransactionsSheetGrid({
 
   const discard = () => {
     discardAll()
-    if (user) {
-      fetchTransactions(
-        user.id,
-        assetId
-          ? { assetId, includeLinkedChildren: true }
-          : { includeLinkedChildren: false },
-      )
-        .then(loadRows)
-        .catch((err: unknown) => {
-          toast.error(err instanceof Error ? err.message : "Failed to reload")
-        })
-    }
+    // In add-only mode there's nothing on the server to reload back to —
+    // discardAll already cleared the new rows.
+    if (!loadExisting || !user) return
+    fetchTransactions(
+      user.id,
+      assetId
+        ? { assetId, includeLinkedChildren: true }
+        : { includeLinkedChildren: false },
+    )
+      .then(loadRows)
+      .catch((err: unknown) => {
+        toast.error(err instanceof Error ? err.message : "Failed to reload")
+      })
   }
 
   // Lift controls up to the page chrome.
