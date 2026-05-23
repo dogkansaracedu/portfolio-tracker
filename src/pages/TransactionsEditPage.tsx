@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Link, useParams } from "react-router"
+import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -39,12 +40,23 @@ export default function TransactionsEditPage() {
             <span className="text-sm text-zinc-400">{asset.name}</span>
           )}
           {controls && (
-            <ImportPopover
-              assets={assets}
-              platforms={platforms}
-              lockedAssetId={assetId}
-              onAppend={controls.appendRows}
-            />
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={controls.addBlankRow}
+                className="border-zinc-700 bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
+              >
+                <Plus className="size-3.5" />
+                Add row
+              </Button>
+              <ImportPopover
+                assets={assets}
+                platforms={platforms}
+                lockedAssetId={assetId}
+                onAppend={controls.appendRows}
+              />
+            </>
           )}
         </div>
         <Button
