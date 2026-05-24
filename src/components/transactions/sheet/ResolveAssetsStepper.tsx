@@ -29,6 +29,7 @@ import {
 } from "@/lib/constants/assets"
 import { tickerFromSentinel } from "./sentinel"
 import type { Asset } from "@/types/database"
+import type { UnresolvedReason } from "@/lib/queries/assets"
 
 interface Props {
   /** Sentinel values from the grid rows, e.g. ["new:BTC", "new:RKLB"]. */
@@ -43,6 +44,7 @@ interface Props {
   /** Cancel without resolving — the Save batch is aborted; rows stay in
    *  the grid with their sentinels. */
   onCancel: () => void
+  reasons?: Record<string, UnresolvedReason>
 }
 
 /** Best-effort match for the DB's `duplicate key value violates unique
@@ -83,6 +85,7 @@ export function ResolveAssetsStepper({
   onResolved,
   onAllResolved,
   onCancel,
+  reasons,
 }: Props) {
   const { assets, addAsset } = useAssets()
   const [step, setStep] = useState(0)
@@ -182,6 +185,23 @@ export function ResolveAssetsStepper({
     }
   }
 
+  const reasonText = (sentinel: string): string => {
+    const ticker = tickerFromSentinel(sentinel)
+    const reason = reasons?.[sentinel]
+    switch (reason) {
+      case "not_found":
+        return `Yahoo couldn't find ${ticker}. For BIST stocks add the .IS suffix (e.g. THYAO.IS). Otherwise fill in details manually.`
+      case "not_equity":
+        return `Yahoo doesn't list ${ticker} as a stock. Pick the right category manually.`
+      case "http_error":
+        return `Couldn't reach Yahoo for ${ticker}. Fill in details manually.`
+      case "create_failed":
+        return `Yahoo found ${ticker} but saving the asset failed. Review and try again.`
+      default:
+        return `We don't know ${ticker} yet. Fill in the details so we can price it and track it.`
+    }
+  }
+
   return (
     <Dialog
       open={open}
@@ -197,10 +217,7 @@ export function ResolveAssetsStepper({
               ({step + 1} of {sentinels.length})
             </span>
           </DialogTitle>
-          <DialogDescription>
-            We don't know <span className="font-mono font-medium">{tickerFromSentinel(current)}</span>{" "}
-            yet. Fill in the details so we can price it and track it.
-          </DialogDescription>
+          <DialogDescription>{reasonText(current)}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
