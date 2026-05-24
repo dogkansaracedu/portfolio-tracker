@@ -13,6 +13,7 @@ import { useTransactionsSheetState } from "./useTransactionsSheetState"
 import type { SheetRow } from "./types"
 import { validateRow } from "./validation"
 import { isNewAssetSentinel } from "./sentinel"
+import { autoResolveSentinels } from "./autoResolveSentinels"
 import { ResolveAssetsStepper } from "./ResolveAssetsStepper"
 import { CellShell } from "./cells/CellShell"
 import { DateCell } from "./cells/DateCell"
@@ -22,6 +23,7 @@ import { TypeCell } from "./cells/TypeCell"
 import { NumberCell } from "./cells/NumberCell"
 import { TotalCostCell } from "./cells/TotalCostCell"
 import { useTransactions } from "@/hooks/useTransactions"
+import { useAssets } from "@/hooks/useAssets"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import {
@@ -30,6 +32,7 @@ import {
   type BulkInsertRow,
   type TransactionWithDetails,
 } from "@/lib/queries/transactions"
+import type { UnresolvedReason } from "@/lib/queries/assets"
 import { useAuth } from "@/hooks/useAuth"
 import { bn } from "@/lib/config"
 import type { Asset, Platform, TransactionInsert } from "@/types/database"
@@ -109,6 +112,11 @@ export function TransactionsSheetGrid({
   // the current save attempt.
   const [pendingSentinels, setPendingSentinels] = useState<string[]>([])
   const [stepperOpen, setStepperOpen] = useState(false)
+  const [stepperReasons, setStepperReasons] = useState<
+    Record<string, UnresolvedReason>
+  >({})
+
+  const { refetch: refetchAssets } = useAssets()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -185,20 +193,47 @@ export function TransactionsSheetGrid({
       return
     }
 
-    // Step 1: if any rows reference unknown tickers (sentinels), pause and
-    // open the stepper. The stepper resolves each sentinel via reducer
-    // dispatches; we resume the commit from `runCommit()` after all are
-    // resolved.
     const uniqueSentinels = Array.from(
-      new Set(rows.filter((r) => isNewAssetSentinel(r.assetId)).map((r) => r.assetId)),
+      new Set(
+        rows.filter((r) => isNewAssetSentinel(r.assetId)).map((r) => r.assetId),
+      ),
     )
-    if (uniqueSentinels.length > 0) {
-      setPendingSentinels(uniqueSentinels)
-      setStepperOpen(true)
-      return // saving stays true; cleared on stepper finish or cancel.
+
+    if (uniqueSentinels.length === 0) {
+      await runCommit()
+      return
     }
 
-    await runCommit()
+    const { resolvedMap, unresolved, createdAny } = await autoResolveSentinels({
+      userId: user.id,
+      sentinels: uniqueSentinels,
+      assets,
+      refetchAssets,
+    })
+
+    for (const [sentinel, realId] of resolvedMap.entries()) {
+      resolveAssetSentinel(sentinel, realId)
+    }
+
+    if (createdAny) {
+      toast.success(
+        `Resolved ${resolvedMap.size} ticker${resolvedMap.size === 1 ? "" : "s"} via Yahoo`,
+      )
+    }
+
+    if (unresolved.length === 0) {
+      await runCommit()
+      return
+    }
+
+    const reasonsMap: Record<string, UnresolvedReason> = {}
+    for (const u of unresolved) {
+      reasonsMap[u.sentinel] = u.reason
+    }
+    setStepperReasons(reasonsMap)
+    setPendingSentinels(unresolved.map((u) => u.sentinel))
+    setStepperOpen(true)
+    // saving stays true; cleared on stepper finish or cancel.
   }
 
   const runCommit = async () => {
@@ -296,12 +331,14 @@ export function TransactionsSheetGrid({
   const handleStepperAllResolved = async () => {
     setStepperOpen(false)
     setPendingSentinels([])
+    setStepperReasons({})
     await runCommit()
   }
 
   const handleStepperCancel = () => {
     setStepperOpen(false)
     setPendingSentinels([])
+    setStepperReasons({})
     setSaving(false)
     savingRef.current = false
     toast.message("Save cancelled. New tickers left in the grid.")
@@ -509,6 +546,7 @@ export function TransactionsSheetGrid({
       onResolved={handleStepperResolved}
       onAllResolved={handleStepperAllResolved}
       onCancel={handleStepperCancel}
+      reasons={stepperReasons}
     />
     </>
   )
