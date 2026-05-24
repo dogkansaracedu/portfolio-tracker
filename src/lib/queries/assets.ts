@@ -46,3 +46,58 @@ export async function deactivateAsset(id: string): Promise<void> {
 
   if (error) throw error
 }
+
+// ─── Ticker auto-resolution (Yahoo Finance via resolve-tickers Edge Fn) ──
+
+export interface ResolvedTickerInfo {
+  ticker: string
+  name: string
+  category: "stock_us" | "stock_bist"
+  price_source: "yahoo"
+  currency: string
+}
+
+/** Union of all reasons a ticker may need manual handling in the stepper.
+ *  - `not_found | http_error | not_equity` come from the edge function.
+ *  - `create_failed` is added client-side when the resolved metadata is
+ *    fine but the follow-up `createAsset` call fails. */
+export type UnresolvedReason =
+  | "not_found"
+  | "http_error"
+  | "not_equity"
+  | "create_failed"
+
+export interface UnresolvedTickerInfo {
+  ticker: string
+  reason: UnresolvedReason
+}
+
+export interface ResolveTickersResult {
+  resolved: ResolvedTickerInfo[]
+  unresolved: UnresolvedTickerInfo[]
+}
+
+/** Call the resolve-tickers Edge Function. Returns an empty result on
+ *  HTTP failure with a thrown error — callers should treat any throw as
+ *  "fall back to manual stepper for every sentinel". */
+export async function resolveTickers(
+  tickers: string[],
+): Promise<ResolveTickersResult> {
+  const { data, error } = await supabase.functions.invoke<ResolveTickersResult>(
+    "resolve-tickers",
+    { body: { tickers } },
+  )
+  if (error) {
+    const ctx = (error as { context?: Response }).context
+    if (ctx && typeof ctx.text === "function") {
+      try {
+        const text = await ctx.text()
+        if (text) throw new Error(text)
+      } catch (innerErr) {
+        if (innerErr instanceof Error && innerErr.message) throw innerErr
+      }
+    }
+    throw error
+  }
+  return data ?? { resolved: [], unresolved: [] }
+}
