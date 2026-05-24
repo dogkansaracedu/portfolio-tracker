@@ -23,7 +23,6 @@ import { TypeCell } from "./cells/TypeCell"
 import { NumberCell } from "./cells/NumberCell"
 import { TotalCostCell } from "./cells/TotalCostCell"
 import { useTransactions } from "@/hooks/useTransactions"
-import { useAssets } from "@/hooks/useAssets"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import {
@@ -62,6 +61,9 @@ interface Props {
   /** The grid lifts its imperative controls + state up so the page chrome
    *  (header import button, footer save/discard) can drive them. */
   onControlsReady?: (controls: Controls) => void
+  /** Called after the auto-resolve flow creates new assets so the parent's
+   *  `assets` prop catches up. */
+  refetchAssets: () => Promise<void>
 }
 
 const ROW_STATUS_TINT: Record<SheetRow["status"], string> = {
@@ -85,6 +87,7 @@ export function TransactionsSheetGrid({
   placeholderRowCount = 5,
   loadExisting = true,
   onControlsReady,
+  refetchAssets,
 }: Props) {
   const { user } = useAuth()
   const { txVersion, bumpTxVersion } = useTransactionModal()
@@ -115,8 +118,6 @@ export function TransactionsSheetGrid({
   const [stepperReasons, setStepperReasons] = useState<
     Record<string, UnresolvedReason>
   >({})
-
-  const { refetch: refetchAssets } = useAssets()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -217,12 +218,18 @@ export function TransactionsSheetGrid({
 
     if (createdAny) {
       toast.success(
-        `Resolved ${resolvedMap.size} ticker${resolvedMap.size === 1 ? "" : "s"} via Yahoo`,
+        `Resolved ${resolvedMap.size} ticker${resolvedMap.size === 1 ? "" : "s"}`,
       )
     }
 
+    const substitutedRows: SheetRow[] = rows.map((r) =>
+      resolvedMap.has(r.assetId)
+        ? { ...r, assetId: resolvedMap.get(r.assetId) as string }
+        : r,
+    )
+
     if (unresolved.length === 0) {
-      await runCommit()
+      await runCommit(substitutedRows)
       return
     }
 
@@ -236,13 +243,14 @@ export function TransactionsSheetGrid({
     // saving stays true; cleared on stepper finish or cancel.
   }
 
-  const runCommit = async () => {
+  const runCommit = async (rowsOverride?: SheetRow[]) => {
     if (!user) return
+    const effectiveRows = rowsOverride ?? rows
     let okCount = 0
     let errCount = 0
 
     for (const del of pendingDeletes) {
-      const orig = rows.find((r) => r.rowKey === del.rowKey)
+      const orig = effectiveRows.find((r) => r.rowKey === del.rowKey)
       try {
         const oAsset = orig?.original?.assetId
         const oPlat = orig?.original?.platformId
@@ -259,7 +267,7 @@ export function TransactionsSheetGrid({
       }
     }
 
-    for (const row of rows) {
+    for (const row of effectiveRows) {
       if (row.status !== "dirty" || !row.txId || !row.original) continue
       const payload = buildPayload(row)
       try {
@@ -282,7 +290,7 @@ export function TransactionsSheetGrid({
     // for the whole batch, atomic, server-side balance recompute. We
     // collect the rows in order so the RPC's `row_index` lines up with
     // the rowKey we need to commit on success.
-    const newRows = rows.filter((r) => r.status === "new")
+    const newRows = effectiveRows.filter((r) => r.status === "new")
     if (newRows.length > 0) {
       const payloads: BulkInsertRow[] = newRows.map(buildBulkPayload)
       try {
