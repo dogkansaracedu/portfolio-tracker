@@ -23,7 +23,7 @@ import { usePlatforms } from "@/hooks/usePlatforms"
  *  dark footer bar. The grid's <thead> sticks to the top of the scroll area. */
 export default function TransactionsEditPage() {
   const { assetId } = useParams<{ assetId?: string }>()
-  const { assets } = useAssets()
+  const { assets, refetch: refetchAssets } = useAssets()
   const { platforms } = usePlatforms()
   const [controls, setControls] = useState<TransactionsSheetControls | null>(null)
 
@@ -91,6 +91,7 @@ export default function TransactionsEditPage() {
           placeholderRowCount={placeholderRows}
           loadExisting={!isBulkAdd}
           onControlsReady={setControls}
+          refetchAssets={refetchAssets}
         />
       </main>
 
