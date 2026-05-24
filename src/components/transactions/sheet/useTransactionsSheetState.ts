@@ -101,6 +101,7 @@ type Action =
   | { kind: "commitSaveSuccess"; rowKey: string; txId: string }
   | { kind: "markSaveError"; rowKey: string; message: string }
   | { kind: "removeDeleted"; rowKey: string }
+  | { kind: "resolveAssetSentinel"; sentinel: string; realAssetId: string }
 
 function reduce(state: SheetState, action: Action): SheetState {
   switch (action.kind) {
@@ -233,6 +234,18 @@ function reduce(state: SheetState, action: Action): SheetState {
         ),
       }
 
+    case "resolveAssetSentinel": {
+      // Replace the sentinel in every row's assetId with the real asset id
+      // returned by the create call. Done in-place so the row's status (new
+      // / dirty) is preserved.
+      const next = state.rows.map((r) =>
+        r.assetId === action.sentinel
+          ? { ...r, assetId: action.realAssetId }
+          : r,
+      )
+      return { ...state, rows: next }
+    }
+
     default:
       return state
   }
@@ -287,6 +300,13 @@ export function useTransactionsSheetState() {
     dispatch({ kind: "removeDeleted", rowKey })
   }, [])
 
+  const resolveAssetSentinel = useCallback(
+    (sentinel: string, realAssetId: string) => {
+      dispatch({ kind: "resolveAssetSentinel", sentinel, realAssetId })
+    },
+    [],
+  )
+
   const counts = useMemo<RowCounts>(() => {
     const c: RowCounts = {
       clean: 0,
@@ -317,5 +337,6 @@ export function useTransactionsSheetState() {
     commitSaveSuccess,
     markSaveError,
     removeDeleted,
+    resolveAssetSentinel,
   }
 }
