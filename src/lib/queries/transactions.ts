@@ -150,3 +150,47 @@ export async function deleteTransaction(id: string): Promise<void> {
   const { error } = await supabase.from("transactions").delete().eq("id", id)
   if (error) throw error
 }
+
+/** Payload row for the bulk_insert_transactions RPC. Mirrors the JSONB
+ *  shape the function expects — keep this lockstep with the SQL function
+ *  in 20260524000000_bulk_insert_transactions.sql. */
+export interface BulkInsertRow {
+  asset_id: string
+  platform_id: string
+  type: string
+  date: string
+  amount: number | string
+  unit_price: number | string
+  price_currency: string
+  total_cost: number | string
+  fee: number | string
+  fee_currency: string | null
+  related_asset_id: string | null
+  notes: string | null
+  /** Optional cash-funding platform for buys. When set, the function also
+   *  inserts the linked cash_debit child on that platform. */
+  funding_platform_id?: string | null
+}
+
+export interface BulkInsertResult {
+  row_index: number
+  tx_id: string
+}
+
+/**
+ * Insert N transactions in a single round-trip. The RPC handles:
+ *  - Parent inserts (one per row)
+ *  - Auto-paired cash children for sells (always) and funded buys
+ *  - Holdings balance recompute for every (asset, platform) touched
+ * All atomic. On any error, the entire batch rolls back.
+ */
+export async function bulkInsertTransactions(
+  rows: BulkInsertRow[],
+): Promise<BulkInsertResult[]> {
+  if (rows.length === 0) return []
+  const { data, error } = await supabase.rpc("bulk_insert_transactions", {
+    p_rows: rows,
+  })
+  if (error) throw error
+  return (data ?? []) as BulkInsertResult[]
+}
