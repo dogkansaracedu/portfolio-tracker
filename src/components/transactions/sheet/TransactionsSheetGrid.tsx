@@ -109,10 +109,9 @@ export function TransactionsSheetGrid({
     resolveAssetSentinel,
   } = useTransactionsSheetState()
 
-  // When Save discovers unknown tickers, we open the resolve stepper and
-  // pause the actual commit until every sentinel becomes a real asset id.
-  // `pendingSentinels` is the snapshot of sentinels that need resolving in
-  // the current save attempt.
+  // When Save discovers unknown tickers, we auto-resolve them via Yahoo;
+  // anything that doesn't resolve cleanly is queued here and shown in the
+  // stepper for manual entry. The commit pauses until the queue empties.
   const [pendingSentinels, setPendingSentinels] = useState<string[]>([])
   const [stepperOpen, setStepperOpen] = useState(false)
   const [stepperReasons, setStepperReasons] = useState<
