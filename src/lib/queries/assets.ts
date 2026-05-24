@@ -47,8 +47,6 @@ export async function deactivateAsset(id: string): Promise<void> {
   if (error) throw error
 }
 
-// ─── Ticker auto-resolution (Yahoo Finance via resolve-tickers Edge Fn) ──
-
 export interface ResolvedTickerInfo {
   ticker: string
   name: string
@@ -77,9 +75,6 @@ export interface ResolveTickersResult {
   unresolved: UnresolvedTickerInfo[]
 }
 
-/** Call the resolve-tickers Edge Function. Returns an empty result on
- *  HTTP failure with a thrown error — callers should treat any throw as
- *  "fall back to manual stepper for every sentinel". */
 export async function resolveTickers(
   tickers: string[],
 ): Promise<ResolveTickersResult> {
@@ -90,11 +85,21 @@ export async function resolveTickers(
   if (error) {
     const ctx = (error as { context?: Response }).context
     if (ctx && typeof ctx.text === "function") {
+      let body: string | undefined
       try {
-        const text = await ctx.text()
-        if (text) throw new Error(text)
-      } catch (innerErr) {
-        if (innerErr instanceof Error && innerErr.message) throw innerErr
+        body = await ctx.text()
+      } catch {
+        // ctx.text() failed — fall through to throw the original error
+      }
+      if (body) {
+        let message = body
+        try {
+          const json = JSON.parse(body)
+          message = json.error ?? json.message ?? body
+        } catch {
+          // not JSON — use raw body as the error message
+        }
+        throw new Error(message)
       }
     }
     throw error
