@@ -28,6 +28,7 @@ import {
   type PriceSourceValue,
 } from "@/lib/constants/assets"
 import { tickerFromSentinel } from "./sentinel"
+import type { Asset } from "@/types/database"
 
 interface Props {
   /** Sentinel values from the grid rows, e.g. ["new:BTC", "new:RKLB"]. */
@@ -42,6 +43,15 @@ interface Props {
   /** Cancel without resolving — the Save batch is aborted; rows stay in
    *  the grid with their sentinels. */
   onCancel: () => void
+}
+
+/** Best-effort match for the DB's `duplicate key value violates unique
+ *  constraint "assets_user_id_ticker_key"` error. Supabase-js surfaces the
+ *  Postgres error message verbatim. */
+function isDuplicateTickerError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  const msg = err.message.toLowerCase()
+  return msg.includes("duplicate key") && msg.includes("ticker")
 }
 
 interface FormState {
@@ -74,7 +84,7 @@ export function ResolveAssetsStepper({
   onAllResolved,
   onCancel,
 }: Props) {
-  const { addAsset } = useAssets()
+  const { assets, addAsset } = useAssets()
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormState>(() =>
     defaultsForTicker(sentinels[0] ? tickerFromSentinel(sentinels[0]) : ""),
@@ -105,6 +115,14 @@ export function ResolveAssetsStepper({
 
   const isLast = step === sentinels.length - 1
 
+  // Match the schema's UNIQUE(user_id, ticker) — `assets` is already
+  // user-scoped by useAssets, so a case-insensitive ticker match here is
+  // enough to spot a collision before the DB throws.
+  const tickerExists = (t: string): Asset | undefined =>
+    assets.find(
+      (a: Asset) => a.ticker.toLowerCase() === t.trim().toLowerCase(),
+    )
+
   async function handleNext() {
     const trimmedTicker = form.ticker.trim()
     const trimmedName = form.name.trim()
@@ -114,6 +132,13 @@ export function ResolveAssetsStepper({
     }
     if (!trimmedName) {
       toast.error("Display name is required")
+      return
+    }
+    const existing = tickerExists(trimmedTicker)
+    if (existing) {
+      toast.error(
+        `Ticker "${existing.ticker}" already exists (${existing.name}). Cancel this step and pick it from the dropdown instead.`,
+      )
       return
     }
 
@@ -140,9 +165,18 @@ export function ResolveAssetsStepper({
         setStep(step + 1)
       }
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to register asset",
-      )
+      // Race: if another stepper run or a tab inserted the same ticker
+      // between our pre-check and the insert, the DB still wins. Surface
+      // a friendlier message than the raw constraint name.
+      if (isDuplicateTickerError(err)) {
+        toast.error(
+          `Ticker "${trimmedTicker}" already exists. Cancel and pick it from the dropdown.`,
+        )
+      } else {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to register asset",
+        )
+      }
     } finally {
       setSubmitting(false)
     }

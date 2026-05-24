@@ -110,13 +110,7 @@ export function AssetCell({ value, assets, error, readOnly, onChange }: Props) {
               onValueChange={setSearch}
             />
             <CommandList>
-              <CommandEmpty>
-                {canCreate ? (
-                  <CreateRow ticker={trimmedSearch} onSelect={onChange} setOpen={setOpen} />
-                ) : (
-                  "Type a ticker to add a new asset."
-                )}
-              </CommandEmpty>
+              <CommandEmpty>Type a ticker to add a new asset.</CommandEmpty>
 
               {canCreate && (
                 <CommandGroup heading="New">
@@ -167,29 +161,3 @@ export function AssetCell({ value, assets, error, readOnly, onChange }: Props) {
   )
 }
 
-/** Empty-state row that appears inside CommandEmpty when nothing matches —
- *  gives the user a single, obvious next step. */
-function CreateRow({
-  ticker,
-  onSelect,
-  setOpen,
-}: {
-  ticker: string
-  onSelect: (id: string) => void
-  setOpen: (o: boolean) => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        onSelect(makeNewAssetSentinel(ticker))
-        setOpen(false)
-      }}
-      className="flex w-full items-center px-2 py-1.5 text-sm hover:bg-accent"
-    >
-      <Plus className="mr-2 h-4 w-4" />
-      Create <span className="ml-2 font-medium">{ticker.toUpperCase()}</span>
-      <Sparkles className="ml-auto h-3.5 w-3.5 text-amber-500" />
-    </button>
-  )
-}
