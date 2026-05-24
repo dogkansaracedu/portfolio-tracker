@@ -12,6 +12,8 @@ import { Trash2 } from "lucide-react"
 import { useTransactionsSheetState } from "./useTransactionsSheetState"
 import type { SheetRow } from "./types"
 import { validateRow } from "./validation"
+import { isNewAssetSentinel } from "./sentinel"
+import { ResolveAssetsStepper } from "./ResolveAssetsStepper"
 import { CellShell } from "./cells/CellShell"
 import { DateCell } from "./cells/DateCell"
 import { AssetCell } from "./cells/AssetCell"
@@ -94,7 +96,15 @@ export function TransactionsSheetGrid({
     validateAll,
     commitSaveSuccess,
     markSaveError,
+    resolveAssetSentinel,
   } = useTransactionsSheetState()
+
+  // When Save discovers unknown tickers, we open the resolve stepper and
+  // pause the actual commit until every sentinel becomes a real asset id.
+  // `pendingSentinels` is the snapshot of sentinels that need resolving in
+  // the current save attempt.
+  const [pendingSentinels, setPendingSentinels] = useState<string[]>([])
+  const [stepperOpen, setStepperOpen] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -169,6 +179,24 @@ export function TransactionsSheetGrid({
       return
     }
 
+    // Step 1: if any rows reference unknown tickers (sentinels), pause and
+    // open the stepper. The stepper resolves each sentinel via reducer
+    // dispatches; we resume the commit from `runCommit()` after all are
+    // resolved.
+    const uniqueSentinels = Array.from(
+      new Set(rows.filter((r) => isNewAssetSentinel(r.assetId)).map((r) => r.assetId)),
+    )
+    if (uniqueSentinels.length > 0) {
+      setPendingSentinels(uniqueSentinels)
+      setStepperOpen(true)
+      return // saving stays true; cleared on stepper finish or cancel.
+    }
+
+    await runCommit()
+  }
+
+  const runCommit = async () => {
+    if (!user) return
     let okCount = 0
     let errCount = 0
 
@@ -236,6 +264,24 @@ export function TransactionsSheetGrid({
     }
   }
 
+  const handleStepperResolved = (sentinel: string, realAssetId: string) => {
+    resolveAssetSentinel(sentinel, realAssetId)
+  }
+
+  const handleStepperAllResolved = async () => {
+    setStepperOpen(false)
+    setPendingSentinels([])
+    await runCommit()
+  }
+
+  const handleStepperCancel = () => {
+    setStepperOpen(false)
+    setPendingSentinels([])
+    setSaving(false)
+    savingRef.current = false
+    toast.message("Save cancelled. New tickers left in the grid.")
+  }
+
   const discard = () => {
     discardAll()
     // In add-only mode there's nothing on the server to reload back to —
@@ -291,9 +337,10 @@ export function TransactionsSheetGrid({
   )
 
   return (
-    // Bare <table> — not shadcn <Table> — because the latter wraps in
-    // `overflow-x-auto` which creates a nested scroll container and breaks
-    // the sticky thead. The caller (the page) owns the actual scroll area.
+    <>
+    {/* Bare <table> — not shadcn <Table> — because the latter wraps in
+     *  `overflow-x-auto` which creates a nested scroll container and breaks
+     *  the sticky thead. The caller (the page) owns the actual scroll area. */}
     <table className="w-full caption-bottom border-separate border-spacing-0 text-sm">
       <TableHeader className="sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_var(--border)]">
         <TableRow className="hover:bg-transparent">
@@ -430,6 +477,15 @@ export function TransactionsSheetGrid({
           ))}
       </TableBody>
     </table>
+
+    <ResolveAssetsStepper
+      sentinels={pendingSentinels}
+      open={stepperOpen}
+      onResolved={handleStepperResolved}
+      onAllResolved={handleStepperAllResolved}
+      onCancel={handleStepperCancel}
+    />
+    </>
   )
 }
 
