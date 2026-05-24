@@ -8,6 +8,7 @@ import {
   type TransactionsSheetControls,
 } from "@/components/transactions/sheet/TransactionsSheetGrid"
 import { ImportPopover } from "@/components/transactions/sheet/ImportPopover"
+import { MidasPdfImportButton } from "@/components/transactions/sheet/MidasPdfImportButton"
 import { useAssets } from "@/hooks/useAssets"
 import { usePlatforms } from "@/hooks/usePlatforms"
 
@@ -59,6 +60,13 @@ export default function TransactionsEditPage() {
                 lockedAssetId={assetId}
                 onAppend={controls.appendRows}
               />
+              {!assetId && (
+                <MidasPdfImportButton
+                  assets={assets}
+                  platforms={platforms}
+                  onAppend={controls.appendRows}
+                />
+              )}
             </>
           )}
         </div>
