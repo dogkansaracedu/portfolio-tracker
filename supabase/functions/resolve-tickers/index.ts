@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
         continue
       }
 
-      if (meta.quoteType !== "EQUITY") {
+      if (meta.instrumentType !== "EQUITY") {
         unresolved.push({ ticker, reason: "not_equity" })
         continue
       }
