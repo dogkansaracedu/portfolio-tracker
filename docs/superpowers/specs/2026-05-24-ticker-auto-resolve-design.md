@@ -25,7 +25,7 @@ For US and BIST stocks, make ticker entry the only required input. When Yahoo re
 
 Path: `supabase/functions/resolve-tickers/index.ts`
 
-Method: `POST` with body `{ tickers: string[] }`, max 50 per call.
+Method: `POST` with body `{ tickers: string[] }`, max 20 per call. Cap exists because the per-ticker 1s rate-limit delay (below) makes the worst-case wall time `tickers.length * 1s`; 20 keeps the upper bound at ~20s for a user-facing save.
 
 For each ticker:
 
@@ -54,7 +54,7 @@ Response shape:
   }>
   unresolved: Array<{
     ticker: string
-    reason: "not_found" | "http_error" | "not_equity" | "no_price"
+    reason: "not_found" | "http_error" | "not_equity"
   }>
 }
 ```
@@ -96,7 +96,8 @@ Toasts:
 
 - **Resolver HTTP failure** (entire call): fall back to opening the stepper for *all* sentinels — feature degrades to today's behavior.
 - **`addAsset` duplicate-key race**: another tab inserted the same ticker between resolve and create. Look up the existing asset by ticker, use its ID, continue silently.
-- **Stepper messaging**: when opened from this flow, the dialog description uses the unresolved `reason` to give better hints. For `not_found` on a Turkish-looking ticker like `THYAO` (no suffix), the hint is *"For BIST stocks add .IS suffix, e.g. THYAO.IS"*. For `not_equity` (Yahoo returned crypto-style metadata), the hint is *"Yahoo doesn't list this as a stock — pick the right category manually"*. For `http_error`, *"Couldn't reach Yahoo — fill in details manually"*.
+- **Stepper messaging**: when opened from this flow, the dialog description uses the `reason` to give better hints. For `not_found` on a Turkish-looking ticker like `THYAO` (no suffix), the hint is *"For BIST stocks add .IS suffix, e.g. THYAO.IS"*. For `not_equity` (Yahoo returned crypto-style metadata), the hint is *"Yahoo doesn't list this as a stock — pick the right category manually"*. For `http_error`, *"Couldn't reach Yahoo — fill in details manually"*. For `create_failed`, *"Yahoo found this ticker but saving the asset failed — please review and try again"*.
+- **`addAsset` failure post-resolve (non-duplicate)**: a resolved ticker fails to insert (network blip, RLS edge case, validation). Don't block the rest of the batch. Treat it as if unresolved: add to the stepper queue with `reason: "create_failed"` so the user can retry interactively. The other resolved assets stay created.
 - **Already-known tickers**: the existing client-side `tickerExists` check runs first. Sentinels for tickers already in `assets` get substituted with the existing ID — no resolver call, no stepper.
 
 ## Field mapping for auto-created assets
@@ -121,7 +122,7 @@ Yahoo's `currency` field is **not stored on the asset row**. The `assets` table 
 | `supabase/functions/_shared/` | No changes — reuses existing `client.ts` (service-role client) and `cors.ts`. |
 | `src/lib/queries/assets.ts` | New `resolveTickers(tickers: string[])` wrapper that calls the edge function and returns the typed response. |
 | `src/components/transactions/sheet/TransactionsSheetGrid.tsx` | Save handler: before opening the stepper, call `resolveTickers` for all sentinel tickers, `addAsset` each resolved, build the unresolved-only sentinel list for the stepper. |
-| `src/components/transactions/sheet/ResolveAssetsStepper.tsx` | Accept an optional `reasons: Record<string, "not_found" \| "http_error" \| "not_equity" \| "no_price">` prop keyed by sentinel; use it to vary the dialog description. Default behavior unchanged when prop is absent. |
+| `src/components/transactions/sheet/ResolveAssetsStepper.tsx` | Accept an optional `reasons: Record<string, "not_found" \| "http_error" \| "not_equity" \| "create_failed">` prop keyed by sentinel; use it to vary the dialog description. Default behavior unchanged when prop is absent. |
 
 No changes to `useTransactionsSheetState.ts`, the `bulk_insert_transactions` RPC, or the database schema.
 
@@ -131,13 +132,14 @@ No changes to `useTransactionsSheetState.ts`, the `bulk_insert_transactions` RPC
 |---|---|
 | User types lowercase (`aapl`) | Resolver normalizes to `AAPL`; canonical `AAPL` stored. |
 | User types `THYAO` without suffix | Yahoo returns "not found" → `unresolved` with `reason: "not_found"`. Stepper opens with the BIST suffix hint. No silent rewrite — too magic, could mask real typos. |
-| Resolved ticker but no price (illiquid stock) | Asset created, `price_cache` write skipped, `reason: "no_price"` is *not* used here — resolution still succeeds because metadata is present. Price shows up on next manual refresh. |
+| Resolved ticker but no price (illiquid stock) | Asset created, `price_cache` write skipped. Resolution still succeeds because metadata is present. Price shows up on next manual refresh. |
 | Yahoo returns a non-equity (e.g. `BTC-USD`) | `meta.quoteType !== "EQUITY"` → `unresolved` with `reason: "not_equity"`. Stepper opens; user picks correct category. Prevents miscategorizing a coin as `stock_us`. |
 | Ticker reused after delisting (Yahoo returns wrong company) | User edits the asset name afterward via Settings → Assets. Acceptable risk — same risk as today's manual entry. |
 | User cancels stepper after some auto-creates succeeded | Auto-created assets stay in the DB. Transaction insert is aborted. User can retry; next save sees the assets as known. Consistent with today's stepper behavior. |
 | Yahoo rate-limits mid-batch | Per-ticker `reason: "http_error"` for 429 responses; those go to the stepper. The 1s inter-call delay makes this rare. |
 | Empty ticker / whitespace in `tickers` array | Filtered client-side before sending to the resolver. |
 | `resolve-tickers` HTTP fails entirely | All sentinels passed to stepper — graceful degradation to today's flow. |
+| `addAsset` fails for a resolved ticker | That sentinel goes to the stepper with `reason: "create_failed"`. Other resolved assets in the batch stay created. |
 | Already-known ticker in input | Filtered client-side by `tickerExists` check; never reaches the resolver. |
 
 ## What this isn't
