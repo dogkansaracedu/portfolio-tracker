@@ -23,8 +23,11 @@ import { NumberCell } from "./cells/NumberCell"
 import { TotalCostCell } from "./cells/TotalCostCell"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useTransactionModal } from "@/contexts/TransactionContext"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
 import {
+  bulkInsertTransactions,
   fetchTransactions,
+  type BulkInsertRow,
   type TransactionWithDetails,
 } from "@/lib/queries/transactions"
 import { useAuth } from "@/hooks/useAuth"
@@ -81,7 +84,8 @@ export function TransactionsSheetGrid({
   onControlsReady,
 }: Props) {
   const { user } = useAuth()
-  const { txVersion } = useTransactionModal()
+  const { txVersion, bumpTxVersion } = useTransactionModal()
+  const { refresh: refreshTxData } = useTransactionData()
   const {
     rows,
     pendingDeletes,
@@ -112,7 +116,9 @@ export function TransactionsSheetGrid({
   // bumps txVersion, and we don't want our own bumps to clobber the buffer
   // before commitSaveSuccess lands.
   const savingRef = useRef(false)
-  const { addTransaction, editTransaction, removeTransaction } = useTransactions(
+  // editTransaction + removeTransaction stay per-row (rare in the bulk-add
+  // path); inserts now batch through the bulk_insert_transactions RPC.
+  const { editTransaction, removeTransaction } = useTransactions(
     assetId
       ? { assetId, includeLinkedChildren: true }
       : { includeLinkedChildren: false },
@@ -237,19 +243,38 @@ export function TransactionsSheetGrid({
       }
     }
 
-    for (const row of rows) {
-      if (row.status !== "new") continue
-      const payload = buildPayload(row)
+    // Inserts go through the bulk_insert_transactions RPC — one round-trip
+    // for the whole batch, atomic, server-side balance recompute. We
+    // collect the rows in order so the RPC's `row_index` lines up with
+    // the rowKey we need to commit on success.
+    const newRows = rows.filter((r) => r.status === "new")
+    if (newRows.length > 0) {
+      const payloads: BulkInsertRow[] = newRows.map(buildBulkPayload)
       try {
-        const created = await addTransaction(payload)
-        commitSaveSuccess(row.rowKey, created.id)
-        okCount++
+        const created = await bulkInsertTransactions(payloads)
+        const byIndex = new Map(created.map((c) => [c.row_index, c.tx_id]))
+        for (let i = 0; i < newRows.length; i++) {
+          const txId = byIndex.get(i)
+          if (txId) {
+            commitSaveSuccess(newRows[i].rowKey, txId)
+            okCount++
+          } else {
+            errCount++
+            markSaveError(newRows[i].rowKey, "Bulk insert returned no id")
+          }
+        }
+        // The RPC writes directly to the DB; the existing per-write
+        // helpers normally bump txVersion + refresh. Do it once here.
+        bumpTxVersion()
+        await refreshTxData()
       } catch (err) {
-        errCount++
-        markSaveError(
-          row.rowKey,
-          err instanceof Error ? err.message : "Insert failed",
-        )
+        // Whole batch rolls back atomically on the SQL side; mark every
+        // new row invalid so the user sees what didn't land.
+        const message = err instanceof Error ? err.message : "Bulk insert failed"
+        for (const row of newRows) {
+          markSaveError(row.rowKey, message)
+        }
+        errCount += newRows.length
       }
     }
 
@@ -508,6 +533,32 @@ function buildPayload(row: SheetRow): Omit<TransactionInsert, "user_id"> {
     related_asset_id: null,
     linked_tx_id: null,
     notes: row.notes || null,
+  }
+}
+
+/** Payload shape for the bulk_insert_transactions RPC. Same field set as
+ *  buildPayload but uses string-encoded numerics so BigNumber precision
+ *  survives the JSONB roundtrip (Postgres numeric parses strings cleanly
+ *  but JS Number can lose tail digits past ~15 sig figs). */
+function buildBulkPayload(row: SheetRow): BulkInsertRow {
+  const amount = bn(row.amount)
+  const unitPrice = bn(row.unitPrice || "0")
+  const totalCost = amount.times(unitPrice)
+  const fee = row.fee ? bn(row.fee) : bn(0)
+  return {
+    asset_id: row.assetId,
+    platform_id: row.platformId,
+    type: row.type,
+    date: localDayAsUtcMidnight(row.date),
+    amount: amount.toFixed(),
+    unit_price: unitPrice.toFixed(),
+    price_currency: row.priceCurrency,
+    total_cost: totalCost.toFixed(),
+    fee: fee.toFixed(),
+    fee_currency: row.fee ? row.priceCurrency : null,
+    related_asset_id: null,
+    notes: row.notes || null,
+    funding_platform_id: null,
   }
 }
 
