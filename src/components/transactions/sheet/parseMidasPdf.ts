@@ -8,7 +8,7 @@ import {
   type MidasHeaderField,
 } from "@/lib/constants/midas-pdf"
 import type { ParsedRow, ParseSummary } from "./parseImport"
-import { makeNewAssetSentinel } from "./sentinel"
+import { canonicalizeTicker, makeNewAssetSentinel } from "./sentinel"
 
 const ROW_Y_TOLERANCE = 2
 const PHRASE_GAP_X = 4
@@ -200,13 +200,15 @@ function cellsToParsedRow(
   const symbol = cells.SEMBOL?.trim() ?? ""
   let assetId = ""
   if (symbol) {
-    const hit = ctx.tickerLookup.get(symbol.toLowerCase())
+    // Canonicalize before the lookup so PDF symbols like BRK.B match
+    // assets stored under Yahoo's BRK-B form.
+    const hit = ctx.tickerLookup.get(canonicalizeTicker(symbol).toLowerCase())
     if (hit) {
       assetId = hit
     } else {
-      // Unknown ticker → encode as `new:TICKER` sentinel. The grid's save
-      // flow routes these through the Resolve-Unknowns stepper to create
-      // the real asset before committing.
+      // Unknown ticker → encode as `new:TICKER` sentinel. Save-time
+      // auto-resolve will either create it via Yahoo or hand it to the
+      // Resolve-Unknowns stepper for manual entry.
       assetId = makeNewAssetSentinel(symbol)
       ctx.unresolvedAssets.add(symbol)
     }
