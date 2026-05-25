@@ -3,6 +3,7 @@ import { Eye, EyeOff } from "lucide-react"
 import CurrencyToggle from "@/components/common/CurrencyToggle"
 import ThemeToggle from "@/components/common/ThemeToggle"
 import PriceRefreshButton from "@/components/prices/PriceRefreshButton"
+import UserMenu from "@/components/layout/UserMenu"
 import { usePrices } from "@/hooks/usePrices"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { Button } from "@/components/ui/button"
@@ -54,6 +55,7 @@ export default function Header() {
           refreshing={refreshing}
           onRefresh={refreshPrices}
         />
+        <UserMenu />
       </div>
     </header>
   )
