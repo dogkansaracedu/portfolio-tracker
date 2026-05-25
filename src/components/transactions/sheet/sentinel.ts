@@ -8,16 +8,19 @@ export function isNewAssetSentinel(assetId: string): boolean {
   return assetId.startsWith(NEW_ASSET_PREFIX)
 }
 
-/** US class shares are commonly written with a dot (BRK.B, BF.B) but
- *  Yahoo's symbol uses a dash (BRK-B, BF-B). BIST tickers carry a real
- *  `.IS` suffix that must stay intact. */
-function normalizeTicker(ticker: string): string {
-  if (ticker.endsWith(".IS")) return ticker
-  return ticker.replace(/\./g, "-")
+/** Convert raw user/PDF input to the canonical Yahoo-aligned ticker
+ *  shape: uppercase + trimmed, with US class-share dots rewritten to
+ *  dashes (BRK.B → BRK-B). BIST tickers ending in `.IS` keep their dot.
+ *  Use this anywhere you need to compare or look up a ticker against
+ *  the asset table — the asset's stored form follows the same rule. */
+export function canonicalizeTicker(input: string): string {
+  const upper = input.trim().toUpperCase()
+  if (upper.endsWith(".IS")) return upper
+  return upper.replace(/\./g, "-")
 }
 
 export function makeNewAssetSentinel(ticker: string): string {
-  return `${NEW_ASSET_PREFIX}${normalizeTicker(ticker.trim().toUpperCase())}`
+  return `${NEW_ASSET_PREFIX}${canonicalizeTicker(ticker)}`
 }
 
 export function tickerFromSentinel(sentinel: string): string {
