@@ -603,7 +603,9 @@ function buildBulkPayload(row: SheetRow): BulkInsertRow {
     fee_currency: row.fee ? row.priceCurrency : null,
     related_asset_id: null,
     notes: row.notes || null,
-    funding_platform_id: null,
+    // Bulk buys debit cash on their own platform so portfolio totals
+    // don't inflate; sells already auto-credit cash in the RPC.
+    funding_platform_id: row.type === "buy" ? row.platformId : null,
   }
 }
 
