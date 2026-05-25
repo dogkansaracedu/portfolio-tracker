@@ -7,7 +7,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -59,14 +58,15 @@ export default function UserMenu() {
           }
         />
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs text-muted-foreground">Signed in as</span>
-              <span className="truncate text-sm font-medium">
-                {user?.email ?? "—"}
-              </span>
-            </div>
-          </DropdownMenuLabel>
+          {/* Plain div, not DropdownMenuLabel — Base UI's GroupLabel must
+           *  live inside a Group, and there isn't a meaningful semantic
+           *  group here (just one item). */}
+          <div className="flex flex-col gap-0.5 px-2 py-1.5">
+            <span className="text-xs text-muted-foreground">Signed in as</span>
+            <span className="truncate text-sm font-medium">
+              {user?.email ?? "—"}
+            </span>
+          </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
