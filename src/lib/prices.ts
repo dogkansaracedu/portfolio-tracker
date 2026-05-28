@@ -1,4 +1,5 @@
 import { CURRENCY_CONFIG, DECIMALS, getAmountDecimals } from "@/lib/config"
+import type { FiatCurrency } from "@/lib/constants/currencies"
 
 export const OBFUSCATED_VALUE = "••••••"
 
@@ -10,10 +11,11 @@ export function obfuscate(value: string, isObfuscated: boolean): string {
  * Format a numeric value as currency.
  * - USD: $1,234.56 (en-US locale)
  * - TRY: ₺1.234,56 (tr-TR locale: . for thousands, , for decimal)
+ * - EUR: 1.234,56 € (de-DE locale)
  */
 export function formatCurrency(
   value: number,
-  currency: "USD" | "TRY"
+  currency: FiatCurrency
 ): string {
   const cfg = CURRENCY_CONFIG[currency]
   return new Intl.NumberFormat(cfg.locale, {
