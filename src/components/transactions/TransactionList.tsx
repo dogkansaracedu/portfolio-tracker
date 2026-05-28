@@ -7,12 +7,14 @@ import {
 } from "@/components/ui/table"
 import { TransactionRow } from "@/components/transactions/TransactionRow"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
+import type { RealizedPnLEntry } from "@/lib/pnl/types"
 
 interface Props {
   transactions: TransactionWithDetails[]
   loading: boolean
   currency: "USD" | "TRY"
   childMap?: Map<string, TransactionWithDetails>
+  realizedByTx?: Map<string, RealizedPnLEntry>
 }
 
 export function TransactionList({
@@ -20,6 +22,7 @@ export function TransactionList({
   loading,
   currency,
   childMap,
+  realizedByTx,
 }: Props) {
   if (loading) {
     return (
@@ -59,6 +62,7 @@ export function TransactionList({
             transaction={tx}
             currency={currency}
             linkedChild={childMap?.get(tx.id) ?? null}
+            realized={realizedByTx?.get(tx.id) ?? null}
           />
         ))}
       </TableBody>

@@ -88,6 +88,53 @@ export function unitPriceToUsd(
 }
 
 /**
+ * Convert a USD amount *into* `toCurrency` using the exchange rate for `date`.
+ *
+ * The inverse of {@link normalizeToUsd}. Needed because {@link convertOnDate}
+ * only targets USD|TRY, but a transaction's native currency may be EUR (e.g.
+ * an IBKR EUR-denominated sell). All P&L is computed in USD; this is purely a
+ * display helper to render a USD figure in its native currency.
+ *
+ * A missing rate falls back to the USD amount as-is (mirrors `normalizeToUsd`).
+ */
+export function fromUsdOnDate(
+  amountUsd: BigNumber.Value,
+  toCurrency: string,
+  date: string,
+  rates: ExchangeRate[],
+): BigNumber {
+  const upper = toCurrency.toUpperCase()
+  const usd = bn(amountUsd)
+
+  if (upper === "USD") return usd
+
+  const rate = getExchangeRateForDate(date, rates)
+  if (!rate) {
+    console.warn(
+      `[fromUsdOnDate] No exchange rate found for ${upper} on ${date.slice(0, 10)} — falling back to USD amount as-is. Backfill via fetch-historical-rate.`,
+    )
+    return usd
+  }
+
+  if (upper === "TRY") {
+    return usd.times(bn(rate.usd_try ?? 1))
+  }
+
+  if (upper === "EUR") {
+    const eurUsd = bn(rate.eur_usd ?? 0)
+    if (eurUsd.gt(0)) return usd.div(eurUsd)
+    // Fallback: pivot through TRY for legacy rows missing eur_usd
+    const eurTry = bn(rate.eur_try ?? 0)
+    const usdTry = bn(rate.usd_try ?? 1)
+    if (eurTry.gt(0)) return usd.times(usdTry).div(eurTry)
+    return usd
+  }
+
+  // Unknown currency — return as-is
+  return usd
+}
+
+/**
  * Convert an amount from `fromCurrency` to `toCurrency` using the
  * exchange rate for `date`. Pivots through USD when needed.
  */
