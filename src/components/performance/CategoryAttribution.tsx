@@ -7,7 +7,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/prices"
+import {
+  formatCurrency,
+  formatSignedCurrency,
+  formatSignedPercent,
+  gainLossClass,
+} from "@/lib/prices"
 import type { CategoryAttributionRow } from "@/lib/performance"
 
 const categoryLabels: Record<string, string> = {
@@ -65,20 +70,16 @@ export function CategoryAttribution({ data }: Props) {
                   {formatCurrency(row.valueUsd, "USD")}
                 </TableCell>
                 <TableCell
-                  className={`text-right ${
-                    row.pnlUsd >= 0 ? "text-green-600" : "text-red-600"
-                  }`}
+                  className={`text-right ${gainLossClass(row.pnlUsd >= 0)}`}
                 >
-                  {row.pnlUsd >= 0 ? "+" : ""}
-                  {formatCurrency(row.pnlUsd, "USD")}
+                  {formatSignedCurrency(row.pnlUsd, "USD")}
                 </TableCell>
                 <TableCell
-                  className={`text-right ${
-                    row.contributionPct >= 0 ? "text-green-600" : "text-red-600"
-                  }`}
+                  className={`text-right ${gainLossClass(
+                    row.contributionPct >= 0
+                  )}`}
                 >
-                  {row.contributionPct >= 0 ? "+" : ""}
-                  {row.contributionPct.toFixed(1)}%
+                  {formatSignedPercent(row.contributionPct, 1)}
                 </TableCell>
               </TableRow>
             ))}

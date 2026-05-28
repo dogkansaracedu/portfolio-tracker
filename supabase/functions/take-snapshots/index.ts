@@ -18,6 +18,7 @@ interface PriceRow {
   ticker: string
   price_usd: number | null
   price_try: number | null
+  updated_at: string | null
 }
 
 interface RateRow {
@@ -50,7 +51,18 @@ interface AssetEntry {
   price_usd: number
   value_usd: number
   value_try: number
+  /** True when the price_cache row existed but was older than STALE_PRICE_MS,
+   *  so it was treated as unpriced. Used only to label the skip message. */
+  stale: boolean
 }
+
+// A price_cache row older than this is treated as MISSING. price_cache is
+// upserted in place (keyed on ticker) and never expires, so a multi-day
+// upstream outage would otherwise leave yesterday's price in place and let it
+// masquerade as today's net worth. 36h tolerates a normal daily refresh cycle
+// (incl. weekends, since updated_at tracks the last fetch, not the last market
+// move) while still catching a real outage.
+const STALE_PRICE_MS = 36 * 60 * 60 * 1000
 
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin")
@@ -95,6 +107,8 @@ Deno.serve(async (req) => {
   for (const p of (priceRows ?? []) as PriceRow[]) {
     prices[p.ticker] = p
   }
+
+  const nowMs = Date.now()
 
   const { data: rateRow } = await supabase
     .from("exchange_rates")
@@ -161,8 +175,13 @@ Deno.serve(async (req) => {
       const asset = h.assets!
       const platform = h.platforms!
       const price = prices[asset.ticker]
-      const priceUsd = price?.price_usd ?? 0
-      const priceTry = price?.price_try ?? priceUsd * usdTry
+      // Treat a stale row (older than STALE_PRICE_MS) as unpriced so it trips
+      // the skip guard below rather than booking yesterday's price as today's.
+      const updatedAt = price?.updated_at
+      const stale =
+        updatedAt != null && nowMs - new Date(updatedAt).getTime() > STALE_PRICE_MS
+      const priceUsd = stale ? 0 : price?.price_usd ?? 0
+      const priceTry = stale ? 0 : price?.price_try ?? priceUsd * usdTry
 
       const valueUsd = h.balance * priceUsd
       const valueTry = h.balance * priceTry
@@ -178,6 +197,7 @@ Deno.serve(async (req) => {
         price_usd: priceUsd,
         value_usd: valueUsd,
         value_try: valueTry,
+        stale,
       })
 
       const cat = asset.category
@@ -224,17 +244,19 @@ Deno.serve(async (req) => {
       byTag[k] = { usd: v.usd, try: v.try_val, pct: safeDiv(v.usd) }
     }
 
-    // Skip the snapshot if any held asset is unpriced. The cron writes once
-    // per day; without this guard a stale price_cache (e.g. an upstream API
-    // 4xx during the 23:55 UTC run) silently encodes a wrong total that the
-    // dashboard then trusts indefinitely. This is exactly how the
-    // 2026-04-09 orphan was created — the cash holding had no price-cache
-    // entry yet so it dropped out of the totals. Honest answer: skip.
+    // Skip the snapshot if any held asset is unpriced OR its price is stale.
+    // The cron writes once per day; without this guard a missing entry (e.g.
+    // an upstream API 4xx during the 23:55 UTC run) or a stale-but-nonzero
+    // entry (a multi-day outage leaving an old price in place) silently
+    // encodes a wrong total that the dashboard then trusts indefinitely. This
+    // is exactly how the 2026-04-09 orphan was created — the cash holding had
+    // no price-cache entry yet so it dropped out of the totals. Honest answer:
+    // skip. Stale rows are zeroed above, so they fall into this same filter.
     const unpriced = byAsset.filter((a) => a.amount > 0 && a.price_usd <= 0)
     if (unpriced.length > 0) {
       errors.push(
-        `user ${userId}: skipped — ${unpriced.length} unpriced holding(s): ${unpriced
-          .map((a) => a.ticker)
+        `user ${userId}: skipped — ${unpriced.length} unpriced/stale holding(s): ${unpriced
+          .map((a) => (a.stale ? `${a.ticker} (stale)` : a.ticker))
           .join(", ")}`,
       )
       continue

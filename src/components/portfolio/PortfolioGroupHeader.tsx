@@ -1,6 +1,11 @@
 import { TableRow, TableCell } from "@/components/ui/table"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency, obfuscate } from "@/lib/prices"
+import {
+  formatCurrency,
+  formatSignedCurrency,
+  gainLossClass,
+  obfuscate,
+} from "@/lib/prices"
 import type { AssetGroup } from "@/hooks/usePortfolio"
 
 interface PortfolioGroupHeaderProps {
@@ -40,13 +45,8 @@ export function PortfolioGroupHeader({
             <span className="font-medium">
               {o(formatCurrency(displayValue, currency))}
             </span>
-            <span
-              className={
-                pnlIsPositive ? "text-emerald-600" : "text-red-500"
-              }
-            >
-              {pnlIsPositive ? "+" : ""}
-              {o(formatCurrency(displayPnl, "USD"))}
+            <span className={gainLossClass(pnlIsPositive)}>
+              {o(formatSignedCurrency(displayPnl, "USD"))}
             </span>
           </div>
         </div>
