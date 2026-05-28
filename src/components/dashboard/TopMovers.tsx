@@ -1,5 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency, obfuscate } from "@/lib/prices"
+import {
+  formatSignedCurrency,
+  formatSignedPercent,
+  obfuscate,
+} from "@/lib/prices"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import type { TopMover } from "@/hooks/useDashboard"
 
@@ -26,17 +30,14 @@ export default function TopMovers({ topMovers }: TopMoversProps) {
             {topMovers.map((mover) => {
               const isPositive = mover.unrealizedPnlUsd >= 0
               const colorClass = isPositive
-                ? "text-green-600 dark:text-green-400"
-                : "text-red-600 dark:text-red-400"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-red-500 dark:text-red-400"
 
-              // For display, convert PnL roughly using the ratio
-              // Since we only have USD PnL, show in USD for simplicity
-              // or use currentValueUsd as a proxy
-              const pnlDisplay = formatCurrency(
-                Math.abs(mover.unrealizedPnlUsd),
+              // Since we only have USD PnL, show in USD for simplicity.
+              const pnlDisplay = formatSignedCurrency(
+                mover.unrealizedPnlUsd,
                 "USD",
               )
-              const sign = isPositive ? "+" : "-"
 
               return (
                 <div
@@ -53,12 +54,10 @@ export default function TopMovers({ topMovers }: TopMoversProps) {
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-medium ${colorClass}`}>
-                      {sign}
                       {o(pnlDisplay)}
                     </p>
                     <p className={`text-xs ${colorClass}`}>
-                      {sign}
-                      {Math.abs(mover.unrealizedPnlPct).toFixed(2)}%
+                      {o(formatSignedPercent(mover.unrealizedPnlPct, 2))}
                     </p>
                   </div>
                 </div>

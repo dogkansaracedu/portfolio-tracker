@@ -25,7 +25,13 @@ import {
   type HeroPoint,
   type HeroViewMode,
 } from "@/hooks/useDashboardHero"
-import { formatCurrency, obfuscate } from "@/lib/prices"
+import {
+  formatCurrency,
+  formatSignedCurrency,
+  formatSignedPercent,
+  gainLossClass,
+  obfuscate,
+} from "@/lib/prices"
 import { cn } from "@/lib/utils"
 import {
   BENCHMARKS,
@@ -66,21 +72,6 @@ const RANGE_LABELS: Record<TimeRange, string> = {
   YTD: "year to date",
   "1Y": "past year",
   ALL: "all time",
-}
-
-function formatPct(value: number): string {
-  const sign = value >= 0 ? "+" : ""
-  return `${sign}${value.toFixed(2)}%`
-}
-
-function formatSigned(value: number, currency: "USD" | "TRY"): string {
-  // Always emit an explicit sign — both directions. The previous
-  // `value >= 0 ? "+" : ""` paired with `Math.abs(value)` silently
-  // dropped the minus on losses, so a tooltip on a -$940 dip read as
-  // a positive "$940.79". `compactCurrency` (Y-axis) already does this
-  // correctly; `formatSigned` (tooltips, headlines) now matches.
-  const sign = value > 0 ? "+" : value < 0 ? "-" : ""
-  return `${sign}${formatCurrency(Math.abs(value), currency)}`
 }
 
 function compactCurrency(value: number, currency: "USD" | "TRY"): string {
@@ -218,18 +209,12 @@ export default function DashboardHero({
   const periodDeltaValue = currency === "USD" ? delta.usd : delta.try
 
   const periodColor =
-    delta.usd > 0
-      ? "text-emerald-600"
-      : delta.usd < 0
-        ? "text-red-500"
-        : "text-muted-foreground"
+    delta.usd === 0 ? "text-muted-foreground" : gainLossClass(delta.usd > 0)
 
   const totalPnlColor =
-    totalPnlUsdNow > 0
-      ? "text-emerald-600"
-      : totalPnlUsdNow < 0
-        ? "text-red-500"
-        : "text-muted-foreground"
+    totalPnlUsdNow === 0
+      ? "text-muted-foreground"
+      : gainLossClass(totalPnlUsdNow > 0)
 
   // For the P&L chart we want the area to start at 0 (range start = baseline)
   // and climb/fall to the period delta. Subtract rangeStart from each point.
@@ -295,11 +280,10 @@ export default function DashboardHero({
   }, [viewMode, displayChartData, currency, denom])
 
   const formatRightAxisTick = (v: number) => {
-    const sign = v > 0 ? "+" : ""
-    // niceTicks emits integers for any span >= 5%, so the .toFixed(0) is
+    // niceTicks emits integers for any span >= 5%, so 0 decimals is
     // safe in practice. Keep one decimal for sub-5% spans (rare).
     const decimals = Number.isInteger(v) ? 0 : 1
-    return `${sign}${v.toFixed(decimals)}%`
+    return formatSignedPercent(v, decimals)
   }
 
   const renderPnlTooltip = (props: {
@@ -336,15 +320,15 @@ export default function DashboardHero({
         <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
           <span className="text-muted-foreground">Portfolio</span>
           <span className="text-right font-medium">
-            {obfuscate(formatSigned(pnlVal, currency), obfuscated)}
+            {obfuscate(formatSignedCurrency(pnlVal, currency), obfuscated)}
           </span>
           <span className="text-muted-foreground">Portfolio</span>
           <span className="text-right font-medium">
-            {obfuscate(formatPct(pnlPctVal), obfuscated)}
+            {obfuscate(formatSignedPercent(pnlPctVal, 2), obfuscated)}
           </span>
           <span className="text-muted-foreground">{activeBenchmark.label}</span>
           <span className="text-right font-medium">
-            {obfuscate(formatPct(point.benchmarkPct), obfuscated)}
+            {obfuscate(formatSignedPercent(point.benchmarkPct, 2), obfuscated)}
           </span>
         </div>
       </div>
@@ -399,7 +383,7 @@ export default function DashboardHero({
           >
             {obfuscate(
               viewMode === "pnl"
-                ? formatSigned(headlineValue, currency)
+                ? formatSignedCurrency(headlineValue, currency)
                 : formatCurrency(headlineValue, currency),
               obfuscated,
             )}
@@ -407,7 +391,10 @@ export default function DashboardHero({
           {viewMode === "value" ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className={cn("font-medium", periodColor)}>
-                {obfuscate(formatSigned(periodDeltaValue, currency), obfuscated)}
+                {obfuscate(
+                  formatSignedCurrency(periodDeltaValue, currency),
+                  obfuscated,
+                )}
               </span>
               {/* In ALL range, delta is "value − $0 anchor" while % falls
                   back to lifetime return (pnl/invested). Mixing the two on
@@ -416,7 +403,7 @@ export default function DashboardHero({
                   P&L tab's "Total" subtitle. Hide it here. */}
               {timeRange !== "ALL" && (
                 <span className={cn("font-medium", periodColor)}>
-                  {obfuscate(formatPct(delta.pct), obfuscated)}
+                  {obfuscate(formatSignedPercent(delta.pct, 2), obfuscated)}
                 </span>
               )}
               <span className="font-normal text-muted-foreground">
@@ -439,21 +426,21 @@ export default function DashboardHero({
           ) : (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className={cn("font-medium", periodColor)}>
-                {obfuscate(formatPct(delta.pct), obfuscated)}
+                {obfuscate(formatSignedPercent(delta.pct, 2), obfuscated)}
               </span>
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">
                 Total{" "}
                 <span className={cn("font-medium", totalPnlColor)}>
                   {obfuscate(
-                    formatSigned(
+                    formatSignedCurrency(
                       currency === "USD" ? totalPnlUsdNow : totalPnlTryNow,
                       currency,
                     ),
                     obfuscated,
                   )}
                 </span>{" "}
-                ({obfuscate(formatPct(totalPnlPctNow), obfuscated)})
+                ({obfuscate(formatSignedPercent(totalPnlPctNow, 2), obfuscated)})
               </span>
               <span className="text-muted-foreground">·</span>
               <DropdownMenu>
@@ -463,7 +450,7 @@ export default function DashboardHero({
                   <span>
                     {activeBenchmark.label}{" "}
                     <span className="font-medium text-foreground">
-                      {obfuscate(formatPct(compareNow.pct), obfuscated)}
+                      {obfuscate(formatSignedPercent(compareNow.pct, 2), obfuscated)}
                     </span>
                   </span>
                   <ChevronDown className="size-3" />
