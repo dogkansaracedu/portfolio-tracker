@@ -86,7 +86,13 @@ Deno.serve(async (req) => {
 
   const supabase = getServiceClient()
 
-  const today = new Date().toISOString().slice(0, 10)
+  // Stamp snapshot_date in the portfolio's home timezone (not UTC) so the day
+  // matches the user's local calendar and the dashboard's local-date logic.
+  // Mirrors homeDayIso() / HOME_TIMEZONE in src/lib/config.ts — keep in sync.
+  const HOME_TIMEZONE = "Europe/Istanbul"
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: HOME_TIMEZONE,
+  }).format(new Date())
   const errors: string[] = []
   let usersProcessed = 0
   let snapshotsWritten = 0
