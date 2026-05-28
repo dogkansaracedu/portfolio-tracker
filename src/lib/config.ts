@@ -70,3 +70,20 @@ export const BN_ZERO = new BigNumber(0)
 
 /** Hundred constant (for percentage calculations) */
 export const BN_HUNDRED = new BigNumber(100)
+
+// ─── Timezone ───────────────────────────────────────────────────────
+
+/**
+ * The portfolio's home timezone. `snapshot_date` is stamped in this zone (not
+ * UTC) so a snapshot's calendar day matches the user's local day and lines up
+ * with the local-date logic the dashboard / performance views use. The edge
+ * function (take-snapshots) hardcodes the same zone — keep them in sync.
+ */
+export const HOME_TIMEZONE = "Europe/Istanbul"
+
+/** Today's date as "YYYY-MM-DD" in {@link HOME_TIMEZONE}. */
+export function homeDayIso(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: HOME_TIMEZONE }).format(
+    date,
+  )
+}

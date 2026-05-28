@@ -1,5 +1,5 @@
 import BigNumber from "bignumber.js"
-import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
+import { bn, BN_ZERO, BN_HUNDRED, homeDayIso } from "@/lib/config"
 import { supabase } from "@/lib/supabase"
 import type {
   Snapshot,
@@ -40,7 +40,11 @@ export async function createSnapshot(
   prices: Record<string, PriceCache>,
   latestRates: ExchangeRate | null,
 ): Promise<Snapshot> {
-  const today = new Date().toISOString().slice(0, 10)
+  // Stamp the snapshot in the portfolio's home timezone (not UTC) so its
+  // calendar day matches the user's local day and the dashboard/performance
+  // local-date logic — otherwise an early-Turkey-morning snapshot books a day
+  // behind. Matches the edge function (take-snapshots).
+  const today = homeDayIso()
 
   const { data: holdings, error: holdingsError } = await supabase
     .from("holdings")

@@ -13,6 +13,12 @@ import {
   formatSignedPercent,
   gainLossClass,
 } from "@/lib/prices"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { Info } from "lucide-react"
 import type { CategoryAttributionRow } from "@/lib/performance"
 
 const categoryLabels: Record<string, string> = {
@@ -53,7 +59,28 @@ export function CategoryAttribution({ data }: Props) {
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Cost Basis</TableHead>
               <TableHead className="text-right">Value</TableHead>
-              <TableHead className="text-right">P&L</TableHead>
+              <TableHead className="text-right">
+                <span className="inline-flex items-center justify-end gap-1">
+                  Total P&L
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          aria-label="What does Total P&L include?"
+                          className="inline-flex cursor-help text-muted-foreground"
+                        />
+                      }
+                    >
+                      <Info className="size-3" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Unrealized (Value − Cost Basis) + realized gains from
+                      past sells
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+              </TableHead>
               <TableHead className="text-right">Contribution</TableHead>
             </TableRow>
           </TableHeader>
