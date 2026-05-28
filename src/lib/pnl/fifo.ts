@@ -65,6 +65,10 @@ export function computeFIFOLots(
         let remaining = bn(tx.amount)
         let totalProceeds = BN_ZERO
         let totalCostBasis = BN_ZERO
+        // Native-currency cost basis, valid only while every consumed lot is
+        // denominated in the sell's own currency (see nativePnl on the entry).
+        let totalCostBasisNative = BN_ZERO
+        let nativeConsistent = true
         const consumedLots: ConsumedLot[] = []
 
         while (remaining.gt(0) && lots.length > 0) {
@@ -82,6 +86,12 @@ export function computeFIFOLots(
 
           totalCostBasis = totalCostBasis.plus(costBasis)
           totalProceeds = totalProceeds.plus(proceeds)
+          if (oldest.priceCurrency !== tx.price_currency) {
+            nativeConsistent = false
+          }
+          totalCostBasisNative = totalCostBasisNative.plus(
+            consumed.times(oldest.unitPriceOriginal),
+          )
 
           oldest.amount = oldest.amount.minus(consumed)
           remaining = remaining.minus(consumed)
@@ -103,6 +113,19 @@ export function computeFIFOLots(
           : BN_ZERO
         const netProceedsUsd = totalProceeds.minus(sellFeeUsd)
 
+        // Exact native P&L: proceeds − fee − cost basis, all in the sell's
+        // currency. Only meaningful when the consumed lots share that currency
+        // and the fee (if any) is in it too — otherwise we'd be summing across
+        // currencies, so we omit it and let the caller convert from USD.
+        const feeCurrency = tx.fee_currency ?? tx.price_currency
+        const feeSameCurrency = !tx.fee || feeCurrency === tx.price_currency
+        const nativeValid = nativeConsistent && feeSameCurrency
+        const proceedsNative = bn(tx.amount).times(bn(tx.unit_price))
+        const feeNative = tx.fee ? bn(tx.fee) : BN_ZERO
+        const realizedPnlNative = proceedsNative
+          .minus(feeNative)
+          .minus(totalCostBasisNative)
+
         realized.push({
           transactionId: tx.id,
           date: tx.date,
@@ -110,6 +133,8 @@ export function computeFIFOLots(
           proceedsUsd: netProceedsUsd,
           costBasisUsd: totalCostBasis,
           realizedPnlUsd: netProceedsUsd.minus(totalCostBasis),
+          nativePnl: nativeValid ? realizedPnlNative : undefined,
+          nativeCurrency: nativeValid ? tx.price_currency : undefined,
           lots: consumedLots,
         })
         break

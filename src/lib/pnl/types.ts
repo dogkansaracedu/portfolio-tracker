@@ -26,6 +26,16 @@ export interface RealizedPnLEntry {
   proceedsUsd: BigNumber
   costBasisUsd: BigNumber
   realizedPnlUsd: BigNumber
+  /**
+   * Exact realized P&L in the transaction's *native* currency
+   * (`proceeds − fee − cost basis`, all in `nativeCurrency`). Present only
+   * when every consumed lot and the fee share that one currency, so the figure
+   * is a true native gain/loss and not a cross-rate approximation. Absent for
+   * mixed-currency holdings (e.g. a transfer_in carrying a USD cost basis into
+   * a TRY-traded asset) — callers fall back to converting `realizedPnlUsd`.
+   */
+  nativePnl?: BigNumber
+  nativeCurrency?: string
   lots: ConsumedLot[]
 }
 
