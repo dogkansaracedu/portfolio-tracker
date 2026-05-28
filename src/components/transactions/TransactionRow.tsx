@@ -24,9 +24,11 @@ import { formatCurrency } from "@/lib/prices"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
-import { convertOnDate } from "@/lib/pnl/currency"
+import { convertOnDate, fromUsdOnDate } from "@/lib/pnl/currency"
+import { BN_HUNDRED } from "@/lib/config"
 import { toast } from "sonner"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
+import type { RealizedPnLEntry } from "@/lib/pnl/types"
 import {
   POSITIVE_TYPES,
   TRANSACTION_TYPES,
@@ -55,9 +57,15 @@ interface Props {
   transaction: TransactionWithDetails
   linkedChild?: TransactionWithDetails | null
   currency: "USD" | "TRY"
+  realized?: RealizedPnLEntry | null
 }
 
-export function TransactionRow({ transaction, linkedChild, currency }: Props) {
+export function TransactionRow({
+  transaction,
+  linkedChild,
+  currency,
+  realized,
+}: Props) {
   const tx = transaction
   const { openTransactionModal } = useTransactionModal()
   const { removeTransaction } = useTransactions()
@@ -75,6 +83,37 @@ export function TransactionRow({ transaction, linkedChild, currency }: Props) {
   const convertedTotal = showConverted
     ? convertOnDate(tx.total_cost, nativeCurrency, currency, tx.date, rates).toNumber()
     : null
+
+  // Realized P&L (FIFO) — sells only. The engine computes it in USD net of
+  // fees; the % binds to the USD figure because USD is the source of truth for
+  // returns (a position up in lira can be down in dollars when FX moves), and
+  // so the whole sub-line's color follows the USD sign.
+  const showRealized = tx.type === TRANSACTION_TYPES.SELL && realized != null
+  const realizedPnlUsd = realized?.realizedPnlUsd ?? null
+  const usdIsGain = realizedPnlUsd ? realizedPnlUsd.gte(0) : false
+  const usdSign = usdIsGain ? "+" : "-"
+  const realizedColor = usdIsGain ? "text-green-600" : "text-red-600"
+  const realizedUsdAbs = realizedPnlUsd ? realizedPnlUsd.abs().toNumber() : 0
+
+  // Prefer the engine's exact native P&L; fall back to converting the USD
+  // figure at the sell-date rate for mixed-currency holdings.
+  const nativePnlBn =
+    realized?.nativePnl != null && realized.nativeCurrency === nativeCurrency
+      ? realized.nativePnl
+      : realizedPnlUsd
+        ? fromUsdOnDate(realizedPnlUsd, nativeCurrency, tx.date, rates)
+        : null
+  const nativeSign = nativePnlBn?.gte(0) ? "+" : "-"
+  const realizedNativeAbs = nativePnlBn ? nativePnlBn.abs().toNumber() : 0
+
+  const realizedPctBn =
+    realized && realized.costBasisUsd.gt(0)
+      ? realized.realizedPnlUsd.div(realized.costBasisUsd).times(BN_HUNDRED)
+      : null
+  const realizedPct = realizedPctBn
+    ? `${usdSign}${realizedPctBn.abs().toFixed(1)}%`
+    : null
+  const nativeIsUsd = nativeCurrency === "USD"
 
   const handleEdit = () => {
     openTransactionModal({ edit: tx })
@@ -165,6 +204,31 @@ export function TransactionRow({ transaction, linkedChild, currency }: Props) {
             <span className="ml-1 text-xs font-normal text-muted-foreground">
               (~{formatCurrency(convertedTotal, currency)})
             </span>
+          )}
+          {showRealized && (
+            <div className={`mt-0.5 text-xs font-normal ${realizedColor}`}>
+              {nativeIsUsd ? (
+                <span>
+                  {usdSign}
+                  {formatCurrency(realizedUsdAbs, "USD")}
+                  {realizedPct && ` (${realizedPct})`}
+                  <span className="ml-1 text-muted-foreground">P&L</span>
+                </span>
+              ) : (
+                <>
+                  <div>
+                    {nativeSign}
+                    {formatCurrency(realizedNativeAbs, nativeCurrency)}
+                    <span className="ml-1 text-muted-foreground">P&L</span>
+                  </div>
+                  <div className="text-muted-foreground">
+                    ~{usdSign}
+                    {formatCurrency(realizedUsdAbs, "USD")}
+                    {realizedPct && ` (${realizedPct})`}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </TableCell>
 

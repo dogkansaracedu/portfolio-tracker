@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router"
 import { useTransactionLog } from "@/hooks/useTransactionLog"
+import { useRealizedPnL } from "@/hooks/useRealizedPnL"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { TransactionSummary } from "@/components/transactions/TransactionSummary"
@@ -17,6 +18,7 @@ export default function TransactionsPage() {
   const { transactions, loading, filters, setFilters, summary } =
     useTransactionLog()
   const { currency } = useDisplayCurrency()
+  const realizedByTx = useRealizedPnL()
   const { openTransactionModal } = useTransactionModal()
   const [childMap, setChildMap] = useState<
     Map<string, TransactionWithDetails>
@@ -78,6 +80,7 @@ export default function TransactionsPage() {
         loading={loading}
         currency={currency}
         childMap={childMap}
+        realizedByTx={realizedByTx}
       />
     </div>
   )
