@@ -14,34 +14,8 @@ import {
 import { recalculateBalance } from "@/lib/balance"
 import { resolveFiatAsset, buildChildRow, shouldCreateChild } from "@/lib/cash"
 import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
-import { supabase } from "@/lib/supabase"
+import { ensureHistoricalRate } from "@/lib/queries/exchangeRates"
 import type { TransactionInsert, TransactionUpdate } from "@/types/database"
-
-/**
- * If a transaction is denominated in a non-USD currency, ensure
- * `exchange_rates` carries the TCMB rate for that day so cost-basis
- * conversions don't fall back to a stale older row. Called fire-and-await
- * before `bumpTxVersion` so consumers re-render with the right rate already
- * cached. Failures are non-fatal — the transaction is already saved.
- */
-async function ensureHistoricalRate(
-  priceCurrency: string | null | undefined,
-  feeCurrency: string | null | undefined,
-  date: string | null | undefined,
-): Promise<void> {
-  const isNonUsd = (c: string | null | undefined) =>
-    !!c && c.toUpperCase() !== "USD"
-  if (!isNonUsd(priceCurrency) && !isNonUsd(feeCurrency)) return
-  const day = (date ?? "").slice(0, 10)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return
-  try {
-    await supabase.functions.invoke("fetch-historical-rate", {
-      body: { date: day },
-    })
-  } catch (err) {
-    console.warn("fetch-historical-rate failed:", err)
-  }
-}
 
 export function useTransactions(filters?: TransactionFilters) {
   const { user } = useAuth()

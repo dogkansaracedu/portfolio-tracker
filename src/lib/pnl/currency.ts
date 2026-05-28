@@ -3,8 +3,18 @@ import type { ExchangeRate } from "@/types/database"
 import { bn } from "@/lib/config"
 
 /**
- * Find the exchange rate for a given date (or nearest prior date).
- * Rates must be sorted by date ASC.
+ * Find the exchange rate for a given date: the nearest rate at or before
+ * `date`, or — when `date` predates every rate we have — the EARLIEST rate as
+ * a fallback. Rates must be sorted by date ASC. Returns null only when there
+ * are no rates at all.
+ *
+ * The earliest-rate fallback is the guard against silent corruption: without
+ * it, a transaction older than our rate history resolves to no rate, and
+ * callers (`normalizeToUsd`) then treat the foreign amount as if it were USD —
+ * a ~30x error for a TRY figure. Degrading to the nearest known rate keeps the
+ * converted figure in the right order of magnitude. The bulk-import path also
+ * proactively backfills missing historical rates (see ensureHistoricalRate),
+ * so this fallback is a last resort, not the common case.
  */
 export function getExchangeRateForDate(
   date: string,
@@ -31,7 +41,9 @@ export function getExchangeRateForDate(
     }
   }
 
-  return result
+  // `date` is before the earliest rate → fall back to the earliest available
+  // (rates is sorted ASC, so rates[0]) rather than signalling "no rate".
+  return result ?? rates[0]
 }
 
 /**
