@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react"
+import { useMemo } from "react"
+import { useSearchParams } from "react-router"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { normalizeToUsd } from "@/lib/pnl/currency"
@@ -19,8 +20,32 @@ export interface TransactionLogSummary {
   totalSellVolume: number
 }
 
+function filtersFromParams(params: URLSearchParams): TransactionLogFilters {
+  const types = params.getAll("types") as TransactionType[]
+  return {
+    dateFrom: params.get("dateFrom") ?? undefined,
+    dateTo: params.get("dateTo") ?? undefined,
+    assetId: params.get("assetId") ?? undefined,
+    platformId: params.get("platformId") ?? undefined,
+    types: types.length > 0 ? types : undefined,
+  }
+}
+
+function filtersToParams(filters: TransactionLogFilters): URLSearchParams {
+  const params = new URLSearchParams()
+  if (filters.dateFrom) params.set("dateFrom", filters.dateFrom)
+  if (filters.dateTo) params.set("dateTo", filters.dateTo)
+  if (filters.assetId) params.set("assetId", filters.assetId)
+  if (filters.platformId) params.set("platformId", filters.platformId)
+  filters.types?.forEach((t) => params.append("types", t))
+  return params
+}
+
 export function useTransactionLog() {
-  const [filters, setFilters] = useState<TransactionLogFilters>({})
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = useMemo(() => filtersFromParams(searchParams), [searchParams])
+  const setFilters = (next: TransactionLogFilters) =>
+    setSearchParams(filtersToParams(next), { replace: true })
   const { rates } = useTransactionData()
 
   // Pass date, asset, and platform filters to the server query
