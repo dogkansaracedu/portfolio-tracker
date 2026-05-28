@@ -1,14 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency, formatSignedPercent, gainLossClass } from "@/lib/prices"
-import type { PerformanceMetrics } from "@/lib/performance"
+import type { PerformanceMetrics, TimeRange } from "@/lib/performance"
 
 interface Props {
   metrics: PerformanceMetrics
   currentValueUsd: number
   currency: "USD" | "TRY"
+  timeRange: TimeRange
 }
 
-export function PerformanceSummary({ metrics, currentValueUsd, currency }: Props) {
+export function PerformanceSummary({
+  metrics,
+  currentValueUsd,
+  currency,
+  timeRange,
+}: Props) {
+  // Best/Worst Month and Max Drawdown are computed over the selected range,
+  // unlike All-Time Return and CAGR (always lifetime). Suffix the range-scoped
+  // cards so the mix is unambiguous; "ALL" needs no suffix (it is lifetime).
+  const rangeSuffix = timeRange === "ALL" ? "" : ` (${timeRange})`
   const stats = [
     {
       label: "Current Value",
@@ -28,21 +38,21 @@ export function PerformanceSummary({ metrics, currentValueUsd, currency }: Props
       value: metrics.cagr != null ? `${metrics.cagr.toFixed(1)}%` : "N/A",
     },
     {
-      label: "Best Month",
+      label: `Best Month${rangeSuffix}`,
       value: metrics.bestMonth
         ? `${metrics.bestMonth.label}: +${metrics.bestMonth.returnPct.toFixed(1)}%`
         : "N/A",
       color: gainLossClass(true),
     },
     {
-      label: "Worst Month",
+      label: `Worst Month${rangeSuffix}`,
       value: metrics.worstMonth
         ? `${metrics.worstMonth.label}: ${metrics.worstMonth.returnPct.toFixed(1)}%`
         : "N/A",
       color: metrics.worstMonth ? gainLossClass(false) : undefined,
     },
     {
-      label: "Max Drawdown",
+      label: `Max Drawdown${rangeSuffix}`,
       value: metrics.maxDrawdownPct !== 0
         ? `${metrics.maxDrawdownPct.toFixed(1)}%`
         : "N/A",

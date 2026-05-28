@@ -95,6 +95,7 @@ export default function PerformancePage() {
             metrics={{ monthlyReturns, drawdownSeries, ...metrics }}
             currentValueUsd={currentValueNum}
             currency={currency}
+            timeRange={timeRange}
           />
 
           {/* Portfolio value chart */}
