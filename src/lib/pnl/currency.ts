@@ -51,7 +51,9 @@ export function normalizeToUsd(
 
   const rate = getExchangeRateForDate(date, rates)
   if (!rate) {
-    // No exchange rate available — return amount as-is (assume USD)
+    console.warn(
+      `[normalizeToUsd] No exchange rate found for ${upper} on ${date.slice(0, 10)} — falling back to amount as-is. Backfill via fetch-historical-rate.`,
+    )
     return bnAmount
   }
 
@@ -61,9 +63,11 @@ export function normalizeToUsd(
   }
 
   if (upper === "EUR") {
+    const eurUsd = bn(rate.eur_usd ?? 0)
+    if (eurUsd.gt(0)) return bnAmount.times(eurUsd)
+    // Fallback: pivot through TRY for legacy rows missing eur_usd
     const eurTry = bn(rate.eur_try ?? 1)
     const usdTry = bn(rate.usd_try ?? 1)
-    // EUR -> TRY -> USD
     return usdTry.isZero() ? bnAmount : bnAmount.times(eurTry).div(usdTry)
   }
 
@@ -81,4 +85,22 @@ export function unitPriceToUsd(
   rates: ExchangeRate[],
 ): BigNumber {
   return normalizeToUsd(unitPrice, currency, date, rates)
+}
+
+/**
+ * Convert an amount from `fromCurrency` to `toCurrency` using the
+ * exchange rate for `date`. Pivots through USD when needed.
+ */
+export function convertOnDate(
+  amount: number,
+  fromCurrency: string,
+  toCurrency: "USD" | "TRY",
+  date: string,
+  rates: ExchangeRate[],
+): BigNumber {
+  const usd = normalizeToUsd(amount, fromCurrency, date, rates)
+  if (toCurrency === "USD") return usd
+  const rate = getExchangeRateForDate(date, rates)
+  const usdTry = bn(rate?.usd_try ?? 1)
+  return usd.times(usdTry)
 }
