@@ -13,6 +13,7 @@ import {
 } from "@/lib/queries/transactions"
 import { recalculateBalance } from "@/lib/balance"
 import { resolveFiatAsset, buildChildRow, shouldCreateChild } from "@/lib/cash"
+import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
 import { supabase } from "@/lib/supabase"
 import type { TransactionInsert, TransactionUpdate } from "@/types/database"
 
@@ -141,8 +142,21 @@ export function useTransactions(filters?: TransactionFilters) {
     addLens(original.assetId, original.platformId)
     addLens(updated.asset_id, updated.platform_id)
 
-    // Cash-side reconciliation.
-    const fundingPlatformId = options?.fundingPlatformId ?? null
+    // Cash-side reconciliation. An explicit funding option (from the
+    // single-row modal, which lets the user choose a funding source —
+    // including `null` for "external cash, no child") always wins. When NO
+    // option is passed (the bulk-sheet edit path has no funding UI, see
+    // TransactionsSheetGrid), fall back to the EXISTING child's platform for a
+    // buy so an in-place edit *updates* its cash_debit instead of silently
+    // deleting it and inflating cash on that platform. Sells don't need this:
+    // shouldCreateChild("sell", …) is always true, so their child is updated
+    // in place regardless of fundingPlatformId.
+    const fundingPlatformId =
+      options?.fundingPlatformId !== undefined
+        ? options.fundingPlatformId
+        : existingChild && updated.type === TRANSACTION_TYPES.BUY
+          ? existingChild.platform_id
+          : null
     const needsChild = shouldCreateChild(updated.type, fundingPlatformId)
 
     if (existingChild) {

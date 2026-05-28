@@ -6,7 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { useTransactionModal } from "@/contexts/TransactionContext"
-import { formatCurrency, formatCryptoAmount, obfuscate } from "@/lib/prices"
+import {
+  formatCurrency,
+  formatCryptoAmount,
+  formatSignedCurrency,
+  formatSignedPercent,
+  gainLossClass,
+  obfuscate,
+} from "@/lib/prices"
 import type { EnrichedAsset } from "@/hooks/usePortfolio"
 
 interface PortfolioRowProps {
@@ -89,19 +96,11 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
 
       <TableCell className="text-right">
         <div className="flex flex-col items-end">
-          <span
-            className={pnlIsPositive ? "text-emerald-600" : "text-red-500"}
-          >
-            {pnlIsPositive ? "+" : ""}
-            {o(formatCurrency(asset.unrealizedPnlUsd, "USD"))}
+          <span className={gainLossClass(pnlIsPositive)}>
+            {o(formatSignedCurrency(asset.unrealizedPnlUsd, "USD"))}
           </span>
-          <span
-            className={`text-xs ${
-              pnlIsPositive ? "text-emerald-600" : "text-red-500"
-            }`}
-          >
-            {pnlIsPositive ? "+" : ""}
-            {asset.unrealizedPnlPct.toFixed(2)}%
+          <span className={`text-xs ${gainLossClass(pnlIsPositive)}`}>
+            {formatSignedPercent(asset.unrealizedPnlPct)}
           </span>
         </div>
       </TableCell>
@@ -172,16 +171,10 @@ export function PortfolioRowCard({ asset }: PortfolioRowProps) {
           <span className="font-semibold">
             {formatCurrency(displayValue, currency)}
           </span>
-          <span
-            className={`text-xs ${
-              pnlIsPositive ? "text-emerald-600" : "text-red-500"
-            }`}
-          >
-            {pnlIsPositive ? "+" : ""}
-            {formatCurrency(asset.unrealizedPnlUsd, "USD")}
+          <span className={`text-xs ${gainLossClass(pnlIsPositive)}`}>
+            {formatSignedCurrency(asset.unrealizedPnlUsd, "USD")}
             {" "}
-            ({pnlIsPositive ? "+" : ""}
-            {asset.unrealizedPnlPct.toFixed(2)}%)
+            ({formatSignedPercent(asset.unrealizedPnlPct)})
           </span>
           <Button
             variant="ghost"

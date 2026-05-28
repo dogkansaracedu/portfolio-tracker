@@ -14,7 +14,8 @@ Worked example (the canonical case):
 
 - Buy 1 AAPL @ $250 on May 25
 - Buy 2 AAPL @ $262 on May 28
-- Sell 1 AAPL @ $300 on May 30 → row shows **+$50.00 (+19.6%)** (minus any sell fee)
+- Sell 1 AAPL @ $300 on May 30 → row shows **+$50.00 (+20.0%)** (minus any sell fee)
+  — $50 gain on a $250 FIFO cost basis = 50/250 = 20.0%
 
 ## Why this is mostly wiring
 
@@ -44,7 +45,7 @@ Therefore **the percentage always binds to the USD figure**, never the native on
 Display rules per sell row (sub-line under the existing Total cell):
 
 - **USD-priced sell** — native currency *is* USD, so one line:
-  `+$50.00 (+19.6%)`
+  `+$50.00 (+20.0%)`
 - **Non-USD sell (TRY/EUR)** — two parts:
   - native primary (no %): `+₺1,000.00`
   - USD secondary with %: `~$13.33 (+66.7%)`

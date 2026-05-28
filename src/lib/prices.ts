@@ -27,6 +27,42 @@ export function formatCurrency(
 }
 
 /**
+ * Canonical Tailwind text-color classes for a gain/loss figure — the single
+ * source every surface (transactions, portfolio, performance, dashboard) uses
+ * so the green/red never drifts. `positive` is typically `value >= 0`.
+ * (Dark-mode variants are intentionally omitted; TopMovers adds its own.)
+ */
+export function gainLossClass(positive: boolean): string {
+  return positive ? "text-emerald-600" : "text-red-500"
+}
+
+/**
+ * Format a signed currency figure: a leading +/− and the absolute amount
+ * (e.g. "+$1,234.56", "-₺500,00"). Zero renders without a sign. The sign is
+ * applied here (over `Math.abs`) rather than relying on the locale formatter,
+ * so "+" is shown for gains.
+ */
+export function formatSignedCurrency(
+  value: number,
+  currency: FiatCurrency
+): string {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : ""
+  return `${sign}${formatCurrency(Math.abs(value), currency)}`
+}
+
+/**
+ * Format a signed percentage to `decimals` places (e.g. "+12.3%", "-4.0%").
+ * Zero renders without a sign. Defaults to `DECIMALS.percentage`.
+ */
+export function formatSignedPercent(
+  value: number,
+  decimals: number = DECIMALS.percentage
+): string {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : ""
+  return `${sign}${Math.abs(value).toFixed(decimals)}%`
+}
+
+/**
  * Format a crypto amount with up to 8 decimal places,
  * trimming trailing zeros.
  */

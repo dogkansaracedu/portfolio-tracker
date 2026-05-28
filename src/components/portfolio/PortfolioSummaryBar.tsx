@@ -1,6 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency, obfuscate } from "@/lib/prices"
+import {
+  formatCurrency,
+  formatSignedCurrency,
+  formatSignedPercent,
+  gainLossClass,
+  obfuscate,
+} from "@/lib/prices"
 
 interface PortfolioSummaryBarProps {
   totalValueUsd: number
@@ -10,11 +16,6 @@ interface PortfolioSummaryBarProps {
   totalUnrealizedPnlUsd: number
   totalRealizedPnlUsd: number
   heldAssetCount: number
-}
-
-function signedCurrency(value: number, currency: "USD" | "TRY"): string {
-  const sign = value >= 0 ? "+" : "−"
-  return `${sign}${formatCurrency(Math.abs(value), currency)}`
 }
 
 export function PortfolioSummaryBar({
@@ -54,26 +55,21 @@ export function PortfolioSummaryBar({
             <span className="text-xs text-muted-foreground">P&L</span>
             <div className="flex items-baseline gap-2">
               <span
-                className={`text-xl font-bold tabular-nums ${
-                  pnlIsPositive ? "text-emerald-600" : "text-red-500"
-                }`}
+                className={`text-xl font-bold tabular-nums ${gainLossClass(
+                  pnlIsPositive
+                )}`}
               >
-                {o(signedCurrency(totalPnlUsd, "USD"))}
+                {o(formatSignedCurrency(totalPnlUsd, "USD"))}
               </span>
-              <span
-                className={`text-sm ${
-                  pnlIsPositive ? "text-emerald-600" : "text-red-500"
-                }`}
-              >
-                ({pnlIsPositive ? "+" : ""}
-                {totalPnlPct.toFixed(2)}%)
+              <span className={`text-sm ${gainLossClass(pnlIsPositive)}`}>
+                ({formatSignedPercent(totalPnlPct)})
               </span>
             </div>
             {hasRealized && (
               <span className="text-xs text-muted-foreground tabular-nums">
-                Unrealized {o(signedCurrency(totalUnrealizedPnlUsd, "USD"))}
+                Unrealized {o(formatSignedCurrency(totalUnrealizedPnlUsd, "USD"))}
                 {" · "}
-                Realized {o(signedCurrency(totalRealizedPnlUsd, "USD"))}
+                Realized {o(formatSignedCurrency(totalRealizedPnlUsd, "USD"))}
               </span>
             )}
           </div>

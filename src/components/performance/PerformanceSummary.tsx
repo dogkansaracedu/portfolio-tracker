@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/prices"
+import { formatCurrency, formatSignedPercent, gainLossClass } from "@/lib/prices"
 import type { PerformanceMetrics } from "@/lib/performance"
 
 interface Props {
@@ -17,10 +17,10 @@ export function PerformanceSummary({ metrics, currentValueUsd, currency }: Props
     {
       label: "All-Time Return",
       value: metrics.allTimeReturnPct != null
-        ? `${metrics.allTimeReturnPct >= 0 ? "+" : ""}${metrics.allTimeReturnPct.toFixed(1)}%`
+        ? formatSignedPercent(metrics.allTimeReturnPct, 1)
         : "N/A",
       color: metrics.allTimeReturnPct != null
-        ? metrics.allTimeReturnPct >= 0 ? "text-green-600" : "text-red-600"
+        ? gainLossClass(metrics.allTimeReturnPct >= 0)
         : undefined,
     },
     {
@@ -32,21 +32,21 @@ export function PerformanceSummary({ metrics, currentValueUsd, currency }: Props
       value: metrics.bestMonth
         ? `${metrics.bestMonth.label}: +${metrics.bestMonth.returnPct.toFixed(1)}%`
         : "N/A",
-      color: "text-green-600",
+      color: gainLossClass(true),
     },
     {
       label: "Worst Month",
       value: metrics.worstMonth
         ? `${metrics.worstMonth.label}: ${metrics.worstMonth.returnPct.toFixed(1)}%`
         : "N/A",
-      color: metrics.worstMonth ? "text-red-600" : undefined,
+      color: metrics.worstMonth ? gainLossClass(false) : undefined,
     },
     {
       label: "Max Drawdown",
       value: metrics.maxDrawdownPct !== 0
         ? `${metrics.maxDrawdownPct.toFixed(1)}%`
         : "N/A",
-      color: metrics.maxDrawdownPct !== 0 ? "text-red-600" : undefined,
+      color: metrics.maxDrawdownPct !== 0 ? gainLossClass(false) : undefined,
     },
   ]
 

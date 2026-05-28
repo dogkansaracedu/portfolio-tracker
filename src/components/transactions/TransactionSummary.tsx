@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/prices"
+import { formatCurrency, gainLossClass } from "@/lib/prices"
 import type { TransactionLogSummary } from "@/hooks/useTransactionLog"
 
 interface Props {
@@ -28,7 +28,7 @@ export function TransactionSummary({ summary, currency }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold tabular-nums text-green-600">
+          <p className={`text-2xl font-bold tabular-nums ${gainLossClass(true)}`}>
             {formatCurrency(summary.totalBuyVolume, currency)}
           </p>
         </CardContent>
@@ -41,7 +41,7 @@ export function TransactionSummary({ summary, currency }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold tabular-nums text-red-600">
+          <p className={`text-2xl font-bold tabular-nums ${gainLossClass(false)}`}>
             {formatCurrency(summary.totalSellVolume, currency)}
           </p>
         </CardContent>
