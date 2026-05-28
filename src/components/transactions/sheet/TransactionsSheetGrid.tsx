@@ -31,6 +31,7 @@ import {
   type BulkInsertRow,
   type TransactionWithDetails,
 } from "@/lib/queries/transactions"
+import { ensureHistoricalRatesForDates } from "@/lib/queries/exchangeRates"
 import type { UnresolvedReason } from "@/lib/queries/assets"
 import { useAuth } from "@/hooks/useAuth"
 import { bn } from "@/lib/config"
@@ -91,7 +92,7 @@ export function TransactionsSheetGrid({
 }: Props) {
   const { user } = useAuth()
   const { txVersion, bumpTxVersion } = useTransactionModal()
-  const { refresh: refreshTxData } = useTransactionData()
+  const { refresh: refreshTxData, rates } = useTransactionData()
   const {
     rows,
     pendingDeletes,
@@ -305,6 +306,26 @@ export function TransactionsSheetGrid({
             markSaveError(newRows[i].rowKey, "Bulk insert returned no id")
           }
         }
+        // Backfill TCMB rates for any non-USD rows dated before our earliest
+        // known rate. The single-row path does this per-write via
+        // ensureHistoricalRate; the bulk RPC skipped it, so a pre-history
+        // non-USD import would convert with a missing rate. Scoped to
+        // genuinely-uncovered dates so a normal in-range import fires nothing.
+        // (getExchangeRateForDate's earliest-rate fallback is the safety net.)
+        const earliestRate =
+          rates.length > 0 ? rates[0].date.slice(0, 10) : null
+        const uncoveredDates = new Set<string>()
+        for (const r of newRows) {
+          if (r.priceCurrency.toUpperCase() === "USD") continue
+          const day = r.date.slice(0, 10)
+          if (earliestRate === null || day < earliestRate) {
+            uncoveredDates.add(day)
+          }
+        }
+        if (uncoveredDates.size > 0) {
+          await ensureHistoricalRatesForDates(uncoveredDates)
+        }
+
         // The RPC writes directly to the DB; the existing per-write
         // helpers normally bump txVersion + refresh. Do it once here.
         bumpTxVersion()
