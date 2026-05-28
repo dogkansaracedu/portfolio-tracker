@@ -23,6 +23,8 @@ import { PlatformDot } from "@/components/common/PlatformDot"
 import { formatCurrency } from "@/lib/prices"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactions } from "@/hooks/useTransactions"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
+import { convertOnDate } from "@/lib/pnl/currency"
 import { toast } from "sonner"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 import {
@@ -31,6 +33,7 @@ import {
 } from "@/lib/constants/transaction-types"
 import {
   CURRENCY_SYMBOLS,
+  isFiatCurrency,
   type FiatCurrency,
 } from "@/lib/constants/currencies"
 
@@ -54,17 +57,24 @@ interface Props {
   currency: "USD" | "TRY"
 }
 
-export function TransactionRow({ transaction, linkedChild }: Props) {
+export function TransactionRow({ transaction, linkedChild, currency }: Props) {
   const tx = transaction
   const { openTransactionModal } = useTransactionModal()
   const { removeTransaction } = useTransactions()
+  const { rates } = useTransactionData()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const isPositive = POSITIVE_TYPES.includes(tx.type)
   const sign = isPositive ? "+" : "-"
   const amountColor = isPositive ? "text-green-600" : "text-red-600"
-  const txCurrency: "USD" | "TRY" = tx.price_currency === "TRY" ? "TRY" : "USD"
+  const nativeCurrency: FiatCurrency = isFiatCurrency(tx.price_currency)
+    ? tx.price_currency
+    : currency
+  const showConverted = nativeCurrency !== currency && rates.length > 0
+  const convertedTotal = showConverted
+    ? convertOnDate(tx.total_cost, nativeCurrency, currency, tx.date, rates).toNumber()
+    : null
 
   const handleEdit = () => {
     openTransactionModal({ edit: tx })
@@ -145,12 +155,17 @@ export function TransactionRow({ transaction, linkedChild }: Props) {
 
         {/* Unit Price */}
         <TableCell className="tabular-nums text-muted-foreground">
-          {formatCurrency(tx.unit_price, txCurrency)}
+          {formatCurrency(tx.unit_price, nativeCurrency)}
         </TableCell>
 
         {/* Total */}
         <TableCell className="tabular-nums font-medium">
-          {formatCurrency(tx.total_cost, txCurrency)}
+          {formatCurrency(tx.total_cost, nativeCurrency)}
+          {convertedTotal !== null && (
+            <span className="ml-1 text-xs font-normal text-muted-foreground">
+              (~{formatCurrency(convertedTotal, currency)})
+            </span>
+          )}
         </TableCell>
 
         {/* Notes */}
