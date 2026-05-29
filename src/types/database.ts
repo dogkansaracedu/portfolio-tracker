@@ -27,6 +27,10 @@ export interface Asset {
   user_id: string;
   category: string;
   ticker: string;
+  /** Provider-specific identifier used to FETCH prices (e.g. "BTC-USD" for
+   *  Yahoo, "bitcoin" for CoinGecko). Display uses `ticker`. Fetch sites read
+   *  `price_id ?? ticker`, so a null behaves like the old ticker-as-key. */
+  price_id: string | null;
   name: string;
   tags: string[];
   price_source: string;
@@ -140,7 +144,12 @@ export interface SnapshotBreakdown {
 export type PlatformInsert = Omit<Platform, "id" | "created_at">;
 export type PlatformUpdate = Partial<Omit<Platform, "id" | "user_id" | "created_at">>;
 
-export type AssetInsert = Omit<Asset, "id" | "created_at" | "updated_at">;
+// price_id is optional on insert: when omitted, fetch sites fall back to
+// `price_id ?? ticker`, so a new asset behaves like the old ticker-as-key.
+export type AssetInsert = Omit<
+  Asset,
+  "id" | "created_at" | "updated_at" | "price_id"
+> & { price_id?: string | null };
 export type AssetUpdate = Partial<Omit<Asset, "id" | "user_id" | "created_at" | "updated_at">>;
 
 export type HoldingInsert = Omit<Holding, "id" | "balance" | "created_at" | "updated_at"> & {
