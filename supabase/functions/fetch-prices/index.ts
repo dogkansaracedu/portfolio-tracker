@@ -137,16 +137,24 @@ Deno.serve(async (req) => {
     try {
       const { data: assets } = await supabase
         .from("assets")
-        .select("ticker")
+        .select("ticker, price_id")
         .eq("price_source", "coingecko")
 
       if (!assets || assets.length === 0) return 0
 
-      const tickers = [...new Set(assets.map((a: { ticker: string }) => a.ticker.toLowerCase()))]
-      const ids = tickers.join(",")
+      // Fetch key is price_id (provider id); fall back to ticker until rows are
+      // backfilled. The price_cache row is keyed by this same value.
+      const ids = [
+        ...new Set(
+          assets.map((a: { ticker: string; price_id: string | null }) =>
+            (a.price_id ?? a.ticker).toLowerCase()
+          )
+        ),
+      ]
+      const idsParam = ids.join(",")
 
       const cgRes = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`
+        `https://api.coingecko.com/api/v3/simple/price?ids=${idsParam}&vs_currencies=usd`
       )
 
       if (cgRes.status === 429) {
@@ -168,12 +176,12 @@ Deno.serve(async (req) => {
         updated_at: string
       }> = []
 
-      for (const ticker of tickers) {
-        if (cgData[ticker]?.usd) {
+      for (const id of ids) {
+        if (cgData[id]?.usd) {
           rows.push({
-            ticker,
-            price_usd: cgData[ticker].usd,
-            price_try: usdTry ? cgData[ticker].usd * usdTry : null,
+            ticker: id,
+            price_usd: cgData[id].usd,
+            price_try: usdTry ? cgData[id].usd * usdTry : null,
             source: "coingecko",
             updated_at: now,
           })
@@ -198,22 +206,24 @@ Deno.serve(async (req) => {
     try {
       const { data: assets } = await supabase
         .from("assets")
-        .select("ticker")
+        .select("ticker, price_id")
         .eq("price_source", "yahoo")
 
       if (!assets || assets.length === 0) return 0
 
-      const tickerSet = new Set<string>()
-      for (const a of assets) {
-        tickerSet.add(a.ticker)
+      // Fetch key is price_id (Yahoo symbol, e.g. BTC-USD); fall back to ticker
+      // until rows are backfilled. Same value keys the price_cache row.
+      const symbolSet = new Set<string>()
+      for (const a of assets as { ticker: string; price_id: string | null }[]) {
+        symbolSet.add(a.price_id ?? a.ticker)
       }
 
       const now = new Date().toISOString()
       let updated = 0
-      const tickers = [...tickerSet]
+      const symbols = [...symbolSet]
 
-      for (let i = 0; i < tickers.length; i++) {
-        const ticker = tickers[i]
+      for (let i = 0; i < symbols.length; i++) {
+        const symbol = symbols[i]
 
         if (i > 0) {
           await new Promise((resolve) => setTimeout(resolve, 1000))
@@ -221,7 +231,7 @@ Deno.serve(async (req) => {
 
         try {
           const yahooRes = await fetch(
-            `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`,
+            `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
             {
               headers: {
                 "User-Agent":
@@ -233,7 +243,7 @@ Deno.serve(async (req) => {
           )
 
           if (!yahooRes.ok) {
-            errors.push(`Yahoo ${ticker}: HTTP ${yahooRes.status}`)
+            errors.push(`Yahoo ${symbol}: HTTP ${yahooRes.status}`)
             continue
           }
 
@@ -242,11 +252,11 @@ Deno.serve(async (req) => {
             yahooData?.chart?.result?.[0]?.meta?.regularMarketPrice
 
           if (regularMarketPrice == null) {
-            errors.push(`Yahoo ${ticker}: no price in response`)
+            errors.push(`Yahoo ${symbol}: no price in response`)
             continue
           }
 
-          const isTRY = ticker.endsWith(".IS")
+          const isTRY = symbol.endsWith(".IS")
           let priceUsd: number | null = null
           let priceTry: number | null = null
 
@@ -260,7 +270,7 @@ Deno.serve(async (req) => {
 
           await supabase.from("price_cache").upsert(
             {
-              ticker,
+              ticker: symbol,
               price_usd: priceUsd,
               price_try: priceTry,
               source: "yahoo",
@@ -272,7 +282,7 @@ Deno.serve(async (req) => {
           updated++
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Unknown error"
-          errors.push(`Yahoo ${ticker}: ${msg}`)
+          errors.push(`Yahoo ${symbol}: ${msg}`)
         }
       }
 

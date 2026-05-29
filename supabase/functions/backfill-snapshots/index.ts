@@ -6,6 +6,7 @@ import { corsHeaders } from "../_shared/cors.ts"
 interface AssetRow {
   id: string
   ticker: string
+  price_id: string | null
   name: string
   category: string
   tags: string[] | null
@@ -248,16 +249,18 @@ async function handle(
   // ── Load assets, platforms, transactions ───────────────────────
   const { data: assetsRaw, error: assetsErr } = await supabase
     .from("assets")
-    .select("id, ticker, name, category, tags, price_source, is_active")
+    .select("id, ticker, price_id, name, category, tags, price_source, is_active")
   if (assetsErr) {
     return jsonError(`load assets: ${assetsErr.message}`)
   }
   const assets = (assetsRaw ?? []) as AssetRow[]
   const assetsById = new Map<string, AssetRow>()
-  const assetsByTicker = new Map<string, AssetRow>()
+  // Keyed by the price-fetch key (price_id ?? ticker), matching how
+  // priceMaps and the held set below are keyed.
+  const assetsByPriceId = new Map<string, AssetRow>()
   for (const a of assets) {
     assetsById.set(a.id, a)
-    assetsByTicker.set(a.ticker, a)
+    assetsByPriceId.set(a.price_id ?? a.ticker, a)
   }
 
   const { data: platformsRaw, error: platformsErr } = await supabase
@@ -340,52 +343,58 @@ async function handle(
   const toTs =
     Math.floor(new Date(`${today}T00:00:00Z`).getTime() / 1000) + 86400
 
-  // Discover which tickers we actually need (only assets that ever had a tx)
-  const heldTickers = new Set<string>()
+  // Discover which price_ids we actually need (only assets that ever had a tx).
+  // Keyed by the fetch key (price_id ?? ticker) so priceMaps lines up.
+  const heldPriceIds = new Set<string>()
   for (const t of txs) {
     const a = assetsById.get(t.asset_id)
-    if (a) heldTickers.add(a.ticker)
+    if (a) heldPriceIds.add(a.price_id ?? a.ticker)
   }
 
+  // priceMaps is keyed by price_id (price_id ?? ticker) everywhere.
   const priceMaps = new Map<string, Map<string, number>>()
 
-  // Crypto/gold via CoinGecko (sequential w/ small delay to respect rate limits)
-  const coingeckoTickers = [...heldTickers].filter((t) => {
-    const a = assetsByTicker.get(t)
-    return a?.price_source === "coingecko" && t !== "tether" && t !== "usd-coin"
+  // Crypto/gold via CoinGecko (sequential w/ small delay to respect rate limits).
+  // After the Yahoo retarget this set is empty (crypto moves to price_source
+  // yahoo); an empty set here is expected, not an error.
+  const coingeckoPriceIds = [...heldPriceIds].filter((pid) => {
+    const a = assetsByPriceId.get(pid)
+    return (
+      a?.price_source === "coingecko" && pid !== "tether" && pid !== "usd-coin"
+    )
   })
-  for (const ticker of coingeckoTickers) {
+  for (const priceId of coingeckoPriceIds) {
     try {
-      const map = await fetchCoinGeckoHistory(ticker)
-      priceMaps.set(ticker, map)
+      const map = await fetchCoinGeckoHistory(priceId)
+      priceMaps.set(priceId, map)
       // ~30 calls/min free tier; sleep briefly between calls
       await new Promise((r) => setTimeout(r, 1500))
     } catch (e) {
       errors.push(
-        `CoinGecko ${ticker}: ${e instanceof Error ? e.message : String(e)}`,
+        `CoinGecko ${priceId}: ${e instanceof Error ? e.message : String(e)}`,
       )
     }
   }
 
-  // Stocks via Yahoo (sequential w/ small delay)
-  const yahooTickers = [...heldTickers].filter((t) => {
-    const a = assetsByTicker.get(t)
+  // Stocks + crypto/gold tokens via Yahoo (sequential w/ small delay)
+  const yahooPriceIds = [...heldPriceIds].filter((pid) => {
+    const a = assetsByPriceId.get(pid)
     return a?.price_source === "yahoo"
   })
-  for (const ticker of yahooTickers) {
+  for (const priceId of yahooPriceIds) {
     try {
-      const map = await fetchYahooHistory(ticker, fromTs, toTs)
-      priceMaps.set(ticker, map)
+      const map = await fetchYahooHistory(priceId, fromTs, toTs)
+      priceMaps.set(priceId, map)
       await new Promise((r) => setTimeout(r, 800))
     } catch (e) {
       errors.push(
-        `Yahoo ${ticker}: ${e instanceof Error ? e.message : String(e)}`,
+        `Yahoo ${priceId}: ${e instanceof Error ? e.message : String(e)}`,
       )
     }
   }
 
   // Physical gold (XAU_GRAM) via Yahoo gold futures (GC=F is USD/oz)
-  if (heldTickers.has("XAU_GRAM")) {
+  if (heldPriceIds.has("XAU_GRAM")) {
     try {
       const oz = await fetchYahooHistory("GC=F", fromTs, toTs)
       const gram = new Map<string, number>()
@@ -482,14 +491,16 @@ async function handle(
         const a = assetsById.get(assetId)
         if (!a || !a.is_active) continue
 
-        // Resolve price USD at this date
+        // Resolve price USD at this date. Key the special cases and the
+        // priceMaps lookup on the fetch key (price_id ?? ticker).
+        const priceId = a.price_id ?? a.ticker
         let priceUsd = 0
-        if (a.ticker === "USD") priceUsd = 1
-        else if (a.ticker === "TRY") priceUsd = 1 / usdTry
-        else if (a.ticker === "EUR") priceUsd = eurTry / usdTry
-        else if (a.ticker === "tether" || a.ticker === "usd-coin") priceUsd = 1
+        if (priceId === "USD") priceUsd = 1
+        else if (priceId === "TRY") priceUsd = 1 / usdTry
+        else if (priceId === "EUR") priceUsd = eurTry / usdTry
+        else if (priceId === "tether" || priceId === "usd-coin") priceUsd = 1
         else {
-          const map = priceMaps.get(a.ticker)
+          const map = priceMaps.get(priceId)
           if (map) priceUsd = lookupAtOrBefore(map, date) ?? 0
         }
         const priceTry = priceUsd * usdTry
