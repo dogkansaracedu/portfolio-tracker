@@ -19,9 +19,9 @@ Two coupled issues:
 
 ## Non-goals (YAGNI)
 
-- No asset-creation/edit UI for `price_id` yet. New assets default `price_id = ticker`; the user will manage namings via a future "asset details" feature.
 - Do not drop the stablecoin `$1` hardcode (USDT/USDC) for now.
 - Do not delete orphaned `price_cache` rows (re-key them instead).
+- No bulk `price_id` editing in the import resolver — `ResolveAssetsStepper` defaults `price_id = ticker`; per-asset editing happens in `AssetForm`.
 
 ## The model
 
@@ -40,7 +40,7 @@ The canonical price-fetch identity becomes the pair **(`price_source`, `price_id
 - Backfill: `UPDATE assets SET price_id = ticker` for all rows.
 - Then update the 6 crypto/gold-token rows (table below).
 - TS: add `price_id: string | null` to `Asset`; include in `AssetInsert`/`AssetUpdate`.
-- Creation paths (`AssetForm`/`useAssets.addAsset`, `ResolveAssetsStepper`) pass `price_id: ticker` explicitly for now.
+- `AssetForm` gains a `price_id` input (see UI changes). `ResolveAssetsStepper` (bulk import) defaults `price_id = ticker`.
 
 ### Asset row mapping (only these 6 change; all others get `price_id = ticker`)
 
@@ -88,8 +88,8 @@ Fiat (`USD`/`EUR`/`TRY`, tcmb) and physical gold (`XAU_GRAM`, tcmb): `price_id =
 ## UI changes (ticker only)
 
 - **Portfolio rows** (`PortfolioRow`) and **transaction rows** (`TransactionRow`), plus dashboard list displays (`TopMovers`): show **ticker** as the row identifier; stop rendering the full `name` as the row label.
-- **Boundary (please confirm):** search/autocomplete (`AssetSearchSelect`, `TransactionFilters`) **keep** showing/searching `name` so assets remain findable by typing their name. "Ticker only" applies to display rows, not search affordances.
-- `AssetForm` ticker hints: reword away from "Use CoinGecko ID …" since ticker is now display-only. No `price_id` input added yet.
+- **Boundary:** search/autocomplete (`AssetSearchSelect`, `TransactionFilters`) **keep** showing/searching `name` so assets remain findable by typing their name. "Ticker only" applies to display rows, not search affordances.
+- **`AssetForm` gains a `price_id` input** (single text field, below ticker). Optional: when left blank, submit coalesces it to the ticker value. In edit mode it hydrates from `asset.price_id`. Add a hint, e.g. "Provider id used to fetch price — e.g. `BTC-USD` (Yahoo), `bitcoin` (CoinGecko). Defaults to ticker." Reword the existing ticker hint so `ticker` reads as the display shorthand. `AssetList` passes `price_id` through `addAsset`/`editAsset`.
 
 ## Rollout
 
