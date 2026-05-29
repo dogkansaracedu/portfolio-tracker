@@ -51,7 +51,6 @@ export function TransactionList({
           <TableHead>Amount</TableHead>
           <TableHead>Unit Price</TableHead>
           <TableHead>Total</TableHead>
-          <TableHead>Notes</TableHead>
           <TableHead className="w-12 text-right" />
         </TableRow>
       </TableHeader>
