@@ -48,11 +48,6 @@ function formatDate(dateStr: string): string {
   })
 }
 
-function truncateNotes(notes: string | null, maxLen = 30): string {
-  if (!notes) return ""
-  return notes.length > maxLen ? notes.slice(0, maxLen) + "..." : notes
-}
-
 interface Props {
   transaction: TransactionWithDetails
   linkedChild?: TransactionWithDetails | null
@@ -82,6 +77,9 @@ export function TransactionRow({
   const showConverted = nativeCurrency !== currency && rates.length > 0
   const convertedTotal = showConverted
     ? convertOnDate(tx.total_cost, nativeCurrency, currency, tx.date, rates).toNumber()
+    : null
+  const convertedUnitPrice = showConverted
+    ? convertOnDate(tx.unit_price, nativeCurrency, currency, tx.date, rates).toNumber()
     : null
 
   // Realized P&L (FIFO) — sells only. The engine computes it in USD net of
@@ -195,6 +193,11 @@ export function TransactionRow({
         {/* Unit Price */}
         <TableCell className="tabular-nums text-muted-foreground">
           {formatCurrency(tx.unit_price, nativeCurrency)}
+          {convertedUnitPrice !== null && (
+            <span className="ml-1 text-xs font-normal text-muted-foreground">
+              (~{formatCurrency(convertedUnitPrice, currency)})
+            </span>
+          )}
         </TableCell>
 
         {/* Total */}
@@ -230,14 +233,6 @@ export function TransactionRow({
               )}
             </div>
           )}
-        </TableCell>
-
-        {/* Notes */}
-        <TableCell
-          className="max-w-[150px] text-muted-foreground"
-          title={tx.notes ?? undefined}
-        >
-          {truncateNotes(tx.notes)}
         </TableCell>
 
         {/* Actions */}

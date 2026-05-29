@@ -98,6 +98,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   } | null>(null)
   const [fundingError, setFundingError] = useState<string | null>(null)
   const lastPrefilledTickerRef = useRef<string | null>(null)
+  const amountInputRef = useRef<HTMLInputElement>(null)
 
   // Hydrate form from edit target / prefill / defaults whenever the modal opens.
   // Prior implementation only handled prefilledAssetId on its own effect, which
@@ -311,7 +312,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     (showPriceFields ? parsedPrice.gt(0) : true) &&
     (isTransfer && !isEdit ? destPlatformId && destPlatformId !== platformId : true)
 
-  const handleSubmit = async () => {
+  // `keepOpen` powers "Save & add another": record the tx but leave the modal
+  // open with type/asset/platform/date/currency/funding/notes intact, clearing
+  // only the amount and unit price so the next entry is a couple keystrokes.
+  const handleSubmit = async ({ keepOpen = false }: { keepOpen?: boolean } = {}) => {
     if (!user || !canSubmit) return
     setSubmitting(true)
 
@@ -368,6 +372,19 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         }
         toast.success("Transaction recorded")
       }
+
+      if (keepOpen && !isEdit) {
+        // Clear the prefill guard so the next asset pick (or the same one)
+        // can re-prefill the price from market data; then blank the per-entry
+        // fields and return focus to Amount for rapid back-to-back entry.
+        lastPrefilledTickerRef.current = null
+        setAmount("")
+        setUnitPrice("")
+        onSuccess?.()
+        requestAnimationFrame(() => amountInputRef.current?.focus())
+        return
+      }
+
       closeTransactionModal()
       onSuccess?.()
     } catch (err) {
@@ -513,6 +530,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           <div className="space-y-2">
             <Label>Amount</Label>
             <Input
+              ref={amountInputRef}
               type="number"
               step="any"
               min="0"
@@ -670,7 +688,16 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           <Button variant="outline" onClick={closeTransactionModal}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          {!isEdit && (
+            <Button
+              variant="secondary"
+              onClick={() => handleSubmit({ keepOpen: true })}
+              disabled={!canSubmit}
+            >
+              {submitting ? "Saving..." : "Save & add another"}
+            </Button>
+          )}
+          <Button onClick={() => handleSubmit()} disabled={!canSubmit}>
             {submitting
               ? "Saving..."
               : isEdit
