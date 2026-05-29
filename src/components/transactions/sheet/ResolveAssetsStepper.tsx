@@ -154,6 +154,7 @@ export function ResolveAssetsStepper({
       const created = await addAsset({
         category: form.category,
         ticker: trimmedTicker,
+        price_id: form.ticker,
         name: trimmedName,
         tags,
         price_source: form.priceSource,
