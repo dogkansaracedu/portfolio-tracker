@@ -111,9 +111,13 @@ export function PricesProvider({ children }: { children: ReactNode }) {
     }
   }, [loading, lastUpdated, refreshPrices, prices])
 
+  // Keys are price_ids now (the prices map is keyed by price_id). This list is
+  // only used internally (no UI consumer surfaces it as a label), so keeping it
+  // as price_id keys is fine; map back through assets to ticker if it ever
+  // becomes user-facing.
   const staleAssets = Object.entries(prices)
     .filter(([, p]) => isStale(p.updated_at, STALE_THRESHOLD_MINUTES))
-    .map(([ticker]) => ticker)
+    .map(([priceId]) => priceId)
 
   return (
     <PricesContext.Provider

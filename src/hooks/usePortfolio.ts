@@ -167,7 +167,7 @@ export function usePortfolio(): UsePortfolioReturn {
     const totalValue = bn(totalCurrentValueUsd)
 
     return activeAssets.map((asset: Asset): EnrichedAsset => {
-      const livePrice: PriceCache | undefined = prices[asset.ticker]
+      const livePrice: PriceCache | undefined = prices[asset.price_id ?? asset.ticker]
       const liveBnPriceUsd = bn(livePrice?.price_usd)
 
       const assetHoldings = holdingsByAsset.get(asset.id) ?? []
