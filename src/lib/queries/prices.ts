@@ -10,6 +10,9 @@ export async function fetchPrices(): Promise<Record<string, PriceCache>> {
 
   const map: Record<string, PriceCache> = {}
   for (const row of data ?? []) {
+    // Keyed by price_id: price_cache's key column is still named `ticker` but
+    // now holds the asset's price_id value. Consumers look up with
+    // `prices[asset.price_id ?? asset.ticker]`.
     map[row.ticker] = row
   }
   return map

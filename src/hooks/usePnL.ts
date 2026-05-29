@@ -101,7 +101,12 @@ export function usePnL(
       const ticker = h.assets.ticker
       const category = h.assets.category
       const platformName = h.platforms.name
-      const livePrice = prices[ticker]?.price_usd ?? 0
+      // price_cache is keyed by price_id; ticker is display-only. The joined
+      // `assets` projection in HoldingWithDetails carries `price_id`
+      // (added to src/lib/queries/holdings.ts's select + type); coalesces to
+      // ticker for rows whose price_id is still null (pre-backfill behaviour).
+      const priceKey = h.assets.price_id ?? ticker
+      const livePrice = prices[priceKey]?.price_usd ?? 0
       const key = `${h.asset_id}|${h.platform_id}`
       const snapshotKey = `${ticker}|${platformName}`
       const snapshotPriceUsd =

@@ -5,6 +5,8 @@ export interface HoldingWithDetails extends Holding {
   assets: {
     name: string
     ticker: string
+    // Price-fetch key; price_cache is keyed by this. Null falls back to ticker.
+    price_id: string | null
     category: string
     tags: string[]
     is_currency: boolean
@@ -17,7 +19,7 @@ export async function fetchHoldings(
 ): Promise<HoldingWithDetails[]> {
   const { data, error } = await supabase
     .from("holdings")
-    .select("*, assets(name, ticker, category, tags, is_currency), platforms(name, color)")
+    .select("*, assets(name, ticker, price_id, category, tags, is_currency), platforms(name, color)")
     .eq("user_id", userId)
     .neq("balance", 0)
     .order("assets(name)")
@@ -31,7 +33,7 @@ export async function fetchHoldingsByAsset(
 ): Promise<HoldingWithDetails[]> {
   const { data, error } = await supabase
     .from("holdings")
-    .select("*, assets(name, ticker, category, tags, is_currency), platforms(name, color)")
+    .select("*, assets(name, ticker, price_id, category, tags, is_currency), platforms(name, color)")
     .eq("asset_id", assetId)
 
   if (error) throw error
