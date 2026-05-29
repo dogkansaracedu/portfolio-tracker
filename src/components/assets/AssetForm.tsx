@@ -36,12 +36,15 @@ const PRICE_SOURCES = [
 ];
 
 const TICKER_HINTS: Record<string, string> = {
-  fiat: 'Use ISO code, e.g. "USD", "TRY", "EUR"',
-  crypto: 'Use CoinGecko ID, e.g. "bitcoin", "ethereum"',
-  gold: 'CoinGecko ID for tokenized, "XAU_GRAM" for physical',
-  stock_us: 'Use US ticker, e.g. "AAPL", "MSFT"',
-  stock_bist: 'Use Yahoo format, e.g. "THYAO.IS", "ASELS.IS"',
+  fiat: 'Display shorthand, e.g. "USD", "TRY", "EUR"',
+  crypto: 'Display shorthand, e.g. "BTC", "ETH"',
+  gold: 'Display shorthand, e.g. "XAU", "PAXG"',
+  stock_us: 'Display shorthand, e.g. "AAPL", "MSFT"',
+  stock_bist: 'Display shorthand, e.g. "THYAO", "ASELS"',
 };
+
+const PRICE_ID_HINT =
+  "Provider id used to fetch price — e.g. BTC-USD (Yahoo), bitcoin (CoinGecko). Leave blank to use the ticker.";
 
 interface AssetFormProps {
   open: boolean;
@@ -50,6 +53,7 @@ interface AssetFormProps {
   onSubmit: (data: {
     category: string;
     ticker: string;
+    price_id: string;
     name: string;
     tags: string[];
     price_source: string;
@@ -65,6 +69,7 @@ export function AssetForm({
 }: AssetFormProps) {
   const [category, setCategory] = useState("fiat");
   const [ticker, setTicker] = useState("");
+  const [priceId, setPriceId] = useState(asset?.price_id ?? "");
   const [displayName, setDisplayName] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [priceSource, setPriceSource] = useState("manual");
@@ -77,6 +82,7 @@ export function AssetForm({
     if (open) {
       setCategory(asset?.category ?? "fiat");
       setTicker(asset?.ticker ?? "");
+      setPriceId(asset?.price_id ?? "");
       setDisplayName(asset?.name ?? "");
       setTagsInput(asset?.tags?.join(", ") ?? "");
       setPriceSource(asset?.price_source ?? "manual");
@@ -109,6 +115,7 @@ export function AssetForm({
       await onSubmit({
         category,
         ticker: trimmedTicker,
+        price_id: priceId.trim() || trimmedTicker,
         name: trimmedName,
         tags,
         price_source: priceSource,
@@ -158,13 +165,24 @@ export function AssetForm({
             <Label htmlFor="asset-ticker">Ticker</Label>
             <Input
               id="asset-ticker"
-              placeholder="e.g. bitcoin, AAPL, USD"
+              placeholder="e.g. BTC, AAPL, USD"
               value={ticker}
               onChange={(e) => setTicker(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              {TICKER_HINTS[category] ?? "Enter the asset ticker."}
+              {TICKER_HINTS[category] ?? "Display shorthand for the asset."}
             </p>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="asset-price-id">Price ID</Label>
+            <Input
+              id="asset-price-id"
+              placeholder="e.g. BTC-USD, bitcoin"
+              value={priceId}
+              onChange={(e) => setPriceId(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">{PRICE_ID_HINT}</p>
           </div>
 
           <div className="grid gap-2">

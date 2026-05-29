@@ -139,12 +139,17 @@ export function AssetList() {
             await editAsset(editingAsset.id, {
               category: data.category,
               ticker: data.ticker,
+              price_id: data.price_id,
               name: data.name,
               tags: data.tags,
               price_source: data.price_source,
             });
           } else {
-            await addAsset({ ...data, is_currency: false });
+            await addAsset({
+              ...data,
+              price_id: data.price_id,
+              is_currency: false,
+            });
           }
         }}
       />
