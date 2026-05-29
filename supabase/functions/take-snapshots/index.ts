@@ -6,6 +6,7 @@ interface HoldingRow {
   balance: number
   assets: {
     ticker: string
+    price_id: string | null
     name: string
     category: string
     tags: string[] | null
@@ -136,7 +137,7 @@ Deno.serve(async (req) => {
   const { data: holdingRows, error: holdingsErr } = await supabase
     .from("holdings")
     .select(
-      "user_id, balance, assets(ticker, name, category, tags, is_active), platforms(name, color)"
+      "user_id, balance, assets(ticker, price_id, name, category, tags, is_active), platforms(name, color)"
     )
     .neq("balance", 0)
 
@@ -180,7 +181,9 @@ Deno.serve(async (req) => {
     for (const h of userHoldings) {
       const asset = h.assets!
       const platform = h.platforms!
-      const price = prices[asset.ticker]
+      // price_cache is keyed by price_id (the fetch key); fall back to ticker
+      // until rows are backfilled.
+      const price = prices[asset.price_id ?? asset.ticker]
       // Treat a stale row (older than STALE_PRICE_MS) as unpriced so it trips
       // the skip guard below rather than booking yesterday's price as today's.
       const updatedAt = price?.updated_at
