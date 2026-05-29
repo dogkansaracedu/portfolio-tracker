@@ -1,7 +1,6 @@
 import { Plus } from "lucide-react"
 import { Link } from "react-router"
 import { TableRow, TableCell } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
@@ -54,8 +53,7 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
           className="flex flex-col items-start text-left hover:underline focus:outline-none focus-visible:underline"
           title="View / edit transactions"
         >
-          <span className="font-medium">{asset.name}</span>
-          <span className="text-xs text-muted-foreground">{asset.ticker}</span>
+          <span className="font-medium">{asset.ticker}</span>
         </Link>
       </TableCell>
 
@@ -151,8 +149,7 @@ export function PortfolioRowCard({ asset }: PortfolioRowProps) {
           className="flex flex-col items-start gap-0.5 text-left focus:outline-none"
         >
           <div className="flex items-center gap-2">
-            <span className="font-medium">{asset.name}</span>
-            <Badge variant="secondary">{asset.ticker}</Badge>
+            <span className="font-medium">{asset.ticker}</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {asset.holdings.map((h) => (

@@ -46,9 +46,6 @@ export default function TopMovers({ topMovers }: TopMoversProps) {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">
-                      {mover.name}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
                       {mover.ticker}
                     </p>
                   </div>

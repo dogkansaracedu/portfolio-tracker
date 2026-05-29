@@ -143,10 +143,7 @@ export function TransactionRow({
         {/* Asset */}
         <TableCell>
           <div className="flex flex-col">
-            <span className="font-medium">{tx.assets?.name ?? "Unknown"}</span>
-            <span className="text-xs text-muted-foreground">
-              {tx.assets?.ticker ?? ""}
-            </span>
+            <span className="font-medium">{tx.assets?.ticker ?? "Unknown"}</span>
             {linkedChild && (
               <span className="text-xs text-muted-foreground italic">
                 {linkedChild.type === TRANSACTION_TYPES.CASH_CREDIT
