@@ -16,7 +16,7 @@ interface Props {
   className?: string
 }
 
-/** Square asset logo. Resolves a deterministic candidate chain (manual
+/** Circular asset logo. Resolves a deterministic candidate chain (manual
  *  override → exchange logo repos) and renders the first image that loads;
  *  when every candidate 404s/errors it falls back to a colored monogram.
  *  Decorative — the adjacent ticker text carries the meaning. */
@@ -35,7 +35,7 @@ export function AssetIcon({ asset, size = "sm", className }: Props) {
       <span
         aria-hidden
         className={cn(
-          "inline-flex shrink-0 items-center justify-center rounded-md font-semibold uppercase text-white",
+          "inline-flex shrink-0 items-center justify-center rounded-full font-semibold uppercase text-white",
           size === "sm" ? "text-[9px]" : "text-[11px]",
           sizeClass,
           className,
@@ -56,7 +56,7 @@ export function AssetIcon({ asset, size = "sm", className }: Props) {
       loading="lazy"
       onError={() => setFailed((prev) => new Set(prev).add(url))}
       className={cn(
-        "inline-block shrink-0 rounded-md bg-white object-contain",
+        "inline-block shrink-0 rounded-full bg-white object-contain",
         sizeClass,
         className,
       )}
