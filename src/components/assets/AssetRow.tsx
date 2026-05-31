@@ -3,6 +3,7 @@ import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/prices";
+import { assetNativeCurrency } from "@/lib/constants/assets";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -29,9 +30,20 @@ interface AssetRowProps {
 
 export function AssetRow({ asset, prices, onEdit, onDeactivate }: AssetRowProps) {
   const price = prices[asset.price_id ?? asset.ticker];
-  const isCrypto = asset.category === 'crypto';
-  const priceValue = isCrypto ? price?.price_usd : (price?.price_try ?? price?.price_usd);
-  const priceCurrency = (isCrypto || price?.price_try == null) ? 'USD' : 'TRY';
+  // Native currency comes from what the asset IS (its category/ticker), not
+  // from which price_cache columns are filled — the edge function back-fills
+  // both price_usd and price_try for every asset.
+  const native = assetNativeCurrency(asset);
+  // A fiat asset is worth 1 unit of itself; everything else reads the column
+  // matching its native currency, falling back to the other.
+  const priceValue =
+    asset.category === 'fiat'
+      ? 1
+      : native === 'TRY'
+        ? (price?.price_try ?? price?.price_usd)
+        : (price?.price_usd ?? price?.price_try);
+  // USD estimate shown beside non-USD prices (cache already stores price_usd).
+  const usdEstimate = native === 'USD' ? null : (price?.price_usd ?? null);
 
   return (
     <TableRow className={!asset.is_active ? "opacity-50" : ""}>
@@ -51,7 +63,14 @@ export function AssetRow({ asset, prices, onEdit, onDeactivate }: AssetRowProps)
       </TableCell>
       <TableCell>
         {priceValue ? (
-          <p className="text-sm">{formatCurrency(priceValue, priceCurrency)}</p>
+          <p className="text-sm">
+            {formatCurrency(priceValue, native)}
+            {usdEstimate !== null && (
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                (~{formatCurrency(usdEstimate, "USD")})
+              </span>
+            )}
+          </p>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         )}
