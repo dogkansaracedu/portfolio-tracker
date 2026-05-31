@@ -90,6 +90,8 @@ export function usePnL(
       ticker: string
       category: string
       costBasisUsd: ReturnType<typeof bn>
+      costBasisNative: ReturnType<typeof bn> | null
+      nativeCurrency: string | null
       currentValueUsd: ReturnType<typeof bn>
       unrealizedPnlUsd: ReturnType<typeof bn>
       realizedPnlUsd: ReturnType<typeof bn>
@@ -122,6 +124,10 @@ export function usePnL(
           ticker,
           category,
           costBasisUsd: currentValueUsd,
+          // A fiat balance is worth 1 unit of itself; its native cost is the
+          // balance, in its own currency (ticker).
+          costBasisNative: liveBalanceBn,
+          nativeCurrency: ticker,
           currentValueUsd,
           unrealizedPnlUsd: BN_ZERO,
           realizedPnlUsd: BN_ZERO,
@@ -138,6 +144,21 @@ export function usePnL(
         h.balance,
       )
 
+      // Native cost of the remaining lots (sum of amount × original unit price).
+      // Valid only while every open lot shares one currency — otherwise the
+      // sum would mix currencies, so we drop to null and let the UI fall back
+      // to the USD figure.
+      const nativeCurrency: string | null = lots[0]?.priceCurrency ?? null
+      const nativeConsistent =
+        lots.length > 0 && lots.every((l) => l.priceCurrency === nativeCurrency)
+      const costBasisNative = nativeConsistent
+        ? lots.reduce(
+            (sum: ReturnType<typeof bn>, lot) =>
+              sum.plus(lot.amount.times(lot.unitPriceOriginal)),
+            BN_ZERO,
+          )
+        : null
+
       const totalRealized = realized.reduce(
         (sum, r) => sum.plus(r.realizedPnlUsd),
         BN_ZERO,
@@ -148,6 +169,8 @@ export function usePnL(
         ticker,
         category,
         costBasisUsd: unrealized.costBasisUsd,
+        costBasisNative,
+        nativeCurrency: nativeConsistent ? nativeCurrency : null,
         currentValueUsd: unrealized.currentValueUsd,
         unrealizedPnlUsd: unrealized.unrealizedPnlUsd,
         realizedPnlUsd: totalRealized,
@@ -162,6 +185,8 @@ export function usePnL(
         ticker: string
         category: string
         costBasisUsd: ReturnType<typeof bn>
+        costBasisNative: ReturnType<typeof bn> | null
+        nativeCurrency: string | null
         currentValueUsd: ReturnType<typeof bn>
         unrealizedPnlUsd: ReturnType<typeof bn>
         realizedPnlUsd: ReturnType<typeof bn>
@@ -175,11 +200,25 @@ export function usePnL(
         existing.currentValueUsd = existing.currentValueUsd.plus(hp.currentValueUsd)
         existing.unrealizedPnlUsd = existing.unrealizedPnlUsd.plus(hp.unrealizedPnlUsd)
         existing.realizedPnlUsd = existing.realizedPnlUsd.plus(hp.realizedPnlUsd)
+        // Combine native cost only when both sides are present and in the same
+        // currency; otherwise this asset spans currencies → no native figure.
+        if (
+          existing.costBasisNative !== null &&
+          hp.costBasisNative !== null &&
+          existing.nativeCurrency === hp.nativeCurrency
+        ) {
+          existing.costBasisNative = existing.costBasisNative.plus(hp.costBasisNative)
+        } else {
+          existing.costBasisNative = null
+          existing.nativeCurrency = null
+        }
       } else {
         assetMap.set(hp.assetId, {
           ticker: hp.ticker,
           category: hp.category,
           costBasisUsd: hp.costBasisUsd,
+          costBasisNative: hp.costBasisNative,
+          nativeCurrency: hp.nativeCurrency,
           currentValueUsd: hp.currentValueUsd,
           unrealizedPnlUsd: hp.unrealizedPnlUsd,
           realizedPnlUsd: hp.realizedPnlUsd,
@@ -198,6 +237,8 @@ export function usePnL(
         ticker: data.ticker,
         category: data.category,
         costBasisUsd: data.costBasisUsd,
+        costBasisNative: data.costBasisNative,
+        nativeCurrency: data.nativeCurrency,
         currentValueUsd: data.currentValueUsd,
         unrealizedPnlUsd: data.unrealizedPnlUsd,
         unrealizedPnlPct,
