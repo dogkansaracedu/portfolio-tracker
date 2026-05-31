@@ -1,5 +1,6 @@
 import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
+import { splitPrice } from "../_shared/currency.ts"
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ async function fetchYahooHistory(
   ticker: string,
   fromTs: number,
   toTs: number,
-): Promise<Map<string, number>> {
+): Promise<{ closes: Map<string, number>; currency: string }> {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     ticker,
   )}?period1=${fromTs}&period2=${toTs}&interval=1d`
@@ -152,22 +153,27 @@ async function fetchYahooHistory(
   const data = (await res.json()) as {
     chart?: {
       result?: Array<{
+        meta?: { currency?: string }
         timestamp?: number[]
         indicators?: { quote?: Array<{ close?: (number | null)[] }> }
       }>
     }
   }
   const result = data.chart?.result?.[0]
-  const map = new Map<string, number>()
-  if (!result) return map
+  const closes = new Map<string, number>()
+  if (!result) return { closes, currency: "USD" }
+  // The currency these closes are quoted in (BIST → TRY, Frankfurt → EUR, …).
+  // Same principle as the live fetcher: take it from the source, not the suffix.
+  const currency =
+    typeof result.meta?.currency === "string" ? result.meta.currency : "USD"
   const timestamps = result.timestamp ?? []
-  const closes = result.indicators?.quote?.[0]?.close ?? []
+  const closeArr = result.indicators?.quote?.[0]?.close ?? []
   for (let i = 0; i < timestamps.length; i++) {
-    const c = closes[i]
+    const c = closeArr[i]
     if (c == null) continue
-    map.set(isoDate(new Date(timestamps[i] * 1000)), c)
+    closes.set(isoDate(new Date(timestamps[i] * 1000)), c)
   }
-  return map
+  return { closes, currency }
 }
 
 // ─── Balance application ────────────────────────────────────────────
@@ -353,6 +359,10 @@ async function handle(
 
   // priceMaps is keyed by price_id (price_id ?? ticker) everywhere.
   const priceMaps = new Map<string, Map<string, number>>()
+  // Source currency per Yahoo symbol (from meta.currency), used to convert
+  // its native closes to USD. Symbols not listed here are treated as USD
+  // (CoinGecko is fetched in USD; XAU_GRAM is derived from USD/oz).
+  const currencyByPriceId = new Map<string, string>()
 
   // Crypto/gold via CoinGecko (sequential w/ small delay to respect rate limits).
   // After the Yahoo retarget this set is empty (crypto moves to price_source
@@ -383,8 +393,9 @@ async function handle(
   })
   for (const priceId of yahooPriceIds) {
     try {
-      const map = await fetchYahooHistory(priceId, fromTs, toTs)
-      priceMaps.set(priceId, map)
+      const { closes, currency } = await fetchYahooHistory(priceId, fromTs, toTs)
+      priceMaps.set(priceId, closes)
+      currencyByPriceId.set(priceId, currency)
       await new Promise((r) => setTimeout(r, 800))
     } catch (e) {
       errors.push(
@@ -396,7 +407,7 @@ async function handle(
   // Physical gold (XAU_GRAM) via Yahoo gold futures (GC=F is USD/oz)
   if (heldPriceIds.has("XAU_GRAM")) {
     try {
-      const oz = await fetchYahooHistory("GC=F", fromTs, toTs)
+      const { closes: oz } = await fetchYahooHistory("GC=F", fromTs, toTs)
       const gram = new Map<string, number>()
       for (const [d, v] of oz) gram.set(d, v / TROY_OZ_TO_GRAMS)
       priceMaps.set("XAU_GRAM", gram)
@@ -411,7 +422,7 @@ async function handle(
   // USD/TRY via Yahoo (TRY=X)
   let usdTryMap = new Map<string, number>()
   try {
-    usdTryMap = await fetchYahooHistory("TRY=X", fromTs, toTs)
+    usdTryMap = (await fetchYahooHistory("TRY=X", fromTs, toTs)).closes
     await new Promise((r) => setTimeout(r, 800))
   } catch (e) {
     errors.push(`Yahoo TRY=X: ${e instanceof Error ? e.message : String(e)}`)
@@ -420,7 +431,7 @@ async function handle(
   // EUR/TRY via Yahoo (EURTRY=X)
   let eurTryMap = new Map<string, number>()
   try {
-    eurTryMap = await fetchYahooHistory("EURTRY=X", fromTs, toTs)
+    eurTryMap = (await fetchYahooHistory("EURTRY=X", fromTs, toTs)).closes
   } catch (e) {
     errors.push(`Yahoo EURTRY=X: ${e instanceof Error ? e.message : String(e)}`)
   }
@@ -501,7 +512,16 @@ async function handle(
         else if (priceId === "tether" || priceId === "usd-coin") priceUsd = 1
         else {
           const map = priceMaps.get(priceId)
-          if (map) priceUsd = lookupAtOrBefore(map, date) ?? 0
+          if (map) {
+            const close = lookupAtOrBefore(map, date) ?? 0
+            // Convert the source-currency close (BIST→TRY, etc.) to USD using
+            // the date's rates. Was previously booked as USD verbatim, which
+            // inflated TRY-quoted stocks ~30-45x.
+            const currency = currencyByPriceId.get(priceId) ?? "USD"
+            const eurUsd = usdTry ? eurTry / usdTry : null
+            priceUsd =
+              splitPrice(close, currency, { usdTry, eurUsd })?.price_usd ?? 0
+          }
         }
         const priceTry = priceUsd * usdTry
 
