@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { bn, BN_ZERO } from "@/lib/config";
 import { useAssets } from "@/hooks/useAssets";
+import { useHoldings } from "@/hooks/useHoldings";
 import type { Asset } from "@/types/database";
 import { AssetForm } from "@/components/assets/AssetForm";
 import { AssetRow } from "@/components/assets/AssetRow";
@@ -22,12 +24,33 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, ChevronRight, ChevronDown } from "lucide-react";
 
 export function AssetList() {
   const { assets, loading, error, addAsset, editAsset, deactivateAsset } =
     useAssets();
+  const { holdings } = useHoldings();
 
+  // Owned = net balance across all platforms is positive. Matches how the
+  // portfolio decides what's held (usePortfolio filters totalBalance > 0); a
+  // looser "any non-zero row" check would surface negative/residual leftovers.
+  // Keep each group in the assets' existing name order; just float owned to top.
+  const { ownedAssets, otherAssets } = useMemo(() => {
+    const netByAsset = new Map<string, ReturnType<typeof bn>>();
+    for (const h of holdings) {
+      const prev = netByAsset.get(h.asset_id) ?? BN_ZERO;
+      netByAsset.set(h.asset_id, prev.plus(bn(h.balance)));
+    }
+    const ownedAssets: Asset[] = [];
+    const otherAssets: Asset[] = [];
+    for (const asset of assets) {
+      const net = netByAsset.get(asset.id) ?? BN_ZERO;
+      (net.gt(0) ? ownedAssets : otherAssets).push(asset);
+    }
+    return { ownedAssets, otherAssets };
+  }, [assets, holdings]);
+
+  const [showNotHeld, setShowNotHeld] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [deactivatingAsset, setDeactivatingAsset] = useState<Asset | null>(
@@ -108,7 +131,7 @@ export function AssetList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {assets.map((asset) => (
+              {ownedAssets.map((asset) => (
                 <AssetRow
                   key={asset.id}
                   asset={asset}
@@ -116,15 +139,33 @@ export function AssetList() {
                   onDeactivate={handleDeactivate}
                 />
               ))}
-              {assets.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      No assets found
-                    </p>
+              {otherAssets.length > 0 && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={5} className="bg-muted/50 p-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowNotHeld((v) => !v)}
+                      className="flex w-full items-center gap-1.5 px-4 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {showNotHeld ? (
+                        <ChevronDown className="size-3.5" />
+                      ) : (
+                        <ChevronRight className="size-3.5" />
+                      )}
+                      Not held ({otherAssets.length})
+                    </button>
                   </TableCell>
                 </TableRow>
               )}
+              {showNotHeld &&
+                otherAssets.map((asset) => (
+                  <AssetRow
+                    key={asset.id}
+                    asset={asset}
+                    onEdit={handleEdit}
+                    onDeactivate={handleDeactivate}
+                  />
+                ))}
             </TableBody>
           </Table>
         </div>
