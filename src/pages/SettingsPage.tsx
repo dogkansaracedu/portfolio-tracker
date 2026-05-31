@@ -13,19 +13,19 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="platforms">
+      <Tabs defaultValue="assets">
         <TabsList>
-          <TabsTrigger value="platforms">Platforms</TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
+          <TabsTrigger value="platforms">Platforms</TabsTrigger>
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="platforms">
-          <PlatformList />
-        </TabsContent>
-
         <TabsContent value="assets">
           <AssetList />
+        </TabsContent>
+
+        <TabsContent value="platforms">
+          <PlatformList />
         </TabsContent>
 
         <TabsContent value="snapshots">
