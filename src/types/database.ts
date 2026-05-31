@@ -27,9 +27,10 @@ export interface Asset {
   user_id: string;
   category: string;
   ticker: string;
-  /** Provider-specific identifier used to FETCH prices (e.g. "BTC-USD" for
-   *  Yahoo, "bitcoin" for CoinGecko). Display uses `ticker`. Fetch sites read
-   *  `price_id ?? ticker`, so a null behaves like the old ticker-as-key. */
+  /** Provider-specific identifier used to FETCH prices (e.g. "BTC-USD" for a
+   *  crypto on Yahoo, "THYAO.IS" for a BIST stock). Display uses `ticker`.
+   *  Fetch sites read `price_id ?? ticker`, so a null behaves like the old
+   *  ticker-as-key. */
   price_id: string | null;
   /** Optional manual logo override. When null, the client resolves a logo from
    *  ticker + category and falls back to a monogram. See lib/assetIcons. */

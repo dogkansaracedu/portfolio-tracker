@@ -378,10 +378,10 @@ export function useDashboardHero({
     } else if (timeRange === "ALL" || Math.abs(startUsd) < 1) {
       // ΔValue / startUsd is meaningless when startUsd is ~$0 — either we
       // synthesized a $0 anchor (ALL range) or the period began before the
-      // portfolio had any pricable holdings (e.g. crypto bought before
-      // CoinGecko's 365-day free window). Falling back to delta/1 prints
-      // millions-of-percent. Use lifetime return (totalPnL / invested)
-      // instead so the % stays meaningful and matches the P&L subtitle.
+      // portfolio had any pricable holdings (e.g. bought before the source's
+      // history window). Falling back to delta/1 prints millions-of-percent.
+      // Use lifetime return (totalPnL / invested) instead so the % stays
+      // meaningful and matches the P&L subtitle.
       const investedNow = computeCurrentInvestedUsd(transactions, rates)
       pctDenom = Math.abs(investedNow) || 1
       pctNumer = currentValueUsd - investedNow
