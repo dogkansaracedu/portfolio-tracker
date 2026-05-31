@@ -41,6 +41,8 @@ export interface TopMover {
   assetId: string
   ticker: string
   name: string
+  category: string
+  icon_url: string | null
   unrealizedPnlUsd: number
   unrealizedPnlPct: number
   currentValueUsd: number
@@ -118,6 +120,8 @@ function deriveTopMovers(
       assetId: asset.id,
       ticker,
       name: asset.name,
+      category: asset.category,
+      icon_url: asset.icon_url,
       unrealizedPnlUsd: unrealizedPnlUsd.toNumber(),
       unrealizedPnlPct: unrealizedPnlPct.toNumber(),
       currentValueUsd,

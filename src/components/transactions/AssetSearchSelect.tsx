@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { ChevronsUpDown, Check } from "lucide-react"
 import type { Asset } from "@/types/database"
+import { AssetIcon } from "@/components/common/AssetIcon"
 
 const CATEGORY_LABELS: Record<string, string> = {
   fiat: "Fiat",
@@ -65,6 +66,7 @@ export function AssetSearchSelect({ assets, value, onChange }: Props) {
                     value === asset.id ? "opacity-100" : "opacity-0"
                   }`}
                 />
+                <AssetIcon asset={asset} size="sm" className="mr-2" />
                 <span className="font-medium">{asset.name}</span>
                 <span className="ml-2 text-xs text-muted-foreground">
                   {asset.ticker}

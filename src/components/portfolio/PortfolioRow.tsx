@@ -14,6 +14,7 @@ import {
   obfuscate,
 } from "@/lib/prices"
 import type { EnrichedAsset } from "@/hooks/usePortfolio"
+import { AssetIcon } from "@/components/common/AssetIcon"
 
 interface PortfolioRowProps {
   asset: EnrichedAsset
@@ -50,9 +51,10 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
       <TableCell>
         <Link
           to={`/transactions/edit/${asset.id}`}
-          className="flex flex-col items-start text-left hover:underline focus:outline-none focus-visible:underline"
+          className="flex items-center gap-2 text-left hover:underline focus:outline-none focus-visible:underline"
           title="View / edit transactions"
         >
+          <AssetIcon asset={asset} size="sm" />
           <span className="font-medium">{asset.ticker}</span>
         </Link>
       </TableCell>
@@ -149,6 +151,7 @@ export function PortfolioRowCard({ asset }: PortfolioRowProps) {
           className="flex flex-col items-start gap-0.5 text-left focus:outline-none"
         >
           <div className="flex items-center gap-2">
+            <AssetIcon asset={asset} size="sm" />
             <span className="font-medium">{asset.ticker}</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

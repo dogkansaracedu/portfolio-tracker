@@ -6,6 +6,7 @@ import {
 } from "@/lib/prices"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import type { TopMover } from "@/hooks/useDashboard"
+import { AssetIcon } from "@/components/common/AssetIcon"
 
 interface TopMoversProps {
   topMovers: TopMover[]
@@ -44,7 +45,8 @@ export default function TopMovers({ topMovers }: TopMoversProps) {
                   key={mover.assetId}
                   className="flex items-center justify-between"
                 >
-                  <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <AssetIcon asset={mover} size="sm" />
                     <p className="truncate text-sm font-semibold">
                       {mover.ticker}
                     </p>
