@@ -1,5 +1,7 @@
 import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
+import { fetchYahooQuote } from "../_shared/yahoo.ts"
+import { splitPrice } from "../_shared/currency.ts"
 
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin")
@@ -18,6 +20,7 @@ Deno.serve(async (req) => {
   // ──────────────────────────────────────────────────────────────
   let usdTry: number | null = null
   let eurTry: number | null = null
+  let eurUsd: number | null = null
   let goldGramTry: number | null = null
 
   try {
@@ -79,6 +82,7 @@ Deno.serve(async (req) => {
     }
 
     if (usdTry && eurTry) {
+      eurUsd = eurTry / usdTry
       const today = new Date().toISOString().split("T")[0]
 
       await supabase.from("exchange_rates").upsert(
@@ -87,7 +91,7 @@ Deno.serve(async (req) => {
           source: "tcmb",
           usd_try: usdTry,
           eur_try: eurTry,
-          eur_usd: eurTry / usdTry,
+          eur_usd: eurUsd,
           gold_gram_try: goldGramTry,
         },
         { onConflict: "date,source" }
@@ -96,7 +100,7 @@ Deno.serve(async (req) => {
       const now = new Date().toISOString()
       const priceRows = [
         { ticker: "USD", price_usd: 1, price_try: usdTry, source: "tcmb", updated_at: now },
-        { ticker: "EUR", price_usd: eurTry / usdTry, price_try: eurTry, source: "tcmb", updated_at: now },
+        { ticker: "EUR", price_usd: eurUsd, price_try: eurTry, source: "tcmb", updated_at: now },
         { ticker: "TRY", price_usd: 1 / usdTry, price_try: 1, source: "tcmb", updated_at: now },
       ]
       if (goldGramUsd != null) {
@@ -119,15 +123,17 @@ Deno.serve(async (req) => {
     errors.push(`TCMB: ${msg}`)
   }
 
-  // If we didn't get usdTry from TCMB, try to load it from exchange_rates
+  // If we didn't get usdTry from TCMB, try to load it (and eur_usd, for EUR
+  // conversion) from the last exchange_rates row.
   if (!usdTry) {
     const { data: rateRow } = await supabase
       .from("exchange_rates")
-      .select("usd_try")
+      .select("usd_try, eur_usd")
       .order("date", { ascending: false })
       .limit(1)
       .single()
     usdTry = rateRow?.usd_try ?? null
+    if (eurUsd == null) eurUsd = rateRow?.eur_usd ?? null
   }
 
   // ──────────────────────────────────────────────────────────────
@@ -230,49 +236,32 @@ Deno.serve(async (req) => {
         }
 
         try {
-          const yahooRes = await fetch(
-            `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
-            {
-              headers: {
-                "User-Agent":
-                  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                Accept: "application/json,text/plain,*/*",
-                "Accept-Language": "en-US,en;q=0.9",
-              },
-            }
-          )
+          const { status, quote } = await fetchYahooQuote(symbol)
 
-          if (!yahooRes.ok) {
-            errors.push(`Yahoo ${symbol}: HTTP ${yahooRes.status}`)
+          if (!quote) {
+            errors.push(
+              `Yahoo ${symbol}: ${status === null ? "request failed" : `HTTP ${status}`}`
+            )
             continue
           }
 
-          const yahooData = await yahooRes.json()
-          const regularMarketPrice =
-            yahooData?.chart?.result?.[0]?.meta?.regularMarketPrice
-
-          if (regularMarketPrice == null) {
+          if (quote.price == null) {
             errors.push(`Yahoo ${symbol}: no price in response`)
             continue
           }
 
-          const isTRY = symbol.endsWith(".IS")
-          let priceUsd: number | null = null
-          let priceTry: number | null = null
-
-          if (isTRY) {
-            priceTry = regularMarketPrice
-            priceUsd = usdTry ? regularMarketPrice / usdTry : null
-          } else {
-            priceUsd = regularMarketPrice
-            priceTry = usdTry ? regularMarketPrice * usdTry : null
+          // Currency comes from the source (meta.currency), not the suffix.
+          const split = splitPrice(quote.price, quote.currency, { usdTry, eurUsd })
+          if (!split) {
+            errors.push(`Yahoo ${symbol}: unsupported currency ${quote.currency}`)
+            continue
           }
 
           await supabase.from("price_cache").upsert(
             {
               ticker: symbol,
-              price_usd: priceUsd,
-              price_try: priceTry,
+              price_usd: split.price_usd,
+              price_try: split.price_try,
               source: "yahoo",
               updated_at: now,
             },
