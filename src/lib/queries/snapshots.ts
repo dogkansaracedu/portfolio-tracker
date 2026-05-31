@@ -229,7 +229,7 @@ export interface BackfillResult {
  * Trigger the `backfill-snapshots` Edge Function. Generates one snapshot
  * per target date (every month-start since the earliest transaction, or
  * one per transaction date) by replaying transactions and pulling
- * historical prices from CoinGecko / Yahoo Finance.
+ * historical prices from Yahoo Finance.
  *
  * Long-running: typically 30–90 seconds depending on the number of
  * unique tickers. Optionally overwrites existing snapshots in the

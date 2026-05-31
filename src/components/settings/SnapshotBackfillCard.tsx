@@ -81,7 +81,7 @@ export function SnapshotBackfillCard() {
         </CardTitle>
         <CardDescription>
           Enter any missing transactions first, then run. Pulls historical
-          prices from CoinGecko and Yahoo — takes ~30–90 sec.
+          prices from Yahoo Finance — takes ~30–90 sec.
         </CardDescription>
       </CardHeader>
 

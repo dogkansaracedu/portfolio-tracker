@@ -111,33 +111,6 @@ function lookupAtOrBefore(
 
 // ─── Historical fetch sources ──────────────────────────────────────
 
-async function fetchCoinGeckoHistory(
-  coinId: string,
-): Promise<Map<string, number>> {
-  // CoinGecko's free Public API gates `interval=daily` behind Pro
-  // (returns 401 Unauthorized) and caps `days` at 365. Their docs say
-  // free will auto-return daily granularity for `days > 90`, so we
-  // just drop `interval` and request the maximum free window.
-  const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=365`
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-  })
-  if (!res.ok) {
-    const body = await res.text().catch(() => "")
-    throw new Error(
-      `CoinGecko ${coinId} HTTP ${res.status} ${res.statusText}${
-        body ? `: ${body.slice(0, 200)}` : ""
-      }`,
-    )
-  }
-  const data = (await res.json()) as { prices?: [number, number][] }
-  const map = new Map<string, number>()
-  for (const [tsMs, price] of data.prices ?? []) {
-    map.set(isoDate(new Date(tsMs)), price)
-  }
-  return map
-}
-
 async function fetchYahooHistory(
   ticker: string,
   fromTs: number,
@@ -361,32 +334,10 @@ async function handle(
   const priceMaps = new Map<string, Map<string, number>>()
   // Source currency per Yahoo symbol (from meta.currency), used to convert
   // its native closes to USD. Symbols not listed here are treated as USD
-  // (CoinGecko is fetched in USD; XAU_GRAM is derived from USD/oz).
+  // (XAU_GRAM is derived from USD/oz).
   const currencyByPriceId = new Map<string, string>()
 
-  // Crypto/gold via CoinGecko (sequential w/ small delay to respect rate limits).
-  // After the Yahoo retarget this set is empty (crypto moves to price_source
-  // yahoo); an empty set here is expected, not an error.
-  const coingeckoPriceIds = [...heldPriceIds].filter((pid) => {
-    const a = assetsByPriceId.get(pid)
-    return (
-      a?.price_source === "coingecko" && pid !== "tether" && pid !== "usd-coin"
-    )
-  })
-  for (const priceId of coingeckoPriceIds) {
-    try {
-      const map = await fetchCoinGeckoHistory(priceId)
-      priceMaps.set(priceId, map)
-      // ~30 calls/min free tier; sleep briefly between calls
-      await new Promise((r) => setTimeout(r, 1500))
-    } catch (e) {
-      errors.push(
-        `CoinGecko ${priceId}: ${e instanceof Error ? e.message : String(e)}`,
-      )
-    }
-  }
-
-  // Stocks + crypto/gold tokens via Yahoo (sequential w/ small delay)
+  // Stocks, crypto, and tokenized gold via Yahoo (sequential w/ small delay)
   const yahooPriceIds = [...heldPriceIds].filter((pid) => {
     const a = assetsByPriceId.get(pid)
     return a?.price_source === "yahoo"
@@ -509,7 +460,6 @@ async function handle(
         if (priceId === "USD") priceUsd = 1
         else if (priceId === "TRY") priceUsd = 1 / usdTry
         else if (priceId === "EUR") priceUsd = eurTry / usdTry
-        else if (priceId === "tether" || priceId === "usd-coin") priceUsd = 1
         else {
           const map = priceMaps.get(priceId)
           if (map) {
@@ -574,7 +524,7 @@ async function handle(
         byTag[k].pct = safePct(byTag[k].usd)
 
       // Skip only when at least one held asset couldn't be priced
-      // (partial data — typically crypto outside CoinGecko's free 365-day
+      // (partial data — typically a holding bought before its Yahoo history
       // window). An empty portfolio is a real, honest state: the user
       // closed all positions. Write a 0-valued snapshot so charts render
       // a flat $0 line through that period instead of an interpolated
