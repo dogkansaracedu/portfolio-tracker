@@ -1,5 +1,7 @@
 import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
+import { fetchYahooQuote } from "../_shared/yahoo.ts"
+import { splitPrice, categoryForQuote } from "../_shared/currency.ts"
 
 interface RequestBody {
   tickers: unknown
@@ -69,11 +71,12 @@ Deno.serve(async (req) => {
 
   const { data: rateRow } = await supabase
     .from("exchange_rates")
-    .select("usd_try")
+    .select("usd_try, eur_usd")
     .order("date", { ascending: false })
     .limit(1)
     .single()
   const usdTry: number | null = rateRow?.usd_try ?? null
+  const eurUsd: number | null = rateRow?.eur_usd ?? null
 
   const resolved: ResolvedTicker[] = []
   const unresolved: UnresolvedTicker[] = []
@@ -87,79 +90,53 @@ Deno.serve(async (req) => {
     }
 
     try {
-      const yahooRes = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`,
-        {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            Accept: "application/json",
-          },
-        },
-      )
+      const { status, quote } = await fetchYahooQuote(ticker)
 
-      if (!yahooRes.ok) {
-        console.error(
-          `resolve-tickers ${ticker} HTTP ${yahooRes.status} ${yahooRes.statusText}`,
-        )
+      if (!quote) {
+        console.error(`resolve-tickers ${ticker}: HTTP ${status ?? "request failed"}`)
+        // A 404 or a 200-with-no-meta both mean "no such symbol"; anything
+        // else (other HTTP code, network failure) is a transient error.
         unresolved.push({
           ticker,
-          reason: yahooRes.status === 404 ? "not_found" : "http_error",
+          reason: status === 404 || status === 200 ? "not_found" : "http_error",
         })
         continue
       }
 
-      const data = await yahooRes.json()
-      const meta = data?.chart?.result?.[0]?.meta
-
-      if (!meta) {
-        unresolved.push({ ticker, reason: "not_found" })
-        continue
-      }
-
-      if (meta.instrumentType !== "EQUITY" && meta.instrumentType !== "ETF") {
+      if (quote.instrumentType !== "EQUITY" && quote.instrumentType !== "ETF") {
         unresolved.push({ ticker, reason: "not_equity" })
         continue
       }
 
-      const name: string = meta.longName || meta.shortName || ticker
-      const currency: string = typeof meta.currency === "string" ? meta.currency : "USD"
-      const category: ResolvedTicker["category"] = ticker.endsWith(".IS")
-        ? "stock_bist"
-        : "stock_us"
-      const price = meta.regularMarketPrice
+      // Category and conversion both come from the source currency, not `.IS`.
+      const category = categoryForQuote(quote.currency)
 
-      if (typeof price === "number") {
-        let priceUsd: number | null = null
-        let priceTry: number | null = null
-        if (currency === "TRY") {
-          priceTry = price
-          priceUsd = usdTry ? price / usdTry : null
-        } else {
-          priceUsd = price
-          priceTry = usdTry ? price * usdTry : null
+      if (quote.price != null) {
+        const split = splitPrice(quote.price, quote.currency, { usdTry, eurUsd })
+        if (split) {
+          const { error: cacheError } = await supabase.from("price_cache").upsert(
+            {
+              ticker,
+              price_usd: split.price_usd,
+              price_try: split.price_try,
+              source: "yahoo",
+              updated_at: now,
+            },
+            { onConflict: "ticker" },
+          )
+          if (cacheError) {
+            console.error(`resolve-tickers price_cache upsert failed for ${ticker}:`, cacheError)
+          }
         }
-        const { error: cacheError } = await supabase.from("price_cache").upsert(
-          {
-            ticker,
-            price_usd: priceUsd,
-            price_try: priceTry,
-            source: "yahoo",
-            updated_at: now,
-          },
-          { onConflict: "ticker" },
-        )
-        if (cacheError) {
-          console.error(`resolve-tickers price_cache upsert failed for ${ticker}:`, cacheError)
-        }
+        // split === null → unsupported currency: resolve the ticker but skip pricing.
       }
 
       resolved.push({
         ticker,
-        name,
+        name: quote.name,
         category,
         price_source: "yahoo",
-        currency,
+        currency: quote.currency,
       })
     } catch (err) {
       console.error(`resolve-tickers ${ticker} failed:`, err)
