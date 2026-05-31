@@ -1,4 +1,5 @@
-import { LOGO_BASE } from "@/lib/constants/assetIcons"
+import { FIAT_FLAG_SLUG, LOGO_BASE } from "@/lib/constants/assetIcons"
+import { isFiatCurrency } from "@/lib/constants/currencies"
 
 /** Minimal asset shape needed to resolve a logo. */
 export interface IconableAsset {
@@ -28,8 +29,9 @@ function normalizeCryptoSymbol(ticker: string): string {
  *  Order: manual `icon_url` override (always wins) → exchange/coin logo repo(s).
  *  US assets don't record Nasdaq vs NYSE, so both are tried; US tickers are
  *  unique across the two exchanges, so a wrong company can never match.
- *  Crypto resolves by ticker symbol (e.g. "BTC" → btc.png). Gold / fiat have no
- *  automated source yet → override or monogram. */
+ *  Crypto resolves by ticker symbol (e.g. "BTC" → btc.png). Fiat resolves to a
+ *  circular country/EU flag (USD → us.svg). Gold has no automated source yet →
+ *  override or monogram. */
 export function getAssetIconCandidates(asset: IconableAsset): string[] {
   const candidates: string[] = []
 
@@ -54,6 +56,10 @@ export function getAssetIconCandidates(asset: IconableAsset): string[] {
       if (symbol) candidates.push(`${LOGO_BASE.cryptoSymbol}/${symbol}.png`)
       break
     }
+    case "fiat":
+      // Fiat ticker is the currency code itself (e.g. "USD") → round flag.
+      if (isFiatCurrency(t)) candidates.push(`${LOGO_BASE.flag}/${FIAT_FLAG_SLUG[t]}.svg`)
+      break
   }
 
   return candidates
