@@ -30,6 +30,10 @@ export interface EnrichedAsset {
   currentValueUsd: number
   currentValueTry: number
   costBasisUsd: number
+  /** Original purchase cost in the asset's own currency (e.g. ₺ for BIST),
+   *  or null when the position spans currencies. Paired with `nativeCurrency`. */
+  costBasisNative: number | null
+  nativeCurrency: string | null
   unrealizedPnlUsd: number
   unrealizedPnlPct: number
   allocationPct: number
@@ -220,6 +224,9 @@ export function usePortfolio(): UsePortfolioReturn {
         currentValueUsd: currentValueUsd.toNumber(),
         currentValueTry: currentValueTry.toNumber(),
         costBasisUsd: bn(pnl?.costBasisUsd).toNumber(),
+        costBasisNative:
+          pnl?.costBasisNative != null ? pnl.costBasisNative.toNumber() : null,
+        nativeCurrency: pnl?.nativeCurrency ?? null,
         unrealizedPnlUsd: bn(pnl?.unrealizedPnlUsd).toNumber(),
         unrealizedPnlPct: bn(pnl?.unrealizedPnlPct).toNumber(),
         allocationPct: totalValue.isZero()
