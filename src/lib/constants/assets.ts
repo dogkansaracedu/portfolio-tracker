@@ -14,7 +14,6 @@ export const ASSET_CATEGORIES = [
 export type AssetCategoryValue = (typeof ASSET_CATEGORIES)[number]["value"]
 
 export const PRICE_SOURCES = [
-  { value: "coingecko", label: "CoinGecko" },
   { value: "yahoo", label: "Yahoo Finance" },
   { value: "tcmb", label: "TCMB" },
   { value: "manual", label: "Manual" },
@@ -25,8 +24,8 @@ export type PriceSourceValue = (typeof PRICE_SOURCES)[number]["value"]
 /** Per-category hint for what the ticker should look like. */
 export const TICKER_HINTS: Record<AssetCategoryValue, string> = {
   fiat: 'Use ISO code, e.g. "USD", "TRY", "EUR"',
-  crypto: 'Use CoinGecko ID, e.g. "bitcoin", "ethereum"',
-  gold: 'CoinGecko ID for tokenized, "XAU_GRAM" for physical',
+  crypto: 'Use the symbol, e.g. "BTC", "ETH"',
+  gold: 'Symbol for tokenized (e.g. "PAXG"); "XAU_GRAM" for physical',
   stock_us: 'Use US ticker, e.g. "AAPL", "MSFT"',
   stock_bist: 'Use Yahoo format, e.g. "THYAO.IS", "ASELS.IS"',
 }
@@ -35,14 +34,14 @@ export const TICKER_HINTS: Record<AssetCategoryValue, string> = {
  *  form so the user usually doesn't have to pick. */
 export const DEFAULT_PRICE_SOURCE: Record<AssetCategoryValue, PriceSourceValue> = {
   fiat: "tcmb",
-  crypto: "coingecko",
-  gold: "coingecko",
+  crypto: "yahoo",
+  gold: "yahoo",
   stock_us: "yahoo",
   stock_bist: "yahoo",
 }
 
 /** Ticker for physical gram gold — priced/displayed in TRY. Tokenized gold
- *  (PAXG, XAUT, …) uses its CoinGecko id and stays USD-native. */
+ *  (PAXG, XAUT, …) is priced from its Yahoo `*-USD` symbol and stays USD-native. */
 export const PHYSICAL_GOLD_TICKER = "XAU_GRAM"
 
 /**

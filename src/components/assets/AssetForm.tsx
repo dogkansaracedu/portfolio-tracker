@@ -30,7 +30,6 @@ const CATEGORIES = [
 ];
 
 const PRICE_SOURCES = [
-  { value: "coingecko", label: "CoinGecko" },
   { value: "yahoo", label: "Yahoo Finance" },
   { value: "tcmb", label: "TCMB" },
   { value: "manual", label: "Manual" },
@@ -45,7 +44,7 @@ const TICKER_HINTS: Record<string, string> = {
 };
 
 const PRICE_ID_HINT =
-  "Provider id used to fetch price — e.g. BTC-USD (Yahoo), bitcoin (CoinGecko). Leave blank to use the ticker.";
+  "Provider id used to fetch price — e.g. BTC-USD, AAPL (Yahoo). Leave blank to use the ticker.";
 
 const ICON_URL_HINT =
   "Leave blank to auto-resolve a logo from the ticker. Paste an image URL to override.";

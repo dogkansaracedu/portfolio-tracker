@@ -137,76 +137,7 @@ Deno.serve(async (req) => {
   }
 
   // ──────────────────────────────────────────────────────────────
-  // Step 2: CoinGecko (crypto) — runs in parallel with Yahoo
-  // ──────────────────────────────────────────────────────────────
-  const coingeckoPromise = (async () => {
-    try {
-      const { data: assets } = await supabase
-        .from("assets")
-        .select("ticker, price_id")
-        .eq("price_source", "coingecko")
-
-      if (!assets || assets.length === 0) return 0
-
-      // Fetch key is price_id (provider id); fall back to ticker until rows are
-      // backfilled. The price_cache row is keyed by this same value.
-      const ids = [
-        ...new Set(
-          assets.map((a: { ticker: string; price_id: string | null }) =>
-            (a.price_id ?? a.ticker).toLowerCase()
-          )
-        ),
-      ]
-      const idsParam = ids.join(",")
-
-      const cgRes = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${idsParam}&vs_currencies=usd`
-      )
-
-      if (cgRes.status === 429) {
-        errors.push("CoinGecko: rate limit (429)")
-        return 0
-      }
-      if (!cgRes.ok) {
-        errors.push(`CoinGecko: HTTP ${cgRes.status}`)
-        return 0
-      }
-
-      const cgData = await cgRes.json()
-      const now = new Date().toISOString()
-      const rows: Array<{
-        ticker: string
-        price_usd: number
-        price_try: number | null
-        source: string
-        updated_at: string
-      }> = []
-
-      for (const id of ids) {
-        if (cgData[id]?.usd) {
-          rows.push({
-            ticker: id,
-            price_usd: cgData[id].usd,
-            price_try: usdTry ? cgData[id].usd * usdTry : null,
-            source: "coingecko",
-            updated_at: now,
-          })
-        }
-      }
-
-      if (rows.length > 0) {
-        await supabase.from("price_cache").upsert(rows, { onConflict: "ticker" })
-      }
-      return rows.length
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown CoinGecko error"
-      errors.push(`CoinGecko: ${msg}`)
-      return 0
-    }
-  })()
-
-  // ──────────────────────────────────────────────────────────────
-  // Step 3: Yahoo Finance (stocks) — runs in parallel with CoinGecko
+  // Step 2: Yahoo Finance (stocks, crypto, tokenized gold)
   // ──────────────────────────────────────────────────────────────
   const yahooPromise = (async () => {
     try {
@@ -283,16 +214,10 @@ Deno.serve(async (req) => {
     }
   })()
 
-  // Wait for both to complete
-  const [cgUpdated, yahooUpdated] = await Promise.all([
-    coingeckoPromise,
-    yahooPromise,
-  ])
-
-  totalUpdated += cgUpdated + yahooUpdated
+  totalUpdated += await yahooPromise
 
   // ──────────────────────────────────────────────────────────────
-  // Step 4: Trigger today's snapshot now that prices are fresh.
+  // Step 3: Trigger today's snapshot now that prices are fresh.
   // Fire-and-forget; failures here don't fail the price refresh.
   // ──────────────────────────────────────────────────────────────
   try {
