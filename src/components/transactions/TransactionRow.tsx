@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { TableRow, TableCell } from "@/components/ui/table"
+import { AssetIcon } from "@/components/common/AssetIcon"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -142,20 +143,23 @@ export function TransactionRow({
 
         {/* Asset */}
         <TableCell>
-          <div className="flex flex-col">
-            <span className="font-medium">{tx.assets?.ticker ?? "Unknown"}</span>
-            {linkedChild && (
-              <span className="text-xs text-muted-foreground italic">
-                {linkedChild.type === TRANSACTION_TYPES.CASH_CREDIT
-                  ? `+${CURRENCY_SYMBOLS[linkedChild.price_currency as FiatCurrency] ?? ""}${Number(linkedChild.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${linkedChild.price_currency} → ${linkedChild.platforms?.name ?? "platform"}`
-                  : `−${CURRENCY_SYMBOLS[linkedChild.price_currency as FiatCurrency] ?? ""}${Number(linkedChild.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${linkedChild.price_currency} from ${linkedChild.platforms?.name ?? "platform"}`}
-              </span>
-            )}
-            {tx.type === TRANSACTION_TYPES.BUY && !linkedChild && (
-              <span className="text-xs text-muted-foreground italic">
-                external cash
-              </span>
-            )}
+          <div className="flex items-center gap-2">
+            {tx.assets && <AssetIcon asset={tx.assets} size="sm" />}
+            <div className="flex flex-col">
+              <span className="font-medium">{tx.assets?.ticker ?? "Unknown"}</span>
+              {linkedChild && (
+                <span className="text-xs text-muted-foreground italic">
+                  {linkedChild.type === TRANSACTION_TYPES.CASH_CREDIT
+                    ? `+${CURRENCY_SYMBOLS[linkedChild.price_currency as FiatCurrency] ?? ""}${Number(linkedChild.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${linkedChild.price_currency} → ${linkedChild.platforms?.name ?? "platform"}`
+                    : `−${CURRENCY_SYMBOLS[linkedChild.price_currency as FiatCurrency] ?? ""}${Number(linkedChild.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${linkedChild.price_currency} from ${linkedChild.platforms?.name ?? "platform"}`}
+                </span>
+              )}
+              {tx.type === TRANSACTION_TYPES.BUY && !linkedChild && (
+                <span className="text-xs text-muted-foreground italic">
+                  external cash
+                </span>
+              )}
+            </div>
           </div>
         </TableCell>
 

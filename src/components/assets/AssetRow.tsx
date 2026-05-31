@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, EyeOff } from "lucide-react";
+import { AssetIcon } from "@/components/common/AssetIcon";
 
 const CATEGORY_LABELS: Record<string, string> = {
   fiat: "Fiat",
@@ -35,9 +36,12 @@ export function AssetRow({ asset, prices, onEdit, onDeactivate }: AssetRowProps)
   return (
     <TableRow className={!asset.is_active ? "opacity-50" : ""}>
       <TableCell>
-        <div>
-          <p className="font-medium">{asset.ticker}</p>
-          <p className="text-xs text-muted-foreground">{asset.name}</p>
+        <div className="flex items-center gap-2">
+          <AssetIcon asset={asset} size="md" />
+          <div>
+            <p className="font-medium">{asset.ticker}</p>
+            <p className="text-xs text-muted-foreground">{asset.name}</p>
+          </div>
         </div>
       </TableCell>
       <TableCell>

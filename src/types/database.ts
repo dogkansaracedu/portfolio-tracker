@@ -31,6 +31,9 @@ export interface Asset {
    *  Yahoo, "bitcoin" for CoinGecko). Display uses `ticker`. Fetch sites read
    *  `price_id ?? ticker`, so a null behaves like the old ticker-as-key. */
   price_id: string | null;
+  /** Optional manual logo override. When null, the client resolves a logo from
+   *  ticker + category and falls back to a monogram. See lib/assetIcons. */
+  icon_url: string | null;
   name: string;
   tags: string[];
   price_source: string;
@@ -148,8 +151,8 @@ export type PlatformUpdate = Partial<Omit<Platform, "id" | "user_id" | "created_
 // `price_id ?? ticker`, so a new asset behaves like the old ticker-as-key.
 export type AssetInsert = Omit<
   Asset,
-  "id" | "created_at" | "updated_at" | "price_id"
-> & { price_id?: string | null };
+  "id" | "created_at" | "updated_at" | "price_id" | "icon_url"
+> & { price_id?: string | null; icon_url?: string | null };
 export type AssetUpdate = Partial<Omit<Asset, "id" | "user_id" | "created_at" | "updated_at">>;
 
 export type HoldingInsert = Omit<Holding, "id" | "balance" | "created_at" | "updated_at"> & {

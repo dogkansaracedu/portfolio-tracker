@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AssetIcon } from "@/components/common/AssetIcon";
 
 const CATEGORIES = [
   { value: "stock_us", label: "US Stock" },
@@ -46,6 +47,9 @@ const TICKER_HINTS: Record<string, string> = {
 const PRICE_ID_HINT =
   "Provider id used to fetch price — e.g. BTC-USD (Yahoo), bitcoin (CoinGecko). Leave blank to use the ticker.";
 
+const ICON_URL_HINT =
+  "Leave blank to auto-resolve a logo from the ticker. Paste an image URL to override.";
+
 interface AssetFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -54,6 +58,7 @@ interface AssetFormProps {
     category: string;
     ticker: string;
     price_id: string;
+    icon_url: string | null;
     name: string;
     tags: string[];
     price_source: string;
@@ -70,6 +75,7 @@ export function AssetForm({
   const [category, setCategory] = useState("stock_us");
   const [ticker, setTicker] = useState("");
   const [priceId, setPriceId] = useState(asset?.price_id ?? "");
+  const [iconUrl, setIconUrl] = useState(asset?.icon_url ?? "");
   const [displayName, setDisplayName] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [priceSource, setPriceSource] = useState("manual");
@@ -83,6 +89,7 @@ export function AssetForm({
       setCategory(asset?.category ?? "stock_us");
       setTicker(asset?.ticker ?? "");
       setPriceId(asset?.price_id ?? "");
+      setIconUrl(asset?.icon_url ?? "");
       setDisplayName(asset?.name ?? "");
       setTagsInput(asset?.tags?.join(", ") ?? "");
       setPriceSource(asset?.price_source ?? "manual");
@@ -116,6 +123,7 @@ export function AssetForm({
         category,
         ticker: trimmedTicker,
         price_id: priceId.trim() || trimmedTicker,
+        icon_url: iconUrl.trim() || null,
         name: trimmedName,
         tags,
         price_source: priceSource,
@@ -184,6 +192,24 @@ export function AssetForm({
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
             />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="asset-icon-url">Icon</Label>
+            <div className="flex items-center gap-3">
+              <AssetIcon
+                asset={{ ticker: ticker || "?", category, icon_url: iconUrl }}
+                size="lg"
+              />
+              <Input
+                id="asset-icon-url"
+                className="flex-1"
+                placeholder="Auto-resolved from ticker"
+                value={iconUrl}
+                onChange={(e) => setIconUrl(e.target.value)}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">{ICON_URL_HINT}</p>
           </div>
 
           <div className="grid gap-2">

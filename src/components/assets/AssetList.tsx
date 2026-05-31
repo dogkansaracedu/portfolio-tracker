@@ -186,6 +186,7 @@ export function AssetList() {
               category: data.category,
               ticker: data.ticker,
               price_id: data.price_id,
+              icon_url: data.icon_url,
               name: data.name,
               tags: data.tags,
               price_source: data.price_source,

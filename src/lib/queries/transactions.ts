@@ -6,7 +6,7 @@ import type {
 } from "@/types/database"
 
 export interface TransactionWithDetails extends Transaction {
-  assets: { name: string; ticker: string; category: string }
+  assets: { name: string; ticker: string; category: string; icon_url: string | null }
   platforms: { name: string; color: string }
 }
 
@@ -28,7 +28,7 @@ export async function fetchTransactions(
 ): Promise<TransactionWithDetails[]> {
   let query = supabase
     .from("transactions")
-    .select("*, assets!transactions_asset_id_fkey(name, ticker, category), platforms(name, color)")
+    .select("*, assets!transactions_asset_id_fkey(name, ticker, category, icon_url), platforms(name, color)")
     .eq("user_id", userId)
     .order("date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -92,7 +92,7 @@ export async function fetchLinkedChildrenForParents(
   if (parentIds.length === 0) return new Map()
   const { data, error } = await supabase
     .from("transactions")
-    .select("*, assets!transactions_asset_id_fkey(name, ticker, category), platforms(name, color)")
+    .select("*, assets!transactions_asset_id_fkey(name, ticker, category, icon_url), platforms(name, color)")
     .in("linked_tx_id", parentIds)
   if (error) throw error
   const out = new Map<string, TransactionWithDetails>()
