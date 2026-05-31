@@ -16,6 +16,7 @@ export interface EnrichedAsset {
   name: string
   ticker: string
   category: string
+  icon_url: string | null
   tags: string[]
   totalBalance: number
   holdings: {
@@ -210,6 +211,7 @@ export function usePortfolio(): UsePortfolioReturn {
         name: asset.name,
         ticker: asset.ticker,
         category: asset.category,
+        icon_url: asset.icon_url,
         tags: asset.tags ?? [],
         totalBalance: bnTotalBalance.toNumber(),
         holdings: holdingsData,
