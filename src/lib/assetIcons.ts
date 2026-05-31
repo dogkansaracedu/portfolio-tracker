@@ -14,13 +14,22 @@ function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase().replace(/\.[A-Z]+$/, "")
 }
 
+/** Normalize a crypto ticker symbol for logo-file lookup: trim + lowercase.
+ *  The cryptocurrency-icons repo names files by lowercase symbol ("btc.png"),
+ *  and crypto symbols aren't exchange-suffixed, so — unlike stock tickers — we
+ *  neither uppercase nor strip a trailing suffix. */
+function normalizeCryptoSymbol(ticker: string): string {
+  return ticker.trim().toLowerCase()
+}
+
 /** Ordered candidate image URLs for an asset's logo. `<AssetIcon>` tries each
  *  in order and falls back to a monogram when all fail to load.
  *
- *  Order: manual `icon_url` override (always wins) → exchange logo repo(s).
+ *  Order: manual `icon_url` override (always wins) → exchange/coin logo repo(s).
  *  US assets don't record Nasdaq vs NYSE, so both are tried; US tickers are
  *  unique across the two exchanges, so a wrong company can never match.
- *  Crypto / gold / fiat have no automated source yet → override or monogram. */
+ *  Crypto resolves by ticker symbol (e.g. "BTC" → btc.png). Gold / fiat have no
+ *  automated source yet → override or monogram. */
 export function getAssetIconCandidates(asset: IconableAsset): string[] {
   const candidates: string[] = []
 
@@ -28,15 +37,22 @@ export function getAssetIconCandidates(asset: IconableAsset): string[] {
   if (override) candidates.push(override)
 
   const t = normalizeTicker(asset.ticker)
-  if (t) {
-    switch (asset.category) {
-      case "stock_us":
+
+  switch (asset.category) {
+    case "stock_us":
+      if (t) {
         candidates.push(`${LOGO_BASE.nasdaq}/_${t}.png`)
         candidates.push(`${LOGO_BASE.nyse}/_${t}.png`)
-        break
-      case "stock_bist":
-        candidates.push(`${LOGO_BASE.bist}/${t}.png`)
-        break
+      }
+      break
+    case "stock_bist":
+      if (t) candidates.push(`${LOGO_BASE.bist}/${t}.png`)
+      break
+    case "crypto": {
+      // Symbol-keyed source — matches our display ticker (e.g. "BTC" → btc).
+      const symbol = normalizeCryptoSymbol(asset.ticker)
+      if (symbol) candidates.push(`${LOGO_BASE.cryptoSymbol}/${symbol}.png`)
+      break
     }
   }
 
