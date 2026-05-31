@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { bn, BN_ZERO } from "@/lib/config";
 import { useAssets } from "@/hooks/useAssets";
 import { useHoldings } from "@/hooks/useHoldings";
+import { usePrices } from "@/hooks/usePrices";
 import type { Asset } from "@/types/database";
 import { AssetForm } from "@/components/assets/AssetForm";
 import { AssetRow } from "@/components/assets/AssetRow";
@@ -30,6 +31,7 @@ export function AssetList() {
   const { assets, loading, error, addAsset, editAsset, deactivateAsset } =
     useAssets();
   const { holdings } = useHoldings();
+  const { prices } = usePrices();
 
   // Owned = net balance across all platforms is positive. Matches how the
   // portfolio decides what's held (usePortfolio filters totalBalance > 0); a
@@ -123,8 +125,9 @@ export function AssetList() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Ticker</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Price</TableHead>
                 <TableHead>Group</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-10" />
@@ -135,6 +138,7 @@ export function AssetList() {
                 <AssetRow
                   key={asset.id}
                   asset={asset}
+                  prices={prices}
                   onEdit={handleEdit}
                   onDeactivate={handleDeactivate}
                 />
@@ -162,6 +166,7 @@ export function AssetList() {
                   <AssetRow
                     key={asset.id}
                     asset={asset}
+                    prices={prices}
                     onEdit={handleEdit}
                     onDeactivate={handleDeactivate}
                   />

@@ -1,7 +1,8 @@
-import type { Asset } from "@/types/database";
+import type { Asset, PriceCache } from "@/types/database";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/prices";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -20,23 +21,36 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 interface AssetRowProps {
   asset: Asset;
+  prices: Record<string, PriceCache>;
   onEdit: (asset: Asset) => void;
   onDeactivate: (asset: Asset) => void;
 }
 
-export function AssetRow({ asset, onEdit, onDeactivate }: AssetRowProps) {
+export function AssetRow({ asset, prices, onEdit, onDeactivate }: AssetRowProps) {
+  const price = prices[asset.price_id ?? asset.ticker];
+  const isCrypto = asset.category === 'crypto';
+  const priceValue = isCrypto ? price?.price_usd : (price?.price_try ?? price?.price_usd);
+  const priceCurrency = (isCrypto || price?.price_try == null) ? 'USD' : 'TRY';
+
   return (
     <TableRow className={!asset.is_active ? "opacity-50" : ""}>
       <TableCell>
         <div>
-          <p className="font-medium">{asset.name}</p>
-          <p className="text-xs text-muted-foreground">{asset.ticker}</p>
+          <p className="font-medium">{asset.ticker}</p>
+          <p className="text-xs text-muted-foreground">{asset.name}</p>
         </div>
       </TableCell>
       <TableCell>
         <Badge variant="secondary">
           {CATEGORY_LABELS[asset.category] ?? asset.category}
         </Badge>
+      </TableCell>
+      <TableCell>
+        {priceValue ? (
+          <p className="text-sm">{formatCurrency(priceValue, priceCurrency)}</p>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
       </TableCell>
       <TableCell>
         <div className="flex flex-wrap gap-1">
