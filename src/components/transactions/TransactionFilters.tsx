@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { PlatformDot } from "@/components/common/PlatformDot"
+import { AssetIcon } from "@/components/common/AssetIcon"
 import { CalendarIcon, XIcon } from "lucide-react"
 import {
   TRANSACTION_TYPE_DISPLAY,
@@ -201,7 +202,14 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
               {(value: string) => {
                 const a = value ? assets.find((x) => x.id === value) : null
                 if (!a) return "All assets"
-                return `${a.name} (${a.ticker})`
+                return (
+                  <>
+                    <AssetIcon asset={a} size="sm" />
+                    <span className="truncate">
+                      {a.name} ({a.ticker})
+                    </span>
+                  </>
+                )
               }}
             </SelectValue>
           </SelectTrigger>
@@ -209,6 +217,7 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
             <SelectItem value="">All assets</SelectItem>
             {assets.map((asset) => (
               <SelectItem key={asset.id} value={asset.id}>
+                <AssetIcon asset={asset} size="sm" />
                 {asset.name} ({asset.ticker})
               </SelectItem>
             ))}
