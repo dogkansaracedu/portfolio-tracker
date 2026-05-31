@@ -58,6 +58,12 @@ export interface AssetPnL {
   ticker: string
   category: string
   costBasisUsd: BigNumber
+  /** Weighted native (purchase-currency) cost of the remaining lots, expressed
+   *  in `nativeCurrency`. Null when the open lots span multiple currencies
+   *  (e.g. a USD transfer_in into a TRY-traded asset) — then only the USD cost
+   *  basis is meaningful. Lets the UI show the original ₺/€ cost beside USD. */
+  costBasisNative: BigNumber | null
+  nativeCurrency: string | null
   currentValueUsd: BigNumber
   unrealizedPnlUsd: BigNumber
   unrealizedPnlPct: BigNumber

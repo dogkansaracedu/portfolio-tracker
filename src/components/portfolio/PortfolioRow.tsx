@@ -14,6 +14,7 @@ import {
   obfuscate,
 } from "@/lib/prices"
 import type { EnrichedAsset } from "@/hooks/usePortfolio"
+import { assetNativeCurrency } from "@/lib/constants/assets"
 import { AssetIcon } from "@/components/common/AssetIcon"
 
 interface PortfolioRowProps {
@@ -40,8 +41,22 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
   const { openTransactionModal } = useTransactionModal()
   const o = (v: string) => obfuscate(v, obfuscated)
 
-  const displayPrice =
-    currency === "USD" ? asset.currentPriceUsd : asset.currentPriceTry
+  // Per-unit price and cost render in the asset's OWN currency (TUPRS in ₺,
+  // gram gold in ₺) with the USD equivalent in parentheses — price at today's
+  // rate, cost at the purchase-date rate (so a flat-₺ / weaker-lira position
+  // reads as a USD loss). Value, P&L and totals stay in USD / the toggle.
+  // We only have USD + TRY price columns, so non-TRY natives (EUR) show USD.
+  const showNative = assetNativeCurrency(asset) === "TRY"
+  const costUsdPerUnit =
+    asset.totalBalance > 0 ? asset.costBasisUsd / asset.totalBalance : null
+  const costNativePerUnit =
+    showNative &&
+    asset.costBasisNative != null &&
+    asset.nativeCurrency === "TRY" &&
+    asset.totalBalance > 0
+      ? asset.costBasisNative / asset.totalBalance
+      : null
+
   const displayValue =
     currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
   const pnlIsPositive = asset.unrealizedPnlUsd >= 0
@@ -81,13 +96,29 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
       </TableCell>
 
       <TableCell className="text-right tabular-nums text-muted-foreground">
-        {asset.totalBalance > 0
-          ? formatCurrency(asset.costBasisUsd / asset.totalBalance, "USD")
-          : "—"}
+        {costUsdPerUnit == null ? (
+          "—"
+        ) : costNativePerUnit != null ? (
+          <>
+            {formatCurrency(costNativePerUnit, "TRY")}
+            <span className="ml-1 text-xs">
+              (~{formatCurrency(costUsdPerUnit, "USD")})
+            </span>
+          </>
+        ) : (
+          formatCurrency(costUsdPerUnit, "USD")
+        )}
       </TableCell>
 
       <TableCell className="text-right tabular-nums">
-        {formatCurrency(displayPrice, currency)}
+        {showNative
+          ? formatCurrency(asset.currentPriceTry, "TRY")
+          : formatCurrency(asset.currentPriceUsd, "USD")}
+        {showNative && (
+          <span className="ml-1 text-xs text-muted-foreground">
+            (~{formatCurrency(asset.currentPriceUsd, "USD")})
+          </span>
+        )}
       </TableCell>
 
       <TableCell className="text-right tabular-nums font-semibold">
