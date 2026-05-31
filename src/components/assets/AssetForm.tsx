@@ -21,11 +21,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const CATEGORIES = [
-  { value: "fiat", label: "Fiat" },
-  { value: "crypto", label: "Crypto" },
-  { value: "gold", label: "Gold" },
   { value: "stock_us", label: "US Stock" },
   { value: "stock_bist", label: "BIST Stock" },
+  { value: "crypto", label: "Crypto" },
+  { value: "gold", label: "Gold" },
+  { value: "fiat", label: "Fiat" },
 ];
 
 const PRICE_SOURCES = [
@@ -67,7 +67,7 @@ export function AssetForm({
   asset,
   onSubmit,
 }: AssetFormProps) {
-  const [category, setCategory] = useState("fiat");
+  const [category, setCategory] = useState("stock_us");
   const [ticker, setTicker] = useState("");
   const [priceId, setPriceId] = useState(asset?.price_id ?? "");
   const [displayName, setDisplayName] = useState("");
@@ -80,7 +80,7 @@ export function AssetForm({
 
   useEffect(() => {
     if (open) {
-      setCategory(asset?.category ?? "fiat");
+      setCategory(asset?.category ?? "stock_us");
       setTicker(asset?.ticker ?? "");
       setPriceId(asset?.price_id ?? "");
       setDisplayName(asset?.name ?? "");
@@ -149,7 +149,9 @@ export function AssetForm({
               onValueChange={(val) => setCategory(val as string)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {CATEGORIES.find((c) => c.value === category)?.label || "Select a category"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {CATEGORIES.map((c) => (
@@ -175,6 +177,37 @@ export function AssetForm({
           </div>
 
           <div className="grid gap-2">
+            <Label htmlFor="asset-name">Display Name</Label>
+            <Input
+              id="asset-name"
+              placeholder="e.g. Bitcoin, Apple Inc., US Dollar"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Price Source</Label>
+            <Select
+              value={priceSource}
+              onValueChange={(val) => setPriceSource(val as string)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {PRICE_SOURCES.find((s) => s.value === priceSource)?.label || "Select a source"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PRICE_SOURCES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="asset-price-id">Price ID</Label>
             <Input
               id="asset-price-id"
@@ -183,16 +216,6 @@ export function AssetForm({
               onChange={(e) => setPriceId(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">{PRICE_ID_HINT}</p>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="asset-name">Display Name</Label>
-            <Input
-              id="asset-name"
-              placeholder="e.g. Bitcoin, Apple Inc., US Dollar"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
           </div>
 
           <div className="grid gap-2">
@@ -206,25 +229,6 @@ export function AssetForm({
             <p className="text-xs text-muted-foreground">
               Comma-separated. Used for cross-cutting queries (e.g. "usd" groups USD + USDT + USDC).
             </p>
-          </div>
-
-          <div className="grid gap-2">
-            <Label>Price Source</Label>
-            <Select
-              value={priceSource}
-              onValueChange={(val) => setPriceSource(val as string)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRICE_SOURCES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
