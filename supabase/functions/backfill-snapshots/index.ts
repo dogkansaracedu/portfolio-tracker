@@ -1,6 +1,7 @@
 import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { splitPrice } from "../_shared/currency.ts"
+import { TROY_OZ_GRAMS } from "../_shared/constants.ts"
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -46,8 +47,6 @@ interface TransactionRow {
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
-
-const TROY_OZ_TO_GRAMS = 31.1035
 
 const YAHOO_HEADERS: HeadersInit = {
   "User-Agent":
@@ -360,7 +359,7 @@ async function handle(
     try {
       const { closes: oz } = await fetchYahooHistory("GC=F", fromTs, toTs)
       const gram = new Map<string, number>()
-      for (const [d, v] of oz) gram.set(d, v / TROY_OZ_TO_GRAMS)
+      for (const [d, v] of oz) gram.set(d, v / TROY_OZ_GRAMS)
       priceMaps.set("XAU_GRAM", gram)
       await new Promise((r) => setTimeout(r, 800))
     } catch (e) {
