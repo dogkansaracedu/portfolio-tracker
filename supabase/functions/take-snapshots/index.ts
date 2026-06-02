@@ -1,5 +1,6 @@
 import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
+import { HOME_TIMEZONE } from "../_shared/constants.ts"
 
 interface HoldingRow {
   user_id: string
@@ -89,8 +90,8 @@ Deno.serve(async (req) => {
 
   // Stamp snapshot_date in the portfolio's home timezone (not UTC) so the day
   // matches the user's local calendar and the dashboard's local-date logic.
-  // Mirrors homeDayIso() / HOME_TIMEZONE in src/lib/config.ts — keep in sync.
-  const HOME_TIMEZONE = "Europe/Istanbul"
+  // HOME_TIMEZONE is shared via _shared/constants.ts (mirror of homeDayIso()
+  // in src/lib/config.ts, which is a separate runtime).
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: HOME_TIMEZONE,
   }).format(new Date())

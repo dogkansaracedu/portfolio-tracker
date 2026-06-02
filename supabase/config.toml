@@ -392,6 +392,13 @@ verify_jwt = false
 [functions.fetch-benchmark-history]
 verify_jwt = false
 
+# Price refresh. Called both by the frontend's live poll (no token — gets a
+# throttled, cadence-limited refresh) and by the daily cron (with X-Cron-Token,
+# which unlocks `force` + the EOD snapshot chain). Caller cannot inject prices;
+# values come only from TCMB/Yahoo, so no JWT needed.
+[functions.fetch-prices]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

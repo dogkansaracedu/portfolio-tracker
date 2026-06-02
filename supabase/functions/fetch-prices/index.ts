@@ -2,29 +2,148 @@ import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { fetchYahooQuote } from "../_shared/yahoo.ts"
 import { splitPrice } from "../_shared/currency.ts"
+import { HOME_TIMEZONE, TROY_OZ_GRAMS } from "../_shared/constants.ts"
 
-Deno.serve(async (req) => {
-  const origin = req.headers.get("origin")
+// ──────────────────────────────────────────────────────────────────────
+// Refresh cadences. The frontend pings this function on a fixed interval
+// while a tab is visible (see PRICE_POLL in src/lib/config.ts), but a ping
+// does NOT mean "refetch everything" — each asset is only refetched once it
+// is older than its cadence, and BIST symbols only during market hours. A
+// `force` call (the daily cron, with a valid X-Cron-Token) bypasses all of
+// this and refetches everything.
+// ──────────────────────────────────────────────────────────────────────
 
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders(origin) })
+/** A non-forced call arriving within this window of the last fetch no-ops —
+ *  collapses concurrent pings (multiple tabs / phone + laptop) into one fetch. */
+const FETCH_GUARD_MS = 20_000
+
+/** Crypto + tokenized gold trade 24/7 and Yahoo reports them in real time. */
+const CRYPTO_CADENCE_MS = 30_000
+
+/** Equities (BIST + US). BIST is additionally gated on market hours below. */
+const STOCK_CADENCE_MS = 60_000
+
+/** FX/gold come from TCMB, which publishes ~once a day — no point re-pulling
+ *  the XML every ping. */
+const FX_CADENCE_MS = 15 * 60 * 1000
+
+const TCMB_TODAY_URL = "https://www.tcmb.gov.tr/kurlar/today.xml"
+
+type ServiceClient = ReturnType<typeof getServiceClient>
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** Snapshot of every cached price's age, keyed by ticker (== price_cache key
+ *  == fetch key). Drives both the global guard and the per-asset due-check. */
+interface Freshness {
+  updatedAtMs: Map<string, number>
+  /** Most recent fetch of anything; 0 if the cache is empty. */
+  maxUpdatedMs: number
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Step helpers — each is one self-contained stage of a refresh.
+// ──────────────────────────────────────────────────────────────────────
+
+/** Load current freshness from price_cache in one read. */
+async function loadFreshness(supabase: ServiceClient): Promise<Freshness> {
+  const updatedAtMs = new Map<string, number>()
+  let maxUpdatedMs = 0
+
+  const { data: rows } = await supabase
+    .from("price_cache")
+    .select("ticker, updated_at")
+
+  for (const r of (rows ?? []) as { ticker: string; updated_at: string | null }[]) {
+    if (!r.updated_at) continue
+    const t = new Date(r.updated_at).getTime()
+    updatedAtMs.set(r.ticker, t)
+    if (t > maxUpdatedMs) maxUpdatedMs = t
   }
+  return { updatedAtMs, maxUpdatedMs }
+}
 
-  const supabase = getServiceClient()
+/** BIST continuous session is 10:00–18:00 local; the closing auction runs to
+ *  ~18:10. Outside that (and on weekends) `.IS` prices can't move, so we skip
+ *  them. Turkish public holidays aren't handled — Yahoo just returns the last
+ *  close on those, a handful of harmless wasted pings a year. */
+function isBistOpen(at: Date): boolean {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: HOME_TIMEZONE,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(at)
 
+  const weekday = parts.find((p) => p.type === "weekday")?.value
+  const hour = Number(parts.find((p) => p.type === "hour")?.value)
+  const minute = Number(parts.find((p) => p.type === "minute")?.value)
+
+  if (weekday === "Sat" || weekday === "Sun") return false
+  const minutes = hour * 60 + minute
+  return minutes >= 10 * 60 && minutes <= 18 * 60 + 10
+}
+
+/** Whether a single Yahoo symbol is due for a refetch this run. */
+function isSymbolDue(
+  category: string,
+  lastUpdatedMs: number,
+  nowMs: number,
+): boolean {
+  const cadence =
+    category === "crypto" || category === "gold"
+      ? CRYPTO_CADENCE_MS
+      : STOCK_CADENCE_MS
+  const ageDue = !lastUpdatedMs || nowMs - lastUpdatedMs > cadence
+  const marketOpen =
+    category === "stock_bist" ? isBistOpen(new Date(nowMs)) : true
+  return ageDue && marketOpen
+}
+
+/** Gram-gold in USD via the shared Yahoo client (GC=F gold futures, USD/oz).
+ *  Fallback for when TCMB's XAU line is absent (it usually is now). The shared
+ *  client never throws — failures surface as a `{ status, quote: null }`. */
+async function fetchGoldGramUsd(): Promise<{ value: number | null; error?: string }> {
+  const { status, quote } = await fetchYahooQuote("GC=F")
+  if (!quote) {
+    return {
+      value: null,
+      error: `Yahoo GC=F: ${status === null ? "request failed" : `HTTP ${status}`}`,
+    }
+  }
+  if (quote.price == null || quote.price <= 0) {
+    return { value: null, error: "Yahoo GC=F: missing regularMarketPrice" }
+  }
+  return { value: quote.price / TROY_OZ_GRAMS }
+}
+
+interface FxResult {
+  /** USD/TRY and EUR/USD, needed to convert TRY/EUR-quoted Yahoo assets. */
+  usdTry: number | null
+  eurUsd: number | null
+  updated: number
+  errors: string[]
+}
+
+/** Step 1 — TCMB exchange rates (+ gram gold). Runs only when `fxDue`; pulls
+ *  the daily XML, upserts `exchange_rates` and the USD/EUR/TRY/XAU_GRAM rows of
+ *  `price_cache`, and returns the rates the Yahoo step needs for conversions. */
+async function refreshFxRates(
+  supabase: ServiceClient,
+  opts: { fxDue: boolean; nowIso: string },
+): Promise<FxResult> {
+  if (!opts.fxDue) return { usdTry: null, eurUsd: null, updated: 0, errors: [] }
+
+  const { nowIso } = opts
   const errors: string[] = []
-  let totalUpdated = 0
-
-  // ──────────────────────────────────────────────────────────────
-  // Step 1: TCMB (exchange rates — must run first for conversions)
-  // ──────────────────────────────────────────────────────────────
   let usdTry: number | null = null
   let eurTry: number | null = null
   let eurUsd: number | null = null
-  let goldGramTry: number | null = null
+  let updated = 0
 
   try {
-    const res = await fetch("https://www.tcmb.gov.tr/kurlar/today.xml")
+    const res = await fetch(TCMB_TODAY_URL)
     if (!res.ok) throw new Error(`TCMB HTTP ${res.status}`)
     const xml = await res.text()
 
@@ -38,52 +157,24 @@ Deno.serve(async (req) => {
     )
     eurTry = eurMatch ? parseFloat(eurMatch[1]) : null
 
-    // TCMB used to publish XAU (gold) in today.xml but dropped it; the
-    // regex still tries first as a no-cost path, then falls back to Yahoo
-    // GC=F (gold futures, USD/oz) below.
+    // TCMB used to publish XAU (gold) in today.xml but dropped it; try the
+    // regex first as a no-cost path, then fall back to Yahoo GC=F.
     const xauMatch = xml.match(
       /<Currency[^>]*CurrencyCode="XAU"[^>]*>[\s\S]*?<ForexBuying>([\d.]+)<\/ForexBuying>/
     )
-    let goldGramUsd: number | null = null
-    if (xauMatch) {
-      goldGramUsd = parseFloat(xauMatch[1]) / 31.1035
-    }
+    let goldGramUsd: number | null = xauMatch
+      ? parseFloat(xauMatch[1]) / TROY_OZ_GRAMS
+      : null
     if (goldGramUsd == null) {
-      try {
-        const goldRes = await fetch(
-          "https://query1.finance.yahoo.com/v8/finance/chart/GC=F?interval=1d&range=1d",
-          {
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-              Accept: "application/json,text/plain,*/*",
-            },
-          }
-        )
-        if (goldRes.ok) {
-          const goldData = await goldRes.json()
-          const oz =
-            goldData?.chart?.result?.[0]?.meta?.regularMarketPrice
-          if (typeof oz === "number" && oz > 0) {
-            goldGramUsd = oz / 31.1035
-          } else {
-            errors.push("Yahoo GC=F: missing regularMarketPrice")
-          }
-        } else {
-          errors.push(`Yahoo GC=F: HTTP ${goldRes.status}`)
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error"
-        errors.push(`Yahoo GC=F: ${msg}`)
-      }
-    }
-    if (goldGramUsd != null && usdTry) {
-      goldGramTry = goldGramUsd * usdTry
+      const gold = await fetchGoldGramUsd()
+      goldGramUsd = gold.value
+      if (gold.error) errors.push(gold.error)
     }
 
     if (usdTry && eurTry) {
       eurUsd = eurTry / usdTry
       const today = new Date().toISOString().split("T")[0]
+      const goldGramTry = goldGramUsd != null ? goldGramUsd * usdTry : null
 
       await supabase.from("exchange_rates").upsert(
         {
@@ -97,11 +188,10 @@ Deno.serve(async (req) => {
         { onConflict: "date,source" }
       )
 
-      const now = new Date().toISOString()
       const priceRows = [
-        { ticker: "USD", price_usd: 1, price_try: usdTry, source: "tcmb", updated_at: now },
-        { ticker: "EUR", price_usd: eurUsd, price_try: eurTry, source: "tcmb", updated_at: now },
-        { ticker: "TRY", price_usd: 1 / usdTry, price_try: 1, source: "tcmb", updated_at: now },
+        { ticker: "USD", price_usd: 1, price_try: usdTry, source: "tcmb", updated_at: nowIso },
+        { ticker: "EUR", price_usd: eurUsd, price_try: eurTry, source: "tcmb", updated_at: nowIso },
+        { ticker: "TRY", price_usd: 1 / usdTry, price_try: 1, source: "tcmb", updated_at: nowIso },
       ]
       if (goldGramUsd != null) {
         priceRows.push({
@@ -109,12 +199,12 @@ Deno.serve(async (req) => {
           price_usd: goldGramUsd,
           price_try: goldGramUsd * usdTry,
           source: xauMatch ? "tcmb" : "yahoo",
-          updated_at: now,
+          updated_at: nowIso,
         })
       }
 
       await supabase.from("price_cache").upsert(priceRows, { onConflict: "ticker" })
-      totalUpdated += priceRows.length
+      updated += priceRows.length
     } else {
       errors.push("TCMB: could not parse USD/TRY or EUR/TRY")
     }
@@ -123,8 +213,16 @@ Deno.serve(async (req) => {
     errors.push(`TCMB: ${msg}`)
   }
 
-  // If we didn't get usdTry from TCMB, try to load it (and eur_usd, for EUR
-  // conversion) from the last exchange_rates row.
+  return { usdTry, eurUsd, updated, errors }
+}
+
+/** When the FX step is skipped (cadence) or failed, load the last known
+ *  usdTry / eurUsd from `exchange_rates` so Yahoo conversions still work. */
+async function ensureConversionRates(
+  supabase: ServiceClient,
+  fx: { usdTry: number | null; eurUsd: number | null },
+): Promise<{ usdTry: number | null; eurUsd: number | null }> {
+  let { usdTry, eurUsd } = fx
   if (!usdTry) {
     const { data: rateRow } = await supabase
       .from("exchange_rates")
@@ -135,117 +233,200 @@ Deno.serve(async (req) => {
     usdTry = rateRow?.usd_try ?? null
     if (eurUsd == null) eurUsd = rateRow?.eur_usd ?? null
   }
+  return { usdTry, eurUsd }
+}
 
-  // ──────────────────────────────────────────────────────────────
-  // Step 2: Yahoo Finance (stocks, crypto, tokenized gold)
-  // ──────────────────────────────────────────────────────────────
-  const yahooPromise = (async () => {
-    try {
-      const { data: assets } = await supabase
-        .from("assets")
-        .select("ticker, price_id")
-        .eq("price_source", "yahoo")
+/** Step 2 — Yahoo Finance (stocks, crypto, tokenized gold). Refetches only the
+ *  symbols that are due (per `isSymbolDue`, or all when `force`), 1s apart. */
+async function refreshYahooPrices(
+  supabase: ServiceClient,
+  opts: {
+    force: boolean
+    usdTry: number | null
+    eurUsd: number | null
+    updatedAtMs: Map<string, number>
+    nowMs: number
+    nowIso: string
+  },
+): Promise<{ updated: number; errors: string[] }> {
+  const { force, usdTry, eurUsd, updatedAtMs, nowMs, nowIso } = opts
+  const errors: string[] = []
 
-      if (!assets || assets.length === 0) return 0
-
-      // Fetch key is price_id (Yahoo symbol, e.g. BTC-USD); fall back to ticker
-      // until rows are backfilled. Same value keys the price_cache row.
-      const symbolSet = new Set<string>()
-      for (const a of assets as { ticker: string; price_id: string | null }[]) {
-        symbolSet.add(a.price_id ?? a.ticker)
-      }
-
-      const now = new Date().toISOString()
-      let updated = 0
-      const symbols = [...symbolSet]
-
-      for (let i = 0; i < symbols.length; i++) {
-        const symbol = symbols[i]
-
-        if (i > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-        }
-
-        try {
-          const { status, quote } = await fetchYahooQuote(symbol)
-
-          if (!quote) {
-            errors.push(
-              `Yahoo ${symbol}: ${status === null ? "request failed" : `HTTP ${status}`}`
-            )
-            continue
-          }
-
-          if (quote.price == null) {
-            errors.push(`Yahoo ${symbol}: no price in response`)
-            continue
-          }
-
-          // Currency comes from the source (meta.currency), not the suffix.
-          const split = splitPrice(quote.price, quote.currency, { usdTry, eurUsd })
-          if (!split) {
-            errors.push(`Yahoo ${symbol}: unsupported currency ${quote.currency}`)
-            continue
-          }
-
-          await supabase.from("price_cache").upsert(
-            {
-              ticker: symbol,
-              price_usd: split.price_usd,
-              price_try: split.price_try,
-              source: "yahoo",
-              updated_at: now,
-            },
-            { onConflict: "ticker" }
-          )
-
-          updated++
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "Unknown error"
-          errors.push(`Yahoo ${symbol}: ${msg}`)
-        }
-      }
-
-      return updated
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown Yahoo error"
-      errors.push(`Yahoo: ${msg}`)
-      return 0
-    }
-  })()
-
-  totalUpdated += await yahooPromise
-
-  // ──────────────────────────────────────────────────────────────
-  // Step 3: Trigger today's snapshot now that prices are fresh.
-  // Fire-and-forget; failures here don't fail the price refresh.
-  // ──────────────────────────────────────────────────────────────
+  let assets: { ticker: string; price_id: string | null; category: string }[]
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    fetch(`${supabaseUrl}/functions/v1/take-snapshots`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${serviceRoleKey}`,
-        apikey: serviceRoleKey,
-      },
-      body: "{}",
-    }).catch((err) => {
-      console.error("take-snapshots invoke failed:", err)
-    })
+    const { data } = await supabase
+      .from("assets")
+      .select("ticker, price_id, category")
+      .eq("price_source", "yahoo")
+    assets = (data ?? []) as typeof assets
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown snapshot error"
-    errors.push(`take-snapshots: ${msg}`)
+    const msg = err instanceof Error ? err.message : "Unknown Yahoo error"
+    return { updated: 0, errors: [`Yahoo: ${msg}`] }
+  }
+  if (assets.length === 0) return { updated: 0, errors }
+
+  // Fetch key is price_id (Yahoo symbol, e.g. BTC-USD); fall back to ticker
+  // until rows are backfilled. Dedupe on symbol, keeping its first category.
+  const symbolCategory = new Map<string, string>()
+  for (const a of assets) {
+    const symbol = a.price_id ?? a.ticker
+    if (!symbolCategory.has(symbol)) symbolCategory.set(symbol, a.category)
   }
 
-  const result = {
-    updated: totalUpdated,
-    errors: errors.length > 0 ? errors : undefined,
-    timestamp: new Date().toISOString(),
+  let updated = 0
+  let fetchedAny = false
+
+  for (const [symbol, category] of symbolCategory) {
+    if (!force && !isSymbolDue(category, updatedAtMs.get(symbol) ?? 0, nowMs)) {
+      continue
+    }
+
+    // Be gentle on Yahoo: 1s between actual fetches (skipped symbols don't
+    // count, so a quiet run that only refreshes crypto stays fast).
+    if (fetchedAny) await sleep(1000)
+    fetchedAny = true
+
+    try {
+      const { status, quote } = await fetchYahooQuote(symbol)
+
+      if (!quote) {
+        errors.push(
+          `Yahoo ${symbol}: ${status === null ? "request failed" : `HTTP ${status}`}`
+        )
+        continue
+      }
+      if (quote.price == null) {
+        errors.push(`Yahoo ${symbol}: no price in response`)
+        continue
+      }
+
+      // Currency comes from the source (meta.currency), not the suffix.
+      const split = splitPrice(quote.price, quote.currency, { usdTry, eurUsd })
+      if (!split) {
+        errors.push(`Yahoo ${symbol}: unsupported currency ${quote.currency}`)
+        continue
+      }
+
+      await supabase.from("price_cache").upsert(
+        {
+          ticker: symbol,
+          price_usd: split.price_usd,
+          price_try: split.price_try,
+          source: "yahoo",
+          updated_at: nowIso,
+        },
+        { onConflict: "ticker" }
+      )
+      updated++
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      errors.push(`Yahoo ${symbol}: ${msg}`)
+    }
   }
 
-  return new Response(JSON.stringify(result), {
-    headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+  return { updated, errors }
+}
+
+/** Step 3 (cron only) — chain the server-side EOD snapshot now that prices are
+ *  fresh. Fire-and-forget. Must forward X-Cron-Token: take-snapshots authorizes
+ *  on that, not the JWT. */
+function triggerSnapshot(cronToken: string): void {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  fetch(`${supabaseUrl}/functions/v1/take-snapshots`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: serviceRoleKey,
+      "X-Cron-Token": cronToken,
+    },
+    body: "{}",
+  }).catch((err) => {
+    console.error("take-snapshots invoke failed:", err)
   })
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Orchestrator
+// ──────────────────────────────────────────────────────────────────────
+
+Deno.serve(async (req) => {
+  const origin = req.headers.get("origin")
+
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders(origin) })
+  }
+
+  // Only an authenticated internal caller (the cron, holding X-Cron-Token) may
+  // bypass the cadence/guard or chain a snapshot. Public/frontend pings can
+  // only ever trigger a normal, throttled refresh.
+  const cronToken = Deno.env.get("CRON_TOKEN")
+  const isCron = !!cronToken && req.headers.get("X-Cron-Token") === cronToken
+
+  let body: { force?: boolean; snapshot?: boolean } = {}
+  try {
+    body = await req.json()
+  } catch {
+    // No/!JSON body — a plain frontend ping. Defaults stand.
+  }
+  const force = isCron && body.force === true
+  const doSnapshot = isCron && body.snapshot === true
+
+  const supabase = getServiceClient()
+  const nowMs = Date.now()
+  const nowIso = new Date(nowMs).toISOString()
+
+  const { updatedAtMs, maxUpdatedMs } = await loadFreshness(supabase)
+
+  // Global guard: bail out cheaply if anything was fetched moments ago.
+  if (!force && maxUpdatedMs && nowMs - maxUpdatedMs < FETCH_GUARD_MS) {
+    return new Response(
+      JSON.stringify({ updated: 0, skipped: "guard", timestamp: nowIso }),
+      { headers: { ...corsHeaders(origin), "Content-Type": "application/json" } },
+    )
+  }
+
+  const errors: string[] = []
+  let updated = 0
+
+  // Step 1 — FX (only when due / forced).
+  const usdUpdated = updatedAtMs.get("USD") ?? 0
+  const fxDue = force || !usdUpdated || nowMs - usdUpdated > FX_CADENCE_MS
+  const fx = await refreshFxRates(supabase, { fxDue, nowIso })
+  errors.push(...fx.errors)
+  updated += fx.updated
+
+  const rates = await ensureConversionRates(supabase, fx)
+
+  // Step 2 — Yahoo (per-asset cadence / market hours).
+  const yahoo = await refreshYahooPrices(supabase, {
+    force,
+    usdTry: rates.usdTry,
+    eurUsd: rates.eurUsd,
+    updatedAtMs,
+    nowMs,
+    nowIso,
+  })
+  errors.push(...yahoo.errors)
+  updated += yahoo.updated
+
+  // Step 3 — daily EOD snapshot (cron only).
+  if (doSnapshot) {
+    try {
+      triggerSnapshot(cronToken!)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown snapshot error"
+      errors.push(`take-snapshots: ${msg}`)
+    }
+  }
+
+  return new Response(
+    JSON.stringify({
+      updated,
+      errors: errors.length > 0 ? errors : undefined,
+      timestamp: new Date().toISOString(),
+    }),
+    { headers: { ...corsHeaders(origin), "Content-Type": "application/json" } },
+  )
 })

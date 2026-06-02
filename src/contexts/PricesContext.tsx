@@ -3,7 +3,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react"
@@ -11,6 +10,8 @@ import type { PriceCache, ExchangeRate } from "@/types/database"
 import { fetchPrices } from "@/lib/queries/prices"
 import { fetchLatestRates } from "@/lib/queries/exchangeRates"
 import { isStale } from "@/lib/prices"
+import { PRICE_POLL } from "@/lib/config"
+import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
 
 const STALE_THRESHOLD_MINUTES = 30
@@ -42,12 +43,12 @@ const PricesContext = createContext<PricesContextValue | null>(null)
  *   freshest prices.
  */
 export function PricesProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [prices, setPrices] = useState<Record<string, PriceCache>>({})
   const [rates, setRates] = useState<ExchangeRate | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
-  const hasAutoRefreshed = useRef(false)
 
   const loadPrices = useCallback(async () => {
     try {
@@ -85,6 +86,19 @@ export function PricesProvider({ children }: { children: ReactNode }) {
     }
   }, [loadPrices])
 
+  // Background refresh for the auto-poll: pings `fetch-prices` (which decides
+  // per-asset what's actually due) then re-reads the cache. Unlike
+  // `refreshPrices` it doesn't toggle `refreshing`, so the manual-refresh
+  // spinner doesn't blink every cycle.
+  const backgroundRefresh = useCallback(async () => {
+    try {
+      await supabase.functions.invoke("fetch-prices")
+      await loadPrices()
+    } catch (err) {
+      console.error("Background price refresh failed:", err)
+    }
+  }, [loadPrices])
+
   useEffect(() => {
     let cancelled = false
     async function init() {
@@ -98,18 +112,37 @@ export function PricesProvider({ children }: { children: ReactNode }) {
     }
   }, [loadPrices])
 
-  // Auto-refresh once if cached prices are stale. Skipped when there are no
-  // prices yet (avoids hitting the edge function on a brand-new empty DB).
+  // Live polling. While a tab is visible and a user is signed in:
+  //   - re-read the cache every `readMs` (cheap SELECT) so figures stay current
+  //   - ping `fetch-prices` every `triggerMs`; the function self-throttles per
+  //     asset, so most pings cost nothing upstream
+  // Both pause when the tab is hidden, and we refresh immediately on regaining
+  // focus (and once on mount), so a backgrounded or logged-out app never burns
+  // Supabase or Yahoo calls. This replaces the old one-shot stale-refresh.
   useEffect(() => {
-    if (loading || hasAutoRefreshed.current) return
-    const hasPrices = Object.keys(prices).length > 0
-    const shouldRefresh =
-      hasPrices && (!lastUpdated || isStale(lastUpdated, STALE_THRESHOLD_MINUTES))
-    if (shouldRefresh) {
-      hasAutoRefreshed.current = true
-      void refreshPrices()
+    if (!user) return
+    const isVisible = () => document.visibilityState === "visible"
+
+    const readId = setInterval(() => {
+      if (isVisible()) void loadPrices()
+    }, PRICE_POLL.readMs)
+
+    const triggerId = setInterval(() => {
+      if (isVisible()) void backgroundRefresh()
+    }, PRICE_POLL.triggerMs)
+
+    const onVisibility = () => {
+      if (isVisible()) void backgroundRefresh()
     }
-  }, [loading, lastUpdated, refreshPrices, prices])
+    document.addEventListener("visibilitychange", onVisibility)
+    if (isVisible()) void backgroundRefresh()
+
+    return () => {
+      clearInterval(readId)
+      clearInterval(triggerId)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [user, loadPrices, backgroundRefresh])
 
   // Keys are price_ids now (the prices map is keyed by price_id). This list is
   // only used internally (no UI consumer surfaces it as a label), so keeping it

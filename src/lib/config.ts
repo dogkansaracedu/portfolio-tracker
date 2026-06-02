@@ -71,6 +71,24 @@ export const BN_ZERO = new BigNumber(0)
 /** Hundred constant (for percentage calculations) */
 export const BN_HUNDRED = new BigNumber(100)
 
+// ─── Live Price Polling ─────────────────────────────────────────────
+
+/**
+ * Cadences for the app-wide price refresh loop in `PricesProvider`. Both run
+ * only while the tab is visible and a user is signed in, so a
+ * backgrounded/blurred or logged-out app never burns Supabase or Yahoo calls.
+ *
+ * - `readMs`: how often a visible tab re-reads `price_cache` (a cheap `SELECT`)
+ *   so on-screen figures track the cache.
+ * - `triggerMs`: how often a visible tab pings the `fetch-prices` edge function
+ *   to refresh upstream. The function itself decides, per asset, what's
+ *   actually due (see its cadence constants), so most pings are near-free.
+ */
+export const PRICE_POLL = {
+  readMs: 10_000,
+  triggerMs: 30_000,
+} as const
+
 // ─── Timezone ───────────────────────────────────────────────────────
 
 /**
