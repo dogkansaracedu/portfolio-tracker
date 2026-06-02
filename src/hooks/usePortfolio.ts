@@ -5,6 +5,7 @@ import { useHoldings } from "@/hooks/useHoldings"
 import { usePrices } from "@/hooks/usePrices"
 import { usePnL } from "@/hooks/usePnL"
 import { useSnapshots } from "@/hooks/useSnapshots"
+import { summarizePnLTotals } from "@/lib/pnl/totals"
 import type { Asset, PriceCache } from "@/types/database"
 import type { HoldingWithDetails } from "@/lib/queries/holdings"
 import type { AssetPnL } from "@/lib/pnl/types"
@@ -439,13 +440,15 @@ export function usePortfolio(): UsePortfolioReturn {
     ? 0
     : totalUnrealizedPnlUsd.div(totalCostBasisUsd).times(100).toNumber()
 
-  // Total P&L = unrealized + realized. % uses computeCurrentInvestedUsd as the
-  // denominator — same as Dashboard hero — so the headline matches across pages.
-  const totalPnlUsdBn = totalUnrealizedPnlUsd.plus(totalRealizedPnlUsd)
-  const investedAbs = totalInvestedUsd.abs()
-  const totalPnlPct = investedAbs.isZero()
-    ? 0
-    : totalPnlUsdBn.div(investedAbs).times(100).toNumber()
+  // Total P&L = unrealized + realized, shared with the Dashboard via
+  // summarizePnLTotals so both pages show the identical headline.
+  const { totalPnlUsd: totalPnlUsdBn, totalPnlPct: totalPnlPctBn } =
+    summarizePnLTotals({
+      totalUnrealizedPnlUsd,
+      totalRealizedPnlUsd,
+      totalInvestedUsd,
+    })
+  const totalPnlPct = totalPnlPctBn.toNumber()
 
   const refetch = async () => {
     await Promise.all([refetchAssets(), refetchHoldings()])
