@@ -23,7 +23,10 @@ import {
   USER_PICKABLE_TYPES,
 } from "@/lib/constants/transaction-types"
 import type { TransactionType } from "@/types/database"
-import type { TransactionLogFilters } from "@/hooks/useTransactionLog"
+import {
+  thisYearStartISO,
+  type TransactionLogFilters,
+} from "@/hooks/useTransactionLog"
 
 interface Props {
   filters: TransactionLogFilters
@@ -71,7 +74,7 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
         break
       }
       case "year": {
-        dateFrom = `${now.getFullYear()}-01-01`
+        dateFrom = thisYearStartISO()
         break
       }
       case "all":
@@ -111,7 +114,7 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
     const d30 = new Date(now)
     d30.setDate(d30.getDate() - 30)
     if (filters.dateFrom === toISODate(d30) && !filters.dateTo) return "30d"
-    if (filters.dateFrom === `${now.getFullYear()}-01-01` && !filters.dateTo) return "year"
+    if (filters.dateFrom === thisYearStartISO() && !filters.dateTo) return "year"
     return null
   })()
 
