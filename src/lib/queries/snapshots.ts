@@ -27,7 +27,7 @@ export async function deleteSnapshot(id: string): Promise<void> {
 }
 
 interface HoldingWithJoins extends Holding {
-  assets: { name: string; ticker: string; category: string; tags: string[]; is_active: boolean }
+  assets: { name: string; ticker: string; price_id: string | null; category: string; tags: string[]; is_active: boolean }
   platforms: { name: string; color: string }
 }
 
@@ -48,7 +48,7 @@ export async function createSnapshot(
 
   const { data: holdings, error: holdingsError } = await supabase
     .from("holdings")
-    .select("*, assets(name, ticker, category, tags, is_active), platforms(name, color)")
+    .select("*, assets(name, ticker, price_id, category, tags, is_active), platforms(name, color)")
     .eq("user_id", userId)
     .neq("balance", 0)
 
@@ -73,7 +73,10 @@ export async function createSnapshot(
   for (const h of rows) {
     if (!h.assets.is_active || h.balance <= 0) continue
 
-    const price = prices[h.assets.ticker]
+    // price_cache is keyed by price_id, not the display ticker. Keying by
+    // bare ticker zeroed every price_id≠ticker holding (BIST/crypto/gold)
+    // and tripped the unpriced guard, so the client snapshot never wrote.
+    const price = prices[h.assets.price_id ?? h.assets.ticker]
     const priceUsd = bn(price?.price_usd)
     const priceTry = price?.price_try != null
       ? bn(price.price_try)
