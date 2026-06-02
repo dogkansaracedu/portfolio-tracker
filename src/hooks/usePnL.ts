@@ -3,6 +3,7 @@ import { bn, BN_ZERO } from "@/lib/config"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { useSnapshots } from "@/hooks/useSnapshots"
 import { computeFIFOLots } from "@/lib/pnl/fifo"
+import { buildRealizedByTx } from "@/lib/pnl/realized"
 import { computeUnrealizedPnL } from "@/lib/pnl/unrealized"
 import { computeCurrentInvestedUsd } from "@/lib/performance"
 import type { Transaction, PriceCache } from "@/types/database"
@@ -275,5 +276,18 @@ export function usePnL(
     }
   }, [transactions, rates, holdings, prices, loading, snapshots])
 
-  return { ...result, transactions, rates, loading }
+  // Realized P&L over the FULL history (incl. sold-out positions, which have no
+  // `holdings` row — summing only held positions was the Portfolio/Dashboard
+  // mismatch bug). Price-independent, so its own [transactions, rates] memo
+  // keeps the full-history FIFO replay off the price-refresh path.
+  const totalRealizedPnlUsd: ReturnType<typeof bn> = useMemo(() => {
+    if (loading) return BN_ZERO
+    let sum = BN_ZERO
+    for (const entry of buildRealizedByTx(transactions, rates).values()) {
+      sum = sum.plus(entry.realizedPnlUsd)
+    }
+    return sum
+  }, [transactions, rates, loading])
+
+  return { ...result, totalRealizedPnlUsd, transactions, rates, loading }
 }

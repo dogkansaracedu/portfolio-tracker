@@ -45,6 +45,11 @@ interface DashboardHeroProps {
   snapshots: Snapshot[]
   currentValueUsd: number
   currentValueTry: number
+  /** Live total P&L (usePnLSummary) — same number the Portfolio page shows;
+   *  feeds the "Total" subtitle and anchors the chart's "now" point. */
+  totalPnlUsd: number
+  totalPnlTry: number
+  totalPnlPct: number
   usdTry: number
 }
 
@@ -140,6 +145,9 @@ export default function DashboardHero({
   snapshots,
   currentValueUsd,
   currentValueTry,
+  totalPnlUsd,
+  totalPnlTry,
+  totalPnlPct,
   usdTry,
 }: DashboardHeroProps) {
   const { currency, obfuscated } = useDisplayCurrency()
@@ -179,23 +187,21 @@ export default function DashboardHero({
     viewMode,
     timeRange,
     usdTry,
+    currentPnlUsd: totalPnlUsd,
+    currentPnlTry: totalPnlTry,
     benchmarkTicker: benchmarkFetchKey,
     benchmarkSeries,
   })
 
   // ── Headline figures ──────────────────────────────────────────────
-  // Value view: live total portfolio value + period delta (gain/loss).
-  // P&L view: period P&L delta (gain/loss from price movement only,
-  //   excluding deposits) as the headline. Subtitle shows the *current
-  //   cumulative* money-weighted P&L, which is `current.usd` in P&L mode
-  //   (= live value − net cash deployed). Net cash deployed is derived
-  //   from the same series, ensuring the totals are internally consistent.
-  const totalPnlUsdNow = current.usd // cumulative money-weighted P&L
-  const totalPnlTryNow = current.try
+  // Value view: total value + period delta. P&L view: period delta as the
+  // headline; "Total" subtitle = live cumulative P&L from props (same as the
+  // Portfolio page). Invested = value − P&L.
+  const totalPnlUsdNow = totalPnlUsd
+  const totalPnlTryNow = totalPnlTry
+  const totalPnlPctNow = totalPnlPct
   const investedNowUsd = currentValueUsd - totalPnlUsdNow
   const investedNowTry = currentValueTry - totalPnlTryNow
-  const totalPnlPctNow =
-    investedNowUsd !== 0 ? (totalPnlUsdNow / Math.abs(investedNowUsd)) * 100 : 0
 
   const headlineValue =
     viewMode === "value"
