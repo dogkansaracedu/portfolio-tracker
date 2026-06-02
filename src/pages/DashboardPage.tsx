@@ -1,6 +1,7 @@
 import { Suspense } from "react"
 import { Link } from "react-router"
 import { useDashboard } from "@/hooks/useDashboard"
+import { usePnLSummary } from "@/hooks/usePnLSummary"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DashboardHero, AllocationChart } from "@/components/charts/LazyChart"
@@ -72,7 +73,11 @@ export default function DashboardPage() {
     loading,
   } = useDashboard()
 
-  if (loading) {
+  // Current-day value + total P&L come from the one P&L engine (same numbers as
+  // the Portfolio page). The breakdowns/chart below stay snapshot-derived.
+  const pnl = usePnLSummary()
+
+  if (loading || pnl.loading) {
     return (
       <div className="space-y-4">
         <SkeletonHero />
@@ -117,8 +122,11 @@ export default function DashboardPage() {
       <Suspense fallback={<RouteSkeleton />}>
         <DashboardHero
           snapshots={snapshots}
-          currentValueUsd={totalValueUsd}
-          currentValueTry={totalValueTry}
+          currentValueUsd={pnl.totalValueUsd}
+          currentValueTry={pnl.totalValueTry}
+          totalPnlUsd={pnl.totalPnlUsd}
+          totalPnlTry={pnl.totalPnlTry}
+          totalPnlPct={pnl.totalPnlPct}
           usdTry={usdTry}
         />
       </Suspense>

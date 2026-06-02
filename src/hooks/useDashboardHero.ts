@@ -62,6 +62,10 @@ interface UseDashboardHeroArgs {
   viewMode: HeroViewMode
   timeRange: TimeRange
   usdTry: number
+  /** P&L mode: live total P&L (usePnLSummary) used to anchor the chart's "now"
+   *  point so it matches the headline Total. Falls back to value − invested. */
+  currentPnlUsd?: number
+  currentPnlTry?: number
   /** When set (P&L mode only), the secondary line shows the benchmark's
    *  cumulative % return from the range start instead of market value. */
   benchmarkTicker?: string | null
@@ -133,6 +137,8 @@ export function useDashboardHero({
   viewMode,
   timeRange,
   usdTry,
+  currentPnlUsd,
+  currentPnlTry,
   benchmarkTicker = null,
   benchmarkSeries = [],
 }: UseDashboardHeroArgs): DashboardHeroData {
@@ -222,11 +228,15 @@ export function useDashboardHero({
         compareTry: investedNow * nowRatio,
       })
     } else {
-      const pnlNowUsd = currentValueUsd - investedNow
+      // Anchor the "now" point to the live P&L total so chart == headline.
+      const pnlNowUsd =
+        currentPnlUsd != null ? currentPnlUsd : currentValueUsd - investedNow
+      const pnlNowTry =
+        currentPnlTry != null ? currentPnlTry : pnlNowUsd * nowRatio
       raw.push({
         date: today,
         usd: pnlNowUsd,
-        try: pnlNowUsd * nowRatio,
+        try: pnlNowTry,
         compareUsd: currentValueUsd,
         compareTry: currentValueTry,
       })
@@ -432,6 +442,8 @@ export function useDashboardHero({
     viewMode,
     timeRange,
     usdTry,
+    currentPnlUsd,
+    currentPnlTry,
     pnlLoading,
     benchmarkActive,
     benchmarkSeries,
