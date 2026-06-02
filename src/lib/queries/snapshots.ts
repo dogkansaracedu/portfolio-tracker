@@ -32,29 +32,23 @@ interface HoldingWithJoins extends Holding {
 }
 
 /**
- * Generate and save a snapshot of the current portfolio state.
- * Reads from holdings + assets + platforms instead of a flat asset list.
+ * Value a set of holdings against the current prices/rates and build the
+ * snapshot row. Pure (no IO), so callers that already hold the live holdings
+ * in memory — the price-only auto-refresh in SnapshotsContext — can reuse them
+ * instead of issuing a second `holdings` query. Throws when any held asset is
+ * unpriced (see the guard below).
  */
-export async function createSnapshot(
+export function buildSnapshotInsert(
   userId: string,
+  rows: HoldingWithJoins[],
   prices: Record<string, PriceCache>,
   latestRates: ExchangeRate | null,
-): Promise<Snapshot> {
+): SnapshotInsert {
   // Stamp the snapshot in the portfolio's home timezone (not UTC) so its
   // calendar day matches the user's local day and the dashboard/performance
   // local-date logic — otherwise an early-Turkey-morning snapshot books a day
   // behind. Matches the edge function (take-snapshots).
   const today = homeDayIso()
-
-  const { data: holdings, error: holdingsError } = await supabase
-    .from("holdings")
-    .select("*, assets(name, ticker, price_id, category, tags, is_active), platforms(name, color)")
-    .eq("user_id", userId)
-    .neq("balance", 0)
-
-  if (holdingsError) throw holdingsError
-
-  const rows = (holdings ?? []) as unknown as HoldingWithJoins[]
 
   const usdTry = bn(latestRates?.usd_try ?? 1)
   const eurTry = bn(latestRates?.eur_try ?? 1)
@@ -199,6 +193,13 @@ export async function createSnapshot(
     breakdown,
   }
 
+  return insert
+}
+
+/** Upsert a prepared snapshot row. Idempotent per (user, day). */
+export async function persistSnapshot(
+  insert: SnapshotInsert,
+): Promise<Snapshot> {
   const { data, error } = await supabase
     .from("snapshots")
     .upsert(insert, { onConflict: "user_id,snapshot_date" })
@@ -207,6 +208,35 @@ export async function createSnapshot(
 
   if (error) throw error
   return data
+}
+
+/**
+ * Generate and save a snapshot of the current portfolio state. Reads holdings
+ * fresh from the server (authoritative right after a balance recalc), values
+ * them, and upserts today's row. Use this for transaction-driven and manual
+ * snapshots; the price-only auto-refresh builds + persists directly from the
+ * in-memory holdings instead.
+ */
+export async function createSnapshot(
+  userId: string,
+  prices: Record<string, PriceCache>,
+  latestRates: ExchangeRate | null,
+): Promise<Snapshot> {
+  const { data: holdings, error: holdingsError } = await supabase
+    .from("holdings")
+    .select("*, assets(name, ticker, price_id, category, tags, is_active), platforms(name, color)")
+    .eq("user_id", userId)
+    .neq("balance", 0)
+
+  if (holdingsError) throw holdingsError
+
+  const insert = buildSnapshotInsert(
+    userId,
+    (holdings ?? []) as unknown as HoldingWithJoins[],
+    prices,
+    latestRates,
+  )
+  return persistSnapshot(insert)
 }
 
 // ─── Backfill Edge Function ─────────────────────────────────────────

@@ -8,11 +8,15 @@ import {
   type ReactNode,
 } from "react"
 import { useAuth } from "@/hooks/useAuth"
+import { useHoldings } from "@/hooks/useHoldings"
 import { usePrices } from "@/hooks/usePrices"
 import { useTransactionModal } from "@/contexts/TransactionContext"
+import { bn } from "@/lib/config"
 import {
   fetchSnapshots,
   createSnapshot,
+  buildSnapshotInsert,
+  persistSnapshot,
   deleteSnapshot,
 } from "@/lib/queries/snapshots"
 import type { Snapshot, PriceCache, ExchangeRate } from "@/types/database"
@@ -53,6 +57,7 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const { prices, rates, lastUpdated } = usePrices()
   const { txVersion } = useTransactionModal()
+  const { holdings } = useHoldings()
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -125,6 +130,15 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
   // trigger changes again, so the burst collapses to one canonical write.
   // Tx-driven writes use a much shorter window because they're discrete
   // user actions — see the constants above.
+  //
+  // Write path splits by trigger:
+  //   tx   → balances changed, so read holdings fresh from the server
+  //          (post-recalc) via createSnapshot and always write.
+  //   price→ balances are unchanged, so value the in-memory holdings and
+  //          skip the upsert entirely when today's total hasn't actually
+  //          moved (a cache re-read, tab refocus, or stale market window).
+  //          This is what stops the per-tick `snapshots` upsert + holdings
+  //          re-read that fired on every price poll.
   const lastTriggeredPriceRef = useRef<string | null>(null)
   const lastTriggeredTxVersionRef = useRef<number | null>(null)
   const userIdRef = useRef<string | null>(null)
@@ -150,14 +164,37 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
       ? TX_REFRESH_DEBOUNCE_MS
       : PRICE_REFRESH_DEBOUNCE_MS
 
+    const markSeen = () => {
+      lastTriggeredPriceRef.current = lastUpdated
+      lastTriggeredTxVersionRef.current = txVersion
+    }
+
     let cancelled = false
     const timer = setTimeout(() => {
       if (cancelled) return
-      lastTriggeredPriceRef.current = lastUpdated
-      lastTriggeredTxVersionRef.current = txVersion
       void (async () => {
         try {
-          await createSnapshot(user.id, prices, rates)
+          if (txUnseen) {
+            // A transaction changed balances — fetch fresh holdings and write.
+            markSeen()
+            await createSnapshot(user.id, prices, rates)
+          } else {
+            // Price-only change. Don't write a zero snapshot if holdings
+            // haven't loaded yet — leave the trigger unseen so a later
+            // holdings update re-evaluates.
+            if (holdings.length === 0) return
+            markSeen()
+            const insert = buildSnapshotInsert(user.id, holdings, prices, rates)
+            const todays = snapshots.find(
+              (s) => s.snapshot_date === insert.snapshot_date,
+            )
+            const unchanged =
+              todays != null &&
+              bn(insert.total_usd).eq(bn(todays.total_usd)) &&
+              bn(insert.total_try).eq(bn(todays.total_try))
+            if (unchanged) return
+            await persistSnapshot(insert)
+          }
           if (!cancelled) await load()
         } catch (err) {
           // Non-fatal: the dashboard will fall back to the previous
@@ -171,7 +208,7 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [user, prices, rates, lastUpdated, txVersion, load])
+  }, [user, prices, rates, lastUpdated, txVersion, load, holdings, snapshots])
 
   return (
     <SnapshotsContext.Provider
