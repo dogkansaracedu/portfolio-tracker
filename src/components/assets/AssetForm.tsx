@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AssetIcon } from "@/components/common/AssetIcon";
+import { derivePriceId } from "@/lib/priceId";
 
 const CATEGORIES = [
   { value: "stock_us", label: "US Stock" },
@@ -44,7 +45,7 @@ const TICKER_HINTS: Record<string, string> = {
 };
 
 const PRICE_ID_HINT =
-  "Provider id used to fetch price — e.g. BTC-USD, AAPL (Yahoo). Leave blank to use the ticker.";
+  "Provider id used to fetch price. Auto-filled for BIST/US stocks on Yahoo (THYAO → THYAO.IS); edit to override, or leave blank to use the ticker.";
 
 const ICON_URL_HINT =
   "Leave blank to auto-resolve a logo from the ticker. Paste an image URL to override.";
@@ -78,6 +79,10 @@ export function AssetForm({
   const [displayName, setDisplayName] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [priceSource, setPriceSource] = useState("manual");
+  // Whether the user has hand-edited Price ID. While false, Price ID
+  // auto-derives from the ticker (see handlers below); once true we leave
+  // their value alone.
+  const [priceIdDirty, setPriceIdDirty] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,16 +90,56 @@ export function AssetForm({
 
   useEffect(() => {
     if (open) {
-      setCategory(asset?.category ?? "stock_us");
-      setTicker(asset?.ticker ?? "");
-      setPriceId(asset?.price_id ?? "");
+      const nextCategory = asset?.category ?? "stock_us";
+      const nextTicker = asset?.ticker ?? "";
+      const nextSource = asset?.price_source ?? "manual";
+      const storedPriceId = asset?.price_id ?? "";
+      const derived = derivePriceId(nextTicker, nextCategory, nextSource);
+      setCategory(nextCategory);
+      setTicker(nextTicker);
+      // Show the stored symbol; if it was left blank (old fallback-to-ticker
+      // rows) fall back to the derived value so the field isn't empty.
+      setPriceId(storedPriceId || (derived ?? ""));
       setIconUrl(asset?.icon_url ?? "");
       setDisplayName(asset?.name ?? "");
       setTagsInput(asset?.tags?.join(", ") ?? "");
-      setPriceSource(asset?.price_source ?? "manual");
+      setPriceSource(nextSource);
+      // A stored price_id that already matches what we'd auto-derive stays
+      // "clean" so it keeps syncing as the ticker changes; anything else
+      // (custom symbol, crypto BTC-USD, etc.) is treated as a manual override.
+      setPriceIdDirty(storedPriceId !== "" && storedPriceId !== derived);
       setError(null);
     }
   }, [open, asset]);
+
+  // Re-derive Price ID from the ticker whenever the ticker, category, or
+  // source changes — unless the user has taken over the field. A null derive
+  // (non-Yahoo, or crypto/gold/fiat) clears the auto-filled value rather than
+  // leaving a stale symbol behind.
+  function syncPriceId(nextTicker: string, nextCategory: string, nextSource: string) {
+    if (priceIdDirty) return;
+    setPriceId(derivePriceId(nextTicker, nextCategory, nextSource) ?? "");
+  }
+
+  function handleTickerChange(value: string) {
+    setTicker(value);
+    syncPriceId(value, category, priceSource);
+  }
+
+  function handleCategoryChange(value: string) {
+    setCategory(value);
+    syncPriceId(ticker, value, priceSource);
+  }
+
+  function handlePriceSourceChange(value: string) {
+    setPriceSource(value);
+    syncPriceId(ticker, category, value);
+  }
+
+  function handlePriceIdChange(value: string) {
+    setPriceId(value);
+    setPriceIdDirty(true);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -153,7 +198,7 @@ export function AssetForm({
             <Label>Category</Label>
             <Select
               value={category}
-              onValueChange={(val) => setCategory(val as string)}
+              onValueChange={(val) => handleCategoryChange(val as string)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue>
@@ -176,7 +221,7 @@ export function AssetForm({
               id="asset-ticker"
               placeholder="e.g. BTC, AAPL, USD"
               value={ticker}
-              onChange={(e) => setTicker(e.target.value)}
+              onChange={(e) => handleTickerChange(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
               {TICKER_HINTS[category] ?? "Display shorthand for the asset."}
@@ -215,7 +260,7 @@ export function AssetForm({
             <Label>Price Source</Label>
             <Select
               value={priceSource}
-              onValueChange={(val) => setPriceSource(val as string)}
+              onValueChange={(val) => handlePriceSourceChange(val as string)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue>
@@ -238,7 +283,7 @@ export function AssetForm({
               id="asset-price-id"
               placeholder="e.g. BTC-USD, bitcoin"
               value={priceId}
-              onChange={(e) => setPriceId(e.target.value)}
+              onChange={(e) => handlePriceIdChange(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">{PRICE_ID_HINT}</p>
           </div>

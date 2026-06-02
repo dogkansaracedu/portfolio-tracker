@@ -8,7 +8,8 @@ import {
   type MidasHeaderField,
 } from "@/lib/constants/midas-pdf"
 import type { ParsedRow, ParseSummary } from "./parseImport"
-import { canonicalizeTicker, makeNewAssetSentinel } from "./sentinel"
+import { canonicalizeTicker } from "@/lib/priceId"
+import { makeNewAssetSentinel } from "./sentinel"
 
 const ROW_Y_TOLERANCE = 2
 const PHRASE_GAP_X = 4
