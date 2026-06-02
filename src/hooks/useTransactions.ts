@@ -17,39 +17,28 @@ import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
 import { ensureHistoricalRate } from "@/lib/queries/exchangeRates"
 import type { TransactionInsert, TransactionUpdate } from "@/types/database"
 
-export function useTransactions(filters?: TransactionFilters) {
+/**
+ * Transaction mutations (create / edit / delete) WITHOUT any list fetch.
+ *
+ * The mutation flows never read the fetched transaction list — they only need
+ * `user`, the global `refresh()`, and `bumpTxVersion()`. Keeping them in their
+ * own hook lets list-row / modal / sheet consumers grab a single action (e.g.
+ * `removeTransaction`) without each instance kicking off a full-table fetch.
+ * Rendering one row per transaction with the old combined hook fired N
+ * identical `fetchTransactions` requests per page; this hook fires none.
+ *
+ * After each mutation we call both refresh() and bumpTxVersion():
+ *   refresh()       — refetches the global SoT (TransactionDataContext) so
+ *                     all P&L / dashboard hooks see new data immediately.
+ *   bumpTxVersion() — signals locally-paginated views (useTransactionLog,
+ *                     useHoldings) to refetch their server-filtered slices.
+ * Both are load-bearing; they serve orthogonal consumers.
+ */
+export function useTransactionMutations() {
   const { user } = useAuth()
-  const { txVersion, bumpTxVersion } = useTransactionModal()
+  const { bumpTxVersion } = useTransactionModal()
   const { refresh } = useTransactionData()
-  const [transactions, setTransactions] = useState<TransactionWithDetails[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    if (!user) return
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchTransactions(user.id, filters)
-      setTransactions(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load transactions")
-    } finally {
-      setLoading(false)
-    }
-  }, [user, filters?.assetId, filters?.platformId, filters?.type, filters?.dateFrom, filters?.dateTo])
-
-  // Re-fetch on filter changes AND whenever any consumer bumps txVersion.
-  useEffect(() => {
-    load()
-  }, [load, txVersion])
-
-  // After each mutation we call both refresh() and bumpTxVersion():
-  //   refresh()       — refetches the global SoT (TransactionDataContext) so
-  //                     all P&L / dashboard hooks see new data immediately.
-  //   bumpTxVersion() — signals locally-paginated views (useTransactionLog,
-  //                     useHoldings) to refetch their server-filtered slices.
-  // Both are load-bearing; they serve orthogonal consumers.
   const addTransaction = async (
     data: Omit<TransactionInsert, "user_id">,
     options?: { fundingPlatformId?: string | null },
@@ -206,13 +195,49 @@ export function useTransactions(filters?: TransactionFilters) {
     bumpTxVersion()
   }
 
+  return { addTransaction, editTransaction, removeTransaction }
+}
+
+/**
+ * Server-filtered transaction list + the mutations. Use this only when you
+ * actually need the fetched `transactions`; consumers that just need an action
+ * (a row's delete button, the add/edit modal, the bulk sheet) should call
+ * {@link useTransactionMutations} instead so they don't trigger a redundant
+ * full-table fetch on mount.
+ */
+export function useTransactions(filters?: TransactionFilters) {
+  const { user } = useAuth()
+  const { txVersion } = useTransactionModal()
+  const [transactions, setTransactions] = useState<TransactionWithDetails[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    if (!user) return
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await fetchTransactions(user.id, filters)
+      setTransactions(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load transactions")
+    } finally {
+      setLoading(false)
+    }
+  }, [user, filters?.assetId, filters?.platformId, filters?.type, filters?.dateFrom, filters?.dateTo])
+
+  // Re-fetch on filter changes AND whenever any consumer bumps txVersion.
+  useEffect(() => {
+    load()
+  }, [load, txVersion])
+
+  const mutations = useTransactionMutations()
+
   return {
     transactions,
     loading,
     error,
-    addTransaction,
-    editTransaction,
-    removeTransaction,
+    ...mutations,
     refetch: load,
   }
 }

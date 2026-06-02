@@ -23,7 +23,7 @@ import { TransactionTypeBadge } from "@/components/transactions/TransactionTypeS
 import { PlatformDot } from "@/components/common/PlatformDot"
 import { formatCurrency } from "@/lib/prices"
 import { useTransactionModal } from "@/contexts/TransactionContext"
-import { useTransactions } from "@/hooks/useTransactions"
+import { useTransactionMutations } from "@/hooks/useTransactions"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { convertOnDate, fromUsdOnDate } from "@/lib/pnl/currency"
 import { BN_HUNDRED } from "@/lib/config"
@@ -64,7 +64,7 @@ export function TransactionRow({
 }: Props) {
   const tx = transaction
   const { openTransactionModal } = useTransactionModal()
-  const { removeTransaction } = useTransactions()
+  const { removeTransaction } = useTransactionMutations()
   const { rates } = useTransactionData()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)

@@ -22,7 +22,7 @@ import { PlatformCell } from "./cells/PlatformCell"
 import { TypeCell } from "./cells/TypeCell"
 import { NumberCell } from "./cells/NumberCell"
 import { TotalCostCell } from "./cells/TotalCostCell"
-import { useTransactions } from "@/hooks/useTransactions"
+import { useTransactionMutations } from "@/hooks/useTransactions"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import {
@@ -126,12 +126,10 @@ export function TransactionsSheetGrid({
   // before commitSaveSuccess lands.
   const savingRef = useRef(false)
   // editTransaction + removeTransaction stay per-row (rare in the bulk-add
-  // path); inserts now batch through the bulk_insert_transactions RPC.
-  const { editTransaction, removeTransaction } = useTransactions(
-    assetId
-      ? { assetId, includeLinkedChildren: true }
-      : { includeLinkedChildren: false },
-  )
+  // path); inserts now batch through the bulk_insert_transactions RPC. The
+  // grid fetches its own rows below, so we only want the mutation actions —
+  // no second full-table fetch from the hook.
+  const { editTransaction, removeTransaction } = useTransactionMutations()
 
   useEffect(() => {
     if (!user) return
