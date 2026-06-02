@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { useSearchParams } from "react-router"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
@@ -18,6 +18,16 @@ export interface TransactionLogSummary {
   count: number
   totalBuyVolume: number
   totalSellVolume: number
+}
+
+/** ISO date (YYYY-MM-DD) for Jan 1 of the current year — the start of the "This Year" range. */
+export function thisYearStartISO(): string {
+  return `${new Date().getFullYear()}-01-01`
+}
+
+/** Filters applied on a fresh visit: the current year, rather than the full history. */
+function defaultFilters(): TransactionLogFilters {
+  return { dateFrom: thisYearStartISO() }
 }
 
 function filtersFromParams(params: URLSearchParams): TransactionLogFilters {
@@ -47,6 +57,19 @@ export function useTransactionLog() {
   const setFilters = (next: TransactionLogFilters) =>
     setSearchParams(filtersToParams(next), { replace: true })
   const { rates } = useTransactionData()
+
+  // On the first visit with no filters in the URL, default to the current year
+  // so we don't load the entire history. The ref guard ensures this fires once
+  // per mount, so explicitly choosing "All Time" (which also clears the params)
+  // doesn't bounce straight back to this year.
+  const initialized = useRef(false)
+  useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
+    if (searchParams.toString() === "") {
+      setSearchParams(filtersToParams(defaultFilters()), { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   // Pass date, asset, and platform filters to the server query
   const serverFilters = useMemo(
