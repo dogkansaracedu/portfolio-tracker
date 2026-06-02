@@ -31,7 +31,7 @@ import { FundingSourceSelect } from "./FundingSourceSelect"
 import { PlatformDot } from "@/components/common/PlatformDot"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
-import { useTransactions } from "@/hooks/useTransactions"
+import { useTransactionMutations } from "@/hooks/useTransactions"
 import { useHoldings } from "@/hooks/useHoldings"
 import { useAuth } from "@/hooks/useAuth"
 import { usePrices } from "@/hooks/usePrices"
@@ -70,7 +70,7 @@ interface Props {
 export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const { user } = useAuth()
   const { modalState, closeTransactionModal } = useTransactionModal()
-  const { addTransaction, editTransaction } = useTransactions()
+  const { addTransaction, editTransaction } = useTransactionMutations()
   const { holdings, getTotalBalance, getHoldingsForAsset } = useHoldings()
   const { transactions, rates } = useTransactionData()
   const { prices } = usePrices()
