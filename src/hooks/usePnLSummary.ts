@@ -36,8 +36,7 @@ export function usePnLSummary(): PnLSummary {
 
   return useMemo(() => {
     const { totalPnlUsd, totalPnlPct } = summarizePnLTotals({
-      totalUnrealizedPnlUsd,
-      totalRealizedPnlUsd,
+      totalCurrentValueUsd,
       totalInvestedUsd,
     })
     const rate = bn(usdTry)
