@@ -5,6 +5,15 @@
 ## Overview
 Implement the FIFO cost basis calculation engine for realized and unrealized P&L. Build the currency normalization layer that converts all transaction prices to USD using historical exchange rates. Pure computation layer — no new UI pages, provides data consumed by Dashboard, Portfolio, and Transactions pages.
 
+> **Headline P&L is money-weighted, not FIFO sum.** The canonical *total* is
+> `current value − net invested capital` (USD anchor) — see
+> [P&L Methodology](../pnl-methodology.md). FIFO realized/unrealized are
+> sub-views. **Update (2026-06-03):** fiat holdings are no longer zero-P&L —
+> they carry FX gain/loss (cost basis = net USD deployed into that currency, via
+> `computeCurrentInvestedUsd`), so EUR/TRY swings vs USD count. `fifo.ts` itself
+> still ignores `cash_credit`/`cash_debit`; the fiat FX figure comes from the
+> cash-flow invested path, not the FIFO engine.
+
 ## Dependencies
 - Component 4 (Transaction System)
 - Component 5 (Price Engine)
@@ -71,13 +80,14 @@ src/
    - FIFO engine treats transfer_in like a buy at that cost
    - **Update Component 4's transfer flow** to call FIFO engine for cost calculation
 
-9. **Fiat asset P&L**: Skip P&L for `category === 'fiat'`. Just show current value, return zero P&L
+9. **Fiat asset P&L** (updated 2026-06-03): Fiat holdings carry **FX P&L**, not zero. They skip the FIFO lot engine (cash isn't a tradeable position), but their cost basis = the net USD deployed into that currency (`computeCurrentInvestedUsd` over the holding's own transactions), so `currentValueUsd − costBasisUsd` is the real EUR/TRY-vs-USD swing, surfaced as unrealized P&L. This keeps the money-weighted total reconciled with the per-asset breakdown. See [P&L Methodology](../pnl-methodology.md).
 
 ## Key Decisions
+- **Total P&L is money-weighted** (canonical, 2026-06-03): `current value − net invested capital`, USD-anchored — not a FIFO `unrealized + realized` sum. FIFO realized/unrealized are sub-views. This makes the headline include FX on fiat and keeps the Dashboard hero's live "now" point equal to the snapshot-derived chart line, so period deltas are the true value change. See [P&L Methodology](../pnl-methodology.md).
 - **FIFO runs client-side**: With <10,000 transactions, fast enough in browser. No server computation needed
 - **Exchange rates fetched once and cached**: Small table, binary-search for lookups
 - **Transfer cost basis via weighted average**: Simplified for MVP. Accurate enough, avoids cross-asset lot tracking complexity
-- **Fiat P&L skipped**: Computing TRY/USD/EUR P&L is complex and low-value for MVP
+- **Fiat FX P&L** (was: skipped for MVP): TRY/USD/EUR holdings now carry FX gain/loss vs the USD anchor (cost basis = net USD deployed into that currency). Required so the money-weighted total reconciles and so a large fiat balance (e.g. EUR) doesn't silently hide a real FX gain
 - **Fee transactions = realized losses**: `fee_amount * current_price_usd` keeps balance math correct
 - **No P&L stored in DB**: Computed on-the-fly. Avoids staleness and complex invalidation
 - **Cost basis stays FIFO-from-`transactions`** while current value comes from the snapshot (Component 10). Cost basis has no second source to drift against; current value is shared with the dashboard so totals always agree. Net-invested-capital (used for total-return % anchoring) accounts for cash-side rows so a sell that lands cash on-platform doesn't double-count: the proceeds leave "invested" via the sell rule and the paired `cash_credit` adds them back, netting zero invested change.
@@ -89,4 +99,5 @@ src/
 - [ ] Unrealized P&L uses current price vs. cost basis of remaining lots
 - [ ] Transfers preserve cost basis (no realized P&L on transfer)
 - [ ] usePnL returns correct data for UI components
-- [ ] Fiat assets return zero P&L without errors
+- [ ] Fiat assets report FX P&L (current USD value − net USD deployed into that currency), reconciling with the money-weighted total
+- [ ] Total P&L equals current value − net invested capital (money-weighted), and the hero's live "now" point matches the snapshot-derived chart line
