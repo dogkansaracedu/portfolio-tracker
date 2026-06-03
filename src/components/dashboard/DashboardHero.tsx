@@ -332,11 +332,11 @@ export default function DashboardHero({
           </span>
           <span className="text-muted-foreground">Portfolio</span>
           <span className="text-right font-medium">
-            {obfuscate(formatSignedPercent(pnlPctVal, 2), obfuscated)}
+            {formatSignedPercent(pnlPctVal, 2)}
           </span>
           <span className="text-muted-foreground">{activeBenchmark.label}</span>
           <span className="text-right font-medium">
-            {obfuscate(formatSignedPercent(point.benchmarkPct, 2), obfuscated)}
+            {formatSignedPercent(point.benchmarkPct, 2)}
           </span>
         </div>
       </div>
@@ -411,7 +411,7 @@ export default function DashboardHero({
                   P&L tab's "Total" subtitle. Hide it here. */}
               {timeRange !== "ALL" && (
                 <span className={cn("font-medium", periodColor)}>
-                  {obfuscate(formatSignedPercent(delta.pct, 2), obfuscated)}
+                  {formatSignedPercent(delta.pct, 2)}
                 </span>
               )}
               <span className="font-normal text-muted-foreground">
@@ -434,7 +434,7 @@ export default function DashboardHero({
           ) : (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className={cn("font-medium", periodColor)}>
-                {obfuscate(formatSignedPercent(delta.pct, 2), obfuscated)}
+                {formatSignedPercent(delta.pct, 2)}
               </span>
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">
@@ -448,7 +448,7 @@ export default function DashboardHero({
                     obfuscated,
                   )}
                 </span>{" "}
-                ({obfuscate(formatSignedPercent(totalPnlPctNow, 2), obfuscated)})
+                ({formatSignedPercent(totalPnlPctNow, 2)})
               </span>
               <span className="text-muted-foreground">·</span>
               <DropdownMenu>
@@ -458,7 +458,7 @@ export default function DashboardHero({
                   <span>
                     {activeBenchmark.label}{" "}
                     <span className="font-medium text-foreground">
-                      {obfuscate(formatSignedPercent(compareNow.pct, 2), obfuscated)}
+                      {formatSignedPercent(compareNow.pct, 2)}
                     </span>
                   </span>
                   <ChevronDown className="size-3" />
