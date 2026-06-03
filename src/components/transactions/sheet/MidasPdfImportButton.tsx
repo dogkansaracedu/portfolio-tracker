@@ -80,7 +80,7 @@ export function MidasPdfImportButton({ assets, platforms, onAppend }: Props) {
           </Button>
         }
       />
-      <PopoverContent className="w-[480px] p-0" align="start">
+      <PopoverContent className="w-[480px] max-w-[calc(100vw-2rem)] p-0" align="start">
         <div className="space-y-3 p-4">
           <div className="text-sm font-medium">Import Midas PDF statement</div>
           <p className="text-xs text-muted-foreground">

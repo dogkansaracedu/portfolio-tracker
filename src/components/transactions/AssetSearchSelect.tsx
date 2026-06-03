@@ -47,7 +47,7 @@ export function AssetSearchSelect({ assets, value, onChange }: Props) {
         </span>
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
-      <PopoverContent className="w-[350px] p-0" align="start">
+      <PopoverContent className="w-[350px] max-w-[calc(100vw-2rem)] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search by name or ticker..." />
           <CommandList>

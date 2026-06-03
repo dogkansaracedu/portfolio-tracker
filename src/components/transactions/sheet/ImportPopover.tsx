@@ -77,7 +77,7 @@ export function ImportPopover({
           </Button>
         }
       />
-      <PopoverContent className="w-[560px] p-0" align="start">
+      <PopoverContent className="w-[560px] max-w-[calc(100vw-2rem)] p-0" align="start">
         <Tabs defaultValue="paste">
           <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
             <TabsTrigger value="paste" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary">
