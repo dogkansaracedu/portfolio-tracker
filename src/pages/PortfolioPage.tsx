@@ -20,6 +20,9 @@ export default function PortfolioPage() {
     setGroupBy,
     sortBy,
     setSortBy,
+    returnMode,
+    setReturnMode,
+    dailyReturnAvailable,
   } = usePortfolio()
 
   return (
@@ -51,6 +54,8 @@ export default function PortfolioPage() {
         onGroupByChange={setGroupBy}
         sortBy={sortBy}
         onSortByChange={setSortBy}
+        returnMode={returnMode}
+        onReturnModeChange={setReturnMode}
       />
 
       {/* Table / loading state */}
@@ -59,7 +64,11 @@ export default function PortfolioPage() {
           <p className="text-sm text-muted-foreground">Loading portfolio...</p>
         </div>
       ) : (
-        <PortfolioTable groups={groups} />
+        <PortfolioTable
+          groups={groups}
+          returnMode={returnMode}
+          dailyReturnAvailable={dailyReturnAvailable}
+        />
       )}
     </div>
   )
