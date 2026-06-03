@@ -60,6 +60,7 @@ const TIME_RANGES: { id: TimeRange; label: string }[] = [
   { id: "3M", label: "3M" },
   { id: "YTD", label: "YTD" },
   { id: "1Y", label: "1Y" },
+  { id: "2Y", label: "2Y" },
   { id: "ALL", label: "ALL" },
 ]
 
@@ -76,6 +77,7 @@ const RANGE_LABELS: Record<TimeRange, string> = {
   "6M": "past 6 months",
   YTD: "year to date",
   "1Y": "past year",
+  "2Y": "past 2 years",
   ALL: "all time",
 }
 
