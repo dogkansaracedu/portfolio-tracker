@@ -36,6 +36,26 @@ function formatQuantity(balance: number, category: string): string {
   }).format(balance)
 }
 
+// Current per-unit price in the asset's native currency (TRY natives also show
+// the USD equivalent in parentheses). Shared by the desktop row and the mobile
+// card so the two never drift. We only have USD + TRY price columns, so non-TRY
+// natives (EUR) fall back to USD.
+function CurrentPrice({ asset }: { asset: EnrichedAsset }) {
+  const showNative = assetNativeCurrency(asset) === "TRY"
+  return (
+    <>
+      {showNative
+        ? formatCurrency(asset.currentPriceTry, "TRY")
+        : formatCurrency(asset.currentPriceUsd, "USD")}
+      {showNative && (
+        <span className="ml-1 text-xs text-muted-foreground">
+          (~{formatCurrency(asset.currentPriceUsd, "USD")})
+        </span>
+      )}
+    </>
+  )
+}
+
 // ─── Desktop Table Row ──────────────────────────────────────────────
 
 export function PortfolioRow({
@@ -121,14 +141,7 @@ export function PortfolioRow({
       </TableCell>
 
       <TableCell className="text-right tabular-nums">
-        {showNative
-          ? formatCurrency(asset.currentPriceTry, "TRY")
-          : formatCurrency(asset.currentPriceUsd, "USD")}
-        {showNative && (
-          <span className="ml-1 text-xs text-muted-foreground">
-            (~{formatCurrency(asset.currentPriceUsd, "USD")})
-          </span>
-        )}
+        <CurrentPrice asset={asset} />
       </TableCell>
 
       <TableCell className="text-right tabular-nums font-semibold">
@@ -209,6 +222,9 @@ export function PortfolioRowCard({
             <AssetIcon asset={asset} size="sm" />
             <span className="font-medium">{asset.ticker}</span>
           </div>
+          <span className="tabular-nums text-sm">
+            <CurrentPrice asset={asset} />
+          </span>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {asset.holdings.map((h) => (
               <span key={h.platformId} className="flex items-center gap-1">
