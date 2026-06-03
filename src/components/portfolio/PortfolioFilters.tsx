@@ -8,7 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { GroupBy, SortBy } from "@/hooks/usePortfolio"
+import type { GroupBy, SortBy, ReturnMode } from "@/hooks/usePortfolio"
+import { RETURN_MODE_LABELS } from "@/lib/constants/portfolio"
 
 const SORT_LABELS: Record<SortBy, string> = {
   value: "Sort: Value",
@@ -23,6 +24,8 @@ interface PortfolioFiltersProps {
   onGroupByChange: (value: GroupBy) => void
   sortBy: SortBy
   onSortByChange: (value: SortBy) => void
+  returnMode: ReturnMode
+  onReturnModeChange: (value: ReturnMode) => void
 }
 
 export function PortfolioFilters({
@@ -32,6 +35,8 @@ export function PortfolioFilters({
   onGroupByChange,
   sortBy,
   onSortByChange,
+  returnMode,
+  onReturnModeChange,
 }: PortfolioFiltersProps) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -47,6 +52,21 @@ export function PortfolioFilters({
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Return mode toggle */}
+        <ToggleGroup
+          value={[returnMode]}
+          onValueChange={(newValue: string[]) => {
+            if (newValue.length > 0) {
+              onReturnModeChange(newValue[0] as ReturnMode)
+            }
+          }}
+          variant="outline"
+          size="sm"
+        >
+          <ToggleGroupItem value="total">{RETURN_MODE_LABELS.total}</ToggleGroupItem>
+          <ToggleGroupItem value="daily">{RETURN_MODE_LABELS.daily}</ToggleGroupItem>
+        </ToggleGroup>
+
         {/* Group by toggle */}
         <ToggleGroup
           value={[groupBy]}

@@ -13,12 +13,14 @@ import {
   gainLossClass,
   obfuscate,
 } from "@/lib/prices"
-import type { EnrichedAsset } from "@/hooks/usePortfolio"
+import type { EnrichedAsset, ReturnMode } from "@/hooks/usePortfolio"
 import { assetNativeCurrency } from "@/lib/constants/assets"
 import { AssetIcon } from "@/components/common/AssetIcon"
 
 interface PortfolioRowProps {
   asset: EnrichedAsset
+  returnMode: ReturnMode
+  dailyReturnAvailable: boolean
 }
 
 function formatQuantity(balance: number, category: string): string {
@@ -36,7 +38,11 @@ function formatQuantity(balance: number, category: string): string {
 
 // ─── Desktop Table Row ──────────────────────────────────────────────
 
-export function PortfolioRow({ asset }: PortfolioRowProps) {
+export function PortfolioRow({
+  asset,
+  returnMode,
+  dailyReturnAvailable,
+}: PortfolioRowProps) {
   const { currency, obfuscated } = useDisplayCurrency()
   const { openTransactionModal } = useTransactionModal()
   const o = (v: string) => obfuscate(v, obfuscated)
@@ -59,7 +65,11 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
 
   const displayValue =
     currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
-  const pnlIsPositive = asset.unrealizedPnlUsd >= 0
+  const isDaily = returnMode === "daily"
+  const showReturn = !isDaily || dailyReturnAvailable
+  const returnUsd = isDaily ? asset.dailyReturnUsd : asset.unrealizedPnlUsd
+  const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
+  const returnIsPositive = returnUsd >= 0
 
   return (
     <TableRow>
@@ -126,14 +136,20 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
       </TableCell>
 
       <TableCell className="text-right">
-        <div className="flex flex-col items-end">
-          <span className={gainLossClass(pnlIsPositive)}>
-            {o(formatSignedCurrency(asset.unrealizedPnlUsd, "USD"))}
-          </span>
-          <span className={`text-xs ${gainLossClass(pnlIsPositive)}`}>
-            {formatSignedPercent(asset.unrealizedPnlPct)}
-          </span>
-        </div>
+        {showReturn ? (
+          <div className="flex flex-col items-end">
+            <span className={gainLossClass(returnIsPositive)}>
+              {o(formatSignedCurrency(returnUsd, "USD"))}
+            </span>
+            {returnPct !== null && (
+              <span className={`text-xs ${gainLossClass(returnIsPositive)}`}>
+                {formatSignedPercent(returnPct)}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
       </TableCell>
 
       <TableCell className="text-right">
@@ -166,13 +182,21 @@ export function PortfolioRow({ asset }: PortfolioRowProps) {
 
 // ─── Mobile Card ────────────────────────────────────────────────────
 
-export function PortfolioRowCard({ asset }: PortfolioRowProps) {
+export function PortfolioRowCard({
+  asset,
+  returnMode,
+  dailyReturnAvailable,
+}: PortfolioRowProps) {
   const { currency } = useDisplayCurrency()
   const { openTransactionModal } = useTransactionModal()
 
   const displayValue =
     currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
-  const pnlIsPositive = asset.unrealizedPnlUsd >= 0
+  const isDaily = returnMode === "daily"
+  const showReturn = !isDaily || dailyReturnAvailable
+  const returnUsd = isDaily ? asset.dailyReturnUsd : asset.unrealizedPnlUsd
+  const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
+  const returnIsPositive = returnUsd >= 0
 
   return (
     <Card size="sm">
@@ -202,11 +226,19 @@ export function PortfolioRowCard({ asset }: PortfolioRowProps) {
           <span className="font-semibold">
             {formatCurrency(displayValue, currency)}
           </span>
-          <span className={`text-xs ${gainLossClass(pnlIsPositive)}`}>
-            {formatSignedCurrency(asset.unrealizedPnlUsd, "USD")}
-            {" "}
-            ({formatSignedPercent(asset.unrealizedPnlPct)})
-          </span>
+          {showReturn ? (
+            <span className={`text-xs ${gainLossClass(returnIsPositive)}`}>
+              {formatSignedCurrency(returnUsd, "USD")}
+              {returnPct !== null && (
+                <>
+                  {" "}
+                  ({formatSignedPercent(returnPct)})
+                </>
+              )}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
           <Button
             variant="ghost"
             size="xs"

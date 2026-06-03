@@ -3,27 +3,37 @@ import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import {
   formatCurrency,
   formatSignedCurrency,
+  formatSignedPercent,
   gainLossClass,
   obfuscate,
 } from "@/lib/prices"
-import type { AssetGroup } from "@/hooks/usePortfolio"
+import type { AssetGroup, ReturnMode } from "@/hooks/usePortfolio"
 
 interface PortfolioGroupHeaderProps {
   group: AssetGroup
   colSpan: number
+  returnMode: ReturnMode
+  dailyReturnAvailable: boolean
 }
 
 export function PortfolioGroupHeader({
   group,
   colSpan,
+  returnMode,
+  dailyReturnAvailable,
 }: PortfolioGroupHeaderProps) {
   const { currency, obfuscated } = useDisplayCurrency()
   const o = (v: string) => obfuscate(v, obfuscated)
 
   const displayValue =
     currency === "USD" ? group.totalValueUsd : group.totalValueTry
-  const displayPnl = group.totalPnlUsd
-  const pnlIsPositive = displayPnl >= 0
+
+  const isDaily = returnMode === "daily"
+  // Daily mode with no prior snapshot → no figure to show.
+  const showReturn = !isDaily || dailyReturnAvailable
+  const returnUsd = isDaily ? group.dailyReturnUsd : group.totalPnlUsd
+  const returnPct = isDaily ? group.dailyReturnPct : null
+  const returnIsPositive = returnUsd >= 0
 
   return (
     <TableRow className="bg-muted/30 hover:bg-muted/40">
@@ -45,9 +55,18 @@ export function PortfolioGroupHeader({
             <span className="font-medium">
               {o(formatCurrency(displayValue, currency))}
             </span>
-            <span className={gainLossClass(pnlIsPositive)}>
-              {o(formatSignedCurrency(displayPnl, "USD"))}
-            </span>
+            {showReturn ? (
+              <span className={gainLossClass(returnIsPositive)}>
+                {o(formatSignedCurrency(returnUsd, "USD"))}
+                {isDaily && returnPct !== null && (
+                  <span className="ml-1 text-xs">
+                    {formatSignedPercent(returnPct, 2)}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
           </div>
         </div>
       </TableCell>

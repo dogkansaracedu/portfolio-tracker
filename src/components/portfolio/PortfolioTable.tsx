@@ -7,15 +7,25 @@ import {
 } from "@/components/ui/table"
 import { PortfolioGroupHeader } from "@/components/portfolio/PortfolioGroupHeader"
 import { PortfolioRow, PortfolioRowCard } from "@/components/portfolio/PortfolioRow"
-import type { AssetGroup } from "@/hooks/usePortfolio"
+import type { AssetGroup, ReturnMode } from "@/hooks/usePortfolio"
+import {
+  RETURN_COLUMN_LABEL_TOTAL,
+  RETURN_COLUMN_LABEL_DAILY,
+} from "@/lib/constants/portfolio"
 
 interface PortfolioTableProps {
   groups: AssetGroup[]
+  returnMode: ReturnMode
+  dailyReturnAvailable: boolean
 }
 
 const COL_COUNT = 9
 
-export function PortfolioTable({ groups }: PortfolioTableProps) {
+export function PortfolioTable({
+  groups,
+  returnMode,
+  dailyReturnAvailable,
+}: PortfolioTableProps) {
   if (groups.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
@@ -37,14 +47,23 @@ export function PortfolioTable({ groups }: PortfolioTableProps) {
               <TableHead className="text-right">Bought</TableHead>
               <TableHead className="text-right">Price</TableHead>
               <TableHead className="text-right">Value</TableHead>
-              <TableHead className="text-right">P&L</TableHead>
+              <TableHead className="text-right">
+                {returnMode === "daily"
+                  ? RETURN_COLUMN_LABEL_DAILY
+                  : RETURN_COLUMN_LABEL_TOTAL}
+              </TableHead>
               <TableHead className="text-right">Alloc.</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {groups.map((group) => (
-              <GroupSection key={group.key} group={group} />
+              <GroupSection
+                key={group.key}
+                group={group}
+                returnMode={returnMode}
+                dailyReturnAvailable={dailyReturnAvailable}
+              />
             ))}
           </TableBody>
         </Table>
@@ -71,7 +90,12 @@ export function PortfolioTable({ groups }: PortfolioTableProps) {
               </span>
             </div>
             {group.assets.map((asset) => (
-              <PortfolioRowCard key={asset.id} asset={asset} />
+              <PortfolioRowCard
+                key={asset.id}
+                asset={asset}
+                returnMode={returnMode}
+                dailyReturnAvailable={dailyReturnAvailable}
+              />
             ))}
           </div>
         ))}
@@ -82,12 +106,30 @@ export function PortfolioTable({ groups }: PortfolioTableProps) {
 
 // ─── Group section (desktop table) ──────────────────────────────────
 
-function GroupSection({ group }: { group: AssetGroup }) {
+function GroupSection({
+  group,
+  returnMode,
+  dailyReturnAvailable,
+}: {
+  group: AssetGroup
+  returnMode: ReturnMode
+  dailyReturnAvailable: boolean
+}) {
   return (
     <>
-      <PortfolioGroupHeader group={group} colSpan={COL_COUNT} />
+      <PortfolioGroupHeader
+        group={group}
+        colSpan={COL_COUNT}
+        returnMode={returnMode}
+        dailyReturnAvailable={dailyReturnAvailable}
+      />
       {group.assets.map((asset) => (
-        <PortfolioRow key={asset.id} asset={asset} />
+        <PortfolioRow
+          key={asset.id}
+          asset={asset}
+          returnMode={returnMode}
+          dailyReturnAvailable={dailyReturnAvailable}
+        />
       ))}
     </>
   )
