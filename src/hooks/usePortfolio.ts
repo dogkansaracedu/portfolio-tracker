@@ -440,12 +440,11 @@ export function usePortfolio(): UsePortfolioReturn {
     ? 0
     : totalUnrealizedPnlUsd.div(totalCostBasisUsd).times(100).toNumber()
 
-  // Total P&L = unrealized + realized, shared with the Dashboard via
-  // summarizePnLTotals so both pages show the identical headline.
+  // Total P&L = current value − net invested (money-weighted), shared with the
+  // Dashboard via summarizePnLTotals so both pages show the identical headline.
   const { totalPnlUsd: totalPnlUsdBn, totalPnlPct: totalPnlPctBn } =
     summarizePnLTotals({
-      totalUnrealizedPnlUsd,
-      totalRealizedPnlUsd,
+      totalCurrentValueUsd,
       totalInvestedUsd,
     })
   const totalPnlPct = totalPnlPctBn.toNumber()

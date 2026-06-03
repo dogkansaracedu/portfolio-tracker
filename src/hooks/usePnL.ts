@@ -117,20 +117,32 @@ export function usePnL(
       const liveBalanceBn = bn(h.balance)
 
       if (h.assets.is_currency) {
-        // Fiat: value = balance × snapshot-or-live price; cost basis
-        // matches value (no realized P&L from price changes).
+        // Fiat: USD value = balance × price. The cost basis is the net USD
+        // actually deployed to build this cash pile — conversions/deposits in,
+        // withdrawals out, and the cash legs of trades funded from or settled
+        // into it — i.e. the same cash-flow invested figure the money-weighted
+        // total uses (computeCurrentInvestedUsd), scoped to this holding's
+        // transactions. The gap between today's USD value and that deployed USD
+        // is real FX gain/loss (e.g. EUR appreciating, TRY depreciating vs USD).
+        // We surface it as unrealized P&L instead of forcing it to zero, so the
+        // money-weighted total (value − net invested) reconciles with the
+        // per-asset breakdown. Native P&L stays nil by construction (€X in, €X
+        // held); the gain is purely the USD anchor moving.
         const currentValueUsd = liveBalanceBn.times(bn(snapshotPriceUsd))
+        const fiatCostBasisUsd = bn(
+          computeCurrentInvestedUsd(grouped[key] ?? [], rates),
+        )
         holdingPnLs.push({
           assetId: h.asset_id,
           ticker,
           category,
-          costBasisUsd: currentValueUsd,
+          costBasisUsd: fiatCostBasisUsd,
           // A fiat balance is worth 1 unit of itself; its native cost is the
           // balance, in its own currency (ticker).
           costBasisNative: liveBalanceBn,
           nativeCurrency: ticker,
           currentValueUsd,
-          unrealizedPnlUsd: BN_ZERO,
+          unrealizedPnlUsd: currentValueUsd.minus(fiatCostBasisUsd),
           realizedPnlUsd: BN_ZERO,
         })
         continue
