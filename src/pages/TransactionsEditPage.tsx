@@ -37,8 +37,8 @@ export default function TransactionsEditPage() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       {/* Dark header (flex item — height auto, no sticky needed) */}
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b bg-zinc-900 px-6 py-4 text-zinc-100">
-        <div className="flex items-center gap-4">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-zinc-900 px-4 py-4 text-zinc-100 md:gap-4 md:px-6">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4">
           <h1 className="text-xl font-medium">{title}</h1>
           {asset && (
             <span className="text-sm text-zinc-400">{asset.name}</span>
@@ -96,7 +96,7 @@ export default function TransactionsEditPage() {
       </main>
 
       {/* Dark footer */}
-      <footer className="flex shrink-0 items-center justify-between gap-4 border-t bg-zinc-900 px-6 py-4 text-zinc-100">
+      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-zinc-900 px-4 py-4 text-zinc-100 md:gap-4 md:px-6">
         <Button
           variant="ghost"
           size="sm"

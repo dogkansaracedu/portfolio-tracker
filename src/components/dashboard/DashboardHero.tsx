@@ -385,7 +385,7 @@ export default function DashboardHero({
           </p>
           <p
             className={cn(
-              "text-3xl font-bold tracking-tight md:text-4xl",
+              "text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl",
               viewMode === "pnl" && periodColor,
             )}
           >

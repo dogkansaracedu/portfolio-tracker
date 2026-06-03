@@ -33,7 +33,7 @@ export default function NetWorthCard({
           </p>
         ) : (
           <div className="space-y-1">
-            <p className="text-3xl font-bold tracking-tight">
+            <p className="text-2xl font-bold tracking-tight sm:text-3xl">
               {obfuscate(formatCurrency(primaryValue, currency), obfuscated)}
             </p>
             <p className="text-sm text-muted-foreground">
