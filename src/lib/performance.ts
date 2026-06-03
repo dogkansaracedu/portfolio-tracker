@@ -11,6 +11,7 @@ export type TimeRange =
   | "6M"
   | "YTD"
   | "1Y"
+  | "2Y"
   | "ALL"
 
 export interface PnLPoint {
@@ -99,6 +100,9 @@ export function filterByTimeRange(
     case "1Y":
       cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
       break
+    case "2Y":
+      cutoff = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate())
+      break
   }
 
   const cutoffStr = localIso(cutoff)
@@ -115,7 +119,8 @@ export function filterByTimeRange(
     range === "3M" ||
     range === "6M" ||
     range === "YTD" ||
-    range === "1Y"
+    range === "1Y" ||
+    range === "2Y"
 
   if (supportsAnchor) {
     let anchorIdx = -1
