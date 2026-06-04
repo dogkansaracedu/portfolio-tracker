@@ -46,7 +46,8 @@
   and **export is still not built**. `SettingsPage` is just 3 tabs.
 - **Theme is NOT next-themes.** The brief mentioned next-themes; the code is a
   bespoke context (`ThemeContext.tsx`) writing `localStorage["theme"]` and toggling
-  the `.dark` class itself. If you go looking for `next-themes`, it isn't wired in.
+  the `.dark` class itself. `next-themes` is present but only the toast
+  (`ui/sonner.tsx`) consumes it — it is not the app theme system.
   Initial read happens in `useState(readInitial)` so there's no theme flash.
 - **Two different storage key conventions.** Theme uses the bare key `"theme"`;
   display currency/obfuscation use `"portfolio-"`-prefixed keys. All writes are
