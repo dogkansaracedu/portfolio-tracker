@@ -90,6 +90,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const [feeCurrency, setFeeCurrency] = useState("USD")
   const [destPlatformId, setDestPlatformId] = useState<string>("")
   const [relatedAssetId, setRelatedAssetId] = useState<string>("")
+  const [receivedAs, setReceivedAs] = useState<"units" | "cash">("units")
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
@@ -119,6 +120,11 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
       setFeeCurrency(editing.fee_currency || "USD")
       setDestPlatformId("")
       setRelatedAssetId(editing.related_asset_id ?? "")
+      setReceivedAs(
+        editing && assets.find((a) => a.id === editing.asset_id)?.is_currency
+          ? "cash"
+          : "units",
+      )
       setNotes(editing.notes ?? "")
       ;(async () => {
         if (editing.type !== TRANSACTION_TYPES.BUY) {
@@ -151,6 +157,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     setFeeCurrency(DEFAULT_CURRENCY)
     setDestPlatformId("")
     setRelatedAssetId("")
+    setReceivedAs("units")
     setNotes("")
     setFundingPlatformId(null)
     setExistingChild(null)
@@ -160,6 +167,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     editing,
     modalState.prefilledAssetId,
     modalState.prefilledPlatformId,
+    assets,
   ])
 
   const selectedAsset = assets.find((a) => a.id === assetId)
@@ -227,11 +235,14 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   // We write directly into the form state so the eventual payload picks up
   // the values; the corresponding UI shows them as read-only below.
   useEffect(() => {
-    if (!isTransferEither || !isCurrencyAsset || !selectedAsset) return
+    const isCashIncome =
+      (type === "dividend" || type === "interest") && isCurrencyAsset
+    if ((!isTransferEither && !isCashIncome) || !isCurrencyAsset || !selectedAsset)
+      return
     if (isEdit) return
     setUnitPrice("1")
     setPriceCurrency(selectedAsset.ticker)
-  }, [isTransferEither, isCurrencyAsset, selectedAsset, isEdit])
+  }, [isTransferEither, isCurrencyAsset, selectedAsset, isEdit, type])
 
   // Paired non-currency transfer: compute FIFO weighted-average cost from
   // the source platform's prior lots and apply it to both the transfer_out
@@ -426,7 +437,13 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           <div className="space-y-2">
             <Label>Asset</Label>
             <AssetSearchSelect
-              assets={assets}
+              assets={
+                type === "dividend" || type === "interest"
+                  ? assets.filter((a) =>
+                      receivedAs === "cash" ? a.is_currency : !a.is_currency,
+                    )
+                  : assets
+              }
               value={assetId}
               onChange={setAssetId}
             />
@@ -436,6 +453,29 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
               </p>
             )}
           </div>
+
+          {/* Received as (dividend/interest only) */}
+          {(type === "dividend" || type === "interest") && (
+            <div className="space-y-2">
+              <Label>Received as</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={receivedAs === "units" ? "default" : "outline"}
+                  onClick={() => setReceivedAs("units")}
+                >
+                  Units (reinvested / staking)
+                </Button>
+                <Button
+                  type="button"
+                  variant={receivedAs === "cash" ? "default" : "outline"}
+                  onClick={() => setReceivedAs("cash")}
+                >
+                  Cash
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Platform Selection */}
           <div className="space-y-2">
