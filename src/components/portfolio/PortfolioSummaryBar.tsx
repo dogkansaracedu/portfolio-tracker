@@ -15,6 +15,7 @@ interface PortfolioSummaryBarProps {
   totalPnlPct: number
   totalUnrealizedPnlUsd: number
   totalRealizedPnlUsd: number
+  totalIncomeUsd: number
   heldAssetCount: number
 }
 
@@ -25,6 +26,7 @@ export function PortfolioSummaryBar({
   totalPnlPct,
   totalUnrealizedPnlUsd,
   totalRealizedPnlUsd,
+  totalIncomeUsd,
   heldAssetCount,
 }: PortfolioSummaryBarProps) {
   const { currency, obfuscated } = useDisplayCurrency()
@@ -33,6 +35,7 @@ export function PortfolioSummaryBar({
   const displayValue = currency === "USD" ? totalValueUsd : totalValueTry
   const pnlIsPositive = totalPnlUsd >= 0
   const hasRealized = Math.abs(totalRealizedPnlUsd) > 0.005
+  const hasIncome = Math.abs(totalIncomeUsd) > 0.005
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -70,6 +73,12 @@ export function PortfolioSummaryBar({
                 Unrealized {o(formatSignedCurrency(totalUnrealizedPnlUsd, "USD"))}
                 {" · "}
                 Realized {o(formatSignedCurrency(totalRealizedPnlUsd, "USD"))}
+              </span>
+            )}
+            {hasIncome && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Dividend &amp; interest income{" "}
+                {o(formatSignedCurrency(totalIncomeUsd, "USD"))}
               </span>
             )}
           </div>
