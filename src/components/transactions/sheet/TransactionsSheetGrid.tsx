@@ -22,6 +22,7 @@ import { PlatformCell } from "./cells/PlatformCell"
 import { TypeCell } from "./cells/TypeCell"
 import { NumberCell } from "./cells/NumberCell"
 import { TotalCostCell } from "./cells/TotalCostCell"
+import { CurrencyCell } from "./cells/CurrencyCell"
 import { useTransactionMutations } from "@/hooks/useTransactions"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
@@ -35,6 +36,10 @@ import { ensureHistoricalRatesForDates } from "@/lib/queries/exchangeRates"
 import type { UnresolvedReason } from "@/lib/queries/assets"
 import { useAuth } from "@/hooks/useAuth"
 import { bn } from "@/lib/config"
+import {
+  assetNativeCurrency,
+  currencyForAssetId,
+} from "@/lib/constants/assets"
 import type { Asset, Platform, TransactionInsert } from "@/types/database"
 import { cn } from "@/lib/utils"
 
@@ -79,7 +84,7 @@ function localDayAsUtcMidnight(date: string): string {
   return `${date}T00:00:00Z`
 }
 
-const COL_COUNT = 9
+const COL_COUNT = 10
 
 export function TransactionsSheetGrid({
   assetId,
@@ -100,6 +105,7 @@ export function TransactionsSheetGrid({
     hasChanges,
     loadRows,
     editCell,
+    setRowAsset,
     addBlankRow,
     appendRows,
     deleteRow,
@@ -169,8 +175,16 @@ export function TransactionsSheetGrid({
 
   const visibleRows = useMemo(
     () =>
+      // Existing rows first (newest date on top); brand-new rows go to the
+      // bottom in insertion order so a clicked placeholder / pasted import row
+      // appears where you added it instead of jumping to the top. Array.sort
+      // is stable, so returning 0 among new rows preserves insertion order.
       [...rows].sort((a, b) => {
-        return b.date.localeCompare(a.date) || (a.txId == null ? -1 : 1)
+        const aNew = a.txId == null
+        const bNew = b.txId == null
+        if (aNew !== bNew) return aNew ? 1 : -1
+        if (aNew && bNew) return 0
+        return b.date.localeCompare(a.date)
       }),
     [rows],
   )
@@ -210,8 +224,8 @@ export function TransactionsSheetGrid({
       refetchAssets,
     })
 
-    for (const [sentinel, realId] of resolvedMap.entries()) {
-      resolveAssetSentinel(sentinel, realId)
+    for (const [sentinel, info] of resolvedMap.entries()) {
+      resolveAssetSentinel(sentinel, info.id, assetNativeCurrency(info))
     }
 
     if (createdAny) {
@@ -220,11 +234,12 @@ export function TransactionsSheetGrid({
       )
     }
 
-    const substitutedRows: SheetRow[] = rows.map((r) =>
-      resolvedMap.has(r.assetId)
-        ? { ...r, assetId: resolvedMap.get(r.assetId) as string }
-        : r,
-    )
+    const substitutedRows: SheetRow[] = rows.map((r) => {
+      const info = resolvedMap.get(r.assetId)
+      return info
+        ? { ...r, assetId: info.id, priceCurrency: assetNativeCurrency(info) }
+        : r
+    })
 
     if (unresolved.length === 0) {
       await runCommit(substitutedRows)
@@ -350,8 +365,12 @@ export function TransactionsSheetGrid({
     }
   }
 
-  const handleStepperResolved = (sentinel: string, realAssetId: string) => {
-    resolveAssetSentinel(sentinel, realAssetId)
+  const handleStepperResolved = (
+    sentinel: string,
+    realAssetId: string,
+    priceCurrency: string,
+  ) => {
+    resolveAssetSentinel(sentinel, realAssetId, priceCurrency)
   }
 
   const handleStepperAllResolved = async () => {
@@ -394,8 +413,22 @@ export function TransactionsSheetGrid({
       saving,
       loading,
       counts,
-      addBlankRow: () => addBlankRow({ assetId }),
-      appendRows: appendRows as Controls["appendRows"],
+      addBlankRow: () =>
+        addBlankRow({
+          assetId,
+          priceCurrency: currencyForAssetId(assets, assetId),
+        }),
+      // Default each imported row's currency from its resolved asset (overrides
+      // the parser's USD fallback). Unresolved sentinel rows keep the parsed
+      // currency until the resolve step assigns a real asset.
+      appendRows: (incoming) =>
+        appendRows(
+          incoming.map((r) =>
+            r.assetId
+              ? { ...r, priceCurrency: currencyForAssetId(assets, r.assetId) }
+              : r,
+          ),
+        ),
       save,
       discard,
     })
@@ -413,6 +446,7 @@ export function TransactionsSheetGrid({
     counts.clean,
     rows,
     pendingDeletes,
+    assets,
   ])
 
   // Empty placeholder rows. Clicking any of them adds a real new row.
@@ -450,6 +484,9 @@ export function TransactionsSheetGrid({
           </TableHead>
           <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Price
+          </TableHead>
+          <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Currency
           </TableHead>
           <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Total cost
@@ -490,7 +527,9 @@ export function TransactionsSheetGrid({
                 assets={assets}
                 error={row.errors.assetId}
                 readOnly={Boolean(assetId)}
-                onChange={(v) => editCell(row.rowKey, "assetId", v)}
+                onChange={(v) =>
+                  setRowAsset(row.rowKey, v, currencyForAssetId(assets, v))
+                }
               />
               <TypeCell
                 value={row.type}
@@ -513,6 +552,11 @@ export function TransactionsSheetGrid({
                 error={row.errors.unitPrice}
                 placeholder="0.00"
                 onChange={(v) => editCell(row.rowKey, "unitPrice", v)}
+              />
+              <CurrencyCell
+                value={row.priceCurrency}
+                error={row.errors.priceCurrency}
+                onChange={(v) => editCell(row.rowKey, "priceCurrency", v)}
               />
               <TotalCostCell
                 amount={row.amount}
@@ -550,7 +594,12 @@ export function TransactionsSheetGrid({
             return (
               <TableRow
                 key={`placeholder-${i}`}
-                onClick={() => addBlankRow({ assetId })}
+                onClick={() =>
+                  addBlankRow({
+                    assetId,
+                    priceCurrency: currencyForAssetId(assets, assetId),
+                  })
+                }
                 className="cursor-pointer border-b text-muted-foreground/60 hover:bg-accent/40"
                 title="Click to add a row"
               >

@@ -1,7 +1,11 @@
 /** Asset category and price-source enums. Single source so the AssetForm
  *  and the resolve-unknown stepper stay in sync. */
 
-import { isFiatCurrency, type FiatCurrency } from "@/lib/constants/currencies"
+import {
+  isFiatCurrency,
+  DEFAULT_CURRENCY,
+  type FiatCurrency,
+} from "@/lib/constants/currencies"
 
 export const ASSET_CATEGORIES = [
   { value: "fiat", label: "Fiat" },
@@ -71,4 +75,16 @@ export function assetNativeCurrency(asset: {
     return "TRY"
   }
   return "USD"
+}
+
+/** Native currency for an asset id, looked up in `assets`. Falls back to
+ *  `DEFAULT_CURRENCY` when the id is unknown (e.g. an unresolved import
+ *  sentinel like `new:TICKER`), which is corrected once the asset resolves. */
+export function currencyForAssetId(
+  assets: { id: string; category: string; ticker: string }[],
+  assetId: string | null | undefined,
+): FiatCurrency {
+  if (!assetId) return DEFAULT_CURRENCY
+  const a = assets.find((x) => x.id === assetId)
+  return a ? assetNativeCurrency(a) : DEFAULT_CURRENCY
 }
