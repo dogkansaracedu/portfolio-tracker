@@ -1,103 +1,196 @@
-# Component 6: P&L Engine
+# Component 6: P&L Engine — Behavioral Spec
 
-## Status: Done
+> Layer: behavioral (tech-agnostic). Implementation → [technical/06-pnl-engine.md](technical/06-pnl-engine.md)
 
-## Overview
-Implement the FIFO cost basis calculation engine for realized and unrealized P&L. Build the currency normalization layer that converts all transaction prices to USD using historical exchange rates. Pure computation layer — no new UI pages, provides data consumed by Dashboard, Portfolio, and Transactions pages.
+## Purpose
 
-> **Headline P&L is money-weighted, not FIFO sum.** The canonical *total* is
-> `current value − net invested capital` (USD anchor) — see
-> [P&L Methodology](../pnl-methodology.md). FIFO realized/unrealized are
-> sub-views. **Update (2026-06-03):** fiat holdings are no longer zero-P&L —
-> they carry FX gain/loss (cost basis = net USD deployed into that currency, via
-> `computeCurrentInvestedUsd`), so EUR/TRY swings vs USD count. `fifo.ts` itself
-> still ignores `cash_credit`/`cash_debit`; the fiat FX figure comes from the
-> cash-flow invested path, not the FIFO engine.
+A pure computation layer that turns a holding's transaction history, current
+prices, historical FX rates, and portfolio snapshots into profit/loss figures.
+Produces both **per-asset** breakdowns and **portfolio totals** consumed by the
+Dashboard, Portfolio, and Transactions views. No UI of its own, no stored
+results — everything is derived on demand.
 
-## Dependencies
-- Component 4 (Transaction System)
-- Component 5 (Price Engine)
+The headline number is **money-weighted**, not a sum of trade gains. See
+[P&L Methodology](../pnl-methodology.md) for the full rationale.
 
-## File Structure
+## Depends on
+
+- Component 4 (Transaction System) — the dated events that drive every figure.
+- Component 5 (Price Engine) — current per-unit prices and historical
+  [exchange rates](GLOSSARY.md#exchange-rate).
+- Component 10 (Snapshots) — frozen daily portfolio values; the source of
+  "current value" and "yesterday's close" (see
+  [snapshot price / live quantity](GLOSSARY.md#snapshot-price-and-live-quantity)).
+
+## Concepts used — links into GLOSSARY + methodology
+
+This component *uses* most P&L vocabulary; it does not define it. See:
+
+- [USD anchor](GLOSSARY.md#usd-anchor) · [Net invested capital](GLOSSARY.md#net-invested-capital) · [Money-weighted](GLOSSARY.md#money-weighted)
+- [FIFO lots and cost basis](GLOSSARY.md#fifo-lots-and-cost-basis) · [Realized and unrealized](GLOSSARY.md#realized-and-unrealized) · [Fiat FX P&L](GLOSSARY.md#fiat-fx-pl)
+- [Daily return](GLOSSARY.md#daily-return) · [Snapshot](GLOSSARY.md#snapshot) · [Exchange rate](GLOSSARY.md#exchange-rate)
+- Formulas: [Total P&L](GLOSSARY.md#total-pl) · [Daily return formula](GLOSSARY.md#daily-return-formula)
+- Deep rationale: [P&L Methodology](../pnl-methodology.md)
+
+## Behaviors / rules
+
+All math is in the [USD anchor](GLOSSARY.md#usd-anchor). FIFO runs per
+**(asset, platform)** pair (lots only match within a single holding); results
+roll up to the asset and portfolio level.
+
+### 1. FIFO lots / cost basis
+
+See [FIFO lots and cost basis](GLOSSARY.md#fifo-lots-and-cost-basis). Replay a
+holding's transactions oldest-first:
+
+- **buy / transfer_in / dividend / interest** → push a new lot. Any fee on the
+  acquisition is **capitalized into the lot's cost** (fee-inclusive cost basis).
+- **sell** → consume the **oldest lots first**; book
+  [realized](GLOSSARY.md#realized-and-unrealized) P&L per consumed lot. Sell fees
+  reduce proceeds (symmetric with buys).
+- **transfer_out** → consume lots FIFO but book **no P&L** — the cost basis
+  travels to the destination, carried on the paired transfer_in's unit price.
+- **transfer_in** → push a lot at the **original cost basis** of the linked
+  transfer_out (weighted-average of the lots that moved), so a platform-to-
+  platform move is P&L-neutral.
+- **fee** (standalone) → consume lots FIFO **and** book a realized loss equal to
+  the fee's current market value.
+- **cash legs** (`cash_credit` / `cash_debit`) → **ignored by FIFO**. Cash is a
+  medium of exchange, not a tradeable lot; including it would mint meaningless
+  lots on USD/TRY/EUR. (It still matters for *net invested* — see rule 3.)
+
+**Worked example.** Buy 2 @ $100, later buy 3 @ $110, then sell 4:
+
 ```
-src/
-├── lib/
-│   ├── pnl/
-│   │   ├── fifo.ts                     # FIFO cost basis engine
-│   │   ├── unrealized.ts               # Unrealized P&L calculator
-│   │   ├── currency.ts                 # Currency normalization
-│   │   └── types.ts                    # CostLot, PnLResult, AssetPnL types
-│   └── queries/
-│       └── pnl.ts                      # Queries for P&L data
-├── hooks/
-│   ├── usePnL.ts                       # Computes P&L for asset or portfolio
-│   └── useCostBasis.ts                 # Gets FIFO lots for an asset
+lots before sell:  [2 @ $100]  [3 @ $110]
+sell 4 consumes:    2 @ $100  (cost $200)  +  2 @ $110  (cost $220)
+cost basis of sale = $420
+proceeds (sell px = $130) = 4 × $130 = $520
+realized P&L = 520 − 420 = +$100
+lots remaining: [1 @ $110]   ← cost basis $110
 ```
 
-## Tasks
-1. **P&L types** (`lib/pnl/types.ts`):
-   - `CostLot`: { id, date, amount, unitPriceOriginal, priceCurrency, unitPriceUsd }
-   - `RealizedPnLEntry`: { transactionId, date, amount, proceedsUsd, costBasisUsd, realizedPnlUsd, lots[] }
-   - `AssetPnL`: { assetId, ticker, costBasisUsd, currentValueUsd, unrealizedPnlUsd, unrealizedPnlPct, realizedPnlUsd, lots[] }
+### 2. Currency normalization
 
-2. **FIFO engine** (`lib/pnl/fifo.ts`):
-   - `computeFIFOLots(transactions[]): { lots: CostLot[], realized: RealizedPnLEntry[] }`
-   - Takes single-asset transactions sorted by date ASC
-   - Buy/transfer_in/dividend/interest: push new CostLot
-   - Sell: pop lots FIFO, compute realized P&L per consumed lot
-   - Transfer_out: pop lots FIFO (no P&L — lots move to destination)
-   - Transfer_in: push lot with **original cost basis** from linked transfer_out
-   - Fee: treated as realized loss
-   - Cash-side rows (`cash_credit`, `cash_debit` — auto-paired to a sell or to a platform-funded buy via `transactions.linked_tx_id`): **ignored**. Cash is a medium of exchange, not a tradeable position; including these rows would create meaningless lots on USD/TRY/EUR. See Component 4 for the linked-rows model.
+See [exchange rate](GLOSSARY.md#exchange-rate). Convert every native amount to
+USD using the rate **on or just before** the transaction's date (binary-search
+the dated rate series; if the date predates all rates, fall back to the earliest
+known rate rather than treating the foreign amount as USD).
 
-3. **Currency normalization** (`lib/pnl/currency.ts`):
-   - `normalizeToUsd(amount, currency, date, exchangeRates)`: Convert to USD using rate for given date
-   - `getExchangeRateForDate(date, rates)`: Binary search for closest rate on or before date
-   - Handles: TRY->USD (÷ usd_try), EUR->USD (via eur_try/usd_try), USD->USD (identity)
+- **TRY → USD:** amount ÷ usd_try.
+- **EUR → USD:** amount × eur_usd (fall back to eur_try ÷ usd_try for legacy
+  rows missing a direct EUR/USD rate).
+- **USD → USD:** identity.
 
-4. **Unrealized P&L** (`lib/pnl/unrealized.ts`):
-   - `computeUnrealizedPnL(lots, currentPriceUsd, balance)`: Returns costBasisUsd, currentValueUsd, unrealizedPnlUsd, unrealizedPnlPct
-   - Handle division by zero for costBasis
+**Worked example.** A ₺3,000 buy on a day when usd_try = 30 → 3000 ÷ 30 = **$100**.
 
-5. **P&L queries** (`lib/queries/pnl.ts`):
-   - `fetchTransactionsForPnL(assetId)`: All transactions for asset, date ASC
-   - `fetchAllExchangeRates()`: All rates, date ASC (cached in memory)
-   - `fetchTransactionsForAllAssets(userId)`: All transactions with asset join, grouped by asset_id then date ASC
+### 3. Money-weighted Total P&L (canonical)
 
-6. **usePnL hook**:
-   - `usePnL(assetId?)`: If assetId, compute for one asset. If not, compute for all active assets
-   - Returns { assetPnLs[], totalCostBasisUsd, totalCurrentValueUsd, totalUnrealizedPnlUsd, totalRealizedPnlUsd, loading }
-   - Depends on transactions, prices, exchange rates
-   - Memoized (recalculates when deps change)
+See [Total P&L](GLOSSARY.md#total-pl) and [net invested capital](GLOSSARY.md#net-invested-capital).
+The headline is **not** a FIFO sum — it is:
 
-7. **useCostBasis hook**:
-   - `useCostBasis(assetId)`: Returns { lots[], totalCostUsd, avgCostUsd, loading }
-   - Used for asset detail views
+```
+Total P&L (USD) = current value − net invested capital
+```
 
-8. **Transfer cost basis propagation**:
-   - When creating a transfer (Component 4), compute weighted average cost of transferred lots
-   - Store as `unit_price` on the transfer_in transaction
-   - FIFO engine treats transfer_in like a buy at that cost
-   - **Update Component 4's transfer flow** to call FIFO engine for cost calculation
+[Net invested capital](GLOSSARY.md#net-invested-capital) is the cumulative USD
+actually deployed: buys + fees add; sells + dividends/interest subtract;
+transfers cancel (out + in net to zero, a lone transfer_in adds its cost basis);
+**cash legs net out the trade they pair with** — a sell's proceeds leave
+"invested" via the sell, and its paired `cash_credit` adds them back, so a sale
+that lands cash on-platform nets to **zero** invested change. Total-return % is
+over `|net invested capital|`.
 
-9. **Fiat asset P&L** (updated 2026-06-03): Fiat holdings carry **FX P&L**, not zero. They skip the FIFO lot engine (cash isn't a tradeable position), but their cost basis = the net USD deployed into that currency (`computeCurrentInvestedUsd` over the holding's own transactions), so `currentValueUsd − costBasisUsd` is the real EUR/TRY-vs-USD swing, surfaced as unrealized P&L. This keeps the money-weighted total reconciled with the per-asset breakdown. See [P&L Methodology](../pnl-methodology.md).
+**Worked example.** Deploy a net $50,000 over time; portfolio is worth $51,000
+today → Total P&L = 51,000 − 50,000 = **+$1,000** (+2.0%).
 
-## Key Decisions
-- **Total P&L is money-weighted** (canonical, 2026-06-03): `current value − net invested capital`, USD-anchored — not a FIFO `unrealized + realized` sum. FIFO realized/unrealized are sub-views. This makes the headline include FX on fiat and keeps the Dashboard hero's live "now" point equal to the snapshot-derived chart line, so period deltas are the true value change. See [P&L Methodology](../pnl-methodology.md).
-- **FIFO runs client-side**: With <10,000 transactions, fast enough in browser. No server computation needed
-- **Exchange rates fetched once and cached**: Small table, binary-search for lookups
-- **Transfer cost basis via weighted average**: Simplified for MVP. Accurate enough, avoids cross-asset lot tracking complexity
-- **Fiat FX P&L** (was: skipped for MVP): TRY/USD/EUR holdings now carry FX gain/loss vs the USD anchor (cost basis = net USD deployed into that currency). Required so the money-weighted total reconciles and so a large fiat balance (e.g. EUR) doesn't silently hide a real FX gain
-- **Fee transactions = realized losses**: `fee_amount * current_price_usd` keeps balance math correct
-- **No P&L stored in DB**: Computed on-the-fly. Avoids staleness and complex invalidation
-- **Cost basis stays FIFO-from-`transactions`** while current value comes from the snapshot (Component 10). Cost basis has no second source to drift against; current value is shared with the dashboard so totals always agree. Net-invested-capital (used for total-return % anchoring) accounts for cash-side rows so a sell that lands cash on-platform doesn't double-count: the proceeds leave "invested" via the sell rule and the paired `cash_credit` adds them back, netting zero invested change.
+### 4. Realized / unrealized as sub-views
 
-## Acceptance Criteria
-- [ ] Buy sequence correctly produces cost lots in FIFO order
-- [ ] Sell after multiple buys computes correct realized P&L using FIFO
-- [ ] TRY-denominated transactions correctly convert to USD using historical rates
-- [ ] Unrealized P&L uses current price vs. cost basis of remaining lots
-- [ ] Transfers preserve cost basis (no realized P&L on transfer)
-- [ ] usePnL returns correct data for UI components
-- [ ] Fiat assets report FX P&L (current USD value − net USD deployed into that currency), reconciling with the money-weighted total
-- [ ] Total P&L equals current value − net invested capital (money-weighted), and the hero's live "now" point matches the snapshot-derived chart line
+See [realized and unrealized](GLOSSARY.md#realized-and-unrealized).
+
+- **Realized** = FIFO gains locked in by sells (and the fee losses), summed over
+  the **full** history — including positions fully sold out.
+- **Unrealized** = current value − cost basis of lots still held.
+- They are sub-views of the canonical total: **unrealized = total − realized**.
+
+### 5. Fiat FX P&L
+
+See [Fiat FX P&L](GLOSSARY.md#fiat-fx-pl). Fiat/cash holdings are **not**
+zero-P&L. They **skip the FIFO lot engine** (cash isn't a tradeable position)
+but carry an FX gain/loss via the cash-flow path:
+
+```
+fiat cost basis = net USD deployed into that currency  (rule 3, scoped to the holding)
+fiat FX P&L     = current USD value − fiat cost basis   → surfaced as unrealized
+```
+
+So EUR/TRY swings vs the USD anchor count, and the per-asset breakdown reconciles
+with the money-weighted total. The native count doesn't move (€X in, €X held);
+the gain is purely the USD anchor shifting.
+
+**Worked example.** Buy €12,547 worth of euros; the same euros are worth $13,449
+today → fiat FX P&L = 13,449 − 12,547 = **+$902** (a real gain, native EUR
+unchanged).
+
+### 6. Daily return
+
+See [Daily return](GLOSSARY.md#daily-return) and
+[Daily return formula](GLOSSARY.md#daily-return-formula). The day's gain is the
+canonical total applied across one period — the change in (value − invested)
+since the previous [snapshot](GLOSSARY.md#snapshot):
+
+```
+dailyReturnUsd = value_now − prev_snapshot_value − period_invested
+denom          = prev_snapshot_value + period_invested
+dailyReturnPct = denom ≤ 0 ? — : dailyReturnUsd / denom × 100
+```
+
+`period_invested` = net USD deployed into the position since the previous
+snapshot. Subtracting it removes principal, leaving only price/FX movement
+(including the intraday move on a position opened today, measured from its
+purchase price). When the base is ≤ 0 (e.g. a netted-out position) return **no
+value** (render "—"), never 0% / NaN. Group rollups sum numerators and
+denominators, then take the percentage once.
+
+**Worked example.** Buy 1 @ $210 today (not held at the previous snapshot); it's
+worth $220 now → daily = 220 − 0 − 210 = **+$10**, over a base of
+0 + 210 = 210 → **+4.76%**.
+
+## Contract (I/O)
+
+**Inputs**
+- A holding's [transactions](GLOSSARY.md#transaction), date-ascending, scoped per
+  (asset, platform).
+- Current per-unit [prices](GLOSSARY.md#price) in USD.
+- The dated [exchange rate](GLOSSARY.md#exchange-rate) series.
+- Portfolio [snapshots](GLOSSARY.md#snapshot) (latest for current value; previous
+  for "yesterday's close").
+
+**Outputs**
+- **Per asset:** cost basis (USD + native when single-currency), current value,
+  unrealized P&L (USD + %), realized P&L, remaining lots.
+- **Portfolio totals:** total cost basis, total current value, total unrealized,
+  total realized (full history), **net invested capital**, and the canonical
+  **Total P&L** (USD, TRY, %).
+- **Per realizing transaction:** a realized-P&L entry (proceeds, cost basis,
+  realized USD, native gain when single-currency) keyed by transaction id.
+- **Daily return** per asset / holding, with the denominator for group rollups.
+
+## Acceptance
+
+- [ ] A buy sequence produces cost lots in FIFO (oldest-first) order.
+- [ ] A sell after multiple buys computes realized P&L by consuming oldest lots.
+- [ ] Non-USD (e.g. TRY) transactions convert to USD using the historical rate
+      on/before their date.
+- [ ] Unrealized P&L = current value − cost basis of remaining lots.
+- [ ] Transfers preserve cost basis (no realized P&L on a transfer).
+- [ ] **Total P&L = current value − net invested capital** (money-weighted), and
+      the live "now" figure equals the snapshot-derived value at every snapshot
+      (period deltas are the true value change).
+- [ ] **Fiat holdings report FX P&L** (current USD value − net USD deployed into
+      that currency), reconciling with the money-weighted total.
+- [ ] Realized + unrealized reconcile to the total (`unrealized = total − realized`).
+- [ ] Daily return = Δ(value − invested) since the previous snapshot; a ≤ 0 base
+      returns no value rather than 0% / NaN.
+
+See [P&L Methodology](../pnl-methodology.md) for why money-weighted is canonical.
