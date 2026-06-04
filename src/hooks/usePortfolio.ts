@@ -77,6 +77,7 @@ interface UsePortfolioReturn {
   totalUnrealizedPnlUsd: number
   totalUnrealizedPnlPct: number
   totalRealizedPnlUsd: number
+  totalIncomeUsd: number
   totalPnlUsd: number
   totalPnlPct: number
   heldAssetCount: number
@@ -116,6 +117,7 @@ export function usePortfolio(): UsePortfolioReturn {
     totalCurrentValueUsd,
     totalUnrealizedPnlUsd,
     totalRealizedPnlUsd,
+    totalIncomeUsd,
     totalInvestedUsd,
     transactions,
     rates: txRates,
@@ -219,6 +221,7 @@ export function usePortfolio(): UsePortfolioReturn {
     totalUnrealizedPnlUsd: totalUnrealizedPnlUsd.toNumber(),
     totalUnrealizedPnlPct,
     totalRealizedPnlUsd: totalRealizedPnlUsd.toNumber(),
+    totalIncomeUsd: totalIncomeUsd.toNumber(),
     totalPnlUsd: totalPnlUsdBn.toNumber(),
     totalPnlPct: totalPnlPctBn.toNumber(),
     heldAssetCount: enrichedAssets.length,

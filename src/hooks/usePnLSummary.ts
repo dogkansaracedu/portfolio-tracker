@@ -10,6 +10,7 @@ export interface PnLSummary {
   totalValueTry: number
   totalUnrealizedPnlUsd: number
   totalRealizedPnlUsd: number
+  totalIncomeUsd: number
   totalPnlUsd: number
   totalPnlTry: number
   totalPnlPct: number
@@ -28,6 +29,7 @@ export function usePnLSummary(): PnLSummary {
     totalCurrentValueUsd,
     totalUnrealizedPnlUsd,
     totalRealizedPnlUsd,
+    totalIncomeUsd,
     totalInvestedUsd,
     loading: pnlLoading,
   } = usePnL(holdings, prices)
@@ -45,6 +47,7 @@ export function usePnLSummary(): PnLSummary {
       totalValueTry: totalCurrentValueUsd.times(rate).toNumber(),
       totalUnrealizedPnlUsd: totalUnrealizedPnlUsd.toNumber(),
       totalRealizedPnlUsd: totalRealizedPnlUsd.toNumber(),
+      totalIncomeUsd: totalIncomeUsd.toNumber(),
       totalPnlUsd: totalPnlUsd.toNumber(),
       totalPnlTry: totalPnlUsd.times(rate).toNumber(),
       totalPnlPct: totalPnlPct.toNumber(),
@@ -54,6 +57,7 @@ export function usePnLSummary(): PnLSummary {
     totalCurrentValueUsd,
     totalUnrealizedPnlUsd,
     totalRealizedPnlUsd,
+    totalIncomeUsd,
     totalInvestedUsd,
     usdTry,
     holdingsLoading,
