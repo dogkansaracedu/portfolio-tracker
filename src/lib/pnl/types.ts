@@ -71,8 +71,32 @@ export interface AssetPnL {
   lots: CostLot[]
 }
 
+/**
+ * Per-(asset, platform) P&L — the granular FIFO result *before* asset-level
+ * aggregation. Same fields as {@link AssetPnL} minus the cross-platform rollup,
+ * plus the platform identity. Exposed so the Portfolio "group by platform" view
+ * reads each platform's real FIFO cost basis instead of smearing the asset-wide
+ * blended average across platforms (which misattributes P&L between platforms
+ * whenever the same asset was bought at different prices on each).
+ */
+export interface HoldingPnL {
+  assetId: string
+  platformId: string
+  platformName: string
+  ticker: string
+  category: string
+  costBasisUsd: BigNumber
+  costBasisNative: BigNumber | null
+  nativeCurrency: string | null
+  currentValueUsd: BigNumber
+  unrealizedPnlUsd: BigNumber
+  realizedPnlUsd: BigNumber
+}
+
 export interface PortfolioPnL {
   assetPnLs: AssetPnL[]
+  /** Per-(asset, platform) breakdown feeding the group-by-platform view. */
+  holdingPnLs: HoldingPnL[]
   totalCostBasisUsd: BigNumber
   totalCurrentValueUsd: BigNumber
   totalUnrealizedPnlUsd: BigNumber
