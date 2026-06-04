@@ -42,10 +42,10 @@ A single user (the developer/owner) who:
 |-------|--------|-----------|
 | Frontend | React 19 + Vite 8 + Tailwind 4 | Fast dev, simple deploy, great DX |
 | UI Components | shadcn/ui + Lucide icons + Recharts 3 | Consistent design system, chart library |
-| Hosting | Netlify (or Vercel) | Free tier, `npm run build` → deploy |
+| Hosting | Vercel | Free tier, `npm run build` → deploy (CLI; see root README) |
 | Database | Supabase (PostgreSQL) | Free tier (500MB), auth, RLS, edge functions, realtime |
 | Auth | Supabase Auth | Email/password — single user, keep it simple |
-| Price Data | TCMB, CoinGecko, Yahoo Finance | All free, details in §10 |
+| Price Data | TCMB + Yahoo Finance (CoinGecko dormant) | All free, details in §10 |
 | Financial Math | BigNumber.js | Decimal-safe arithmetic for all money/quantity operations |
 | Routing | React Router v7 | File-based page structure |
 | Scheduled Jobs | Supabase Edge Functions + pg_cron | Daily snapshots (23:55 UTC), periodic price cache refresh |
@@ -415,6 +415,11 @@ Surfaced elsewhere (not in Settings):
 
 ## 10. Price Data Sources
 
+> **Current state (2026-06):** TCMB + Yahoo Finance are the live sources. Crypto
+> is priced through Yahoo; the CoinGecko integration described in §10.2 is
+> **dormant** (no edge function calls it). `price_source='coingecko'` remains a
+> valid but unused value.
+
 ### 10.1 TCMB (Turkish Central Bank)
 
 - **URL:** `https://www.tcmb.gov.tr/kurlar/today.xml`
@@ -541,17 +546,18 @@ These are explicitly out of scope for v1 but worth keeping in mind architectural
 | P0 | Platform CRUD | Done |
 | P0 | Asset management (global assets + tags + price_source) | Done |
 | P0 | Transaction logging (buy/sell/transfer/dividend/interest/fee) | Done |
-| P0 | Price fetching (TCMB + CoinGecko + Yahoo Finance) | Done |
+| P0 | Price fetching (TCMB + Yahoo Finance; CoinGecko dormant) | Done |
 | P0 | Dashboard with net worth (USD+TRY), allocation, top movers | Done |
 | P0 | Portfolio page with grouped assets + P&L | Done |
 | P1 | FIFO P&L calculation (realized + unrealized) | Done |
-| P1 | Manual snapshot trigger ("snapshot now" button) | Not started |
+| P1 | Manual snapshot trigger ("Take Snapshot" button) | Done — `SnapshotManager`, Settings → Snapshots |
 | P1 | Performance page (charts, drawdown, attribution, summary stats) | Done |
 | P1 | Transfer between platforms (cost basis carry-over) | Done |
 | P2 | PWA manifest + icons | Done (no service worker yet) |
 | P2 | Yahoo Finance for stocks | Done |
 | P2 | Settings (platforms + assets management) | Done |
-| P2 | CSV import/export | Not started |
+| P2 | CSV + Midas PDF import (transactions sheet) | Done — see Component 4 |
+| P2 | Portfolio Total/Daily return toggle | Done — see Component 8 |
 | P2 | Service worker (offline shell) | Not started |
 | P2 | Automated daily snapshots (pg_cron → take-snapshots Edge Function) | Done |
 | P2 | Historical snapshot backfill (Settings UI + backfill-snapshots Edge Function) | Done |
