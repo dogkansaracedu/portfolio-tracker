@@ -1,0 +1,137 @@
+# Component 5: Price Engine — Technical (this build)
+
+> Layer: React/Vite/Supabase implementation. Contract → [../05-price-engine.md](../05-price-engine.md)
+
+## Stack
+
+- **Supabase Edge Functions (Deno)** for all upstream fetching (avoids browser
+  CORS against TCMB/Yahoo, keeps logic server-side, runs with the service-role
+  key for cache writes).
+- **React 19 Context + hooks** for the shared client-side price store.
+- **Supabase Postgres** tables `price_cache` + `exchange_rates` as the cache.
+- Formatting/staleness helpers in plain TS; UI built with shadcn/ui (Tooltip,
+  Button) + lucide-react icons.
+
+## File map
+
+| Path | Role |
+|---|---|
+| `supabase/functions/fetch-prices/index.ts` | **Orchestrator** — single endpoint the frontend pings and the daily cron forces. Runs FX step → Yahoo step → (cron only) snapshot trigger. Self-throttles per asset. |
+| `supabase/functions/fetch-historical-rate/index.ts` | On-demand TCMB fetch for **one past date** (non-USD transactions). Walks back ≤7 days to the nearest published rate; upserts `exchange_rates`. |
+| `supabase/functions/_shared/yahoo.ts` | `fetchYahooQuote(symbol)` — single Yahoo chart-endpoint quote; reads `meta.currency`; never throws (returns `{ status, quote: null }` on failure). |
+| `supabase/functions/_shared/currency.ts` | `splitPrice(price, currency, rates)` → `{ price_usd, price_try }` per source currency; `null` for unsupported (e.g. `GBp`). `categoryForQuote`. |
+| `supabase/functions/_shared/constants.ts` | `HOME_TIMEZONE` (`Europe/Istanbul`, for BIST hours), `TROY_OZ_GRAMS` (oz→gram gold). |
+| `supabase/functions/_shared/client.ts` | `getServiceClient()` — service-role Supabase client. |
+| `supabase/functions/_shared/cors.ts` | `corsHeaders(origin)`. |
+| `src/contexts/PricesContext.tsx` | App-wide shared price store + the presence-gated polling loop. |
+| `src/hooks/usePrices.ts` | Thin re-export of `usePricesContext` as `usePrices` (preserves the original import path). |
+| `src/lib/priceId.ts` | `canonicalizeTicker`, `derivePriceId(ticker, category, source)` — key resolution = `price_id ?? ticker`. |
+| `src/lib/prices.ts` | Formatters + staleness: `formatCurrency`, `gainLossClass`, `formatSignedCurrency`, `formatSignedPercent`, `isStale`, `getStalenessLevel`. |
+| `src/lib/queries/prices.ts` | `fetchPrices()` (→ map keyed by fetch-key), `fetchPrice(key)`. |
+| `src/lib/queries/exchangeRates.ts` | `fetchLatestRates`, `fetchRateForDate` (nearest ≤ date), `ensureHistoricalRate`, `ensureHistoricalRatesForDates`. |
+| `src/components/prices/PriceDisplay.tsx` | Price + colored staleness dot + tooltip. |
+| `src/components/prices/PriceRefreshButton.tsx` | "Updated 5m ago" label + spinner; calls `refreshPrices`. |
+
+## Data layer — edge functions, price cache, rates tables
+
+**Sources (current reality — drift from older docs):**
+
+- **TCMB** = central-bank FX. `fetch-prices` pulls `today.xml`, regex-parses
+  USD/TRY + EUR/TRY (ForexBuying), derives `eur_usd`, and upserts both
+  `exchange_rates` (the dated history) and the `USD`/`EUR`/`TRY` rows of
+  `price_cache`. Gram-gold: TCMB dropped its `XAU` line, so it now falls back to
+  Yahoo `GC=F` (USD/oz ÷ `TROY_OZ_GRAMS`) and writes the `XAU_GRAM` row.
+- **Yahoo Finance** = the engine for **stocks (BIST + US), crypto, AND
+  tokenized gold** (`BTC-USD`, `ETH-USD`, `PAXG-USD`, `XAUT-USD`). All assets
+  with `price_source = 'yahoo'` flow through one loop (`refreshYahooPrices`).
+- **CoinGecko is no longer called** by any edge function. `price_source =
+  'coingecko'` remains a valid value and stablecoins (`tether`, `usd-coin`)
+  still nominally map to it, but the crypto-pricing migration moved BTC/ETH/
+  PAXG/XAUT to Yahoo (see
+  `docs/superpowers/specs/2026-05-30-asset-price-id-and-yahoo-design.md`). There
+  is no longer a `fetch-coingecko` / `fetch-tcmb` / `fetch-yahoo` function — they
+  were consolidated into `fetch-prices` + `_shared/`. **The component `README.md`
+  index and tech-stack lines still list the old split functions + CoinGecko —
+  stale.**
+
+**Tables:**
+
+- `price_cache` — **key column is literally named `ticker` but now holds
+  `price_id` values** (re-keyed by migration, no schema change). Columns:
+  `price_usd`, `price_try`, `source`, `updated_at`. UPSERT `onConflict: ticker`
+  from edge functions; client does a plain `SELECT *`.
+- `exchange_rates` — UPSERT `onConflict: date,source`. Columns: `date`,
+  `source`, `usd_try`, `eur_try`, `eur_usd`, `gold_gram_try`.
+
+**Key resolution (`price_id ?? ticker`).** Both the Yahoo loop and the client
+map are keyed by `price_id ?? ticker`. `derivePriceId` only auto-fills the
+mechanical Yahoo cases (BIST → append `.IS`; US stock → ticker as-is); crypto/
+gold/fiat keys are set explicitly and otherwise left untouched.
+
+**Currency from the source.** `fetchYahooQuote` returns `meta.currency`;
+`splitPrice` keeps the native column raw and derives the other from `usdTry` /
+`eurUsd`. Unsupported currency → upsert skipped + error pushed (never mislabeled
+USD). When the FX step is skipped/failed, `ensureConversionRates` loads the last
+`usd_try`/`eur_usd` from `exchange_rates` so conversions still resolve.
+
+**Orchestrator throttling (the heart of "demand-driven, not a cron"):**
+
+- `loadFreshness` reads every cached `updated_at` in one query.
+- **Global guard** `FETCH_GUARD_MS = 20s` — a non-forced call within 20s of the
+  last fetch no-ops (collapses concurrent device/tab pings).
+- **Per-asset cadence** — crypto/gold `30s`, stocks `60s`, FX `15min`. A symbol
+  is fetched only if older than its cadence. BIST symbols additionally gated by
+  `isBistOpen` (Mon–Fri 10:00–18:10 `Europe/Istanbul`).
+- Yahoo fetches are **1s apart** (only counting symbols actually fetched — a run
+  that only refreshes crypto stays fast).
+- **`force`** (cron only, gated on a matching `X-Cron-Token` / `CRON_TOKEN`)
+  bypasses guard + cadence + market hours and refetches everything; the cron may
+  also chain `take-snapshots` (Component 10). Public/frontend pings can **only**
+  trigger a normal throttled refresh — they can't force or snapshot.
+
+**Client polling loop (`PricesContext`):** `PricesProvider` hoists the old
+per-call `usePrices` hook into one shared instance. While a tab is **visible**
+and a user is signed in:
+
+- re-read `price_cache` every `PRICE_POLL.readMs` (`10s`, cheap SELECT) so
+  figures stay current;
+- ping `fetch-prices` every `PRICE_POLL.triggerMs` (`30s`) — the function decides
+  per-asset what's due, so most pings are near-free.
+
+Both pause when `document.visibilityState !== "visible"`; a `visibilitychange`
+listener fires an immediate refresh on regaining focus, and one fires on mount.
+A logged-out or backgrounded app burns **zero** Supabase/Yahoo calls. The
+background ping (`backgroundRefresh`) deliberately does **not** toggle
+`refreshing`, so the manual-refresh spinner doesn't blink every cycle; the manual
+`refreshPrices` does. `staleAssets` is computed via `isStale` (>30min) and keyed
+by `price_id` (internal-only list).
+
+**Historical-rate backfill.** `ensureHistoricalRate` (single non-USD tx) and
+`ensureHistoricalRatesForDates` (bulk import) invoke `fetch-historical-rate`
+best-effort; failures leave the nearest-prior-rate fallback
+(`fetchRateForDate` / `getExchangeRateForDate`) in place.
+
+## Notes & gotchas
+
+- **Yahoo is the only free BIST source** and runs ~15min delayed — accepted.
+  Yahoo is also unofficial/fragile (browser User-Agent headers in
+  `_shared/yahoo.ts`); the client never throws so one bad symbol can't sink a run.
+- **`price_cache.ticker` holds `price_id`, not the display ticker** — the most
+  common footgun. Always look up with `prices[asset.price_id ?? asset.ticker]`.
+- **Staleness thresholds live in two places**: client `isStale`/`getStalenessLevel`
+  (30min / 2h, UI dots) vs. orchestrator cadences (20s/30s/60s/15min, fetch
+  gating). They answer different questions — don't unify them.
+- **Manual entry**: `price_source = 'manual'` is honored by routing (only
+  `yahoo`/TCMB rows are auto-fetched), but there is currently **no**
+  `ManualPriceEntry` component under `src/components/prices/` (only `PriceDisplay`
+  + `PriceRefreshButton`); manual price values are set via the asset form path.
+- **Two `HOME_TIMEZONE` definitions** (edge `_shared/constants.ts` and
+  `src/lib/config.ts`) — separate runtimes, must be kept in sync.
+- **Currency toggle (USD/TRY)** is a separate concern in `DisplayContext`, not in
+  this engine.
+
+## Setup / commands
+
+None required for the client. Edge functions deploy with the rest of the Supabase
+functions; the daily forced refresh + snapshot chain is wired via the cron in
+Component 10 (it must send a valid `X-Cron-Token`).

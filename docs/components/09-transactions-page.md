@@ -1,78 +1,160 @@
-# Component 9: Transactions Page
+# Component 9: Transactions Page — Behavioral Spec
 
-## Status: Done
+> Layer: behavioral (tech-agnostic). Implementation → [technical/09-transactions-page.md](technical/09-transactions-page.md)
 
-## Overview
-Chronological log of all transactions with filtering by date range, asset, platform, and transaction type. Displays realized P&L for sell transactions. The audit trail and history view.
+## Purpose
 
-## Dependencies
-- Component 4 (Transaction System)
-- Component 6 (P&L Engine)
+The audit trail: a filterable, reverse-chronological log of every
+[Transaction](GLOSSARY.md#transaction). It is where the user inspects history,
+confirms what each event did to a balance, sees the [realized P&L](GLOSSARY.md#realized-and-unrealized)
+booked by each sell, edits a mistaken entry, and launches a bulk import. It does
+not *compute* portfolio numbers — it reads the same [P&L engine](06-pnl-engine.md)
+the rest of the app uses, so a sell's realized figure here matches the dashboard
+and portfolio views exactly.
 
-## File Structure
-```
-src/
-├── pages/
-│   └── TransactionsPage.tsx
-├── components/
-│   └── transactions/
-│       ├── TransactionList.tsx
-│       ├── TransactionRow.tsx            # Enhanced from Component 4
-│       ├── TransactionFilters.tsx
-│       ├── TransactionTypeBadge.tsx
-│       └── TransactionSummary.tsx
-├── hooks/
-│   └── useTransactionLog.ts
-```
+## Depends on
 
-## Tasks
-1. **useTransactionLog hook**: Fetch all transactions with joins. Client-side filters: dateFrom, dateTo, assetId, platformId, type. Enrich sells with realized P&L (from FIFO). "Load more" pagination (50 at a time). Returns transactions[], loading, hasMore, loadMore(), filters, setFilters(), summary stats. By default the main list filters out rows whose `linked_tx_id IS NOT NULL` (auto-paired cash children — they render as the parent row's subtitle). Asset-filtered views (e.g. viewing the USD fiat asset) include them so the user can audit "where did my Midas USD come from".
+- [Transaction System](04-transaction-system.md) — owns transaction shape, the
+  cash-leg linkage, the single-entry editor, and the **bulk-import subsystem**.
+  This page is only the *entry point* into bulk import, not its implementation.
+- [P&L Engine](06-pnl-engine.md) — the single source of realized P&L per sell.
+  This page never re-derives FIFO; it joins the engine's per-transaction output
+  to displayed rows.
 
-2. **TransactionFilters**: Date range (preset buttons: Last 7d, 30d, This month, This year, All + custom date pickers). Asset filter (AssetSearchSelect reuse). Platform filter (Select). Type filter (multi-select chips for all 7 types). Mobile: collapse into "Filters" button → bottom sheet
+## Concepts used — links into [GLOSSARY](GLOSSARY.md)
 
-3. **TransactionRow columns**:
-   - Date: formatted (e.g., "Mar 15, 2026")
-   - Asset: name + ticker. For sells and platform-funded buys, a small subtitle shows the cash effect (e.g., `+$998.50 USD → Midas` for a sell auto-credit, or `−$1,001.50 USD from Bank` for a platform-funded buy). External-cash buys show `external cash`. Subtitle text comes from the linked child row (Component 4 cash-flow linkage).
-   - Platform: name + color dot
-   - Type: TransactionTypeBadge (color-coded)
-   - Amount: quantity with +/- sign (+ for buy/transfer_in/dividend, - for sell/transfer_out/fee)
-   - Unit Price: price + currency
-   - Total: total_cost in selected currency
-   - Realized P&L: only for sells. Green/red amount + %
-   - Notes: truncated, expand on hover/click
-   - Transfer rows show linked icon + destination/source platform
+- [Transaction](GLOSSARY.md#transaction) — the logged event; its `type`, balance
+  effect, and linked cash leg drive every row.
+- [Asset](GLOSSARY.md#asset) / [Platform](GLOSSARY.md#platform) — the two
+  dimensions a row is attributed to, and two of the filters.
+- [Holding](GLOSSARY.md#holding) — the balance an edit/delete recalculates.
+- [Realized and unrealized](GLOSSARY.md#realized-and-unrealized) /
+  [FIFO lots and cost basis](GLOSSARY.md#fifo-lots-and-cost-basis) — the per-sell
+  number shown on its row.
+- [USD anchor](GLOSSARY.md#usd-anchor) — realized P&L (amount, sign, color, and %)
+  is measured in USD; a sell up in lira can still be down in dollars.
 
-4. **TransactionTypeBadge**: Styled Badge by type — Buy (green), Sell (red), Transfer In (blue), Transfer Out (orange), Dividend (purple), Interest (teal), Fee (gray)
+## Behaviors / rules
 
-5. **TransactionSummary**: Stats for filtered transactions — count, total buy volume, total sell volume, net realized P&L, net deposit (buys-sells). Row of stat cards above list
+- **The log.** Newest first. Each row shows the date, [asset](GLOSSARY.md#asset),
+  [platform](GLOSSARY.md#platform), type, signed quantity, unit price, and total.
+- **Sign of the quantity** follows the [Transaction](GLOSSARY.md#transaction)
+  balance effect: add-types (buy, transfer-in, dividend, interest, cash-credit)
+  render `+`; subtract-types (sell, transfer-out, fee, cash-debit) render `−`.
+- **Native + converted.** A row's unit price and total are shown in the
+  transaction's native price currency; when the display currency differs, an
+  approximate converted figure (using the [exchange rate](GLOSSARY.md#exchange-rate)
+  on the transaction's date) is shown alongside.
+- **Linked cash leg as a subtitle.** Because [buys and sells carry a linked cash
+  leg](GLOSSARY.md#transaction), each trade row surfaces that leg inline beneath
+  the asset, e.g. a sell shows `+$998.50 USD → Midas` (auto-credit) and a
+  platform-funded buy shows `−$1,001.50 USD from Bank`. A buy funded by outside
+  money (no linked leg) shows an `external cash` hint instead. The subtitle text
+  is read from the linked child, never recomputed.
+- **Realized P&L per sell.** Every sell row shows the realized P&L it booked —
+  amount, sign, color, and a `%` of cost basis — taken from the
+  [P&L engine](06-pnl-engine.md)'s [FIFO](GLOSSARY.md#fifo-lots-and-cost-basis)
+  output. Non-sell rows show nothing. The figure is **USD-anchored**: sign, color,
+  and percent follow the USD result; when the native currency is not USD the row
+  shows the native amount with the USD figure as an approximate sub-line.
+- **Realized P&L is computed over full history, not the filtered view.** FIFO must
+  consume the asset's *entire* lot history to attribute the correct cost basis to a
+  sell. Filtering the log to a date range or one asset must NOT change the realized
+  number on any visible sell. (See Acceptance.)
+- **Filters.** The user can narrow by date range, [asset](GLOSSARY.md#asset),
+  [platform](GLOSSARY.md#platform), and one or more transaction **types** (multi-
+  select). Filters compose (all active filters AND together).
+- **Default range.** A fresh visit defaults to the current calendar year rather
+  than the entire history, so the first load is bounded. The user can widen to
+  "All Time". The active filter set is reflected in the page's address so a
+  filtered view is shareable/bookmarkable and survives reload.
+- **Auto-paired cash legs are hidden by default.** The main list omits rows that
+  are the *child* leg of a linked pair (they already appear as their parent's
+  subtitle). Filtering to a specific cash/[fiat asset](GLOSSARY.md#asset) reveals
+  them, so the user can audit "where did this cash come from".
+- **Activity summary.** Above the log, a small set of stats describes the
+  **currently filtered** set: transaction count, total buy volume, total sell
+  volume. Volumes are normalized to a common currency via dated FX so mixed-
+  currency activity is comparable.
+- **Edit.** Any transaction is editable. Editing re-runs the same balance-recompute
+  and cash-leg reconciliation as creation: the affected [holding](GLOSSARY.md#holding)
+  balance(s) are recalculated (on both the old and new asset/platform if they
+  changed), the linked cash leg is updated/created/removed to match, and all P&L
+  re-derives. A single-entry edit opens a pre-filled editor; this page launches it.
+- **Delete.** Removing a transaction asks for confirmation, then removes it and its
+  linked cash leg and recalculates the affected balances.
+- **Bulk import entry.** The page offers an entry point into the bulk-import
+  subsystem ([Component 4](04-transaction-system.md)) — a "bulk add" action and (on
+  a per-asset basis, reached from elsewhere in the app) an "edit this asset's
+  transactions" surface. The import experience itself is specified in Component 4.
+- **No per-row refetching.** Rendering the log must not cause each row to re-request
+  the data. Scrolling/paginating the log reads already-loaded data. (This is a hard
+  rule — a naive per-row data dependency previously caused a request flood; see the
+  [technical doc](technical/09-transactions-page.md).)
 
-6. **TransactionList**: shadcn Table. Sorted by date DESC (newest first). Clickable column headers for sorting. "Load more" button at bottom. Alternating row colors
+## Contract (I/O)
 
-7. **TransactionsPage layout**: Filters top, Summary below, List as main. "Add Transaction" button top-right
+**Inputs**
+- The full [Transaction](GLOSSARY.md#transaction) history for the user (the source
+  of truth that also feeds the [P&L engine](06-pnl-engine.md)), plus dated
+  [exchange rates](GLOSSARY.md#exchange-rate).
+- The current filter set (date range, asset, platform, types) — sourced from the
+  page address.
+- The display currency (USD/TRY) for the native↔display conversion columns.
 
-8. **Mobile**: Table → card list. Each card: Date, Asset, Type badge, Amount, Total. P&L if sell. Filters collapse to bottom sheet
+**Derived / outputs**
+- A **date+asset+platform-filtered, newest-first** list of rows (the type filter
+  may be applied on top of the already-fetched slice).
+- A `transaction → realized P&L` mapping, computed by FIFO over **full** history
+  and joined to sell rows by transaction identity.
+- A summary `{ count, totalBuyVolume, totalSellVolume }` over the filtered set, with
+  volumes normalized to a common currency.
+- Edit/delete actions that mutate transactions and trigger balance + P&L recompute.
 
-9. **Realized P&L computation**: Run FIFO per asset once on load, build map `transactionId -> realizedPnL`. Look up per row. Avoids recomputing per row
+**Invariants**
+- A sell row's realized P&L equals the [P&L engine](06-pnl-engine.md)'s figure for
+  that sell — same number on this page, the dashboard, and the portfolio view.
+- Realized numbers are invariant to filtering (filters change *which rows show*,
+  never *what a sell's P&L is*).
+- After an edit/delete, balances and all P&L reflect the change without a manual
+  reload.
 
-10. **Edit/delete**: Click row → edit modal (AddTransactionModal pre-filled). Delete with confirmation. Both recalculate affected asset balance. Rare admin actions
+## UI contract — log list, filters, realized P&L, edit, import entry
 
-## UI Components
-- **shadcn/ui**: Table (full set), Badge, Calendar, Popover, Select, Input, Button, Sheet (mobile filters)
-- **Custom**: TransactionList, TransactionRow, TransactionFilters, TransactionTypeBadge, TransactionSummary
+- **Log list.** Table on wide screens (columns: Date, Asset, Platform, Type,
+  Amount, Unit Price, Total, row-actions); a stacked card list on narrow screens.
+  Type is a color-coded badge per type. Asset cell carries the icon, ticker, and the
+  linked-leg subtitle. Empty and loading states are explicit.
+- **Filters.** Date-range presets (Last 7d / Last 30d / This Year / All Time) plus
+  free date pickers; an asset picker; a platform picker; type chips (toggle on/off);
+  a "clear filters" affordance when any filter is active.
+- **Realized P&L.** Rendered only on sell rows, beneath the total: signed amount +
+  `%` of cost basis, colored gain/red-loss by the **USD** sign, with the native
+  figure shown when native ≠ USD. Follows the app-wide gain/loss styling
+  conventions (canonical palette, ASCII minus, no sign at zero).
+- **Edit / delete.** Each row exposes an actions menu → Edit (opens the pre-filled
+  single-entry editor) and Delete (confirmation dialog naming the affected
+  transaction and warning that holdings will be recalculated).
+- **Import entry.** A "bulk add" action in the page header opens the bulk editor;
+  the cancel/return path from that editor comes back to this page.
 
-## Key Decisions
-- **Client-side filtering for MVP**: <5,000 transactions, fetch all, filter in JS. Add server-side later if needed
-- **Realized P&L pre-computed**: FIFO per asset once, map lookup per transaction. Efficient
-- **Load more over pagination**: Simpler UX, no page numbers. Load 50, button for more
-- **No inline editing**: Opens modal (same as AddTransactionModal but pre-filled)
+## Acceptance
 
-## Acceptance Criteria
-- [ ] All transactions shown in reverse chronological order
-- [ ] Each shows date, asset, type (color badge), amount, price, total
-- [ ] Sell transactions show realized P&L
-- [ ] Date range filter works (presets + custom dates)
-- [ ] Asset/platform/type filters correctly narrow the list
-- [ ] Summary bar shows totals for filtered set
-- [ ] "Add Transaction" button opens the modal
-- [ ] Mobile: card layout, filters in bottom sheet
-- [ ] Edit and delete work with confirmation
+- [ ] Log renders newest-first with date, asset, platform, type badge, signed
+      amount, unit price, and total.
+- [ ] Each sell row shows realized P&L whose amount/% **match the FIFO P&L engine**
+      (Component 6) for that sell.
+- [ ] Filtering by asset narrows the log to that asset; filtering by platform, type,
+      and date range each narrow correctly, and filters compose.
+- [ ] Narrowing the filter (e.g. to one asset or a short date range) does **not**
+      change the realized P&L shown on any still-visible sell.
+- [ ] Auto-paired cash legs are hidden in the default view but appear when filtering
+      to the relevant cash/fiat asset.
+- [ ] The activity summary reflects the **filtered** set (count, buy volume, sell
+      volume).
+- [ ] Editing a transaction updates the affected [Holding](GLOSSARY.md#holding)
+      balance(s), reconciles its linked cash leg, and re-derives P&L — no manual
+      reload.
+- [ ] Deleting a transaction asks for confirmation and recalculates balances.
+- [ ] The log paginates/scrolls **without per-row refetching** the whole table.
+- [ ] The "bulk add" entry point opens the bulk-import surface (Component 4).

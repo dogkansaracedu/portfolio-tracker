@@ -1,96 +1,74 @@
-# Component 1: Project Setup
+# Component 1: Project Setup — Behavioral Spec
 
-## Status: Done
+> Layer: behavioral (tech-agnostic). Implementation → [technical/01-project-setup.md](technical/01-project-setup.md)
 
-## Overview
-Bootstrap the development environment with Vite + React + TypeScript + Tailwind CSS + shadcn/ui. Set up React Router v7 for page routing, configure local Supabase via CLI/Docker, create the app layout shell (sidebar/navbar, content area), and establish the folder structure and dev tooling conventions.
+## Purpose
 
-## Dependencies
+The application is a client-rendered single-page app: it loads once, then routes and renders entirely on the client with no full-page reloads. This component defines the foundation every other component sits on — the set of named screens, the navigation shell that wraps them, the light/dark theme, and the rule that the app is private (sign-in required) while only the login and signup screens are public. It owns no domain data; it provides the frame.
+
+## Depends on
+
 None. This is the foundation.
 
-## File Structure
-```
-portfolio-tracker/
-├── .env.local                          # Supabase local URL + anon key
-├── .gitignore
-├── index.html
-├── package.json
-├── postcss.config.js
-├── tailwind.config.js
-├── tsconfig.json
-├── tsconfig.app.json
-├── tsconfig.node.json
-├── vite.config.ts
-├── components.json                     # shadcn/ui config
-├── supabase/
-│   ├── config.toml                     # Supabase local config
-│   └── .gitignore
-├── public/
-│   ├── favicon.ico
-│   ├── manifest.json                   # PWA manifest (basic)
-│   └── icons/                          # App icons (192, 512)
-├── src/
-│   ├── main.tsx                        # Entry point, wraps with providers
-│   ├── App.tsx                         # Router setup
-│   ├── index.css                       # Tailwind directives + globals
-│   ├── vite-env.d.ts
-│   ├── components/
-│   │   ├── ui/                         # shadcn/ui components (auto-generated)
-│   │   └── layout/
-│   │       ├── AppLayout.tsx           # Main layout shell
-│   │       ├── Sidebar.tsx             # Desktop sidebar nav
-│   │       ├── MobileNav.tsx           # Bottom nav for mobile
-│   │       └── Header.tsx              # Top bar (page title, currency toggle)
-│   ├── pages/
-│   │   ├── DashboardPage.tsx           # Placeholder
-│   │   ├── PortfolioPage.tsx           # Placeholder
-│   │   ├── TransactionsPage.tsx        # Placeholder
-│   │   ├── PerformancePage.tsx         # Placeholder
-│   │   ├── SettingsPage.tsx            # Placeholder
-│   │   ├── LoginPage.tsx               # Placeholder
-│   │   └── SignupPage.tsx              # Placeholder
-│   ├── lib/
-│   │   ├── supabase.ts                 # Supabase client init
-│   │   └── utils.ts                    # cn() helper from shadcn/ui
-│   ├── hooks/                          # Custom hooks (empty for now)
-│   ├── contexts/                       # React Context providers (empty for now)
-│   └── types/                          # TypeScript types (empty for now)
-│       └── index.ts
-```
+## Concepts used
 
-## Tasks
-1. Initialize Vite project: `npm create vite@latest . -- --template react-ts`
-2. Install and configure Tailwind CSS: `npm install -D tailwindcss @tailwindcss/vite`, add to `vite.config.ts`, add `@import "tailwindcss"` to `index.css`
-3. Initialize shadcn/ui: `npx shadcn@latest init` (New York style, Zinc base color, CSS variables)
-4. Add initial shadcn/ui components: `npx shadcn@latest add button card separator sheet tabs avatar badge dropdown-menu tooltip`
-5. Install React Router: `npm install react-router`, configure routes in `App.tsx`
-6. Install Supabase client: `npm install @supabase/supabase-js`
-7. Initialize local Supabase: `npx supabase init` then `npx supabase start`
-8. Create Supabase client file: `src/lib/supabase.ts` reads from `.env.local`
-9. Create `.env.local` with local Supabase URL and anon key (from `supabase start` output)
-10. Build layout shell: `AppLayout.tsx` with sidebar on desktop, bottom tab bar on mobile. Use shadcn `Sheet` for mobile sidebar overlay
-11. Set up routing: `/login`, `/signup` (public), `/` with child routes for dashboard, portfolio, transactions, performance, settings
-12. Create placeholder pages: each exports a simple component with the page title
-13. Install Recharts: `npm install recharts`
-14. PWA basics: minimal `manifest.json` in `public/`
-15. Configure path aliases: `@/` as alias for `src/` in tsconfig + vite config
+None — this component is pre-domain. It defines structure (routes, shell, theme, auth gate), not any portfolio concept. Domain meaning enters from Component 2 onward.
 
-## UI Components
-- **shadcn/ui**: Button, Card, Separator, Sheet (mobile nav), Tabs, Avatar, Badge, DropdownMenu, Tooltip
-- **Custom**: AppLayout, Sidebar, MobileNav, Header
+## Behaviors / rules
 
-## Key Decisions
-- **Folder structure**: Flat (pages/, components/, hooks/, contexts/, lib/, types/). No feature-folder nesting for MVP.
-- **shadcn/ui style**: New York variant, Zinc color palette.
-- **CSS variables**: Yes (enables dark mode later).
-- **React Router**: `createBrowserRouter` with layout route for the app shell.
-- **Pure SPA**: No SSR/SSG. Vite dev server for development, static build for production.
-- **Path alias `@/`**: Standard shadcn/ui convention for clean imports.
+- **Single-page navigation.** Moving between screens swaps content in place; no full reload. Each screen has a stable, bookmarkable URL path. Deep-linking directly to any path works (loading that URL lands on that screen, subject to the auth gate).
+- **Named screens.** Exactly these authenticated screens exist:
+  - `dashboard` — the default/home screen (the app root path).
+  - `portfolio`
+  - `transactions`
+  - `performance`
+  - `settings`
+- **Public screens.** `login` and `signup` are reachable without being signed in.
+- **Auth gate.** All authenticated screens require a signed-in user. An unauthenticated visit to any authenticated path is redirected to `login` (the redirect replaces history so Back doesn't bounce). While the app is still determining whether a session exists, a neutral loading state shows instead of either the screen or a premature redirect.
+- **Full-screen vs. shell screens.** Most authenticated screens render inside the app shell (navigation + header). At least one authenticated flow — the dedicated transaction-editing screen — renders full-screen with no side navigation and no header, so the user can focus on data entry. (Detail of which flows are full-screen is part of those components; the setup contract is only that the routing layer supports both shell-wrapped and full-screen authenticated screens.)
+- **App shell.** Authenticated shell screens are wrapped by a persistent layout:
+  - **Desktop:** a persistent side navigation listing all five named screens, plus a top header.
+  - **Mobile:** the side navigation is hidden; a bottom navigation bar lists the same five screens, plus the top header remains.
+  - The active screen is visually indicated in whichever navigation is showing.
+  - Only the content region scrolls; navigation and header stay fixed.
+- **Theme.** The app supports a light and a dark theme. The choice is user-toggleable, persists across reloads and sessions, and on first visit defaults to the operating-system preference. The correct theme must be applied before first paint (no flash of the wrong theme).
+- **Lazy screens.** Screens may load on demand the first time they're visited; while a screen's content is loading, a neutral placeholder shows in the content region.
 
-## Acceptance Criteria
-- [ ] `npm run dev` starts the app at localhost:5173 with no errors
-- [ ] `npx supabase start` runs local Supabase (Postgres, Auth, Studio)
-- [ ] Navigating between all pages shows placeholder content within layout shell
-- [ ] Sidebar nav works on desktop, bottom tab bar shows on mobile (< 640px)
-- [ ] Tailwind classes render correctly, shadcn Button renders with correct styling
-- [ ] `.env.local` has valid local Supabase credentials and is in `.gitignore`
+## Contract (I/O)
+
+Provides to all other components:
+
+- A routing surface: the five named authenticated paths, the two public paths, plus support for full-screen authenticated paths — so any component can own a screen by name.
+- The app shell (side nav + bottom nav + header) into which shell screens render their content.
+- A global theme state (current theme + a toggle) that any component may read or flip.
+- The auth-gate guarantee: code rendered inside an authenticated screen can assume a signed-in user exists.
+
+Consumes: a signed-in/anonymous session signal and a sign-out action (owned by the auth component) to drive the gate and the account menu.
+
+## UI contract
+
+What the user sees and can do:
+
+- **App shell (authenticated, shell screens):**
+  - Desktop: left side navigation with the product name/logo and the five screen links (icon + label); a top header.
+  - Mobile: a fixed bottom bar with the five screens (icon + label); the side navigation is not shown; the header shows the current screen's title.
+  - Header controls (right-aligned): hide/show-values toggle, theme toggle, display-currency toggle, a price-refresh control, and an account menu. (Each control's behavior belongs to its own component; setup only guarantees the header hosts them.)
+  - Account menu: shows who is signed in and offers sign-out; sign-out asks for confirmation, then returns the user to `login`.
+- **Public screens:** `login` and `signup` render standalone, without the app shell.
+- **States:**
+  - *Determining session* — neutral full-screen loading indicator (neither screen nor redirect yet).
+  - *Screen loading on demand* — neutral placeholder in the content region.
+  - *Unauthenticated on a private path* — redirect to `login`.
+- **Responsive intent:** a single breakpoint splits desktop (side nav) from mobile (bottom nav). Content padding leaves room for the bottom bar on mobile so it never overlaps content.
+
+## Acceptance
+
+Any stack must pass these:
+
+- Navigating between all five authenticated screens works on both a desktop-width and a mobile-width viewport, swapping content with no full reload.
+- On desktop the side navigation is visible and the bottom bar is not; on mobile the bottom bar is visible and the side navigation is not. The active screen is highlighted in the visible navigation.
+- Toggling the theme switches light/dark immediately, the choice persists across a reload, and a fresh visitor with no saved choice gets the OS preference — with no wrong-theme flash on load.
+- Visiting any authenticated path while signed out redirects to `login`; visiting `login` or `signup` while signed out succeeds.
+- A signed-in user can open the account menu, confirm sign-out, and is returned to `login`.
+- Deep-linking to any authenticated path while signed in lands on that screen inside the shell (or full-screen, for full-screen flows).
+- Visiting a not-yet-loaded screen shows a neutral placeholder, then the screen.

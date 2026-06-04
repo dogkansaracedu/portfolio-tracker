@@ -1,163 +1,110 @@
-# Component 10: Snapshots & Performance
+# Component 10: Snapshots & Performance — Behavioral Spec
 
-## Status: Done
+> Layer: behavioral (tech-agnostic). Implementation → [technical/10-snapshots-performance.md](technical/10-snapshots-performance.md)
 
-## Overview
-The snapshot system captures aggregated portfolio state per day (`snapshots` table, one row per user per date) and the performance page renders charts and metrics derived from that history: portfolio value over time, monthly returns, category attribution, drawdown, and summary statistics.
+## Purpose
 
-The latest snapshot is also the single source of truth for *current* portfolio aggregations consumed by the dashboard and portfolio page (see Snapshot as Source of Truth below). Snapshot writers are: a daily cron, an on-demand backfill for historical dates, and an in-browser writer that keeps today's row trailing the freshest prices and balances.
+Capture the portfolio's value and composition once per day as a frozen [snapshot](GLOSSARY.md#snapshot), and turn that history into performance views: value over time, drawdown, monthly returns, category attribution, a benchmark comparison, and summary metrics. A snapshot is the authoritative record of "what the portfolio was worth on that date".
 
-## Dependencies
-- Component 5 (Price Engine)
-- Component 6 (P&L Engine)
-- Component 7 (Dashboard) — shares charting patterns
+## Depends on
 
-## File Structure
-```
-src/
-├── pages/
-│   └── PerformancePage.tsx
-├── components/
-│   └── performance/
-│       ├── TimeRangeSelector.tsx
-│       ├── PortfolioValueChart.tsx
-│       ├── MonthlyReturnsChart.tsx
-│       ├── CategoryAttribution.tsx
-│       ├── DrawdownChart.tsx
-│       ├── PerformanceSummary.tsx
-│       └── SnapshotManager.tsx
-├── hooks/
-│   ├── useSnapshots.ts
-│   └── usePerformance.ts
-├── lib/
-│   ├── queries/
-│   │   └── snapshots.ts
-│   └── performance.ts
-```
+- **Price engine** — fresh prices and exchange rates are what a snapshot freezes.
+- **P&L engine** — supplies net invested capital, per-asset/category P&L, and the live money-weighted total used as the chart's "now" point.
+- **Dashboard** — shares the snapshot as its source of truth and shares charting conventions.
 
-## Snapshot as Source of Truth
+## Concepts used — links into [GLOSSARY](GLOSSARY.md)
 
-The dashboard, portfolio page, and performance page read the latest snapshot's `breakdown` JSONB instead of recomputing aggregations from `holdings × prices`. One writer path, one reader. This eliminates an entire class of bugs where parallel compute paths silently disagree on aggregation rules (e.g. how a buy/sell/cash_credit contributes to "invested" capital).
+- [Snapshot](GLOSSARY.md#snapshot) — frozen total + breakdown for one date.
+- [Money-weighted](GLOSSARY.md#money-weighted) return / [USD anchor](GLOSSARY.md#usd-anchor) — all values are anchored in USD; returns subtract deployed capital.
+- [Net invested capital](GLOSSARY.md#net-invested-capital) — `snapshot value − net invested` is that date's P&L point.
+- [Allocation](GLOSSARY.md#allocation) — the per-category/platform/tag breakdown a snapshot freezes.
+- [Snapshot price / live quantity](GLOSSARY.md#snapshot-price-and-live-quantity), [staleness](GLOSSARY.md#staleness) — pricing rules that gate whether a snapshot may be written.
 
-The split between fields is:
-- **Current value, allocation breakdowns, totals** — sourced from the snapshot.
-- **Cost basis, FIFO lots, realized P&L** — computed from `transactions` (deterministic, no second source).
-- **Live balances** — read from `holdings` so transaction edits reflect quantity changes immediately. Per-row value is then derived as `live balance × snapshot's recorded price-per-unit`. The snapshot's stored `value_usd` (which is `amount × price` frozen at write time) is *not* read directly; doing so would briefly show the pre-edit value after a transaction changes the balance.
+## Behaviors / rules
 
-## Snapshot Density
+### What a snapshot is
 
-Two granularity modes for the on-demand backfill:
+- A snapshot freezes, for one calendar date (in the portfolio's home timezone): the **total value** (USD and the home fiat) plus a **breakdown** — per asset, per category, per platform, per tag — and the **exchange rates** used at write time.
+- One snapshot per portfolio per date. Re-writing a date replaces it (idempotent).
+- The snapshot is the single source of truth for *current* totals and allocation: the value views read snapshots, they do not re-derive value from holdings × prices.
 
-- **Weekly + last 30 days daily** (default): one snapshot every 7 days walking back from the earliest transaction date, plus daily for the most recent 30 days. Long ranges (1Y / ALL) stay lightweight; recent ranges retain daily detail.
-- **Each transaction day**: one snapshot per day a transaction occurred. More precise on activity, sparser on quiet periods.
+### When snapshots are written
 
-The daily cron writes one snapshot per user per day at a fixed UTC hour, separate from these density modes.
+1. **Daily automatic** — a scheduled job writes one snapshot per portfolio per day, late in the day. It runs **after** the daily price refresh so the frozen value reflects that day's fresh prices/rates.
+2. **Manual "now"** — the user can capture today's snapshot on demand from the performance view.
+3. **Live trailing of today** — while the app is open, today's snapshot is kept in step with the freshest data the client has: a price refresh or a transaction add/edit/delete rewrites today's row so the value chart's "now" point stays current. Price-driven rewrites are skipped when today's total hasn't actually moved.
+4. **Historical backfill** — on demand (from settings), the system reconstructs past snapshots by replaying transactions against historical prices/rates. See density below.
 
-## Auto-Refresh of Today's Snapshot
+### Backfill density
 
-The browser-side snapshot writer keeps today's row trailing the freshest data the client has seen. It rewrites today's snapshot when either signal changes:
+When backfilling, the user picks one of two densities:
 
-- **Price refresh** (`lastUpdated` from the prices store moves) — debounced ~5s so a typical page load (cache-load → stale-refresh) collapses to one canonical write.
-- **Transaction add/edit/delete** (transaction context bumps a version) — debounced ~200ms so the dashboard total catches up to a fresh edit nearly instantly. Discrete user actions don't burst, so a smaller window is safe.
+- **Recent-daily + older-weekly (default)** — one snapshot for **each of the last ~30 days**, then **one every 7 days** walking back to the earliest transaction. Recent ranges keep daily detail; long ranges (1Y / ALL) stay lightweight. The earliest transaction date and today are always included as anchors.
+- **Each transaction day** — one snapshot only for days a transaction occurred. More precise on activity, sparser through quiet periods.
 
-When both signals fire together the shorter window wins. Each signal is independently deduped so the effect can't loop on its own writes.
+Overwrite option: when on, the **entire date range** from the earliest transaction through today is wiped and rebuilt (not just the targeted dates) so stale rows from a prior, differently-spaced backfill can't survive. When off, dates are upserted in place.
 
-The shared snapshot store is loaded once and served to all consumers (dashboard, portfolio page, performance page, snapshot manager). When a writer succeeds it triggers a refetch so every reader sees the new row.
+### Correctness guards (all writers)
 
-## Defensive Guards
+- **Unpriceable holding → skip the date.** If any held asset has no usable price (missing, non-positive, or [stale](GLOSSARY.md#staleness)) for the target date, the writer skips that date with a logged reason rather than freezing a total that silently omits the holding. A manual write surfaces the skip to the user; automatic/backfill writers log and move on.
+- **Empty portfolio → write a $0 snapshot.** When every position is closed, the date is written with total = 0 so charts draw a flat $0 line through the closed period instead of interpolating a fictional value.
 
-All three snapshot writers — daily cron, on-demand backfill, in-browser writer — apply the same correctness guards:
+### Computed performance values
 
-- **Skip on unpriceable holdings**: if any held asset has `price_usd <= 0` for the target date, the writer skips that date with a logged reason instead of writing a snapshot that silently omits the unpriced holding. Skipping for one day is recoverable; locking in a wrong total isn't. The browser path surfaces the skip as a thrown error so the manual "Take Snapshot" button can toast; the cron logs and continues to other users.
-- **Empty portfolio writes a $0 snapshot**: when the user has sold everything, the backfill writes `total_usd = 0` for those dates so charts render a flat $0 line through the closed-position period instead of interpolating a fictional value.
-- **`overwrite=ON` wipes the full date range**: when the user requests overwrite, the writer deletes every snapshot in `[earliestTxDate, today]` for the user before upserting fresh rows. Deleting only the target dates leaves stale rows from prior runs surviving; range-based wipe is the correct semantic for "rebuild the slate".
+All performance math is [money-weighted](GLOSSARY.md#money-weighted) and [USD-anchored](GLOSSARY.md#usd-anchor).
 
-## Cron Authentication
+- **Portfolio value over time** — the snapshot totals, plotted chronologically. The chart's "now" point equals the live money-weighted total shown on the dashboard.
+- **P&L over time** — for any snapshot, `total value(date) − net invested(date)`. Net invested is the cumulative cost basis deployed up to that date (buys + fees − sells − dividends/interest; transfers carry cost basis in/out and net to zero for genuine platform-to-platform moves; auto-paired cash legs cancel an asset↔cash swap so it isn't double-counted).
+- **Monthly returns** — the money-weighted return between consecutive snapshots, with mid-period cash flows time-weighted (a deposit halfway through the period counts for ~half the period) so depositing capital does not masquerade as a gain. Only flows that genuinely cross the portfolio boundary count; internal asset↔cash swaps, dividends, interest, and standalone fees do not inflate the return.
+  - Worked example: period start value 10,000; end value 11,500; a 1,000 deposit at the period midpoint. Time-weight w = (T − t)/T = 0.5. Return = (11,500 − 10,000 − 1,000) / (10,000 + 1,000·0.5) = 500 / 10,500 ≈ **+4.76%**. Counting the deposit as gain would wrongly read +15%.
+- **Drawdown** — for each snapshot, `(value − running peak) / running peak`, always ≤ 0. Max drawdown is the minimum of the series. Computed on USD only (home-fiat drawdown would be distorted by currency depreciation).
+- **Category attribution** — per category: cost basis, current value, total P&L (unrealized + realized), and that category's share of total portfolio P&L. Anchored on actual transactions (cost basis), not on snapshots, so it doesn't misstate the starting point when snapshots begin after the first deposit. Fiat is excluded (no meaningful P&L). This view is portfolio-wide (lifetime), independent of the selected range.
+- **All-time return** — total P&L ÷ absolute net invested capital.
+- **CAGR** — `(current value / net invested)^(1/years) − 1`, anchored on the first transaction date; shown as `N/A` below ~1 month of history. A friendly approximation; rigorous money-weighting for irregular flows would be a per-flow internal rate of return.
+- **Benchmark comparison** — the portfolio's value path overlaid against a chosen market index's daily-close series (default: a broad US index), so relative performance is visible. The index is informational only — it never feeds the portfolio's own totals.
 
-The cron command authenticates to the snapshot writer with a shared `X-Cron-Token` header. Both the token and the writer's base URL live in Postgres Vault; the cron reads from Vault and the writer rejects unmatched headers. This keeps the cron command environment-agnostic.
+### Time range
 
-## Snapshot Breakdown Schema
+- A selectable range scopes the value/drawdown/monthly views and the range-scoped summary cards (best/worst month, max drawdown). All-time return and CAGR are always lifetime regardless of range; range-scoped cards are labelled with the active range.
+- For ranges of a month or longer, the latest snapshot **just before** the range start is pulled in as a start anchor so the chart stays populated when snapshots are sparse. Sub-week ranges are not extended (it would misrepresent the requested window).
+- A synthetic $0 point one day before the earliest transaction may anchor the value series so a portfolio that began mid-window starts from its true entry point.
 
-`snapshots.breakdown` is the JSONB blob that carries all aggregations. See PRD §8.2 for the canonical schema. Per-bucket TRY values are stored alongside USD; per-platform entries carry display color so the dashboard doesn't have to look it up. When a row is missing an optional TRY field, the reader falls back to `usd × the snapshot's recorded usd_try` rate — never the live rate, which would retro-convert old snapshots at today's exchange rate.
+## Contract (I/O)
 
-## Performance Charts
+**Snapshot (frozen record)**
+- In: target date, the portfolio's held quantities, prices + exchange rates for that date.
+- Out: a row of `{ date, total (USD + home fiat), breakdown{ rates, by_category, by_platform, by_tag, by_asset } }`. Refuses to write on an unpriceable holding; writes $0 for an empty portfolio.
 
-The performance page renders chronologically against `snapshots`:
+**Backfill**
+- In: density choice (recent-daily+older-weekly | each-transaction-day), overwrite flag.
+- Out: target dates produced, snapshots written, tickers priced, per-source warnings. Density: daily ≤ ~30 days, weekly older.
 
-- A synthetic `$0` anchor is prepended one day before the earliest transaction across all time ranges. Portfolios that started inside a 1Y / YTD window begin at the actual entry point with $0, like brokers display newly-listed instruments.
-- Charts use a time-scale x-axis with monotone smoothing so points are placed by elapsed time, not uniform array index — recent dense daily points don't visually dominate older sparse weekly points on long ranges.
-- Negatives in summary tooltips render with a leading minus. Showing `-$940` as `$940` would be the worst silent failure for a P&L tracker.
+**Performance read**
+- In: the snapshot history, transactions, exchange rates, current net invested / P&L / value (from the P&L engine), selected range.
+- Out: value series, drawdown series, monthly returns, category attribution rows, and summary metrics (all-time return, CAGR, best/worst month, max drawdown).
 
-## Tasks
-1. **Snapshot queries** (`lib/queries/snapshots.ts`):
-   - fetchSnapshots(userId): all, date ASC
-   - createSnapshot(userId): fetch active assets + prices + rates → aggregate by category/platform → build breakdown JSONB (per PRD 8.2) → INSERT. Apply the unpriceable-holdings guard.
-   - deleteSnapshot(id): rare admin action
+## UI contract — performance charts, time range, snapshot/backfill controls
 
-2. **Shared snapshot store**: load once on auth, serve all consumers, expose snapshots[], loading, takeSnapshot(), deleteSnapshot(), refetch(). Subscribe to price-update and transaction-version signals; rewrite today's row on either, with the debounce policy above.
+- **Time range selector** — buttons for at least 1M / 3M / 6M / YTD / 1Y / ALL; the active range is highlighted and scopes the charts and range-scoped metrics.
+- **Summary metrics** — a compact grid of cards: current value, all-time return, CAGR, best month, worst month, max drawdown. Range-scoped cards carry the range in their label. `N/A` when a metric can't be computed.
+- **Portfolio value chart** — value over time in the selected display currency; tooltip shows date and value.
+- **Monthly returns chart** — bars per period; gain/loss coloured per the canonical palette; tooltip shows signed % (and amount).
+- **Drawdown chart** — filled area pinned at the 0% line, never above it.
+- **Category attribution** — a table (category, cost basis, value, total P&L, contribution %), sorted by absolute contribution, signed values coloured per the canonical gain/loss palette.
+- **Benchmark comparison** — the chosen index overlaid on the value path with its own calibrated scale; a clearly distinct (neutral) line.
+- **Snapshot control** — a "take snapshot now" action that reports success or a skip reason; shows the last snapshot date/value and a collapsible history with per-row delete.
+- **Backfill control (settings)** — density choice with explanatory hints, an overwrite toggle with a clear warning, a run action, and a result summary (target dates, written, tickers priced, warnings). Warns that it pulls historical prices and may take tens of seconds.
+- **Empty / sparse states** — fewer than 2 snapshots: prompt to take snapshots (charts hidden). Fewer than 2 points in a range: a "not enough data" hint suggesting a wider range. All charts are responsive and stack to one column on small screens.
+- Negative values always render with a leading minus — showing a loss as a positive number is the worst silent failure for a tracker.
 
-3. **Performance utilities** (`lib/performance.ts`):
-   - computeMonthlyReturns(snapshots): (S[n]-S[n-1])/S[n-1] per pair
-   - computeYTDReturn(snapshots): Jan 1 vs latest
-   - computeAllTimeReturn(snapshots): earliest vs latest
-   - computeCAGR(snapshots): (latest/earliest)^(1/years)-1
-   - computeDrawdown(snapshots): (value-peak)/peak per snapshot. Max drawdown = min
-   - computeCategoryAttribution(snapshots, timeRange): per-category Δ / total_start
-   - filterByTimeRange(snapshots, range): filter to 1M, 3M, 6M, YTD, 1Y, ALL
+## Acceptance
 
-4. **usePerformance hook**: Depends on useSnapshots. Accepts timeRange. Returns { monthlyReturns, ytdReturn, allTimeReturn, cagr, maxDrawdown, bestMonth, worstMonth, drawdownSeries, filteredSnapshots, loading }
-
-5. **TimeRangeSelector**: Row of buttons (1M, 3M, 6M, YTD, 1Y, ALL). Active highlighted. shadcn ToggleGroup
-
-6. **PortfolioValueChart**: Recharts AreaChart/LineChart. X: dates, Y: total value. Single line in selected currency. Tooltip: date, value, monthly change. ResponsiveContainer
-
-7. **MonthlyReturnsChart**: Recharts BarChart. Green bars positive, red negative. X: month labels, Y: return %. Tooltip: "March 2026: +3.2% ($1,240)"
-
-8. **CategoryAttribution**: Table (not chart). Columns: Category, Start value, End value, Change USD, Contribution %. Sorted by absolute contribution. shadcn Table
-
-9. **DrawdownChart**: Recharts AreaChart. Always ≤0. Red filled area below 0% line. Highlights max drawdown point. X: dates, Y: drawdown %
-
-10. **PerformanceSummary**: Grid of stat cards (2x3 or 3x2): Total Return (amount+%), CAGR, Best Month, Worst Month, Max Drawdown (% + date range), Current value. shadcn Card
-
-11. **SnapshotManager**: "Take Snapshot Now" button. Last snapshot date. Collapsible snapshot history list with date, total value, delete option. Success/error toast
-
-12. **PerformancePage layout**:
-    - TimeRangeSelector (top)
-    - PerformanceSummary (stat cards)
-    - PortfolioValueChart (full width)
-    - MonthlyReturnsChart (1/2) + CategoryAttribution (1/2)
-    - DrawdownChart (full width)
-    - SnapshotManager (bottom, collapsible)
-    - Mobile: single column stacked
-
-13. **Empty state**: If <2 snapshots: "Take at least 2 snapshots to see performance. Your first snapshot captures today's state." + "Take First Snapshot" button
-
-14. **Time range edge cases**: <2 data points in range → "Not enough data" message + suggest wider range
-
-## UI Components
-- **shadcn/ui**: Card, Table, ToggleGroup, Button, Collapsible, Skeleton, Sonner/Toast
-- **Recharts**: AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
-- **Custom**: TimeRangeSelector, PortfolioValueChart, MonthlyReturnsChart, CategoryAttribution, DrawdownChart, PerformanceSummary, SnapshotManager
-
-## Key Decisions
-- **Snapshot is the single source of truth for current aggregations**: dashboard, portfolio page, and performance page read the snapshot; they never recompute from `holdings × prices`. One writer path, one reader, no drift class.
-- **Live balance × snapshot price per unit**: per-row values use `holdings.balance × snapshot.price_usd`, not the snapshot's frozen `value_usd`. Quantity changes (a fresh transaction) reflect immediately while the snapshot stays the source of truth for prices.
-- **Snapshot writers share a defensive guard**: unpriceable holdings cause a skip, not a silent omission. Empty portfolios write `$0` rather than a missing date.
-- **`overwrite=ON` is range-based**: deletes the full `[earliestTxDate, today]` window before rewriting. Deleting only target dates leaves stale rows from prior cadences alive.
-- **Monthly granularity**: Performance measured monthly, not daily. Aligns with long-term tracking goal
-- **All computation client-side**: <120 snapshots (10 years). Trivial computation
-- **CAGR only after 1+ year**: Show "N/A" if <12 months of data
-- **Drawdown in USD only**: TRY drawdown would be misleading due to depreciation
-- **Manual snapshot is idempotent per date**: UPSERT with (user_id, snapshot_date) unique constraint
-- **SnapshotManager in Performance page**: Data belongs with its visualization, not in Settings
-
-## Acceptance Criteria
-- [ ] Manual snapshot from Performance page saves to DB
-- [ ] Portfolio value line chart renders from snapshot data
-- [ ] Monthly returns bar chart with green/red bars
-- [ ] Category attribution table shows per-category contributions
-- [ ] Drawdown chart shows peak-to-trough drawdowns
-- [ ] Summary stats computed and displayed (total return, CAGR, best/worst, max drawdown)
-- [ ] Time range selector filters all charts and metrics
-- [ ] Empty state shown when <2 snapshots
-- [ ] All charts responsive
+- A snapshot freezes the total **and** the per-asset/category/platform/tag breakdown for its date.
+- The daily automatic snapshot runs after the price refresh, so its frozen value reflects that day's fresh prices/rates.
+- Backfill produces daily points for the last ~30 days and weekly points for older history (default density), anchored at the earliest transaction and today.
+- An unpriceable holding causes the date to be skipped (logged / surfaced), never a silently-undercounted total; a fully-closed portfolio writes a $0 snapshot.
+- The value, drawdown, and monthly-returns views render over the chosen range; the value chart's "now" point equals the live money-weighted total shown on the dashboard hero.
+- Monthly returns are time-weighted so a mid-period deposit doesn't read as a gain.
+- Category attribution shows per-category P&L and contribution %, sorted by magnitude, and reconciles to lifetime totals.
+- A benchmark index can be overlaid on the value path without affecting portfolio totals.
+- Overwrite backfill rebuilds the whole earliest-transaction→today range; non-overwrite upserts in place.
