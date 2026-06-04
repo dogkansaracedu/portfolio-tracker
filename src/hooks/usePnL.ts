@@ -7,7 +7,7 @@ import { buildRealizedByTx } from "@/lib/pnl/realized"
 import { computeUnrealizedPnL } from "@/lib/pnl/unrealized"
 import { computeCurrentInvestedUsd } from "@/lib/performance"
 import type { Transaction, PriceCache } from "@/types/database"
-import type { AssetPnL, PortfolioPnL } from "@/lib/pnl/types"
+import type { AssetPnL, HoldingPnL, PortfolioPnL } from "@/lib/pnl/types"
 import type { HoldingWithDetails } from "@/lib/queries/holdings"
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -55,6 +55,7 @@ export function usePnL(
     if (loading || holdings.length === 0) {
       return {
         assetPnLs: [],
+        holdingPnLs: [],
         totalCostBasisUsd: BN_ZERO,
         totalCurrentValueUsd: BN_ZERO,
         totalUnrealizedPnlUsd: BN_ZERO,
@@ -85,18 +86,6 @@ export function usePnL(
     const grouped = groupByAssetPlatform(transactions)
 
     // ── Per-(asset, platform) P&L ──────────────────────────────────
-
-    interface HoldingPnL {
-      assetId: string
-      ticker: string
-      category: string
-      costBasisUsd: ReturnType<typeof bn>
-      costBasisNative: ReturnType<typeof bn> | null
-      nativeCurrency: string | null
-      currentValueUsd: ReturnType<typeof bn>
-      unrealizedPnlUsd: ReturnType<typeof bn>
-      realizedPnlUsd: ReturnType<typeof bn>
-    }
 
     const holdingPnLs: HoldingPnL[] = []
 
@@ -134,6 +123,8 @@ export function usePnL(
         )
         holdingPnLs.push({
           assetId: h.asset_id,
+          platformId: h.platform_id,
+          platformName,
           ticker,
           category,
           costBasisUsd: fiatCostBasisUsd,
@@ -179,6 +170,8 @@ export function usePnL(
 
       holdingPnLs.push({
         assetId: h.asset_id,
+        platformId: h.platform_id,
+        platformName,
         ticker,
         category,
         costBasisUsd: unrealized.costBasisUsd,
@@ -280,6 +273,7 @@ export function usePnL(
 
     return {
       assetPnLs,
+      holdingPnLs,
       totalCostBasisUsd,
       totalCurrentValueUsd,
       totalUnrealizedPnlUsd,
