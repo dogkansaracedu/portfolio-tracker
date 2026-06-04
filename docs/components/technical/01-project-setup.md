@@ -44,7 +44,7 @@ None owned here. This component consumes the auth session (`useAuth`) for the ga
 
 - **No flash of wrong theme:** the IIFE in `index.html` runs before React mounts — reads `localStorage["theme"]` (or `prefers-color-scheme`), sets `.dark` + `colorScheme` synchronously. `ThemeContext` then keeps the same `localStorage["theme"]` key in sync; they must agree on the key name and the `.dark` class.
 - **`navItems` is the single source of truth** for nav (label/path/icon) and is shared by `Sidebar` and `MobileNav` — edit it once. `Header`'s `pageTitles` map is separate and must be kept in step with the routes.
-- **`next-themes` is dead weight** — installed but unused; theming is the custom context. Don't wire components to `next-themes`; use `useTheme` from `ThemeContext`.
+- **Don't theme via `next-themes`.** It's installed but only consumed by the toast component (`ui/sonner.tsx`); it is **not** the app theme system. For app theming use `useTheme` from the custom `ThemeContext`.
 - **Tailwind 4 has no JS config** — design tokens live in `index.css` (`@theme inline`, sidebar/chart vars). Looking for `tailwind.config.js`/`postcss.config.js` is a dead end; they don't exist.
 - **shadcn here is Base-UI-flavored** (`@base-ui/react`), so some primitives use `render={<...>}` slot props (see `Header`/`UserMenu` triggers) rather than `asChild`. `DropdownMenuLabel` must sit inside a `Group`, hence the plain-`div` header in `UserMenu`.
 - **Full-screen routes bypass the shell** by being nested directly under `ProtectedRoute` (siblings of `AppLayout`), not under `AppLayout` — that's how `transactions/edit*` gets no sidebar/header.
