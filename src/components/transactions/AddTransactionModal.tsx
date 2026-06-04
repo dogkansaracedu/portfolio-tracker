@@ -89,6 +89,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const [fee, setFee] = useState("")
   const [feeCurrency, setFeeCurrency] = useState("USD")
   const [destPlatformId, setDestPlatformId] = useState<string>("")
+  const [relatedAssetId, setRelatedAssetId] = useState<string>("")
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
@@ -117,6 +118,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
       setFee(editing.fee ? String(editing.fee) : "")
       setFeeCurrency(editing.fee_currency || "USD")
       setDestPlatformId("")
+      setRelatedAssetId(editing.related_asset_id ?? "")
       setNotes(editing.notes ?? "")
       ;(async () => {
         if (editing.type !== TRANSACTION_TYPES.BUY) {
@@ -148,6 +150,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     setFee("")
     setFeeCurrency(DEFAULT_CURRENCY)
     setDestPlatformId("")
+    setRelatedAssetId("")
     setNotes("")
     setFundingPlatformId(null)
     setExistingChild(null)
@@ -337,7 +340,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         total_cost: totalCost.toNumber(),
         fee: parsedFee.toNumber(),
         fee_currency: fee ? feeCurrency : null,
-        related_asset_id: null,
+        related_asset_id:
+          (type === "dividend" || type === "interest") && relatedAssetId
+            ? relatedAssetId
+            : null,
         linked_tx_id: null,
         notes: notes || null,
       }
@@ -581,6 +587,21 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          )}
+
+          {/* Paid by (dividend/interest only) */}
+          {(type === "dividend" || type === "interest") && (
+            <div className="space-y-2">
+              <Label>Paid by (optional)</Label>
+              <AssetSearchSelect
+                assets={assets.filter((a) => !a.is_currency)}
+                value={relatedAssetId}
+                onChange={setRelatedAssetId}
+              />
+              <p className="text-xs text-muted-foreground">
+                The asset that paid this income (for attribution). Optional.
+              </p>
             </div>
           )}
 
