@@ -4,7 +4,7 @@ Personal multi-platform portfolio tracker — see total net worth in USD and TRY
 
 Solo project. React + Vite + Supabase. PWA-friendly so it works on mobile.
 
-See [PRD.md](./PRD.md) for the product requirements; design notes live in [`docs/`](./docs/).
+See [PRD.md](./docs/PRD.md) for the product requirements; design notes live in [`docs/`](./docs/) (start at [`docs/README.md`](./docs/README.md)).
 
 ## Tech stack
 
@@ -31,7 +31,7 @@ make env-template    # write .env.local from supabase status (one-time)
 make dev             # everything: ensures Supabase is up, then starts Vite
 ```
 
-Open http://localhost:5173. Sign up with any email / password (local auth doesn't require email confirmation). The signup flow auto-seeds default platforms and global assets via [`seed_user_data`](./supabase/migrations/20260402100010_seed_function.sql).
+Open http://localhost:5173. Sign up with any email / password (local auth doesn't require email confirmation). The signup flow auto-seeds default platforms and global assets via [`seed_user_data`](./supabase/migrations/20260520000000_init.sql) (8 platforms + 13 global assets).
 
 The Supabase Studio for the local DB lives at http://localhost:54323.
 
@@ -95,7 +95,7 @@ For a deployed environment, point these at your hosted Supabase project.
 
 ## Daily snapshot cron
 
-A pg_cron job (`daily-portfolio-snapshot`) calls the `take-snapshots` Edge Function every day at 23:55 UTC. The function chains after `fetch-prices` so price cache and exchange rates are fresh before snapshotting. See [`supabase/migrations/20260502120100_daily_snapshot_cron.sql`](./supabase/migrations/20260502120100_daily_snapshot_cron.sql).
+A pg_cron job (`daily-portfolio-snapshot`) runs every day at 23:55 UTC. It calls `fetch-prices` with a snapshot flag, which refreshes the price cache + exchange rates and then chains `take-snapshots` — so a snapshot is taken only once prices are fresh. See [`supabase/migrations/20260602000000_demand_driven_price_refresh.sql`](./supabase/migrations/20260602000000_demand_driven_price_refresh.sql).
 
 For historical backfill (one-shot, on demand), use **Settings → Snapshots → Run backfill**, which invokes the `backfill-snapshots` Edge Function. Density: daily for the last 30 days, weekly for everything older (configured in [`supabase/functions/backfill-snapshots/index.ts`](./supabase/functions/backfill-snapshots/index.ts)).
 
@@ -112,8 +112,8 @@ supabase link --project-ref <ref>
 supabase db push                                       # apply all migrations
 supabase secrets set CRON_TOKEN=$(openssl rand -hex 32)
 supabase secrets set ALLOWED_ORIGINS="https://<vercel-url>"
-for fn in backfill-snapshots fetch-coingecko fetch-historical-rate \
-          fetch-prices fetch-tcmb fetch-yahoo take-snapshots; do
+for fn in backfill-snapshots fetch-benchmark-history fetch-historical-rate \
+          fetch-prices resolve-tickers take-snapshots; do
   supabase functions deploy $fn
 done
 ```
@@ -214,4 +214,4 @@ When the allowlist migration was first applied, every then-existing `auth.users`
 
 ## Status
 
-MVP ~90% complete. See [PRD §16](./PRD.md#16-mvp-scope-summary) for the feature matrix. Known gaps: PWA service worker, CSV import/export, manual "snapshot now" button.
+MVP ~90% complete. See [PRD §16](./docs/PRD.md#16-mvp-scope-summary) for the feature matrix. Known gaps: data **export**, PWA service worker. (CSV + Midas PDF *import* and the manual "Take Snapshot" button have since landed — see Components 4 and 10.)
