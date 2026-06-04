@@ -1,10 +1,11 @@
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { bn, BN_ZERO } from "@/lib/config"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { useSnapshots } from "@/hooks/useSnapshots"
 import { computeFIFOLots } from "@/lib/pnl/fifo"
 import { buildRealizedByTx } from "@/lib/pnl/realized"
 import { computeUnrealizedPnL } from "@/lib/pnl/unrealized"
+import { computeIncomeUsd } from "@/lib/pnl/income"
 import { computeCurrentInvestedUsd } from "@/lib/performance"
 import type { Transaction, PriceCache } from "@/types/database"
 import type { AssetPnL, HoldingPnL, PortfolioPnL } from "@/lib/pnl/types"
@@ -119,7 +120,9 @@ export function usePnL(
         // held); the gain is purely the USD anchor moving.
         const currentValueUsd = liveBalanceBn.times(bn(snapshotPriceUsd))
         const fiatCostBasisUsd = bn(
-          computeCurrentInvestedUsd(grouped[key] ?? [], rates),
+          computeCurrentInvestedUsd(grouped[key] ?? [], rates, {
+            treatIncomeAsCapital: true,
+          }),
         )
         holdingPnLs.push({
           assetId: h.asset_id,
@@ -295,5 +298,30 @@ export function usePnL(
     return sum
   }, [transactions, rates, loading])
 
-  return { ...result, totalRealizedPnlUsd, transactions, rates, loading }
+  // Dividend/interest income over the FULL history (price-independent, so it
+  // shares the [transactions, rates] memo and stays off the price-refresh path).
+  const totalIncomeUsd: ReturnType<typeof bn> = useMemo(() => {
+    if (loading) return BN_ZERO
+    return computeIncomeUsd(transactions, rates)
+  }, [transactions, rates, loading])
+
+  // Dev-time invariant: the canonical money-weighted total must equal the
+  // decomposition. Fires loudly (not DEV-gated — we test on prod) if a future
+  // transaction type breaks the identity. $0.01 tolerance covers float display.
+  useEffect(() => {
+    if (loading) return
+    const moneyWeighted = result.totalCurrentValueUsd.minus(result.totalInvestedUsd)
+    const decomposed = result.totalUnrealizedPnlUsd
+      .plus(totalRealizedPnlUsd)
+      .plus(totalIncomeUsd)
+    if (moneyWeighted.minus(decomposed).abs().gt(0.01)) {
+      console.warn(
+        "[usePnL] P&L reconciliation mismatch:",
+        `value−invested=${moneyWeighted.toFixed(2)}`,
+        `unrealized+realized+income=${decomposed.toFixed(2)}`,
+      )
+    }
+  }, [result, totalRealizedPnlUsd, totalIncomeUsd, loading])
+
+  return { ...result, totalRealizedPnlUsd, totalIncomeUsd, transactions, rates, loading }
 }
