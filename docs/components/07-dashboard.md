@@ -1,83 +1,178 @@
-# Component 7: Dashboard
+# Component 7: Dashboard — Behavioral Spec
 
-## Status: Done
+> Layer: behavioral (tech-agnostic). Implementation → [technical/07-dashboard.md](technical/07-dashboard.md)
 
-## Overview
-Build the main dashboard page — the primary view after login. Shows total net worth (USD/TRY toggle), daily change, allocation donut chart, platform breakdown, top movers, and monthly performance sparkline from snapshots.
+## Purpose
 
-## Dependencies
-- Component 5 (Price Engine)
-- Component 6 (P&L Engine)
-- Component 3 (Platform & Asset Management)
+The primary landing view after login — a one-glance summary of the whole
+portfolio. It answers "what am I worth, where is it, and how has it moved?" with:
+net worth in the chosen display currency, an [allocation](GLOSSARY.md#allocation)
+breakdown, per-[Platform](GLOSSARY.md#platform) and per-tag breakdowns, the top
+movers, and a hero showing total value (or period gain/loss) over a selectable
+time range — all derived from the latest [Snapshot](GLOSSARY.md#snapshot) so the
+numbers agree with the Portfolio page by construction.
 
-## File Structure
-```
-src/
-├── pages/
-│   └── DashboardPage.tsx
-├── components/
-│   └── dashboard/
-│       ├── NetWorthCard.tsx
-│       ├── AllocationChart.tsx
-│       ├── PlatformBreakdown.tsx
-│       ├── TopMovers.tsx
-│       └── PerformanceSparkline.tsx
-├── hooks/
-│   └── useDashboard.ts
-```
+## Depends on
 
-## Tasks
-1. **useDashboard hook**: Reads the latest snapshot's `breakdown` (Component 10) and exposes:
-   - totalValueUsd / totalValueTry: from `latest.total_usd` / `latest.total_try`
-   - byCategory: from `breakdown.by_category` — `{ category, valueUsd, valueTry, percentage }[]`
-   - byPlatform: from `breakdown.by_platform` — `{ platformName, color, valueUsd, valueTry, percentage }[]`
-   - topMovers: aggregate `breakdown.by_asset` per ticker, pair with FIFO cost basis from Component 6. Sorted by absolute USD change. (Unrealized P&L is the proxy for 24h change in MVP.)
-   - No `holdings × prices` recomputation. The snapshot is the single source of truth for current values; cost basis stays FIFO-from-transactions.
+- Price engine — current/cached prices + FX rate, for the hero's live "now" anchor (Component 5)
+- P&L engine — the money-weighted total used for the hero's headline and period delta (Component 6)
+- Platform & asset management — asset/platform records behind the breakdowns (Component 3)
+- Snapshots — the latest snapshot supplies every total and breakdown; the history feeds the hero chart (Component 10)
 
-2. **NetWorthCard**: Large card at top. Total value in selected currency ($51,409 or ₺2,288,312). Secondary: other currency (smaller). Daily change in green/red (compare to most recent snapshot, or hide if no snapshot exists). Uses shadcn Card
+## Concepts used — links into GLOSSARY
 
-3. **AllocationChart**: Donut/ring chart via Recharts PieChart + Pie + Cell. Segments per category (Fiat=slate, Crypto=orange, BIST=red, US Stock=blue, Commodity=amber). Center text: total value. Legend with category name, value, percentage. Responsive
+- [Snapshot](GLOSSARY.md#snapshot) — the authoritative source for all totals and breakdowns
+- [Allocation](GLOSSARY.md#allocation) — each group's share of total value
+- [Platform](GLOSSARY.md#platform) — one breakdown axis (carries a display color)
+- [Money-weighted](GLOSSARY.md#money-weighted) — basis for the hero's period P&L and total
+- [USD anchor](GLOSSARY.md#usd-anchor) — all P&L measured in USD before display conversion
+- [Snapshot price / live quantity](GLOSSARY.md#snapshot-price-and-live-quantity) — rule wherever a value depends on quantity
 
-4. **PlatformBreakdown**: Styled list with percentage-width colored bars (not a Recharts chart). Each row: platform name, color bar proportional to value, value amount, percentage. More readable than a chart for 5-10 platforms
+## Behaviors / rules
 
-5. **TopMovers**: List of 5 assets with highest absolute USD change. Each: asset name, platform (small), current value, change amount, change %. Green/red. For MVP: shows unrealized P&L, labeled transparently
+**Snapshot-sourced by construction.** Net worth and every breakdown
+(category / [Platform](GLOSSARY.md#platform) / tag) come from the latest
+[Snapshot](GLOSSARY.md#snapshot) — never re-derived from holdings × prices on the
+client. This guarantees the dashboard's net worth equals the Portfolio page total.
+Where a value depends on live quantity, the
+[snapshot price / live quantity](GLOSSARY.md#snapshot-price-and-live-quantity) rule
+applies. Freshness is the snapshot writer's job, not the dashboard's.
 
-6. **PerformanceSparkline**: Small Recharts LineChart from last 12 snapshots. X: month labels, Y: value (auto-scaled). If <2 snapshots: placeholder "Take your first snapshot to see trends". Clickable → navigates to /performance
+**Net worth.** Show the portfolio total in the selected display currency (USD or
+TRY), with the other currency as a smaller secondary line. Both come straight from
+the latest snapshot's totals.
 
-7. **DashboardPage layout**:
-   - Row 1: NetWorthCard (full width)
-   - Row 2: AllocationChart (1/2) + PlatformBreakdown (1/2)
-   - Row 3: TopMovers (1/2) + PerformanceSparkline (1/2)
-   - Mobile: single column, stacked
-   - `grid grid-cols-1 md:grid-cols-2 gap-4`
+**Allocation breakdown.** A donut of value-by-category with the total in the
+center and a legend of category + percent. Percentages are each category's
+[allocation](GLOSSARY.md#allocation) (share of total value).
 
-8. **Loading states**: Skeleton loaders (shadcn Skeleton) per card while data loads
+**Platform breakdown.** A ranked list (largest first) of each
+[Platform](GLOSSARY.md#platform): its color, value, and percent share, with a
+proportional bar. More legible than a chart for a handful of platforms.
 
-9. **Empty states**: If no assets: "Add your first platform and assets to get started" with link to Settings
+**Tag breakdown.** The same ranked-list treatment for cross-cutting tags (e.g.
+`usd`, `crypto`, `commodity`) — independent of the category axis, since one asset
+can carry several tags.
 
-10. **Currency-aware**: All values respect CurrencyToggle. Re-render on toggle
+**Top movers.** The handful of assets (excluding fiat/cash) with the largest
+absolute [USD-anchored](GLOSSARY.md#usd-anchor) unrealized gain/loss. Each shows
+ticker/icon, the gain/loss amount, and its percent. Current value is the snapshot's
+per-asset value (aggregated across platforms); cost basis is the asset's
+FIFO cost basis. Sorted by absolute gain/loss, capped to the top few.
 
-## UI Components
-- **shadcn/ui**: Card, CardHeader, CardContent, CardTitle, CardDescription, Skeleton, Badge
-- **Recharts**: PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer
-- **Custom**: NetWorthCard, AllocationChart, PlatformBreakdown, TopMovers, PerformanceSparkline
+**Hero — value or P&L over a range.** A large card with two view modes and a
+selectable time range:
 
-## Key Decisions
-- **Snapshot is the source of truth for current values**: every total/allocation/breakdown comes from the latest snapshot, never recomputed from `holdings × prices` on the client. Eliminates the bug class of two paths agreeing on data but disagreeing on aggregation rules.
-- **Cost basis stays FIFO-from-transactions**: deterministic, no second source to drift against.
-- **Negatives render with a leading minus**: a `-$940` displayed as `$940` is the worst silent failure for a P&L tracker — losses must always be visually distinct from gains.
-- **No real-time updates**: Fetched on page load + price refresh. No WebSocket
-- **Daily change approximate**: Compared to previous snapshot or omitted. Fine for "check once a day" use case
-- **TopMovers uses unrealized P&L**: True 24h change needs price history. P&L is a useful proxy
-- **Donut over pie**: More modern, shows total in center
-- **Platform breakdown as styled list**: More readable than horizontal bar chart, simpler, more responsive
+- **Value mode:** headline = current total value; an area line of value over the
+  range; period delta = ΔValue (end − start) with its percent; a secondary
+  reference line for cost basis.
+- **P&L mode:** headline = the period's gain/loss; the line is the
+  [money-weighted](GLOSSARY.md#money-weighted) P&L (value − net cash deployed) at
+  each point, zero-anchored at the range start; a subtitle shows the lifetime
+  total P&L (the same money-weighted total the Portfolio page reports) and a
+  benchmark's cumulative percent return over the range.
 
-## Acceptance Criteria
-- [ ] Dashboard shows total net worth in USD and TRY (respects toggle)
-- [ ] Allocation donut shows breakdown by category with correct percentages
-- [ ] Platform breakdown shows each platform's value with colored bars
-- [ ] Top movers shows assets sorted by unrealized P&L
-- [ ] Sparkline renders if snapshots exist; placeholder if not
-- [ ] Skeleton loaders while data loads
-- [ ] Empty state if no assets configured
-- [ ] Responsive: two columns desktop, single column mobile
+**Period P&L = the chart's delta (money-weighted).** The hero's period change is
+the [money-weighted](GLOSSARY.md#money-weighted) value change over the chosen
+range, so the headline number always equals what the chart line shows end-to-end.
+New deposits/withdrawals during the period are treated as neutral cash flows, so
+they don't masquerade as gains. (Same methodology as the P&L engine — Component 6 /
+[P&L Methodology](../pnl-methodology.md).)
+
+**Time ranges.** Selectable windows: 1D, 1W, 1M, 3M, YTD, 1Y, **2Y**, and ALL.
+The series is anchored to the user's first activity, so a short-history portfolio
+on a long range still renders cleanly from the actual entry point rather than from
+an empty window edge.
+
+**Percent denominator rules** (so a percent is never misleading):
+- Value mode → ΔValue ÷ starting value of the period.
+- P&L mode, and any window whose start value is ~0 (e.g. ALL's synthetic zero
+  anchor, or a period beginning before any priceable holdings) → fall back to
+  lifetime return = total P&L ÷ net invested. In the all-time window the period
+  percent is suppressed on the value headline to avoid pairing a near-infinite "%
+  on $0" with the dollar delta.
+
+**Privacy / obfuscation toggle.** A global toggle hides monetary amounts (net
+worth, breakdown values, hero figures, tooltips) by masking them — but
+**percentages stay visible**. Allocation percents, the period/total percent, and
+benchmark percent are never masked, so the shape of the portfolio is still legible
+with amounts hidden.
+
+**Display currency.** A global USD/TRY toggle drives every currency figure;
+switching it re-renders the page. Conversions use snapshot-recorded FX (per-point
+in the chart) so historical points aren't retro-converted at today's rate.
+
+**Empty / loading.** While data loads, show placeholder cards. With no assets at
+all, show a welcome/empty state linking to settings. The hero shows a "not enough
+data" placeholder when fewer than two points exist for the chosen range.
+
+### Worked example — hero period P&L
+
+Range = 1M. At the range start the portfolio's money-weighted P&L was **+$1,500**;
+today it is **+$4,000**, and the user deposited **$2,000** mid-month.
+
+- Period delta = `4,000 − 1,500 = +$2,500` — the deposit is a neutral cash flow,
+  so it is **not** counted as a $2,000 "gain."
+- The chart line is zero-anchored at the start and ends at **+$2,500**; the
+  headline reads **+$2,500**, identical to the line's end-to-end rise.
+- Percent uses net invested as the base (P&L mode), not the starting P&L number —
+  dividing by the start P&L would print a meaningless ratio.
+
+## Contract (I/O)
+
+**Inputs:** the latest [Snapshot](GLOSSARY.md#snapshot) (totals + by-category /
+by-platform / by-tag / by-asset breakdowns) and the snapshot history; the live
+money-weighted total value and total P&L (USD + TRY + %); the latest FX rate; the
+asset set and transaction history (for top-movers cost basis and for netting
+period-deployed capital); a chosen benchmark series for the P&L overlay; the
+display currency and the amount-obfuscation flag.
+
+**Outputs (rendered):** net worth (primary + secondary currency); the allocation
+donut; platform and tag breakdown lists; the top-movers list; the hero (headline,
+area chart, period delta + percent, lifetime-total subtitle, benchmark percent).
+Session UI state: view mode (value/P&L), time range, and selected benchmark
+(persisted across re-mounts); display currency and obfuscation come from the global
+display state.
+
+## UI contract — net worth, allocation, platform/tag breakdown, top movers, hero with range, privacy toggle
+
+- **Net worth:** large primary amount in the selected currency; smaller secondary
+  amount in the other currency. Empty-state copy when there is nothing to show.
+- **Allocation:** donut with center total; legend of colored category + percent.
+- **Platform breakdown:** ranked rows — color dot, name, percent, value, and a
+  proportional bar (largest first).
+- **Tag breakdown:** ranked rows — color dot, tag, value, and a proportional bar.
+- **Top movers:** compact rows — asset icon + ticker, gain/loss amount, gain/loss
+  percent; gain/loss colored; empty-state copy when none.
+- **Hero:** view-mode switch (Value | P&L); headline number; area chart with a
+  secondary reference line (cost basis in value mode, benchmark percent in P&L
+  mode); period delta (amount + percent) with a range label; a "Total" subtitle in
+  P&L mode (lifetime money-weighted P&L + %); a row of time-range buttons including
+  **2Y**; chart colored green when up / red when down for the period; a "not enough
+  data" placeholder when the range has < 2 points.
+- **Privacy toggle:** hides currency amounts everywhere on the page while leaving
+  **all percentages visible** (allocation %, period %, total %, benchmark %).
+- **Currency toggle:** flips every currency figure between USD and TRY.
+- **Gain/loss colors:** canonical gain/loss palette — positive vs. negative drives
+  color, zero is neutral; consistent across movers, hero delta, and totals.
+- **Layout:** net worth / hero on top; the breakdowns and movers in a responsive
+  grid (two columns on wide screens, single column stacked on narrow).
+
+## Acceptance
+
+- [ ] Net worth shows in the selected currency (USD/TRY), with the other currency
+      secondary, and **equals the Portfolio page total**.
+- [ ] Allocation donut shows by-category shares with correct percentages and a
+      center total.
+- [ ] Platform and tag breakdowns each render ranked rows with value, percent, and
+      a proportional bar.
+- [ ] Top movers lists the largest-absolute unrealized gain/loss assets (fiat
+      excluded), gain/loss colored, amount + percent.
+- [ ] The hero offers time ranges 1D / 1W / 1M / 3M / YTD / 1Y / **2Y** / ALL.
+- [ ] The hero's period P&L is the **money-weighted** value change over the chosen
+      range and **equals the chart line's end-to-end delta**; mid-period deposits
+      do not count as gains.
+- [ ] Toggling privacy **hides amounts but keeps percentages visible** (allocation
+      %, period %, total %, benchmark %).
+- [ ] With < 2 points in the chosen range the hero shows a "not enough data"
+      placeholder; with no assets the page shows the welcome/empty state.

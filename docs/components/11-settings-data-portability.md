@@ -1,93 +1,115 @@
-# Component 11: Settings & Data Portability
+# Component 11: Settings & Data Portability — Behavioral Spec
 
-## Status: Partial
-Missing: CSV import/export, JSON data export, pg_cron automated snapshots, service worker
+> Layer: behavioral (tech-agnostic). Implementation → [technical/11-settings-data-portability.md](technical/11-settings-data-portability.md)
 
-## Overview
-Finalize the Settings page with data export (JSON/CSV), import (CSV + bulk paste), display preferences (currency, dark mode), price management, pg_cron for automated monthly snapshots, and data management (danger zone).
+## Purpose
 
-## Dependencies
-- Component 10 (Snapshots & Performance) — for pg_cron snapshot automation
-- Component 3 (Platform & Asset Management) — Settings already has platform/asset tabs
-- All previous components for full export coverage
+The owner-facing control panel. Holds two things that don't belong on any data
+page: **display preferences** (how amounts are shown everywhere) and **data
+portability** (getting data in/out, plus a control to (re)build historical
+[snapshots](GLOSSARY.md#snapshot)). It also hosts the management surfaces for
+platforms and assets (owned by Component 3) as tabs.
 
-## File Structure
-```
-supabase/
-├── migrations/
-│   └── 00009_create_pgcron_snapshot.sql
-├── functions/
-│   └── take-snapshot/index.ts
-src/
-├── pages/
-│   └── SettingsPage.tsx                # All settings tabs
-├── components/
-│   └── settings/
-│       ├── ExportData.tsx
-│       ├── ImportData.tsx
-│       ├── DisplayPreferences.tsx
-│       ├── PriceSettings.tsx
-│       └── DataManagement.tsx
-├── lib/
-│   ├── export.ts
-│   └── import.ts
-```
+## Depends on
 
-## Tasks
-1. **Export utility** (`lib/export.ts`):
-   - `exportAllJSON(userId)`: Fetch all tables → single JSON → browser download as `portfolio-export-{date}.json`
-   - `exportTransactionsCSV(userId)`: Transactions with joins → CSV (Date, Asset, Ticker, Platform, Type, Amount, Unit Price, Currency, Total, Fee, Notes)
-   - `exportSnapshotsCSV(userId)`: Snapshots → CSV (Date, Total USD, Total TRY)
-   - Use `Blob` + `URL.createObjectURL` + `<a download>` pattern
+- **Component 3 (Platform & Asset Management)** — the platform/asset editing
+  tabs live here; this component only mounts them.
+- **Component 4 (Transaction System)** — owns the **import** experience (grid /
+  CSV / broker PDF). This component links to it; it does not reimplement it.
+- **Component 10 (Snapshots & Performance)** — owns snapshot creation; this
+  component exposes a manual **backfill** trigger and reports its result.
 
-2. **Import utility** (`lib/import.ts`):
-   - `parseCSV(file)`: Use `papaparse` (`npm install papaparse @types/papaparse`)
-   - `validateTransactionImport(rows)`: Check required columns exist. Return errors for invalid rows
-   - `importTransactions(rows, userId, assetMap)`: For each row: find/create asset → create transaction → recalculate balance. Returns { imported, skipped, errors[] }
-   - `importBulkPortfolio(rows, userId)`: For "paste a table" import. Each row: Platform, Asset Name, Ticker, Category, Balance, Avg Cost. Creates platforms + assets + synthetic buy transactions
-   - Duplicate detection: skip if matching (asset_id, date, type, amount) exists
+## Concepts used — links into GLOSSARY
 
-3. **ExportData component**: Three buttons (JSON, Transactions CSV, Snapshots CSV) with brief descriptions. shadcn Card
+- [Snapshot](GLOSSARY.md#snapshot) — what the backfill control creates/rewrites.
+- [USD anchor](GLOSSARY.md#usd-anchor) — the display-currency choice is USD vs
+  TRY; USD is the anchor all P&L is measured against.
 
-4. **ImportData component**: File input (drag & drop), preview table (first 5 rows), column mapping (auto-detect + manual), Import button with progress. Separate section for "Bulk Portfolio Import" textarea (paste tab-separated data)
+## Behaviors / rules
 
-5. **DisplayPreferences**: Default currency (USD/TRY Select), number format locale (en-US/tr-TR), dark mode toggle (shadcn Switch → `class="dark"` on `<html>`). All persisted to localStorage
+**Display preferences (persisted per browser, survive reload):**
 
-6. **PriceSettings**: Last update time, "Refresh Now" button, API status indicators (green/amber/red for TCMB, CoinGecko, Yahoo), auto-refresh toggle (30-min interval when enabled)
+- **Display currency** — toggle between **USD** and **TRY**. Changing it
+  re-denominates every money amount across the whole app immediately; it is a
+  presentation choice only and does **not** change the [USD anchor](GLOSSARY.md#usd-anchor)
+  used for P&L math.
+- **Theme** — light / dark. Initial value follows the OS preference until the
+  owner picks one; once picked, the explicit choice persists and wins on reload.
+- **Value privacy (obfuscation)** — a toggle that masks all monetary figures
+  (for screen-sharing / screenshots) without changing any data. Persists per browser.
 
-7. **DataManagement**: Danger zone (red border). "Delete All Transactions" with double confirmation. "Delete All Data" with triple confirmation (type "DELETE"). shadcn AlertDialog
+**Data portability:**
 
-8. **Settings page tabs**: Platforms, Assets, Display, Prices, Export/Import, Data Management
+- **Import — available.** Bringing data in (manual grid entry, CSV upload,
+  broker-statement PDF) is fully built and lives in **Component 4**. Settings
+  links to it rather than duplicating it.
+- **Export — NOT yet built.** There is currently **no** way to export the
+  portfolio (no JSON/CSV download). This is a known gap, explicitly out of scope
+  here until implemented. Do not document export behaviors as if they exist.
 
-9. **take-snapshot edge function**: Same logic as createSnapshot() but runs server-side. Accepts user_id parameter
+**Snapshot backfill control:**
 
-10. **pg_cron migration** (`00009`): Enable pg_cron extension. Schedule `'5 21 1 * *'` (1st of month, 00:05 UTC+3). **Preferred: create plpgsql function** `take_snapshot(p_user_id)` that does snapshot in SQL directly. pg_cron calls: `SELECT take_snapshot(user_id) FROM auth.users LIMIT 1;`. More reliable than HTTP → edge function
+- The owner can trigger a (re)build of historical [snapshots](GLOSSARY.md#snapshot)
+  from Settings. This is for first-time setup and for repairing history after
+  back-dated transactions are added.
+- **Granularity** is selectable: either (a) a sparse-but-cheap schedule —
+  roughly weekly walking back from the earliest transaction **plus** one per day
+  for the recent window — or (b) one snapshot per transaction date.
+- **Overwrite** is selectable: when on, existing snapshots on the targeted dates
+  are deleted and rewritten; when off, existing dates are reconciled in place
+  (totals/breakdown updated, the date itself not duplicated).
+- The trigger is **long-running** (tens of seconds) and uses historical prices;
+  the owner must enter any missing transactions **first** for the rebuild to be
+  correct. It is **destructive only when overwrite is on**.
+- On completion the control reports a result: how many dates were targeted, how
+  many snapshots were written, what was priced, and any warnings/failures.
 
-11. **Dark mode**: `darkMode: 'class'` in Tailwind config. shadcn/ui already supports it. Toggle controls `dark` class on root
+## Contract (I/O)
 
-12. **Auto-refresh interval**: In usePrices, if enabled, `setInterval(refreshPrices, 30 * 60 * 1000)`. Clear on unmount
+**Inputs**
 
-## UI Components
-- **shadcn/ui**: Card, Tabs, Button, Select, Switch, Label, Input (file), Textarea, Table (preview), Progress, AlertDialog, Separator
-- **Install**: `npx shadcn@latest add progress switch alert-dialog`
-- **Custom**: ExportData, ImportData, DisplayPreferences, PriceSettings, DataManagement
+- Preference changes: display currency, theme, value-privacy — each a user toggle.
+- Backfill request: `{ granularity, overwrite }`.
 
-## Key Decisions
-- **JSON export = primary backup**: Preserves all data + types + relationships. CSV for spreadsheet interop
-- **Import is additive**: Doesn't delete existing data. Skips duplicates
-- **pg_cron with SQL function**: More reliable than HTTP → edge function. No network dependency, runs in-process
-- **Dark mode nearly free**: shadcn/ui + Tailwind class strategy. Toggle in localStorage, applied before render (no flash)
-- **localStorage for preferences**: No user_preferences table for MVP. Per-browser but sufficient for single user
-- **Bulk import critical for setup**: User can copy their spreadsheet data directly
+**Outputs / effects**
 
-## Acceptance Criteria
-- [ ] Export JSON downloads complete portfolio data
-- [ ] Export Transactions CSV downloads properly formatted CSV
-- [ ] CSV import: upload, preview, map columns, import transactions
-- [ ] Bulk import: paste spreadsheet data → creates platforms + assets + transactions
-- [ ] Display preferences (currency, locale, dark mode) persist across sessions
-- [ ] Dark mode works correctly across all UI components
-- [ ] Price settings show API status, manual refresh works
-- [ ] Data management delete actions work with proper confirmation
-- [ ] pg_cron monthly snapshot job configured
-- [ ] Settings page has all tabs functional
+- Preferences are written to durable per-browser storage and applied app-wide on
+  every load (no flash of the wrong theme).
+- Backfill returns a structured summary: `{ targetDateCount, snapshotsWritten,
+  tickersPriced[], warnings[] }` (and the underlying dates/sample). Warnings
+  (e.g. a price source missing a ticker on a date) are surfaced, not swallowed —
+  a run can succeed with partial warnings.
+
+**Invariants**
+
+- Display currency and value-privacy are presentation-only: switching them never
+  mutates stored money/quantity values or the anchor.
+- Backfill is the **only** action here that writes data; everything else on this
+  page (preferences) is local to the browser.
+
+## UI contract
+
+- **Preferences** — a control to pick **display currency** (USD/TRY) and a control
+  to pick **theme** (light/dark). These also appear in the app's global chrome so
+  they're reachable everywhere, not only on this page. A value-privacy toggle
+  masks amounts on demand.
+- **Import** — surfaced via **Component 4** (grid / CSV / broker PDF). Not
+  re-presented here beyond a pointer.
+- **Export status** — **not built**; show nothing actionable, or an explicit
+  "not available yet" affordance. Never imply a download exists.
+- **Snapshot backfill control** — granularity selector, an overwrite toggle with
+  a clear warning about deletion, a run button with a busy state, and a result
+  panel (targets / written / priced / warnings) after a run.
+
+## Acceptance
+
+- [ ] Changing display currency re-denominates amounts **app-wide** instantly
+      (and does not alter the USD anchor or any stored value).
+- [ ] The theme choice **persists across reloads** and initially honors the OS
+      preference until explicitly set.
+- [ ] Snapshot backfill can be **triggered from settings**, runs with a busy
+      state, and reports a result summary (incl. warnings) on completion.
+- [ ] Overwrite-on visibly warns that existing snapshots will be replaced;
+      overwrite-off reconciles in place without duplicating dates.
+- [ ] Data **export is explicitly absent** — nothing on the page claims to export.
+- [ ] Import is reachable/cross-referenced via Component 4 (not duplicated here).

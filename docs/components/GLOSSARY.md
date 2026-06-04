@@ -22,9 +22,10 @@ A tradable or held thing, **global: one row per ticker per user** (no platform o
 the asset itself — balances live on [Holdings](#holding)). Fields: `ticker`
 (display symbol), `name`, `category` (free-form text — `fiat`, `crypto`, `gold`,
 `stock_us`, `stock_bist`, `vehicle`, …), `tags[]` (cross-cutting allocation labels,
-e.g. `["crypto","usd"]`), `price_source` (which feed prices it — `tcmb`,
-`coingecko`, `yahoo`, `manual`), `price_id` (the identifier that feed uses, e.g.
-`BTC-USD`, `THYAO.IS`; falls back to `ticker` when absent), `icon_url` (optional
+e.g. `["crypto","usd"]`), `price_source` (which feed prices it — live values are `yahoo`, `tcmb`, and
+`manual`; `coingecko` is a legacy value, now dormant — crypto is priced through
+the equities feed), `price_id` (the identifier that feed uses, e.g. `BTC-USD`,
+`THYAO.IS`; falls back to `ticker` when absent), `icon_url` (optional
 logo override), `is_currency` (true for fiat/cash — these carry
 [Fiat FX P&L](#fiat-fx-pl), not FIFO P&L), `is_active`.
 
