@@ -7,8 +7,16 @@ import {
 } from "@/lib/queries/assets"
 import { tickerFromSentinel } from "./sentinel"
 
+/** Enough of the resolved asset to recover both its id and its native price
+ *  currency (via `assetNativeCurrency`) at the call site. */
+export interface ResolvedAsset {
+  id: string
+  category: string
+  ticker: string
+}
+
 export interface AutoResolveResult {
-  resolvedMap: Map<string, string>
+  resolvedMap: Map<string, ResolvedAsset>
   unresolved: Array<{ sentinel: string; reason: UnresolvedReason }>
   createdAny: boolean
 }
@@ -37,7 +45,7 @@ export async function autoResolveSentinels({
   assets,
   refetchAssets,
 }: Args): Promise<AutoResolveResult> {
-  const resolvedMap = new Map<string, string>()
+  const resolvedMap = new Map<string, ResolvedAsset>()
   const unresolved: Array<{ sentinel: string; reason: UnresolvedReason }> = []
   let createdAny = false
 
@@ -46,7 +54,11 @@ export async function autoResolveSentinels({
     const t = tickerFromSentinel(s)
     const existing = findExisting(assets, t)
     if (existing) {
-      resolvedMap.set(s, existing.id)
+      resolvedMap.set(s, {
+        id: existing.id,
+        category: existing.category,
+        ticker: existing.ticker,
+      })
     } else {
       remaining.push(s)
     }
@@ -86,7 +98,11 @@ export async function autoResolveSentinels({
         is_currency: false,
         is_active: true,
       })
-      resolvedMap.set(sentinel, asset.id)
+      resolvedMap.set(sentinel, {
+        id: asset.id,
+        category: r.category,
+        ticker: r.ticker,
+      })
       createdAny = true
     } catch (err) {
       // Race: another tab/session inserted the same ticker between
@@ -96,7 +112,11 @@ export async function autoResolveSentinels({
           const fresh = await fetchAssets(userId)
           const existing = findExisting(fresh, r.ticker)
           if (existing) {
-            resolvedMap.set(sentinel, existing.id)
+            resolvedMap.set(sentinel, {
+              id: existing.id,
+              category: existing.category,
+              ticker: existing.ticker,
+            })
             continue
           }
         } catch {

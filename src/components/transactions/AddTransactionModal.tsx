@@ -40,6 +40,7 @@ import { validateFundingCash } from "@/lib/cash"
 import { computeTransferCostBasis } from "@/lib/pnl/fifo"
 import { bn } from "@/lib/config"
 import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
+import { assetNativeCurrency } from "@/lib/constants/assets"
 import {
   CURRENCY_SYMBOLS,
   SUPPORTED_FIAT_CURRENCIES,
@@ -272,10 +273,15 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     if (lastPrefilledTickerRef.current === selectedAsset.ticker) return
     const cached = prices[selectedAsset.ticker]?.price_usd
     if (cached && cached > 0) {
+      // Cached figure is price_usd, so the currency must stay USD to match it.
       setUnitPrice(String(cached))
       setPriceCurrency("USD")
-      lastPrefilledTickerRef.current = selectedAsset.ticker
+    } else {
+      // No cached price: default the currency to the asset's native currency
+      // (BIST→TRY, gram gold→TRY, US/crypto→USD). Still user-editable.
+      setPriceCurrency(assetNativeCurrency(selectedAsset))
     }
+    lastPrefilledTickerRef.current = selectedAsset.ticker
   }, [selectedAsset, type, prices, isEdit])
 
   // Reset prefill tracking when the modal closes so reopening on the same

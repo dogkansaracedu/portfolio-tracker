@@ -93,6 +93,12 @@ function blankRow(defaults: BlankRowDefaults = {}): SheetRow {
 type Action =
   | { kind: "load"; txs: TransactionWithDetails[] }
   | { kind: "edit"; rowKey: string; field: SheetField; value: string }
+  | {
+      kind: "setRowAsset"
+      rowKey: string
+      assetId: string
+      priceCurrency: string
+    }
   | { kind: "addBlank"; defaults?: BlankRowDefaults }
   | { kind: "appendRows"; rows: Partial<SheetSnapshot>[] }
   | { kind: "delete"; rowKey: string }
@@ -101,7 +107,12 @@ type Action =
   | { kind: "commitSaveSuccess"; rowKey: string; txId: string }
   | { kind: "markSaveError"; rowKey: string; message: string }
   | { kind: "removeDeleted"; rowKey: string }
-  | { kind: "resolveAssetSentinel"; sentinel: string; realAssetId: string }
+  | {
+      kind: "resolveAssetSentinel"
+      sentinel: string
+      realAssetId: string
+      priceCurrency: string
+    }
 
 function reduce(state: SheetState, action: Action): SheetState {
   switch (action.kind) {
@@ -126,6 +137,30 @@ function reduce(state: SheetState, action: Action): SheetState {
           } else {
             nextStatus = "dirty"
           }
+        }
+        return { ...patched, status: nextStatus, errors: {} }
+      })
+      return { ...state, rows: next }
+    }
+
+    case "setRowAsset": {
+      // Asset and its native currency move together: picking/changing the
+      // asset resets the price currency to the asset's quote currency (still
+      // user-editable afterward). One pass so status recompute matches "edit".
+      const next = state.rows.map((r) => {
+        if (r.rowKey !== action.rowKey) return r
+        const patched: SheetRow = {
+          ...r,
+          assetId: action.assetId,
+          priceCurrency: action.priceCurrency,
+        }
+        let nextStatus: RowStatus = patched.status
+        if (patched.status !== "new") {
+          nextStatus =
+            patched.original &&
+            snapshotEquals(pickSnapshot(patched), patched.original)
+              ? "clean"
+              : "dirty"
         }
         return { ...patched, status: nextStatus, errors: {} }
       })
@@ -240,7 +275,11 @@ function reduce(state: SheetState, action: Action): SheetState {
       // / dirty) is preserved.
       const next = state.rows.map((r) =>
         r.assetId === action.sentinel
-          ? { ...r, assetId: action.realAssetId }
+          ? {
+              ...r,
+              assetId: action.realAssetId,
+              priceCurrency: action.priceCurrency,
+            }
           : r,
       )
       return { ...state, rows: next }
@@ -264,6 +303,13 @@ export function useTransactionsSheetState() {
   const editCell = useCallback(
     (rowKey: string, field: SheetField, value: string) => {
       dispatch({ kind: "edit", rowKey, field, value })
+    },
+    [],
+  )
+
+  const setRowAsset = useCallback(
+    (rowKey: string, assetId: string, priceCurrency: string) => {
+      dispatch({ kind: "setRowAsset", rowKey, assetId, priceCurrency })
     },
     [],
   )
@@ -301,8 +347,13 @@ export function useTransactionsSheetState() {
   }, [])
 
   const resolveAssetSentinel = useCallback(
-    (sentinel: string, realAssetId: string) => {
-      dispatch({ kind: "resolveAssetSentinel", sentinel, realAssetId })
+    (sentinel: string, realAssetId: string, priceCurrency: string) => {
+      dispatch({
+        kind: "resolveAssetSentinel",
+        sentinel,
+        realAssetId,
+        priceCurrency,
+      })
     },
     [],
   )
@@ -329,6 +380,7 @@ export function useTransactionsSheetState() {
     hasChanges,
     loadRows,
     editCell,
+    setRowAsset,
     addBlankRow,
     appendRows,
     deleteRow,

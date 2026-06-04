@@ -24,6 +24,7 @@ import {
   PRICE_SOURCES,
   TICKER_HINTS,
   DEFAULT_PRICE_SOURCE,
+  assetNativeCurrency,
   type AssetCategoryValue,
   type PriceSourceValue,
 } from "@/lib/constants/assets"
@@ -35,9 +36,13 @@ interface Props {
   /** Sentinel values from the grid rows, e.g. ["new:BTC", "new:RKLB"]. */
   sentinels: string[]
   open: boolean
-  /** Resolve one sentinel → the real asset id created on the server.
-   *  Called once per sentinel, in order. */
-  onResolved: (sentinel: string, realAssetId: string) => void
+  /** Resolve one sentinel → the real asset id created on the server, plus the
+   *  asset's native price currency. Called once per sentinel, in order. */
+  onResolved: (
+    sentinel: string,
+    realAssetId: string,
+    priceCurrency: string,
+  ) => void
   /** Called when every sentinel has been resolved. The grid resumes its
    *  Save batch after this fires. */
   onAllResolved: () => void
@@ -161,7 +166,7 @@ export function ResolveAssetsStepper({
         is_currency: false,
         is_active: true,
       })
-      onResolved(current, created.id)
+      onResolved(current, created.id, assetNativeCurrency(created))
       toast.success(`Registered ${created.ticker}`)
       if (isLast) {
         onAllResolved()
