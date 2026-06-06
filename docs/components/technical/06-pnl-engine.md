@@ -23,15 +23,19 @@
 | `currency.ts` | `getExchangeRateForDate` (binary search ≤ date, earliest-rate fallback), `normalizeToUsd`, `unitPriceToUsd`, `fromUsdOnDate` (display inverse), `convertOnDate`. |
 | `unrealized.ts` | `computeUnrealizedPnL(lots, currentPriceUsd, balance)` → cost basis, current value, unrealized USD + %. |
 | `realized.ts` | `buildRealizedByTx(txs, rates)` → `Map<txId, RealizedPnLEntry>` over full history; groups per `asset_id|platform_id` (same composite key as `usePnL`). |
-| `totals.ts` | `summarizePnLTotals({ totalCurrentValueUsd, totalInvestedUsd })` → **canonical money-weighted Total P&L** = value − net invested, % over `|invested|`. |
+| `totals.ts` | `summarizePnLTotals({ totalCurrentValueUsd, totalInvestedUsd, peakInvestedUsd })` → **canonical money-weighted Total P&L** = value − net invested, **% over peak** invested; returns `totalPnlPct: BigNumber \| null` (null when peak ≤ 0 → render "—"). |
+| `portfolio.ts` | `computePortfolioPnL({ holdings, prices, transactions, rates, snapshots })` → the **pure P&L engine**: per-(asset,platform) FIFO → asset aggregation → portfolio totals (value, unrealized, realized + income over full history, net invested, **peak net invested**). The single source `usePnL` wraps — no other path re-derives portfolio P&L. |
 | `daily.ts` | `computeDailyReturn(input)` + `dailyReturnPct(returnUsd, denomUsd)` — money-weighted day P&L; returns `null` pct when `denom ≤ 0`. Carries `denomUsd` so group rollups sum and call `dailyReturnPct` once. |
 
 ### `src/lib/performance.ts` — cash-flow + time series
 
 - `computeCurrentInvestedUsd(txs, rates)` → **net invested capital** (the
   `applyTxToInvested` convention: buy/fee +, sell/dividend/interest −, transfers
-  cancel, `cash_credit`/`cash_debit` cancel their paired trade). Used both as the
-  portfolio denominator and as each fiat holding's cost basis.
+  cancel, `cash_credit`/`cash_debit` cancel their paired trade). The subtrahend in
+  Total P&L $ (`value − this`) and each fiat holding's cost basis.
+- `computePeakInvestedUsd(txs, rates)` → **peak net invested** = running max of that
+  same ledger; the **% denominator** for Total P&L (stable across withdrawals) and the
+  Dashboard hero %'s base (via `resolveHeroPctDenom` in `lib/dashboard/heroPercent.ts`).
 - `computePnLTimeSeries(snapshots, txs, rates)` → historical `{date, totalUsd,
   investedUsd, pnlUsd}` points (`snapshot.total_usd − cumulative invested`); the
   series the chart draws and the "now" anchor must reconcile with.
@@ -43,13 +47,17 @@
 
 | Hook | Role |
 | --- | --- |
-| `usePnL(holdings, prices)` | FIFO per (asset, platform) → aggregate to asset → `PortfolioPnL`. Fiat branch skips FIFO and uses `computeCurrentInvestedUsd` for cost basis (FX P&L → unrealized). Returns per-asset + totals **plus `transactions`, `rates`** (so callers don't refetch). Realized total is a separate `[transactions, rates]` memo over **full history** (sold-out positions have no holdings row). |
+| `usePnL(holdings, prices)` | **Thin wrapper over `computePortfolioPnL`** (the pure engine): supplies transactions/rates/snapshots from context, memoizes, runs the reconciliation assert. Returns `PortfolioPnL` (incl. `totalPeakInvestedUsd`, `totalIncomeUsd`, and full-history realized — sold-out positions have no holdings row) **plus `transactions`, `rates`** (so callers don't refetch). Realized + income are computed inside the engine over full history. |
 | `useCostBasis(assetId, platformId)` | Open FIFO lots + total/avg cost for one holding (asset detail views). |
 | `useRealizedPnL()` | `buildRealizedByTx` over full history → `Map<txId, RealizedPnLEntry>` for the Transactions page (join by `tx.id`). |
-| `usePnLSummary()` | Current-day surface for Dashboard hero + Portfolio summary: feeds `usePnL` totals into `summarizePnLTotals`, adds TRY conversion. The single shared headline. |
+| `usePnLSummary()` | Current-day surface for Dashboard hero + Portfolio summary: feeds `usePnL` totals (incl. `totalPeakInvestedUsd`) into `summarizePnLTotals`, adds TRY conversion. The single shared headline; `totalPnlPct` is `number \| null` ("—" when peak ≤ 0). |
 
 Data arrives via `TransactionDataContext` (transactions + rates), `useSnapshots`,
 `useHoldings`, `usePrices` — never per-call-site fetches.
+
+The engine is covered by **Vitest** (`src/lib/pnl/*.test.ts`,
+`src/lib/portfolio/daily.test.ts`, `src/lib/dashboard/heroPercent.test.ts`); the
+worked numeric cases live in `docs/pnl-test-cases.md` (`npm test`).
 
 ### `src/lib/queries/pnl.ts` — data access
 

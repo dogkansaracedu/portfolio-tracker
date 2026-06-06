@@ -70,10 +70,11 @@ other column, and it does **not** affect the summary bar.
   dailyPct    = denom <= 0 ? "—" : dailyReturn / denom × 100
   ```
 
-  `period_invested` = net capital deployed into the position **since** the previous
-  snapshot. Subtracting it removes principal, so a position opened today
-  contributes only its price movement (not its cost). Because the figure is
-  money-weighted, [fiat FX](GLOSSARY.md#fiat-fx-pl) swings show up automatically.
+  `period_invested` = net capital deployed into the position **since the baseline
+  snapshot's day** (bucketed by home-local calendar day, matching the snapshot's date
+  boundary). Subtracting it removes principal, so a position opened today contributes
+  only its price movement (not its cost). Because the figure is money-weighted,
+  [fiat FX](GLOSSARY.md#fiat-fx-pl) swings show up automatically.
 
 **Daily "—" rules.**
 - **No prior snapshot** (zero or one snapshot total): daily is unavailable.
@@ -83,9 +84,11 @@ other column, and it does **not** affect the summary bar.
   intraday): the amount is still correct, but the **percent** renders "—" (never a
   misleading 0%).
 
-**Daily baseline.** The previous snapshot's **frozen** close value is the baseline
-(not price × live quantity) — that frozen value *is* "yesterday's close." A
-position absent from the previous snapshot has a baseline of 0.
+**Daily baseline.** The most recent snapshot dated **before today** (the portfolio's
+home-local day) supplies the **frozen** close value as the baseline (not price × live
+quantity). A position absent from that baseline snapshot has a baseline of 0. Picking
+by date — rather than "the second-to-last snapshot" — stays correct before today's
+snapshot has been written and across multi-day gaps (the delta is still shown).
 
 **Group rollup.** A group's daily amount is the **sum of its visible rows'** daily
 amounts; the group percent is taken on the summed bases (same "—" guard). This

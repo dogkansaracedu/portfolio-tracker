@@ -654,3 +654,29 @@ export function computeCurrentInvestedUsd(
   }
   return cum.toNumber()
 }
+
+/**
+ * Peak net invested capital in USD — the running maximum of the net-invested
+ * ledger over the transaction timeline. "The most external capital ever at work
+ * at once."
+ *
+ * This is the denominator for the all-time Total P&L % (lib/pnl/totals.ts).
+ * Because it's the max of the SAME pairing-aware fold `computeCurrentInvestedUsd`
+ * uses, it never shrinks when you withdraw — so withdrawing your own money can't
+ * change your return %, and a sell reads the same % whether its proceeds are
+ * withdrawn or kept as cash. Returns a BigNumber; the caller decides the % and
+ * renders "—" when peak ≤ 0 (nothing was ever deployed).
+ */
+export function computePeakInvestedUsd(
+  transactions: Transaction[],
+  rates: ExchangeRate[],
+  opts: InvestedOptions = {},
+): ReturnType<typeof bn> {
+  let cum = bn(0)
+  let peak = bn(0)
+  for (const tx of transactions) {
+    cum = applyTxToInvested(tx, rates, cum, opts)
+    if (cum.gt(peak)) peak = cum
+  }
+  return peak
+}
