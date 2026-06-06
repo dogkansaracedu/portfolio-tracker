@@ -1,5 +1,5 @@
 import type BigNumber from "bignumber.js"
-import { bn, BN_ZERO } from "@/lib/config"
+import { bn, BN_ZERO, homeDayIso } from "@/lib/config"
 import { computeCurrentInvestedUsd } from "@/lib/performance"
 import { computeDailyReturn, dailyReturnPct } from "@/lib/pnl/daily"
 import type {
@@ -80,19 +80,49 @@ export interface DailyReturnLookups {
 }
 
 /**
+ * The baseline for daily return = the most recent snapshot dated strictly
+ * *before* today (home timezone). NOT `snapshots[length-2]`: before today's
+ * snapshot is written, the last row is yesterday and `length-2` would silently
+ * jump the baseline back a day. Picking by date is robust to that and to gaps
+ * (a missed cron day just means the baseline is >1 day old — we still show the
+ * delta). Assumes nothing about array order. `undefined` when none predates today.
+ */
+function pickBaselineSnapshot(
+  snapshots: Snapshot[],
+  today: string,
+): Snapshot | undefined {
+  let baseline: Snapshot | undefined
+  for (const s of snapshots) {
+    if (
+      s.snapshot_date < today &&
+      (!baseline || s.snapshot_date > baseline.snapshot_date)
+    ) {
+      baseline = s
+    }
+  }
+  return baseline
+}
+
+/**
  * Daily-return inputs derived from the *previous* snapshot. Daily return is
  * ΔP&L over the day = current value − previous-snapshot value − cash deployed
  * since then (`computeCurrentInvestedUsd` over the period's txs) — the canonical
  * money-weighted Total P&L (lib/pnl/totals.ts) applied across one day, so it
  * captures fiat FX too. We read the previous snapshot's *frozen* value_usd: the
  * frozen value IS "yesterday's close," exactly the baseline we want.
+ *
+ * `today` is the home-local calendar day (homeDayIso()); both the baseline
+ * selection and the period-tx cutoff use home-local dates so a tx and a
+ * snapshot are bucketed by the same day (a 21:00-UTC tx is "tomorrow" in
+ * Istanbul and belongs to the period, not the baseline).
  */
 export function buildDailyReturnLookups(
   snapshots: Snapshot[],
   transactions: Transaction[],
   rates: ExchangeRate[],
+  today: string,
 ): DailyReturnLookups {
-  const prev = snapshots[snapshots.length - 2]
+  const prev = pickBaselineSnapshot(snapshots, today)
   const available = !!prev?.breakdown?.by_asset
   const prevValueByTicker = new Map<string, number>()
   const prevValueByTickerPlatform = new Map<string, number>()
@@ -108,14 +138,14 @@ export function buildDailyReturnLookups(
       prevValueByTickerPlatform.set(`${e.ticker}|${e.platform}`, e.value_usd)
     }
 
-    // Net cash deployed strictly AFTER the previous snapshot's date — same
-    // date-slice cutoff computePnLTimeSeries uses. Bucket once, then sum net
-    // invested per asset and per (asset, platform).
+    // Net cash deployed strictly AFTER the baseline's day — compared in
+    // home-local dates so the cutoff matches the (home-local) snapshot_date.
+    // Bucket once, then sum net invested per asset and per (asset, platform).
     const prevDate = prev.snapshot_date
     const txByAsset = new Map<string, Transaction[]>()
     const txByAssetPlatform = new Map<string, Transaction[]>()
     for (const tx of transactions) {
-      if (tx.date.slice(0, 10) <= prevDate) continue
+      if (homeDayIso(new Date(tx.date)) <= prevDate) continue
       const a = txByAsset.get(tx.asset_id) ?? []
       a.push(tx)
       txByAsset.set(tx.asset_id, a)

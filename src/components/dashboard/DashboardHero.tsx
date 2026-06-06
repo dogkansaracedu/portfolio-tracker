@@ -49,7 +49,8 @@ interface DashboardHeroProps {
    *  feeds the "Total" subtitle and anchors the chart's "now" point. */
   totalPnlUsd: number
   totalPnlTry: number
-  totalPnlPct: number
+  /** null = nothing ever deployed (peak ≤ 0) → render "—". */
+  totalPnlPct: number | null
   usdTry: number
 }
 
@@ -448,7 +449,7 @@ export default function DashboardHero({
                     obfuscated,
                   )}
                 </span>{" "}
-                ({formatSignedPercent(totalPnlPctNow, 2)})
+                ({totalPnlPctNow == null ? "—" : formatSignedPercent(totalPnlPctNow, 2)})
               </span>
               <span className="text-muted-foreground">·</span>
               <DropdownMenu>

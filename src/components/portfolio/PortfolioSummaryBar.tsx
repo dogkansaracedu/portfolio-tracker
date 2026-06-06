@@ -12,7 +12,8 @@ interface PortfolioSummaryBarProps {
   totalValueUsd: number
   totalValueTry: number
   totalPnlUsd: number
-  totalPnlPct: number
+  /** null = nothing ever deployed (peak ≤ 0) → render "—". */
+  totalPnlPct: number | null
   totalUnrealizedPnlUsd: number
   totalRealizedPnlUsd: number
   totalIncomeUsd: number
@@ -65,7 +66,7 @@ export function PortfolioSummaryBar({
                 {o(formatSignedCurrency(totalPnlUsd, "USD"))}
               </span>
               <span className={`text-sm ${gainLossClass(pnlIsPositive)}`}>
-                ({formatSignedPercent(totalPnlPct)})
+                ({totalPnlPct == null ? "—" : formatSignedPercent(totalPnlPct)})
               </span>
             </div>
             {hasRealized && (

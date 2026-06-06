@@ -100,11 +100,19 @@ export interface PortfolioPnL {
   totalCostBasisUsd: BigNumber
   totalCurrentValueUsd: BigNumber
   totalUnrealizedPnlUsd: BigNumber
+  /** Realized P&L over the FULL transaction history (incl. sold-out positions). */
   totalRealizedPnlUsd: BigNumber
+  /** Dividend + interest income over the full history, in USD. */
+  totalIncomeUsd: BigNumber
   /**
    * Cash-flow net invested capital (buys + fees − sells − dividends, with
-   * transfers cancelling). Same denominator the Dashboard P&L card uses, so
-   * surfaces using this for the % match exactly.
+   * transfers cancelling). The numerator of Total P&L $ (value − this).
    */
   totalInvestedUsd: BigNumber
+  /**
+   * Peak net invested (running max of the ledger above). The denominator of the
+   * Total P&L %, so withdrawals don't distort the return. See
+   * `computePeakInvestedUsd` and `summarizePnLTotals`.
+   */
+  totalPeakInvestedUsd: BigNumber
 }

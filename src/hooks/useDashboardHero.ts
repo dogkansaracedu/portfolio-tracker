@@ -4,8 +4,10 @@ import {
   filterByTimeRange,
   computePnLTimeSeries,
   computeCurrentInvestedUsd,
+  computePeakInvestedUsd,
   type TimeRange,
 } from "@/lib/performance"
+import { resolveHeroPctDenom } from "@/lib/dashboard/heroPercent"
 import type { BenchmarkPrice, Snapshot } from "@/types/database"
 
 export type HeroViewMode = "value" | "pnl"
@@ -373,31 +375,20 @@ export function useDashboardHero({
 
     const deltaUsd = endUsd - startUsd
     const deltaTry = endTry - startTry
-    // Percent denominator:
-    //  · Value mode → divide by the period's starting portfolio value
-    //    (classic "% return on the value that was sitting there").
-    //  · P&L mode   → divide by current invested capital. Dividing by the
-    //    starting *P&L* number is meaningless (it produces things like
-    //    "+674%" when the period P&L grew from $1,452 → $11,244) and bears
-    //    no relation to actual return on investment.
-    let pctDenom: number
+    // Percent denominator (resolveHeroPctDenom):
+    //  · Value mode, normal window → the period's starting portfolio value.
+    //  · P&L mode, or value mode with an ~$0 start (ALL range / pre-history) →
+    //    PEAK net invested, the same base as the headline Total P&L % (one
+    //    denominator everywhere; stable across withdrawals). In the ~$0-start
+    //    case the numerator also switches to lifetime P&L (value − invested),
+    //    so the figure equals the headline Total P&L % exactly.
     let pctNumer: number = deltaUsd
-    if (viewMode === "pnl") {
-      const investedNow = computeCurrentInvestedUsd(transactions, rates)
-      pctDenom = Math.abs(investedNow) || 1
-    } else if (timeRange === "ALL" || Math.abs(startUsd) < 1) {
-      // ΔValue / startUsd is meaningless when startUsd is ~$0 — either we
-      // synthesized a $0 anchor (ALL range) or the period began before the
-      // portfolio had any pricable holdings (e.g. bought before the source's
-      // history window). Falling back to delta/1 prints millions-of-percent.
-      // Use lifetime return (totalPnL / invested) instead so the % stays
-      // meaningful and matches the P&L subtitle.
-      const investedNow = computeCurrentInvestedUsd(transactions, rates)
-      pctDenom = Math.abs(investedNow) || 1
-      pctNumer = currentValueUsd - investedNow
-    } else {
-      pctDenom = Math.abs(startUsd) || 1
+    if (viewMode !== "pnl" && (timeRange === "ALL" || Math.abs(startUsd) < 1)) {
+      pctNumer = currentValueUsd - computeCurrentInvestedUsd(transactions, rates)
     }
+    const peakInvested = computePeakInvestedUsd(transactions, rates).toNumber()
+    const pctDenom =
+      resolveHeroPctDenom({ viewMode, timeRange, startUsd, peakInvested }) || 1
 
     const deltaPct = pctDenom !== 0 ? (pctNumer / pctDenom) * 100 : 0
 

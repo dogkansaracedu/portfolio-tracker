@@ -85,12 +85,15 @@ on a long range still renders cleanly from the actual entry point rather than fr
 an empty window edge.
 
 **Percent denominator rules** (so a percent is never misleading):
-- Value mode → ΔValue ÷ starting value of the period.
+- Value mode, normal window → ΔValue ÷ starting value of the period.
 - P&L mode, and any window whose start value is ~0 (e.g. ALL's synthetic zero
-  anchor, or a period beginning before any priceable holdings) → fall back to
-  lifetime return = total P&L ÷ net invested. In the all-time window the period
-  percent is suppressed on the value headline to avoid pairing a near-infinite "%
-  on $0" with the dollar delta.
+  anchor, or a period beginning before any priceable holdings) → divide by
+  [peak net invested](GLOSSARY.md#peak-net-invested-capital) — the same base as the
+  headline [Total P&L](GLOSSARY.md#total-pl) %, so the figure is stable across
+  withdrawals. In the ~$0-start case the numerator is lifetime P&L (value − invested),
+  so the figure equals the headline Total P&L % exactly. In the all-time window the
+  period percent is suppressed on the value headline to avoid pairing a near-infinite
+  "% on $0" with the dollar delta.
 
 **Privacy / obfuscation toggle.** A global toggle hides monetary amounts (net
 worth, breakdown values, hero figures, tooltips) by masking them — but
@@ -115,8 +118,9 @@ today it is **+$4,000**, and the user deposited **$2,000** mid-month.
   so it is **not** counted as a $2,000 "gain."
 - The chart line is zero-anchored at the start and ends at **+$2,500**; the
   headline reads **+$2,500**, identical to the line's end-to-end rise.
-- Percent uses net invested as the base (P&L mode), not the starting P&L number —
-  dividing by the start P&L would print a meaningless ratio.
+- Percent uses **peak net invested** as the base (P&L mode), not the starting P&L
+  number — dividing by the start P&L would print a meaningless ratio. Peak is the same
+  base as the headline Total P&L %, so the two never disagree.
 
 ## Contract (I/O)
 

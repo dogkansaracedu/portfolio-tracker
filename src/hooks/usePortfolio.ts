@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { bn } from "@/lib/config"
+import { bn, homeDayIso } from "@/lib/config"
 import { useAssets } from "@/hooks/useAssets"
 import { useHoldings } from "@/hooks/useHoldings"
 import { usePrices } from "@/hooks/usePrices"
@@ -79,7 +79,7 @@ interface UsePortfolioReturn {
   totalRealizedPnlUsd: number
   totalIncomeUsd: number
   totalPnlUsd: number
-  totalPnlPct: number
+  totalPnlPct: number | null
   heldAssetCount: number
   loading: boolean
   error: string | null
@@ -119,6 +119,7 @@ export function usePortfolio(): UsePortfolioReturn {
     totalRealizedPnlUsd,
     totalIncomeUsd,
     totalInvestedUsd,
+    totalPeakInvestedUsd,
     transactions,
     rates: txRates,
     loading: pnlLoading,
@@ -143,7 +144,7 @@ export function usePortfolio(): UsePortfolioReturn {
   )
 
   const dailyReturnLookups = useMemo(
-    () => buildDailyReturnLookups(snapshots, transactions, txRates),
+    () => buildDailyReturnLookups(snapshots, transactions, txRates, homeDayIso()),
     [snapshots, transactions, txRates],
   )
 
@@ -206,6 +207,7 @@ export function usePortfolio(): UsePortfolioReturn {
     summarizePnLTotals({
       totalCurrentValueUsd,
       totalInvestedUsd,
+      peakInvestedUsd: totalPeakInvestedUsd,
     })
 
   const refetch = async () => {
@@ -223,7 +225,7 @@ export function usePortfolio(): UsePortfolioReturn {
     totalRealizedPnlUsd: totalRealizedPnlUsd.toNumber(),
     totalIncomeUsd: totalIncomeUsd.toNumber(),
     totalPnlUsd: totalPnlUsdBn.toNumber(),
-    totalPnlPct: totalPnlPctBn.toNumber(),
+    totalPnlPct: totalPnlPctBn?.toNumber() ?? null,
     heldAssetCount: enrichedAssets.length,
     loading,
     error,
