@@ -55,12 +55,14 @@
   platform) `price_usd` maps + a snapshot-recorded `usd_try` fallback. Value =
   `bnBalance.times(snapshotPrice)`, falling back to the live price when the
   snapshot lacks the ticker.
-- `dailyReturnLookups` (prev = `snapshots[len-2]`): `available =
-  !!prev?.breakdown?.by_asset` → drives `dailyReturnAvailable`. Reads the prev
+- `dailyReturnLookups` (baseline via `pickBaselineSnapshot(snapshots, homeDayIso())` —
+  the most recent snapshot dated **before today**, home-local; robust before today's
+  snapshot is written and across gaps, not `snapshots[len-2]`): `available =
+  !!prev?.breakdown?.by_asset` → drives `dailyReturnAvailable`. Reads the baseline
   snapshot's **frozen** `value_usd` per ticker (summed) and per (ticker, platform).
-  Period capital: buckets `transactions` with `date.slice(0,10) > prev.snapshot_date`
-  into per-asset and per-(asset, platform) maps, then `computeCurrentInvestedUsd(txs,
-  txRates)` each.
+  Period capital: buckets `transactions` with `homeDayIso(new Date(tx.date)) > prevDate`
+  (home-local day, not `date.slice(0,10)`) into per-asset and per-(asset, platform)
+  maps, then `computeCurrentInvestedUsd(txs, txRates)` each.
 - Per `EnrichedAsset`: `computeDailyReturn({ currentValueUsd, prevValueUsd,
   periodInvestedUsd })`; stores `dailyReturnUsd`, `dailyReturnPct: number | null`,
   `dailyDenomUsd`. When `!available` → `0 / null / 0`.

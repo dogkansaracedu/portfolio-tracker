@@ -88,7 +88,16 @@ is tracked in its native units, but its gain/loss is always the change in USD va
 ### Net invested capital
 The **net USD actually deployed** into a position or the portfolio. Deposits and the
 cash legs of trades net out — a sell and its paired `cash_credit` cancel — so this
-reflects capital at work, not cash sloshing in and out. The anchor for total-return %.
+reflects capital at work, not cash sloshing in and out. Total P&L $ is `value − net
+invested`; the **%** is taken over [peak net invested](#peak-net-invested-capital),
+not this current balance.
+
+### Peak net invested capital
+The **running maximum** of net invested capital over the portfolio's life — "the most
+external capital ever at work at once." The denominator for [Total P&L](#total-pl) %,
+so withdrawing your own money never changes the return % (and the % can't explode as
+the current balance shrinks toward zero). Equals current net invested for a book that
+only ever added capital; "—" when it is ≤ 0 (nothing was ever deployed).
 
 ### Money-weighted
 Comparing value today against **dollars actually deployed** (not a time-weighted
@@ -111,10 +120,10 @@ is the net USD deployed into that currency, so `value − cost basis` is the rea
 FX gain/loss vs. the [USD anchor](#usd-anchor). Surfaced as unrealized P&L.
 
 ### Daily return
-The money-weighted change **since the previous [snapshot](#snapshot)**:
-`value_now − prev_snapshot_value − period_invested`. Subtracting capital deployed
-during the period removes principal, leaving only price/FX movement. See the
-[formula](#daily-return-formula).
+The money-weighted change **since the most recent [snapshot](#snapshot) before today**
+(the portfolio's home-local day): `value_now − prev_snapshot_value − period_invested`.
+Subtracting capital deployed during the period removes principal, leaving only
+price/FX movement. See the [formula](#daily-return-formula).
 
 ### Allocation
 An asset's (or group's) **current value ÷ total portfolio value**, as a percent.
@@ -122,9 +131,9 @@ An asset's (or group's) **current value ÷ total portfolio value**, as a percent
 ### Snapshot price and live quantity
 Displayed value = **live [Holding](#holding) balance × the latest snapshot's
 per-unit `price_usd`**. Quantities reflect fresh transactions immediately; prices
-stay consistent with the dashboard's snapshot-sourced totals. The *previous*
-snapshot's frozen `value_usd` (not price × live balance) is used as
-"yesterday's close" for [daily return](#daily-return).
+stay consistent with the dashboard's snapshot-sourced totals. The most recent
+snapshot **before today** (home-local day) supplies the frozen `value_usd` (not
+price × live balance) used as the baseline for [daily return](#daily-return).
 
 ### Staleness
 How old a [Price](#price) is (`updated_at`). Surfaced as an indicator so the user
@@ -141,12 +150,20 @@ Total P&L (USD) = current value − net invested capital
 Money-weighted, USD-anchored. `realized` and `unrealized` are sub-views; fiat
 carries its FX gain as unrealized. → [P&L Methodology](../pnl-methodology.md).
 
+### Total P&L %
+```
+Total P&L % = Total P&L ÷ peak net invested × 100   (— when peak ≤ 0)
+```
+Over [peak net invested](#peak-net-invested-capital), not the current balance, so the
+% is stable across withdrawals. The same base everywhere a money-weighted % is shown.
+
 ### Daily return formula
 ```
 dailyReturnUsd = value_now − prev_snapshot_value − period_invested
 denom          = prev_snapshot_value + period_invested
 dailyReturnPct = denom <= 0 ? null : dailyReturnUsd / denom × 100
 ```
-`period_invested` = net USD deployed into the position since the previous snapshot.
-Equals Δ(value − invested) over one day — the [Total P&L](#total-pl) applied across
-the period, so fiat FX is included automatically.
+`period_invested` = net USD deployed into the position since the baseline snapshot
+(the most recent before today, home-local day), bucketed by home-local calendar day.
+Equals Δ(value − invested) over the period — the [Total P&L](#total-pl) applied across
+it, so fiat FX is included automatically.

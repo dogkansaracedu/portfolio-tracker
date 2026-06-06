@@ -99,10 +99,14 @@ transfers cancel (out + in net to zero, a lone transfer_in adds its cost basis);
 **cash legs net out the trade they pair with** — a sell's proceeds leave
 "invested" via the sell, and its paired `cash_credit` adds them back, so a sale
 that lands cash on-platform nets to **zero** invested change. Total-return % is
-over `|net invested capital|`.
+over [peak net invested capital](GLOSSARY.md#peak-net-invested-capital) (the running
+max), **not** the current balance — so withdrawing your own money never changes the %,
+and it can't explode as the current balance shrinks toward zero.
 
-**Worked example.** Deploy a net $50,000 over time; portfolio is worth $51,000
-today → Total P&L = 51,000 − 50,000 = **+$1,000** (+2.0%).
+**Worked example.** Deploy a net $50,000 over time (never withdrawing, so peak =
+current = $50,000); portfolio is worth $51,000 today → Total P&L = 51,000 − 50,000 =
+**+$1,000** (+2.0%). After a withdrawal the current balance shrinks, but the % stays
+over the $50,000 peak.
 
 ### 4. Realized / unrealized as sub-views
 
@@ -163,15 +167,16 @@ worth $220 now → daily = 220 − 0 − 210 = **+$10**, over a base of
   (asset, platform).
 - Current per-unit [prices](GLOSSARY.md#price) in USD.
 - The dated [exchange rate](GLOSSARY.md#exchange-rate) series.
-- Portfolio [snapshots](GLOSSARY.md#snapshot) (latest for current value; previous
-  for "yesterday's close").
+- Portfolio [snapshots](GLOSSARY.md#snapshot) (latest for current value; the most
+  recent one dated before today — home-local day — for the daily baseline).
 
 **Outputs**
 - **Per asset:** cost basis (USD + native when single-currency), current value,
   unrealized P&L (USD + %), realized P&L, remaining lots.
 - **Portfolio totals:** total cost basis, total current value, total unrealized,
-  total realized (full history), **net invested capital**, and the canonical
-  **Total P&L** (USD, TRY, %).
+  total realized (full history), income, **net invested capital**, **peak net
+  invested**, and the canonical **Total P&L** (USD, TRY, %). The % is over peak and is
+  **null → render "—"** when peak ≤ 0 (nothing ever deployed).
 - **Per realizing transaction:** a realized-P&L entry (proceeds, cost basis,
   realized USD, native gain when single-currency) keyed by transaction id.
 - **Daily return** per asset / holding, with the denominator for group rollups.
@@ -190,7 +195,9 @@ worth $220 now → daily = 220 − 0 − 210 = **+$10**, over a base of
 - [ ] **Fiat holdings report FX P&L** (current USD value − net USD deployed into
       that currency), reconciling with the money-weighted total.
 - [ ] Realized + unrealized reconcile to the total (`unrealized = total − realized`).
-- [ ] Daily return = Δ(value − invested) since the previous snapshot; a ≤ 0 base
-      returns no value rather than 0% / NaN.
+- [ ] Daily return = Δ(value − invested) since the most recent snapshot before today
+      (home-local day); a ≤ 0 base returns no value rather than 0% / NaN.
+- [ ] **Total P&L % is over peak net invested** — a withdrawal does not change it; it
+      renders "—" when peak ≤ 0 (nothing ever deployed).
 
 See [P&L Methodology](../pnl-methodology.md) for why money-weighted is canonical.
