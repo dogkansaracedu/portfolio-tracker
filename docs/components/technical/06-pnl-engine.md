@@ -24,8 +24,9 @@
 | `unrealized.ts` | `computeUnrealizedPnL(lots, currentPriceUsd, balance)` → cost basis, current value, unrealized USD + %. |
 | `realized.ts` | `buildRealizedByTx(txs, rates)` → `Map<txId, RealizedPnLEntry>` over full history; groups per `asset_id|platform_id` (same composite key as `usePnL`). |
 | `totals.ts` | `summarizePnLTotals({ totalCurrentValueUsd, totalInvestedUsd, peakInvestedUsd })` → **canonical money-weighted Total P&L** = value − net invested, **% over peak** invested; returns `totalPnlPct: BigNumber \| null` (null when peak ≤ 0 → render "—"). |
-| `portfolio.ts` | `computePortfolioPnL({ holdings, prices, transactions, rates, snapshots })` → the **pure P&L engine**: per-(asset,platform) FIFO → asset aggregation → portfolio totals (value, unrealized, realized + income over full history, net invested, **peak net invested**). The single source `usePnL` wraps — no other path re-derives portfolio P&L. |
+| `portfolio.ts` | `computePortfolioPnL({ holdings, prices, transactions, rates, snapshots })` → the **pure P&L engine**: per-(asset,platform) FIFO → asset aggregation → portfolio totals (value, unrealized, realized + income over full history, net invested, **peak net invested**). Also emits per-asset `taxAccrualUsd` and portfolio `totalTaxAccrualUsd` (the additive after-tax overlay — see gotchas). The single source `usePnL` wraps — no other path re-derives portfolio P&L. |
 | `daily.ts` | `computeDailyReturn(input)` + `dailyReturnPct(returnUsd, denomUsd)` — money-weighted day P&L; returns `null` pct when `denom ≤ 0`. Carries `denomUsd` so group rollups sum and call `dailyReturnPct` once. |
+| `foreign-income.ts` | `computeForeignIncomeTry(...)` + `foreignDeclarableAssetIds(...)` — sums non-TRY, non-withheld dividend + interest in TRY by calendar year (the 22k declaration figure); independent of the FIFO/total path. |
 
 ### `src/lib/performance.ts` — cash-flow + time series
 
@@ -96,3 +97,15 @@ worked numeric cases live in `docs/pnl-test-cases.md` (`npm test`).
 - **Rate lookup degrades, never errors.** Missing rate for a date → earliest
   known rate (bulk import also backfills via `ensureHistoricalRate`); a hard miss
   warns and returns the amount as-is.
+- **After-tax overlay is additive, not subtracted from gross.** For an asset with
+  an `at_source_tax_rate`, `computePortfolioPnL` computes `taxAccrualUsd` = rate ×
+  the *positive native gain* (held + realized) and sums it into
+  `totalTaxAccrualUsd`. The native (TRY) tax is converted to USD via the asset's
+  **own `price_usd / price_try` ratio** (not the dated rate series). Gross
+  unrealized/realized/total are untouched (the invariant still holds); after-tax
+  Total P&L is `gross − totalTaxAccrualUsd`. **Limitation:** realized accrual is
+  summed only over **held** positions — a fully sold-out position is not accrued.
+- **Foreign-declarable income lives outside the total.** `src/lib/pnl/foreign-income.ts`
+  (`computeForeignIncomeTry` + `foreignDeclarableAssetIds`) sums non-TRY,
+  non-withheld dividend + interest in TRY by calendar year for the Turkish 22,000 TL
+  declaration threshold — a reporting figure, not part of the money-weighted total.
