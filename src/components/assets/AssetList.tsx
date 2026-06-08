@@ -190,6 +190,7 @@ export function AssetList() {
               name: data.name,
               tags: data.tags,
               price_source: data.price_source,
+              at_source_tax_rate: data.at_source_tax_rate,
             });
           } else {
             await addAsset({
