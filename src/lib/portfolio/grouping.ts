@@ -1,5 +1,6 @@
 import type BigNumber from "bignumber.js"
 import { bn, BN_ZERO, homeDayIso } from "@/lib/config"
+import { assetNativeCurrency } from "@/lib/constants/assets"
 import { computeCurrentInvestedUsd } from "@/lib/performance"
 import { computeDailyReturn, dailyReturnPct } from "@/lib/pnl/daily"
 import type {
@@ -27,6 +28,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   gold: "Gold",
   stock_us: "US Stocks",
   stock_bist: "BIST Stocks",
+  fund: "Funds",
 }
 
 // ─── Snapshot-derived lookups ───────────────────────────────────────
@@ -592,6 +594,33 @@ function groupByCategory(
   return result.sort(byValueDesc)
 }
 
+function groupByCurrency(
+  sortedAssets: EnrichedAsset[],
+  ctx: GroupContext,
+): AssetGroup[] {
+  const { dailyReturnLookups } = ctx
+  const map = new Map<string, EnrichedAsset[]>()
+  for (const asset of sortedAssets) {
+    const key = assetNativeCurrency(asset)
+    const existing = map.get(key) ?? []
+    existing.push(asset)
+    map.set(key, existing)
+  }
+
+  const result: AssetGroup[] = []
+  for (const [key, groupAssets] of map) {
+    result.push(
+      rollupGroup({
+        key,
+        label: key, // currency code is its own label (USD, TRY, …)
+        assets: groupAssets,
+        dailyAvailable: dailyReturnLookups.available,
+      }),
+    )
+  }
+  return result.sort(byValueDesc)
+}
+
 /** Group enriched assets by the selected dimension into sorted `AssetGroup`s. */
 export function groupAssets(
   groupBy: GroupBy,
@@ -606,5 +635,7 @@ export function groupAssets(
       return groupByTag(sortedAssets, ctx)
     case "category":
       return groupByCategory(sortedAssets, ctx)
+    case "currency":
+      return groupByCurrency(sortedAssets, ctx)
   }
 }
