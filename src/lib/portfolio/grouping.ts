@@ -266,6 +266,7 @@ export function enrichAsset(
     nativeCurrency: pnl?.nativeCurrency ?? null,
     unrealizedPnlUsd: bn(pnl?.unrealizedPnlUsd).toNumber(),
     unrealizedPnlPct: bn(pnl?.unrealizedPnlPct).toNumber(),
+    taxAccrualUsd: bn(pnl?.taxAccrualUsd).toNumber(),
     allocationPct: totalValue.isZero()
       ? 0
       : currentValueUsd.div(totalValue).times(100).toNumber(),
@@ -422,6 +423,7 @@ function scopeAssetToPlatform(
     unrealizedPnlPct: platformCostBasisBn.gt(0)
       ? platformUnrealizedBn.div(platformCostBasisBn).times(100).toNumber()
       : 0,
+    taxAccrualUsd: hp ? hp.taxAccrualUsd.toNumber() : 0,
     allocationPct: 0,
     dailyReturnUsd: platformDaily ? platformDaily.dailyReturnUsd.toNumber() : 0,
     dailyReturnPct:
@@ -448,12 +450,14 @@ function rollupGroup(opts: {
   let totalValueUsdBn = BN_ZERO
   let totalValueTryBn = BN_ZERO
   let totalPnlUsdBn = BN_ZERO
+  let totalTaxAccrualUsdBn = BN_ZERO
   let dailyReturnUsdBn = BN_ZERO
   let dailyDenomUsdBn = BN_ZERO
   for (const a of assets) {
     totalValueUsdBn = totalValueUsdBn.plus(bn(a.currentValueUsd))
     totalValueTryBn = totalValueTryBn.plus(bn(a.currentValueTry))
     totalPnlUsdBn = totalPnlUsdBn.plus(bn(a.unrealizedPnlUsd))
+    totalTaxAccrualUsdBn = totalTaxAccrualUsdBn.plus(bn(a.taxAccrualUsd))
     dailyReturnUsdBn = dailyReturnUsdBn.plus(bn(a.dailyReturnUsd))
     dailyDenomUsdBn = dailyDenomUsdBn.plus(bn(a.dailyDenomUsd))
   }
@@ -468,6 +472,7 @@ function rollupGroup(opts: {
     totalValueUsd: totalValueUsdBn.toNumber(),
     totalValueTry: totalValueTryBn.toNumber(),
     totalPnlUsd: totalPnlUsdBn.toNumber(),
+    totalTaxAccrualUsd: totalTaxAccrualUsdBn.toNumber(),
     dailyReturnUsd: dailyAvailable ? dailyReturnUsdBn.toNumber() : 0,
     dailyReturnPct: groupDailyPct !== null ? groupDailyPct.toNumber() : null,
   }

@@ -76,6 +76,18 @@ other column, and it does **not** affect the summary bar.
   only its price movement (not its cost). Because the figure is money-weighted,
   [fiat FX](GLOSSARY.md#fiat-fx-pl) swings show up automatically.
 
+**After-tax (net) headline — Total mode only.** For positions in an asset that
+carries an at-source tax rate, the **Total** return is shown **after tax** as the
+headline figure: `net = gross − tax`, where tax is the at-source accrual on the
+position's gain. The **gross** figure and the tax deducted are shown beside it as a
+muted annotation, so nothing is hidden. The percent is recomputed on the net amount
+over the same cost basis. This applies to **asset rows, group headers, and the
+summary bar's headline**, keeping the invariant that **a group header equals the sum
+of its visible rows** (rows show net too). Untaxed positions (no at-source rate)
+render exactly as before. **Daily** return stays gross — tax is on the *cumulative*
+gain, not a single day's move. In the summary bar, only the headline goes net; the
+unrealized/realized split below stays gross.
+
 **Daily "—" rules.**
 - **No prior snapshot** (zero or one snapshot total): daily is unavailable.
   Headers and rows render "—" in Daily mode; the toggle still flips cleanly
@@ -176,6 +188,10 @@ zero is neutral; consistent across rows, headers, and the summary bar.
 - [ ] The Total | Daily toggle flips the return figure on **both** group headers
       and asset rows; default is **Total** (prior behavior unchanged).
 - [ ] In Total mode, the return is lifetime unrealized (value − cost basis), amount + %.
+- [ ] In Total mode, a taxed position shows the **after-tax (net)** return as the
+      headline, with **gross** and the deducted tax annotated beside it; untaxed
+      positions render unchanged. Net flows through rows, group headers, and the
+      summary-bar headline (Daily mode stays gross).
 - [ ] In Daily mode, the return is the money-weighted change since the previous
       snapshot, amount + %.
 - [ ] An asset **bought today** shows a daily return measured from its purchase
