@@ -89,7 +89,6 @@ export function PortfolioRow({
   const showReturn = !isDaily || dailyReturnAvailable
   const returnUsd = isDaily ? asset.dailyReturnUsd : asset.unrealizedPnlUsd
   const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
-  const returnIsPositive = returnUsd >= 0
 
   // Net (after-tax) applies only in Total mode — daily return stays gross since
   // tax is on the cumulative gain. Untaxed assets render exactly as gross.
@@ -223,7 +222,6 @@ export function PortfolioRowCard({
   const showReturn = !isDaily || dailyReturnAvailable
   const returnUsd = isDaily ? asset.dailyReturnUsd : asset.unrealizedPnlUsd
   const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
-  const returnIsPositive = returnUsd >= 0
 
   // Net (after-tax) applies only in Total mode — daily return stays gross.
   const taxed = !isDaily && asset.taxAccrualUsd > 0
