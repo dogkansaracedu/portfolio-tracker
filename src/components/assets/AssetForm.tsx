@@ -21,14 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AssetIcon } from "@/components/common/AssetIcon";
 import { derivePriceId } from "@/lib/priceId";
-
-const CATEGORIES = [
-  { value: "stock_us", label: "US Stock" },
-  { value: "stock_bist", label: "BIST Stock" },
-  { value: "crypto", label: "Crypto" },
-  { value: "gold", label: "Gold" },
-  { value: "fiat", label: "Fiat" },
-];
+import { ASSET_CATEGORIES } from "@/lib/constants/assets";
 
 const PRICE_SOURCES = [
   { value: "yahoo", label: "Yahoo Finance" },
@@ -63,6 +56,7 @@ interface AssetFormProps {
     tags: string[];
     price_source: string;
     is_active: boolean;
+    at_source_tax_rate: number | null;
   }) => Promise<void>;
 }
 
@@ -79,6 +73,11 @@ export function AssetForm({
   const [displayName, setDisplayName] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [priceSource, setPriceSource] = useState("manual");
+  // At-source withholding rate (e.g. 0.175 = 17.5%), only meaningful for `fund`
+  // (PPF). Stored as a string for the input; parsed to number|null on submit.
+  const [atSourceTaxRate, setAtSourceTaxRate] = useState(
+    asset?.at_source_tax_rate != null ? String(asset.at_source_tax_rate) : "",
+  );
   // Whether the user has hand-edited Price ID. While false, Price ID
   // auto-derives from the ticker (see handlers below); once true we leave
   // their value alone.
@@ -104,6 +103,9 @@ export function AssetForm({
       setDisplayName(asset?.name ?? "");
       setTagsInput(asset?.tags?.join(", ") ?? "");
       setPriceSource(nextSource);
+      setAtSourceTaxRate(
+        asset?.at_source_tax_rate != null ? String(asset.at_source_tax_rate) : "",
+      );
       // A stored price_id that already matches what we'd auto-derive stays
       // "clean" so it keeps syncing as the ticker changes; anything else
       // (custom symbol, crypto BTC-USD, etc.) is treated as a manual override.
@@ -160,6 +162,14 @@ export function AssetForm({
       .map((t) => t.trim().toLowerCase())
       .filter(Boolean);
 
+    if (atSourceTaxRate.trim() !== "") {
+      const r = Number(atSourceTaxRate);
+      if (Number.isNaN(r) || r < 0 || r > 1) {
+        setError("At-source tax rate must be a fraction between 0 and 1 (e.g. 0.175)");
+        return;
+      }
+    }
+
     setSubmitting(true);
     setError(null);
     try {
@@ -172,6 +182,8 @@ export function AssetForm({
         tags,
         price_source: priceSource,
         is_active: true,
+        at_source_tax_rate:
+          atSourceTaxRate.trim() === "" ? null : Number(atSourceTaxRate),
       });
       onOpenChange(false);
     } catch (err) {
@@ -202,11 +214,11 @@ export function AssetForm({
             >
               <SelectTrigger className="w-full">
                 <SelectValue>
-                  {CATEGORIES.find((c) => c.value === category)?.label || "Select a category"}
+                  {ASSET_CATEGORIES.find((c) => c.value === category)?.label || "Select a category"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map((c) => (
+                {ASSET_CATEGORIES.map((c) => (
                   <SelectItem key={c.value} value={c.value}>
                     {c.label}
                   </SelectItem>
@@ -287,6 +299,26 @@ export function AssetForm({
             />
             <p className="text-xs text-muted-foreground">{PRICE_ID_HINT}</p>
           </div>
+
+          {category === "fund" && (
+            <div className="grid gap-2">
+              <Label htmlFor="asset-tax-rate">At-source tax rate</Label>
+              <Input
+                id="asset-tax-rate"
+                type="number"
+                step="0.001"
+                min="0"
+                max="1"
+                placeholder="e.g. 0.175"
+                value={atSourceTaxRate}
+                onChange={(e) => setAtSourceTaxRate(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Fraction withheld at source on gains (e.g. 0.175 = 17.5% for a
+                Turkish PPF). Gains show net of this. Leave blank for none.
+              </p>
+            </div>
+          )}
 
           <div className="grid gap-2">
             <Label htmlFor="asset-tags">Tags</Label>
