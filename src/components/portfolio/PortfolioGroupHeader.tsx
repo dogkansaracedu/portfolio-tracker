@@ -31,7 +31,16 @@ export function PortfolioGroupHeader({
   const isDaily = returnMode === "daily"
   // Daily mode with no prior snapshot → no figure to show.
   const showReturn = !isDaily || dailyReturnAvailable
-  const returnUsd = isDaily ? group.dailyReturnUsd : group.totalPnlUsd
+  // Net (after-tax) applies only in Total mode — daily return stays gross since
+  // tax is on the cumulative gain. Keeps "group header = sum of its visible
+  // rows" true (rows show net too).
+  const taxed = !isDaily && group.totalTaxAccrualUsd > 0
+  const groupNet = group.totalPnlUsd - group.totalTaxAccrualUsd
+  const returnUsd = isDaily
+    ? group.dailyReturnUsd
+    : taxed
+      ? groupNet
+      : group.totalPnlUsd
   const returnPct = isDaily ? group.dailyReturnPct : null
   const returnIsPositive = returnUsd >= 0
 
@@ -61,6 +70,11 @@ export function PortfolioGroupHeader({
                 {isDaily && returnPct !== null && (
                   <span className="ml-1 text-xs">
                     {formatSignedPercent(returnPct, 2)}
+                  </span>
+                )}
+                {taxed && (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    gross {o(formatSignedCurrency(group.totalPnlUsd, "USD"))}
                   </span>
                 )}
               </span>

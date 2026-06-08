@@ -91,6 +91,14 @@ export function PortfolioRow({
   const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
   const returnIsPositive = returnUsd >= 0
 
+  // Net (after-tax) applies only in Total mode — daily return stays gross since
+  // tax is on the cumulative gain. Untaxed assets render exactly as gross.
+  const taxed = !isDaily && asset.taxAccrualUsd > 0
+  const netUsd = taxed ? returnUsd - asset.taxAccrualUsd : returnUsd
+  const netPct =
+    taxed && asset.costBasisUsd > 0 ? (netUsd / asset.costBasisUsd) * 100 : returnPct
+  const netIsPositive = netUsd >= 0
+
   return (
     <TableRow>
       <TableCell>
@@ -151,12 +159,18 @@ export function PortfolioRow({
       <TableCell className="text-right">
         {showReturn ? (
           <div className="flex flex-col items-end">
-            <span className={gainLossClass(returnIsPositive)}>
-              {o(formatSignedCurrency(returnUsd, "USD"))}
+            <span className={gainLossClass(netIsPositive)}>
+              {o(formatSignedCurrency(netUsd, "USD"))}
             </span>
-            {returnPct !== null && (
-              <span className={`text-xs ${gainLossClass(returnIsPositive)}`}>
-                {formatSignedPercent(returnPct)}
+            {netPct !== null && (
+              <span className={`text-xs ${gainLossClass(netIsPositive)}`}>
+                {formatSignedPercent(netPct)}
+              </span>
+            )}
+            {taxed && (
+              <span className="text-xs text-muted-foreground">
+                gross {o(formatSignedCurrency(returnUsd, "USD"))} ·{" "}
+                −{o(formatCurrency(asset.taxAccrualUsd, "USD"))} tax
               </span>
             )}
           </div>
@@ -211,6 +225,13 @@ export function PortfolioRowCard({
   const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
   const returnIsPositive = returnUsd >= 0
 
+  // Net (after-tax) applies only in Total mode — daily return stays gross.
+  const taxed = !isDaily && asset.taxAccrualUsd > 0
+  const netUsd = taxed ? returnUsd - asset.taxAccrualUsd : returnUsd
+  const netPct =
+    taxed && asset.costBasisUsd > 0 ? (netUsd / asset.costBasisUsd) * 100 : returnPct
+  const netIsPositive = netUsd >= 0
+
   return (
     <Card size="sm">
       <CardContent className="flex items-center justify-between">
@@ -243,13 +264,19 @@ export function PortfolioRowCard({
             {formatCurrency(displayValue, currency)}
           </span>
           {showReturn ? (
-            <span className={`text-xs ${gainLossClass(returnIsPositive)}`}>
-              {formatSignedCurrency(returnUsd, "USD")}
-              {returnPct !== null && (
+            <span className={`text-xs ${gainLossClass(netIsPositive)}`}>
+              {formatSignedCurrency(netUsd, "USD")}
+              {netPct !== null && (
                 <>
                   {" "}
-                  ({formatSignedPercent(returnPct)})
+                  ({formatSignedPercent(netPct)})
                 </>
+              )}
+              {taxed && (
+                <span className="text-muted-foreground">
+                  {" · "}
+                  gross {formatSignedCurrency(returnUsd, "USD")}
+                </span>
               )}
             </span>
           ) : (
