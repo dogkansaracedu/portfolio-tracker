@@ -27,6 +27,8 @@ numbers agree with the Portfolio page by construction.
 - [Money-weighted](GLOSSARY.md#money-weighted) — basis for the hero's period P&L and total
 - [USD anchor](GLOSSARY.md#usd-anchor) — all P&L measured in USD before display conversion
 - [Snapshot price / live quantity](GLOSSARY.md#snapshot-price-and-live-quantity) — rule wherever a value depends on quantity
+- [Foreign-declarable income](GLOSSARY.md#foreign-declarable-income) — the YTD figure the 22k heads-up tracks
+- [At-source tax](GLOSSARY.md#at-source-tax) — excludes PPF / withheld income from the heads-up
 
 ## Behaviors / rules
 
@@ -60,6 +62,18 @@ TRY, EUR), summing each holding's value into its native currency's bucket. Shows
 the [allocation](GLOSSARY.md#allocation) share so the user can see their
 currency exposure at a glance. Distinct hues per currency, intentionally not the
 gain/loss palette. Assets whose currency can't be resolved fall back to USD.
+
+**Foreign-income heads-up.** A "Foreign income · <year>" card tracking the
+current tax year's [foreign-declarable income](GLOSSARY.md#foreign-declarable-income)
+— non-TRY dividend + interest with no [at-source tax](GLOSSARY.md#at-source-tax),
+converted to TRY — against the Turkish declaration threshold (22,000 TL). PPF and
+other at-source-taxed income are excluded. Shows the YTD amount, the threshold,
+the percent of it reached, and a progress bar that turns **amber at ≥ 80 %** and
+**red once the threshold is crossed**. The first time the threshold is crossed in a
+given tax year, a one-shot in-app notification nudges the user that the income now
+has to be declared; it fires once per tax year per browser and never re-fires on
+later visits. The tax year follows the portfolio's home timezone, so it flips at
+the right local midnight.
 
 **Top movers.** The handful of assets (excluding fiat/cash) with the largest
 absolute [USD-anchored](GLOSSARY.md#usd-anchor) unrealized gain/loss. Each shows
@@ -149,7 +163,9 @@ period-deployed capital); a chosen benchmark series for the P&L overlay; the
 display currency and the amount-obfuscation flag.
 
 **Outputs (rendered):** net worth (primary + secondary currency); the allocation
-donut; platform, tag, and native-currency breakdown lists; the top-movers list; the hero (headline,
+donut; platform, tag, and native-currency breakdown lists; the foreign-income
+heads-up card (YTD vs threshold + progress bar) and, on first crossing, a one-shot
+notification; the top-movers list; the hero (headline,
 area chart, period delta + percent, lifetime-total subtitle, benchmark percent).
 Session UI state: view mode (value/P&L), time range, and selected benchmark
 (persisted across re-mounts); display currency and obfuscation come from the global
@@ -165,6 +181,9 @@ display state.
 - **Tag breakdown:** ranked rows — color dot, tag, value, and a proportional bar.
 - **Currency breakdown:** ranked rows — color dot, native currency code, percent,
   value, and a proportional bar (largest first); empty-state copy when none.
+- **Foreign-income heads-up:** a "Foreign income · <year>" card — YTD TRY amount,
+  the threshold, the percent reached, and a progress bar (default → amber at ≥ 80 %
+  → red once crossed); a one-shot notification on the first crossing of the tax year.
 - **Top movers:** compact rows — asset icon + ticker, gain/loss amount, gain/loss
   percent; gain/loss colored; empty-state copy when none.
 - **Hero:** view-mode switch (Value | P&L); headline number; area chart with a
@@ -189,6 +208,11 @@ display state.
       center total.
 - [ ] Platform, tag, and native-currency breakdowns each render ranked rows with
       value, percent, and a proportional bar.
+- [ ] The foreign-income card shows YTD foreign (non-TRY, non-withheld) dividend +
+      interest in TRY vs the 22,000 TL threshold, with a progress bar that goes
+      **amber at ≥ 80 %** and **red once crossed**; PPF / at-source-taxed income is
+      excluded, and a one-shot notification fires the first time the threshold is
+      crossed in a tax year (once per year per browser).
 - [ ] Top movers lists the largest-absolute unrealized gain/loss assets (fiat
       excluded), gain/loss colored, amount + percent.
 - [ ] The hero offers time ranges 1D / 1W / 1M / 3M / YTD / 1Y / **2Y** / ALL.
