@@ -68,6 +68,8 @@ export interface AssetPnL {
   unrealizedPnlUsd: BigNumber
   unrealizedPnlPct: BigNumber
   realizedPnlUsd: BigNumber
+  /** At-source tax accrued on this asset's positive native gain, in USD. */
+  taxAccrualUsd: BigNumber
   lots: CostLot[]
 }
 
@@ -91,6 +93,9 @@ export interface HoldingPnL {
   currentValueUsd: BigNumber
   unrealizedPnlUsd: BigNumber
   realizedPnlUsd: BigNumber
+  /** Fixed at-source tax accrued on this holding's positive native gain
+   *  (held + realized), in USD. 0 unless the asset has at_source_tax_rate. */
+  taxAccrualUsd: BigNumber
 }
 
 export interface PortfolioPnL {
@@ -100,6 +105,10 @@ export interface PortfolioPnL {
   totalCostBasisUsd: BigNumber
   totalCurrentValueUsd: BigNumber
   totalUnrealizedPnlUsd: BigNumber
+  /** Sum of per-asset at-source tax accrual (USD). After-tax Total P&L =
+   *  (totalCurrentValueUsd − totalInvestedUsd) − totalTaxAccrualUsd. Kept
+   *  separate so the gross decomposition + its invariant stay intact. */
+  totalTaxAccrualUsd: BigNumber
   /** Realized P&L over the FULL transaction history (incl. sold-out positions). */
   totalRealizedPnlUsd: BigNumber
   /** Dividend + interest income over the full history, in USD. */
