@@ -51,7 +51,7 @@
 | `usePnL(holdings, prices)` | **Thin wrapper over `computePortfolioPnL`** (the pure engine): supplies transactions/rates/snapshots from context, memoizes, runs the reconciliation assert. Returns `PortfolioPnL` (incl. `totalPeakInvestedUsd`, `totalIncomeUsd`, and full-history realized — sold-out positions have no holdings row) **plus `transactions`, `rates`** (so callers don't refetch). Realized + income are computed inside the engine over full history. |
 | `useCostBasis(assetId, platformId)` | Open FIFO lots + total/avg cost for one holding (asset detail views). |
 | `useRealizedPnL()` | `buildRealizedByTx` over full history → `Map<txId, RealizedPnLEntry>` for the Transactions page (join by `tx.id`). |
-| `usePnLSummary()` | Current-day surface for Dashboard hero + Portfolio summary: feeds `usePnL` totals (incl. `totalPeakInvestedUsd`) into `summarizePnLTotals`, adds TRY conversion. The single shared headline; `totalPnlPct` is `number \| null` ("—" when peak ≤ 0). |
+| `usePnLSummary()` | Current-day surface for Dashboard hero + Portfolio summary: feeds `usePnL` totals (incl. `totalPeakInvestedUsd`) into `summarizePnLTotals`, adds TRY conversion. The single shared headline; `totalPnlPct` is `number \| null` ("—" when peak ≤ 0). Also surfaces `totalTaxAccrualUsd` and the after-tax totals `totalPnlAfterTaxUsd`/`Try` (= `totalPnlUsd − totalTaxAccrualUsd`) for the net headlines. |
 
 Data arrives via `TransactionDataContext` (transactions + rates), `useSnapshots`,
 `useHoldings`, `usePrices` — never per-call-site fetches.
