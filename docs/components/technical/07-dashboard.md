@@ -21,8 +21,9 @@
 
 - `src/pages/DashboardPage.tsx` — page shell. Pulls breakdowns/snapshots from
   `useDashboard` and the live current-value/total-P&L from `usePnLSummary`, then
-  lays out hero → (tag + allocation) → (platform + movers) → (currency + …) in a
-  `grid-cols-1 md:grid-cols-2`. Owns the skeleton + no-assets empty state; wraps
+  lays out hero → (tag + allocation) → (platform + movers) → (currency +
+  foreign-income) in a `grid-cols-1 md:grid-cols-2`. Owns the skeleton + no-assets
+  empty state; wraps
   the lazy hero/allocation in `<Suspense>`.
 - `src/components/dashboard/DashboardHero.tsx` — the hero card: Value|P&L tabs,
   time-range buttons, benchmark `DropdownMenu`, the Recharts `AreaChart`, and the
@@ -40,10 +41,20 @@
 - `src/components/dashboard/CurrencyBreakdown.tsx` — ranked native-currency list
   with percent bars; local `CURRENCY_COLORS` map (USD blue / TRY amber / EUR
   violet) + `FALLBACK_COLOR` slate. Mirrors `PlatformBreakdown` exactly.
+- `src/components/dashboard/ForeignIncomeCard.tsx` — the "Foreign income · <year>"
+  heads-up: reads `useForeignIncomeYtd()`, renders the YTD-vs-threshold line + a
+  progress bar (`bg-primary` → `bg-amber-500` at `pct >= 80` → `bg-red-500` once
+  `crossed`), and fires the one-shot `sonner` `toast.warning` in a `useEffect`
+  guarded by the `foreign-income-notified-<year>` `localStorage` flag (see gotchas).
+  Default-exported but mounted directly (not lazy). Amounts via `formatCurrency`.
 - `src/components/dashboard/TopMovers.tsx` — compact movers list; `AssetIcon` +
   ticker + signed amount/percent.
 - `src/hooks/useDashboard.ts` — breakdown engine (below).
 - `src/hooks/useDashboardHero.ts` — hero time-series + delta engine (below).
+- `src/hooks/useForeignIncomeYtd.ts` — foreign-income heads-up view-model (below).
+- `src/lib/constants/tax.ts` — `FOREIGN_INCOME_DECLARATION_THRESHOLD_TRY` (22000),
+  the Turkish GVK 86/1-d annual declaration threshold (revalues yearly; verify each
+  tax year). No hardcoded threshold literal lives in the hook or card.
 - `src/contexts/DisplayContext.tsx` — `currency` (USD/TRY) + `obfuscated`, both
   `localStorage`-backed (`portfolio-display-currency`, `portfolio-obfuscated`);
   exposes `toggleCurrency`/`toggleObfuscated` via `useDisplayCurrency()`.
@@ -101,6 +112,21 @@
 - `xTicks`: one tick per unique formatted label (avoids the same month string
   repeating for dense daily snapshots); last label forced to `"Şimdi"`.
 
+### `useForeignIncomeYtd.ts` specifics
+
+- Wires the Plan-1 pure helpers `foreignDeclarableAssetIds(assets)` +
+  `computeForeignIncomeTry(transactions, rates, year, declarable)` (from
+  `@/lib/pnl/foreign-income`) to live data via `useAssets` + `useTransactionData`;
+  `loading` is the OR of both. No money math here — it just `.toNumber()`s the
+  BigNumber result at the boundary.
+- `year = Number(homeDayIso().slice(0, 4))` — the calendar/tax year comes from the
+  portfolio's home timezone (`homeDayIso`, `@/lib/config`) so it flips at the right
+  local midnight, not the browser's.
+- Returns `{ ytdTry, threshold, year, pct, crossed, loading }`: `threshold =
+  FOREIGN_INCOME_DECLARATION_THRESHOLD_TRY`, `pct = ytdTry / threshold × 100`
+  (guarded at 0, can exceed 100), `crossed = ytdTry > threshold`. Memoized on the
+  inputs.
+
 ### Hero rendering specifics (`DashboardHero.tsx`)
 
 - View mode / time range / benchmark id persisted via `usePersistedState`
@@ -146,6 +172,12 @@
   (the hero headline covers net worth). The component and its tests-of-intent
   remain; mounting it would duplicate the hero's total. Leave it unless net worth
   needs a dedicated card.
+- **Foreign-income notification is a one-shot per tax year per browser:** the
+  `toast.warning` in `ForeignIncomeCard` is gated by a `localStorage` flag keyed
+  `foreign-income-notified-<year>` — set on first fire so it never re-toasts on
+  later renders/visits. It's intentionally **browser-local** (not server-synced) and
+  **per-year** (a new key each tax year). Don't move the toast above the
+  `loading`/`crossed` guards or it can fire on a half-loaded state.
 - **Color maps are component-local:** `CATEGORY_COLORS` (AllocationChart),
   `TAG_COLORS` (TagBreakdown), and platform color (from the snapshot's
   `by_platform[].color`) live in three places. Category/tag maps duplicate some
