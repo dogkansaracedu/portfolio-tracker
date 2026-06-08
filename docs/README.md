@@ -22,8 +22,12 @@ Documentation for the Portfolio Tracker app. Start here.
 ## Reference
 
 - **[pnl-methodology.md](pnl-methodology.md)** — the canonical P&L definition
-  (money-weighted, USD-anchored) and the rationale behind it. The glossary and
-  Component 6 link here for the deep "why."
+  (money-weighted, USD-anchored), the return-% methodology (time-weighted vs
+  money-weighted vs the peak base), period-vs-all-time, and known issues. The
+  glossary and Component 6 link here for the deep "why."
+- **[pnl-test-cases.md](pnl-test-cases.md)** — worked numeric cases that pin the
+  engine's behaviour, run as Vitest (`npm test`). The verifiable companion to the
+  methodology.
 
 ## Forward-looking plans (design intent, not yet built)
 
