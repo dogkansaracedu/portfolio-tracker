@@ -10,6 +10,7 @@ import TagBreakdown from "@/components/dashboard/TagBreakdown"
 import PlatformBreakdown from "@/components/dashboard/PlatformBreakdown"
 import CurrencyBreakdown from "@/components/dashboard/CurrencyBreakdown"
 import TopMovers from "@/components/dashboard/TopMovers"
+import ForeignIncomeCard from "@/components/dashboard/ForeignIncomeCard"
 
 function SkeletonCard({ className }: { className?: string }) {
   return (
@@ -151,7 +152,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <CurrencyBreakdown byCurrency={byCurrency} />
-        {/* ForeignIncomeCard added in Task 3 */}
+        <ForeignIncomeCard />
       </div>
     </div>
   )
