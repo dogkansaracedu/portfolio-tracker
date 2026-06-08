@@ -5,6 +5,7 @@ import { usePrices } from "@/hooks/usePrices"
 import { useSnapshots } from "@/hooks/useSnapshots"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { computeFIFOLots } from "@/lib/pnl/fifo"
+import { assetNativeCurrency } from "@/lib/constants/assets"
 import type {
   Asset,
   ExchangeRate,
@@ -37,6 +38,13 @@ export interface TagAllocation {
   percentage: number
 }
 
+export interface CurrencyAllocation {
+  currency: string
+  valueUsd: number
+  valueTry: number
+  percentage: number
+}
+
 export interface TopMover {
   assetId: string
   ticker: string
@@ -54,6 +62,7 @@ export interface DashboardData {
   byCategory: CategoryAllocation[]
   byPlatform: PlatformAllocation[]
   byTag: TagAllocation[]
+  byCurrency: CurrencyAllocation[]
   topMovers: TopMover[]
   snapshots: Snapshot[]
   /** Latest USD/TRY rate, or 1 if unavailable. */
@@ -132,6 +141,39 @@ function deriveTopMovers(
   return movers.slice(0, 5)
 }
 
+/**
+ * Per-native-currency allocation from the snapshot's per-asset values. Each
+ * by_asset entry is mapped to its asset's native currency (assetNativeCurrency)
+ * and summed. Mirrors deriveTopMovers' ticker→asset join.
+ */
+function deriveByCurrency(
+  byAsset: SnapshotBreakdown["by_asset"],
+  assets: Asset[],
+  totalValueUsd: number,
+): CurrencyAllocation[] {
+  const assetByTicker = new Map<string, Asset>()
+  for (const a of assets) assetByTicker.set(a.ticker, a)
+
+  const acc = new Map<string, { usd: number; try: number }>()
+  for (const e of byAsset) {
+    const asset = assetByTicker.get(e.ticker)
+    const currency = asset ? assetNativeCurrency(asset) : "USD"
+    const cur = acc.get(currency) ?? { usd: 0, try: 0 }
+    cur.usd += e.value_usd
+    cur.try += e.value_try
+    acc.set(currency, cur)
+  }
+
+  return [...acc.entries()]
+    .map(([currency, v]) => ({
+      currency,
+      valueUsd: v.usd,
+      valueTry: v.try,
+      percentage: totalValueUsd > 0 ? (v.usd / totalValueUsd) * 100 : 0,
+    }))
+    .sort((a, b) => b.valueUsd - a.valueUsd)
+}
+
 // ─── Hook ───────────────────────────────────────────────────────────
 
 /**
@@ -170,6 +212,7 @@ export function useDashboard(): DashboardData {
       byCategory: [],
       byPlatform: [],
       byTag: [],
+      byCurrency: [],
       topMovers: [],
     }
 
@@ -214,12 +257,15 @@ export function useDashboard(): DashboardData {
       txRates,
     )
 
+    const byCurrency = deriveByCurrency(breakdown.by_asset, assets, totalValueUsd)
+
     return {
       totalValueUsd,
       totalValueTry,
       byCategory,
       byPlatform,
       byTag,
+      byCurrency,
       topMovers,
     }
   }, [latest, assets, transactions, txRates])

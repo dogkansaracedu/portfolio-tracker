@@ -21,7 +21,7 @@
 
 - `src/pages/DashboardPage.tsx` — page shell. Pulls breakdowns/snapshots from
   `useDashboard` and the live current-value/total-P&L from `usePnLSummary`, then
-  lays out hero → (tag + allocation) → (platform + movers) in a
+  lays out hero → (tag + allocation) → (platform + movers) → (currency + …) in a
   `grid-cols-1 md:grid-cols-2`. Owns the skeleton + no-assets empty state; wraps
   the lazy hero/allocation in `<Suspense>`.
 - `src/components/dashboard/DashboardHero.tsx` — the hero card: Value|P&L tabs,
@@ -37,6 +37,9 @@
   percent bars (plain divs, not Recharts).
 - `src/components/dashboard/TagBreakdown.tsx` — ranked tag list with percent bars;
   local `TAG_COLORS` map.
+- `src/components/dashboard/CurrencyBreakdown.tsx` — ranked native-currency list
+  with percent bars; local `CURRENCY_COLORS` map (USD blue / TRY amber / EUR
+  violet) + `FALLBACK_COLOR` slate. Mirrors `PlatformBreakdown` exactly.
 - `src/components/dashboard/TopMovers.tsx` — compact movers list; `AssetIcon` +
   ticker + signed amount/percent.
 - `src/hooks/useDashboard.ts` — breakdown engine (below).
@@ -60,6 +63,13 @@
   pairs with FIFO cost basis (`computeFIFOLots` from `@/lib/pnl/fifo`) →
   `unrealizedPnlUsd = currentValue − costBasis`, `pct` guarded against zero cost
   basis (`BN_ZERO`). Sorted by `Math.abs(unrealizedPnlUsd)` desc, `slice(0, 5)`.
+- `deriveByCurrency(breakdown.by_asset, assets, totalValueUsd)`: maps each
+  `by_asset` entry to its asset's native currency via `assetNativeCurrency`
+  (`@/lib/constants/assets`) — same ticker→asset join as `deriveTopMovers` — and
+  sums `value_usd`/`value_try` per currency; unknown ticker falls back to `"USD"`.
+  `percentage = usd / totalValueUsd × 100` (guarded at 0). Sorted by `valueUsd`
+  desc. Plain `number` math (not BigNumber) — render-only aggregation, mirrors the
+  other breakdowns.
 
 ### `useDashboardHero.ts` specifics
 
