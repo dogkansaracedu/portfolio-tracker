@@ -114,6 +114,13 @@
   right = same physical positions relabeled `%` via `pctTicks = pnlTicks / denom ×
   100`, so the green line reads identically off both axes. Benchmark plotted as `%`
   on the right axis (thin, 0.45 opacity).
+- **After-tax "Total" subtitle (P&L mode):** the lifetime total is rendered from
+  `totalPnlAfterTaxUsd`/`Try` props (gross − tax, computed in `usePnLSummary`, not
+  here); its colour/sign use `gainLossClass(totalPnlAfterTaxUsdNow > 0)`. When
+  `totalTaxAccrualUsd > 0` a muted `gross … · −{tax} tax` line follows, with the tax
+  in TRY = `totalTaxAccrualUsd × usdTry`. The lifetime **percent stays gross**
+  (`totalPnlPct`, over peak net invested); the period delta + chart series are
+  untouched. Untaxed portfolios render as before (net == gross, no extra line).
 
 ## Notes & gotchas
 
