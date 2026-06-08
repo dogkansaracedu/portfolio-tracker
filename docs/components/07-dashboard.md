@@ -7,8 +7,8 @@
 The primary landing view after login — a one-glance summary of the whole
 portfolio. It answers "what am I worth, where is it, and how has it moved?" with:
 net worth in the chosen display currency, an [allocation](GLOSSARY.md#allocation)
-breakdown, per-[Platform](GLOSSARY.md#platform) and per-tag breakdowns, the top
-movers, and a hero showing total value (or period gain/loss) over a selectable
+breakdown, per-[Platform](GLOSSARY.md#platform), per-tag, and per-native-currency
+breakdowns, the top movers, and a hero showing total value (or period gain/loss) over a selectable
 time range — all derived from the latest [Snapshot](GLOSSARY.md#snapshot) so the
 numbers agree with the Portfolio page by construction.
 
@@ -53,6 +53,13 @@ proportional bar. More legible than a chart for a handful of platforms.
 **Tag breakdown.** The same ranked-list treatment for cross-cutting tags (e.g.
 `usd`, `crypto`, `commodity`) — independent of the category axis, since one asset
 can carry several tags.
+
+**Currency breakdown.** The same ranked-list treatment by each asset's
+**native currency** (the currency its price is natively quoted in — e.g. USD,
+TRY, EUR), summing each holding's value into its native currency's bucket. Shows
+the [allocation](GLOSSARY.md#allocation) share so the user can see their
+currency exposure at a glance. Distinct hues per currency, intentionally not the
+gain/loss palette. Assets whose currency can't be resolved fall back to USD.
 
 **Top movers.** The handful of assets (excluding fiat/cash) with the largest
 absolute [USD-anchored](GLOSSARY.md#usd-anchor) unrealized gain/loss. Each shows
@@ -132,7 +139,7 @@ period-deployed capital); a chosen benchmark series for the P&L overlay; the
 display currency and the amount-obfuscation flag.
 
 **Outputs (rendered):** net worth (primary + secondary currency); the allocation
-donut; platform and tag breakdown lists; the top-movers list; the hero (headline,
+donut; platform, tag, and native-currency breakdown lists; the top-movers list; the hero (headline,
 area chart, period delta + percent, lifetime-total subtitle, benchmark percent).
 Session UI state: view mode (value/P&L), time range, and selected benchmark
 (persisted across re-mounts); display currency and obfuscation come from the global
@@ -146,6 +153,8 @@ display state.
 - **Platform breakdown:** ranked rows — color dot, name, percent, value, and a
   proportional bar (largest first).
 - **Tag breakdown:** ranked rows — color dot, tag, value, and a proportional bar.
+- **Currency breakdown:** ranked rows — color dot, native currency code, percent,
+  value, and a proportional bar (largest first); empty-state copy when none.
 - **Top movers:** compact rows — asset icon + ticker, gain/loss amount, gain/loss
   percent; gain/loss colored; empty-state copy when none.
 - **Hero:** view-mode switch (Value | P&L); headline number; area chart with a
@@ -168,8 +177,8 @@ display state.
       secondary, and **equals the Portfolio page total**.
 - [ ] Allocation donut shows by-category shares with correct percentages and a
       center total.
-- [ ] Platform and tag breakdowns each render ranked rows with value, percent, and
-      a proportional bar.
+- [ ] Platform, tag, and native-currency breakdowns each render ranked rows with
+      value, percent, and a proportional bar.
 - [ ] Top movers lists the largest-absolute unrealized gain/loss assets (fiat
       excluded), gain/loss colored, amount + percent.
 - [ ] The hero offers time ranges 1D / 1W / 1M / 3M / YTD / 1Y / **2Y** / ALL.
