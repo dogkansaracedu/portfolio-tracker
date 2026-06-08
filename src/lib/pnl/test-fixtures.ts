@@ -146,6 +146,24 @@ export function prices(map: Record<string, number>): Record<string, PriceCache> 
   return out
 }
 
+/** price_cache map carrying both USD and native-TRY unit prices (for funds
+ *  whose at-source tax is computed on the native TRY gain). */
+export function pricesWithTry(
+  map: Record<string, { usd: number; try: number }>,
+): Record<string, PriceCache> {
+  const out: Record<string, PriceCache> = {}
+  for (const [ticker, { usd, try: tryPrice }] of Object.entries(map)) {
+    out[ticker] = {
+      ticker,
+      price_usd: usd,
+      price_try: tryPrice,
+      source: "test",
+      updated_at: "2026-01-01",
+    }
+  }
+  return out
+}
+
 /** A snapshot row with a minimal by_asset breakdown (date is local, per homeDayIso). */
 export function snapshot(
   date: string,

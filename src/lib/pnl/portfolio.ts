@@ -44,6 +44,7 @@ export const EMPTY_PNL: PortfolioPnL = {
   totalCostBasisUsd: BN_ZERO,
   totalCurrentValueUsd: BN_ZERO,
   totalUnrealizedPnlUsd: BN_ZERO,
+  totalTaxAccrualUsd: BN_ZERO,
   totalRealizedPnlUsd: BN_ZERO,
   totalIncomeUsd: BN_ZERO,
   totalInvestedUsd: BN_ZERO,
@@ -135,6 +136,7 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
         currentValueUsd,
         unrealizedPnlUsd: currentValueUsd.minus(fiatCostBasisUsd),
         realizedPnlUsd: BN_ZERO,
+        taxAccrualUsd: BN_ZERO,
       })
       continue
     }
@@ -160,6 +162,49 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
       BN_ZERO,
     )
 
+    // At-source tax accrual: rate × the POSITIVE native gain (held + realized).
+    // Additive overlay — gross unrealized/realized are untouched, so the
+    // money-weighted invariant is preserved. Convert the native (TRY) tax to USD
+    // using the asset's own price pair (price_usd / price_try), which is the FX
+    // implied by the same quote, so no separate rate lookup is needed.
+    const taxRate = h.assets.at_source_tax_rate
+    let taxAccrualUsd = BN_ZERO
+    if (
+      taxRate != null &&
+      taxRate > 0 &&
+      nativeConsistent &&
+      nativeCurrency &&
+      costBasisNative !== null
+    ) {
+      const pc = prices[priceKey]
+      const nativeUnitPrice =
+        nativeCurrency === "TRY" ? bn(pc?.price_try ?? 0) : bn(pc?.price_usd ?? 0)
+      const currentValueNative = liveBalanceBn.times(nativeUnitPrice)
+      const unrealizedNativeGain = currentValueNative.minus(costBasisNative)
+      const posUnrealized = unrealizedNativeGain.gt(0)
+        ? unrealizedNativeGain
+        : BN_ZERO
+      const realizedNativeGain = realized.reduce(
+        (s, rz) =>
+          rz.nativePnl &&
+          rz.nativeCurrency === nativeCurrency &&
+          rz.nativePnl.gt(0)
+            ? s.plus(rz.nativePnl)
+            : s,
+        BN_ZERO,
+      )
+      const taxNative = posUnrealized.plus(realizedNativeGain).times(bn(taxRate))
+      if (nativeCurrency === "TRY") {
+        const usdPrice = bn(pc?.price_usd ?? 0)
+        const tryPrice = bn(pc?.price_try ?? 0)
+        taxAccrualUsd = tryPrice.isZero()
+          ? BN_ZERO
+          : taxNative.times(usdPrice).div(tryPrice)
+      } else {
+        taxAccrualUsd = taxNative
+      }
+    }
+
     holdingPnLs.push({
       assetId: h.asset_id,
       platformId: h.platform_id,
@@ -172,6 +217,7 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
       currentValueUsd: unrealized.currentValueUsd,
       unrealizedPnlUsd: unrealized.unrealizedPnlUsd,
       realizedPnlUsd: totalRealized,
+      taxAccrualUsd,
     })
   }
 
@@ -187,6 +233,7 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
       currentValueUsd: ReturnType<typeof bn>
       unrealizedPnlUsd: ReturnType<typeof bn>
       realizedPnlUsd: ReturnType<typeof bn>
+      taxAccrualUsd: ReturnType<typeof bn>
     }
   >()
 
@@ -197,6 +244,7 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
       existing.currentValueUsd = existing.currentValueUsd.plus(hp.currentValueUsd)
       existing.unrealizedPnlUsd = existing.unrealizedPnlUsd.plus(hp.unrealizedPnlUsd)
       existing.realizedPnlUsd = existing.realizedPnlUsd.plus(hp.realizedPnlUsd)
+      existing.taxAccrualUsd = existing.taxAccrualUsd.plus(hp.taxAccrualUsd)
       if (
         existing.costBasisNative !== null &&
         hp.costBasisNative !== null &&
@@ -217,6 +265,7 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
         currentValueUsd: hp.currentValueUsd,
         unrealizedPnlUsd: hp.unrealizedPnlUsd,
         realizedPnlUsd: hp.realizedPnlUsd,
+        taxAccrualUsd: hp.taxAccrualUsd,
       })
     }
   }
@@ -238,6 +287,7 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
       unrealizedPnlUsd: data.unrealizedPnlUsd,
       unrealizedPnlPct,
       realizedPnlUsd: data.realizedPnlUsd,
+      taxAccrualUsd: data.taxAccrualUsd,
       lots: [],
     })
   }
@@ -254,6 +304,10 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
     (s, a) => s.plus(a.unrealizedPnlUsd),
     BN_ZERO,
   )
+  const totalTaxAccrualUsd = assetPnLs.reduce(
+    (s, a) => s.plus(a.taxAccrualUsd),
+    BN_ZERO,
+  )
 
   // Realized & income over the FULL history (incl. sold-out positions, which
   // have no holdings row) — not the held-only per-asset sum.
@@ -268,6 +322,7 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
     totalCostBasisUsd,
     totalCurrentValueUsd,
     totalUnrealizedPnlUsd,
+    totalTaxAccrualUsd,
     totalRealizedPnlUsd,
     totalIncomeUsd,
     totalInvestedUsd,
