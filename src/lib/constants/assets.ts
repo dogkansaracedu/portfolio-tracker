@@ -11,6 +11,7 @@ export const ASSET_CATEGORIES = [
   { value: "fiat", label: "Fiat" },
   { value: "crypto", label: "Crypto" },
   { value: "gold", label: "Gold" },
+  { value: "fund", label: "Fund (PPF)" },
   { value: "stock_us", label: "US Stock" },
   { value: "stock_bist", label: "BIST Stock" },
 ] as const
@@ -30,6 +31,7 @@ export const TICKER_HINTS: Record<AssetCategoryValue, string> = {
   fiat: 'Use ISO code, e.g. "USD", "TRY", "EUR"',
   crypto: 'Use the symbol, e.g. "BTC", "ETH"',
   gold: 'Symbol for tokenized (e.g. "PAXG"); "XAU_GRAM" for physical',
+  fund: 'Fund code, e.g. "TI1" (a TRY money-market fund / PPF)',
   stock_us: 'Use US ticker, e.g. "AAPL", "MSFT"',
   stock_bist: 'Use Yahoo format, e.g. "THYAO.IS", "ASELS.IS"',
 }
@@ -40,6 +42,7 @@ export const DEFAULT_PRICE_SOURCE: Record<AssetCategoryValue, PriceSourceValue> 
   fiat: "tcmb",
   crypto: "yahoo",
   gold: "yahoo",
+  fund: "manual",
   stock_us: "yahoo",
   stock_bist: "yahoo",
 }
@@ -74,6 +77,7 @@ export function assetNativeCurrency(asset: {
   if (asset.category === "gold" && asset.ticker === PHYSICAL_GOLD_TICKER) {
     return "TRY"
   }
+  if (asset.category === "fund") return "TRY"
   return "USD"
 }
 

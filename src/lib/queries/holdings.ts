@@ -13,6 +13,7 @@ export interface HoldingWithDetails extends Holding {
     // Needed so the snapshot auto-refresh can value these in-memory rows
     // (it skips inactive assets) without a second holdings fetch.
     is_active: boolean
+    at_source_tax_rate: number | null
   }
   platforms: { name: string; color: string }
 }
@@ -22,7 +23,7 @@ export async function fetchHoldings(
 ): Promise<HoldingWithDetails[]> {
   const { data, error } = await supabase
     .from("holdings")
-    .select("*, assets(name, ticker, price_id, category, tags, is_currency, is_active), platforms(name, color)")
+    .select("*, assets(name, ticker, price_id, category, tags, is_currency, is_active, at_source_tax_rate), platforms(name, color)")
     .eq("user_id", userId)
     .neq("balance", 0)
     .order("assets(name)")
@@ -36,7 +37,7 @@ export async function fetchHoldingsByAsset(
 ): Promise<HoldingWithDetails[]> {
   const { data, error } = await supabase
     .from("holdings")
-    .select("*, assets(name, ticker, price_id, category, tags, is_currency, is_active), platforms(name, color)")
+    .select("*, assets(name, ticker, price_id, category, tags, is_currency, is_active, at_source_tax_rate), platforms(name, color)")
     .eq("asset_id", assetId)
 
   if (error) throw error
