@@ -184,6 +184,16 @@ This validates the net-invested vs fiat-cost-basis split (spec §4.4). The inter
 **Inputs:** $100 USD cash; standalone `fee` of $5.
 **Correct expected:** Total P&L **−$5**, reconciles. **Current engine:** −$10 (double-count: value −$5 *and* net invested +$5) and reconciliation breaks. Captured as `it.fails` in `cases.test.ts` — a tripwire that flips to a real failure once fixed. Zero occurrences today. See §"Out of scope".
 
+### Case 22 — PPF (at-source tax)
+Validates the additive after-tax overlay: gross figures untouched, the accrual reported alongside.
+**Inputs:** Buy 1,000 units @ ₺1 (usd_try 25 → **$40** cost). NAV rises to ₺2/unit → native gain **₺1,000**. Asset carries `at_source_tax_rate` 17.5%. Current `price_usd` 0.08, `price_try` 2.
+**Expected:**
+- Gross unrealized **+$40** (value $80 − cost $40), realized $0, income $0.
+- At 17.5%: tax ₺175 → after-tax native gain **₺825**.
+- `taxAccrualUsd` **$7.00** (= ₺175 × price_usd 0.08 / price_try 2). After-tax Total P&L = 40 − 7 = **+$33**.
+- Gross figures unchanged; the overlay is additive, so the reconciliation invariant still holds (40 + 0 + 0 = 80 − 40). ✓
+- (See `src/lib/pnl/after-tax.test.ts`.)
+
 ### Case 10 — Reconciliation invariant (master check)
 For **any** mix of the above, the engine must hold:
 ```
@@ -205,6 +215,8 @@ If `usePnL` ever `console.warn`s `[usePnL] P&L reconciliation mismatch`, a case 
 - **% denominator is peak net invested** (money-weighted). Stable across withdrawals; "—" only when nothing was ever deployed. The **$** uses current net invested (Cases 6, 9).
 - **Fiat FX counts as P&L** (Case 7) — by design (USD anchor).
 - **Income is neutral to net invested** and recognized once, as the `income` term (Cases 2–5, 8).
+- **At-source tax is an additive overlay** (Case 22): an asset with an `at_source_tax_rate` (e.g. PPF 17.5%) reports `taxAccrualUsd` = rate × positive native gain (held + realized); gross figures and the reconciliation invariant are untouched, and after-tax Total P&L = gross − `totalTaxAccrualUsd`. Realized accrual covers held positions only (a sold-out position is not accrued).
+- **Foreign-declarable income** (non-TRY, non-withheld dividend + interest summed in TRY by year, the 22,000 TL threshold) is a reporting figure computed in `src/lib/pnl/foreign-income.ts`, separate from the money-weighted total.
 - **Out of scope / not yet addressed** (see `docs/pnl-methodology.md` §6): standalone `fee` double-counts (#2 — captured as known-failing Case 21, zero occurrences); category attribution omits fully-sold positions (#3). **Now fixed:** daily baseline is date-based + home-local (was #4's cadence/timezone concern); the all-time % uses peak invested.
 
 ## Engine reference
