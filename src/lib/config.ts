@@ -37,6 +37,7 @@ export const AMOUNT_DECIMALS: Record<string, number> = {
   fiat: DECIMALS.fiatAmount,
   crypto: DECIMALS.cryptoAmount,
   gold: DECIMALS.stockAmount,
+  fund: DECIMALS.stockAmount,
   stock_bist: DECIMALS.stockAmount,
   stock_us: DECIMALS.stockAmount,
 }
