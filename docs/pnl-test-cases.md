@@ -1,6 +1,6 @@
 # P&L Engine — Case-by-Case Test Cases & Handover
 
-Date: 2026-06-06 · Companion to `docs/superpowers/specs/2026-06-05-dividend-interest-income-design.md` and `docs/pnl-engine-critique.md`.
+Date: 2026-06-06 · Companion to `docs/pnl-methodology.md` (definitions, return-% methodology, and known issues).
 
 Purpose: a verifiable, case-by-case description of how the P&L engine **must** behave. Each case lists concrete inputs and the exact expected outputs. Use it to (a) hand the engine off to anyone (or future-you), (b) manually verify on prod, and (c) drive the automated tests. These cases are now wired as **Vitest** tests against the real engine (`computePortfolioPnL`): `src/lib/pnl/cases.test.ts`, `peak.test.ts`, `totals.test.ts`, and `src/lib/portfolio/daily.test.ts`. Run `npm test`.
 
@@ -205,7 +205,7 @@ If `usePnL` ever `console.warn`s `[usePnL] P&L reconciliation mismatch`, a case 
 - **% denominator is peak net invested** (money-weighted). Stable across withdrawals; "—" only when nothing was ever deployed. The **$** uses current net invested (Cases 6, 9).
 - **Fiat FX counts as P&L** (Case 7) — by design (USD anchor).
 - **Income is neutral to net invested** and recognized once, as the `income` term (Cases 2–5, 8).
-- **Out of scope / not yet addressed** (see `docs/pnl-engine-critique.md`): standalone `fee` double-counts (#2 — captured as known-failing Case 21, zero occurrences); category attribution omits fully-sold positions (#3). **Now fixed:** daily baseline is date-based + home-local (was #4's cadence/timezone concern); the all-time % uses peak invested.
+- **Out of scope / not yet addressed** (see `docs/pnl-methodology.md` §6): standalone `fee` double-counts (#2 — captured as known-failing Case 21, zero occurrences); category attribution omits fully-sold positions (#3). **Now fixed:** daily baseline is date-based + home-local (was #4's cadence/timezone concern); the all-time % uses peak invested.
 
 ## Engine reference
 | Concern | Function | File |

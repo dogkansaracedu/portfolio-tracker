@@ -30,7 +30,8 @@ This component *uses* most P&L vocabulary; it does not define it. See:
 - [FIFO lots and cost basis](GLOSSARY.md#fifo-lots-and-cost-basis) · [Realized and unrealized](GLOSSARY.md#realized-and-unrealized) · [Fiat FX P&L](GLOSSARY.md#fiat-fx-pl)
 - [Daily return](GLOSSARY.md#daily-return) · [Snapshot](GLOSSARY.md#snapshot) · [Exchange rate](GLOSSARY.md#exchange-rate)
 - Formulas: [Total P&L](GLOSSARY.md#total-pl) · [Daily return formula](GLOSSARY.md#daily-return-formula)
-- Deep rationale: [P&L Methodology](../pnl-methodology.md)
+- Deep rationale (incl. the return-% methodology — TWR vs money-weighted vs peak): [P&L Methodology](../pnl-methodology.md)
+- Verifiable behaviour: [worked P&L cases](../pnl-test-cases.md) (run as Vitest)
 
 ## Behaviors / rules
 
