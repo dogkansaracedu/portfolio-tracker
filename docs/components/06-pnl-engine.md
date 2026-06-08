@@ -161,6 +161,17 @@ denominators, then take the percentage once.
 worth $220 now → daily = 220 − 0 − 210 = **+$10**, over a base of
 0 + 210 = 210 → **+4.76%**.
 
+### 7. After-tax (at-source) overlay
+
+See [After-tax P&L](GLOSSARY.md#after-tax-pl) and [at-source tax](GLOSSARY.md#at-source-tax).
+Some holdings carry a fixed tax taken **at source** on their gains (a Turkish PPF:
+17.5%). For these, the engine reports a **tax accrual** = rate × the *positive
+native gain* (held + any realized), so the displayed gain is net (₺1,000 gain →
+₺825). It is an **additive overlay**: gross unrealized/realized are untouched and
+the money-weighted invariant still holds; after-tax Total P&L = gross Total P&L −
+total tax accrual. The rate is per-asset config (it changes yearly); assets without
+a rate are unaffected.
+
 ## Contract (I/O)
 
 **Inputs**
@@ -177,7 +188,10 @@ worth $220 now → daily = 220 − 0 − 210 = **+$10**, over a base of
 - **Portfolio totals:** total cost basis, total current value, total unrealized,
   total realized (full history), income, **net invested capital**, **peak net
   invested**, and the canonical **Total P&L** (USD, TRY, %). The % is over peak and is
-  **null → render "—"** when peak ≤ 0 (nothing ever deployed).
+  **null → render "—"** when peak ≤ 0 (nothing ever deployed). Plus `totalTaxAccrualUsd`
+  — the portfolio sum of the per-asset [after-tax](GLOSSARY.md#after-tax-pl) overlay.
+- **Per asset (cont.):** `taxAccrualUsd` — the at-source tax accrual for that
+  holding (0 when it carries no rate).
 - **Per realizing transaction:** a realized-P&L entry (proceeds, cost basis,
   realized USD, native gain when single-currency) keyed by transaction id.
 - **Daily return** per asset / holding, with the denominator for group rollups.
@@ -200,5 +214,7 @@ worth $220 now → daily = 220 − 0 − 210 = **+$10**, over a base of
       (home-local day); a ≤ 0 base returns no value rather than 0% / NaN.
 - [ ] **Total P&L % is over peak net invested** — a withdrawal does not change it; it
       renders "—" when peak ≤ 0 (nothing ever deployed).
+- [ ] An at-source-taxed asset (e.g. PPF, 17.5%) reports its gain net of tax via an
+      additive accrual; gross figures and the money-weighted invariant are unchanged.
 
 See [P&L Methodology](../pnl-methodology.md) for why money-weighted is canonical.

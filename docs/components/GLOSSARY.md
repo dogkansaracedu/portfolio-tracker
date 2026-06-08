@@ -119,6 +119,22 @@ Fiat / cash holdings (`is_currency = true`) are **not zero-P&L**: their cost bas
 is the net USD deployed into that currency, so `value − cost basis` is the real
 FX gain/loss vs. the [USD anchor](#usd-anchor). Surfaced as unrealized P&L.
 
+### At-source tax
+A withholding taken automatically on an asset's gains (e.g. a Turkish PPF, 17.5%);
+modeled per-asset as `at_source_tax_rate`. Drives the [tax accrual](#after-tax-pl)
+that produces [after-tax P&L](#after-tax-pl).
+
+### After-tax P&L
+Gross P&L minus the at-source **tax accrual** (rate × the positive native gain,
+held + realized). An **additive overlay**: it leaves the gross decomposition and
+its invariant (`unrealized + realized + income`) intact — after-tax Total P&L =
+gross − total tax accrual.
+
+### Foreign-declarable income
+Dividend / interest from a non-TRY asset with no [at-source tax](#at-source-tax);
+the income that counts toward the Turkish 22,000 TL declaration threshold. A
+reporting figure, not part of the money-weighted total.
+
 ### Daily return
 The money-weighted change **since the most recent [snapshot](#snapshot) before today**
 (the portfolio's home-local day): `value_now − prev_snapshot_value − period_invested`.
