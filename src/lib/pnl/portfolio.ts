@@ -177,6 +177,8 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
       costBasisNative !== null
     ) {
       const pc = prices[priceKey]
+      // Uses the live price-cache (price_try/price_usd), not the snapshot price
+      // used for the gross value above — an accepted minor divergence.
       const nativeUnitPrice =
         nativeCurrency === "TRY" ? bn(pc?.price_try ?? 0) : bn(pc?.price_usd ?? 0)
       const currentValueNative = liveBalanceBn.times(nativeUnitPrice)
@@ -184,6 +186,10 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
       const posUnrealized = unrealizedNativeGain.gt(0)
         ? unrealizedNativeGain
         : BN_ZERO
+      // Realized native gains are summed only over THIS held position's sells.
+      // A fully sold-out at-source-taxed asset has no holdings row, so its
+      // realized tax is not accrued here — deferred (rare for a held-and-growing
+      // PPF; revisit if a closed-position after-tax figure is ever needed).
       const realizedNativeGain = realized.reduce(
         (s, rz) =>
           rz.nativePnl &&
