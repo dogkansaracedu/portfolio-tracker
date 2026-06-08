@@ -40,6 +40,10 @@ export interface Asset {
   price_source: string;
   is_currency: boolean;
   is_active: boolean;
+  /** Fixed at-source withholding rate on this asset's gains (e.g. 0.175 for a
+   *  Turkish PPF). When set, the engine reports the gain net of it. Null = no
+   *  at-source tax (gross behaviour). See lib/pnl/portfolio taxAccrualUsd. */
+  at_source_tax_rate: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -152,8 +156,12 @@ export type PlatformUpdate = Partial<Omit<Platform, "id" | "user_id" | "created_
 // `price_id ?? ticker`, so a new asset behaves like the old ticker-as-key.
 export type AssetInsert = Omit<
   Asset,
-  "id" | "created_at" | "updated_at" | "price_id" | "icon_url"
-> & { price_id?: string | null; icon_url?: string | null };
+  "id" | "created_at" | "updated_at" | "price_id" | "icon_url" | "at_source_tax_rate"
+> & {
+  price_id?: string | null;
+  icon_url?: string | null;
+  at_source_tax_rate?: number | null;
+};
 export type AssetUpdate = Partial<Omit<Asset, "id" | "user_id" | "created_at" | "updated_at">>;
 
 export type HoldingInsert = Omit<Holding, "id" | "balance" | "created_at" | "updated_at"> & {

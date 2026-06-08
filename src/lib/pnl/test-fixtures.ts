@@ -106,6 +106,7 @@ export function holding(opts: {
   assetId?: string
   platformId?: string
   priceId?: string | null
+  atSourceTaxRate?: number | null
 }): HoldingWithDetails {
   const ticker = opts.ticker ?? "ASSET"
   return {
@@ -124,6 +125,7 @@ export function holding(opts: {
       tags: [],
       is_currency: opts.isCurrency ?? false,
       is_active: true,
+      at_source_tax_rate: opts.atSourceTaxRate ?? null,
     },
     platforms: { name: "Platform", color: "#000000" },
   }
