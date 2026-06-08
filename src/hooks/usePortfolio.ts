@@ -64,7 +64,7 @@ export interface AssetGroup {
   dailyReturnPct: number | null
 }
 
-export type GroupBy = "platform" | "category" | "tag"
+export type GroupBy = "platform" | "category" | "tag" | "currency"
 export type SortBy = "value" | "pnl" | "name"
 export type ReturnMode = "total" | "daily"
 
