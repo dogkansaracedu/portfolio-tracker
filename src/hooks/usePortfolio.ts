@@ -42,6 +42,9 @@ export interface EnrichedAsset {
   nativeCurrency: string | null
   unrealizedPnlUsd: number
   unrealizedPnlPct: number
+  /** At-source tax accrued on this position's gain, in USD (0 unless the asset
+   *  has at_source_tax_rate). After-tax P&L = unrealizedPnlUsd − this. */
+  taxAccrualUsd: number
   allocationPct: number
   /** Money-weighted daily return in USD (current − prev-snapshot − period cash). */
   dailyReturnUsd: number
@@ -60,6 +63,8 @@ export interface AssetGroup {
   totalValueUsd: number
   totalValueTry: number
   totalPnlUsd: number
+  /** Summed at-source tax accrual across the group's assets, in USD. */
+  totalTaxAccrualUsd: number
   dailyReturnUsd: number
   dailyReturnPct: number | null
 }
@@ -80,6 +85,7 @@ interface UsePortfolioReturn {
   totalIncomeUsd: number
   totalPnlUsd: number
   totalPnlPct: number | null
+  totalTaxAccrualUsd: number
   heldAssetCount: number
   loading: boolean
   error: string | null
@@ -118,6 +124,7 @@ export function usePortfolio(): UsePortfolioReturn {
     totalUnrealizedPnlUsd,
     totalRealizedPnlUsd,
     totalIncomeUsd,
+    totalTaxAccrualUsd,
     totalInvestedUsd,
     totalPeakInvestedUsd,
     transactions,
@@ -226,6 +233,7 @@ export function usePortfolio(): UsePortfolioReturn {
     totalIncomeUsd: totalIncomeUsd.toNumber(),
     totalPnlUsd: totalPnlUsdBn.toNumber(),
     totalPnlPct: totalPnlPctBn?.toNumber() ?? null,
+    totalTaxAccrualUsd: totalTaxAccrualUsd.toNumber(),
     heldAssetCount: enrichedAssets.length,
     loading,
     error,
