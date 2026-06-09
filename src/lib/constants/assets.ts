@@ -21,6 +21,7 @@ export type AssetCategoryValue = (typeof ASSET_CATEGORIES)[number]["value"]
 export const PRICE_SOURCES = [
   { value: "yahoo", label: "Yahoo Finance" },
   { value: "tcmb", label: "TCMB" },
+  { value: "tefas", label: "TEFAS" },
   { value: "manual", label: "Manual" },
 ] as const
 
@@ -42,7 +43,7 @@ export const DEFAULT_PRICE_SOURCE: Record<AssetCategoryValue, PriceSourceValue> 
   fiat: "tcmb",
   crypto: "yahoo",
   gold: "yahoo",
-  fund: "manual",
+  fund: "tefas",
   stock_us: "yahoo",
   stock_bist: "yahoo",
 }
@@ -50,6 +51,22 @@ export const DEFAULT_PRICE_SOURCE: Record<AssetCategoryValue, PriceSourceValue> 
 /** Ticker for physical gram gold — priced/displayed in TRY. Tokenized gold
  *  (PAXG, XAUT, …) is priced from its Yahoo `*-USD` symbol and stays USD-native. */
 export const PHYSICAL_GOLD_TICKER = "XAU_GRAM"
+
+/** USD-pegged stablecoins are tracked as `crypto` but are economically USD cash.
+ *  Like funds nest under their fiat, these nest under the USD row in the
+ *  portfolio's currency view. Curated set — add new USD pegs here. */
+export const STABLECOIN_TICKERS = new Set(["USDT", "USDC"])
+
+/** Whether an asset is a USD-pegged stablecoin (a "fiat crypto"). */
+export function isStablecoin(asset: {
+  category: string
+  ticker: string
+}): boolean {
+  return (
+    asset.category === "crypto" &&
+    STABLECOIN_TICKERS.has(asset.ticker.toUpperCase())
+  )
+}
 
 /**
  * The currency an asset's price is natively quoted in. Decides which

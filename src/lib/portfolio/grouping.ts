@@ -1,6 +1,6 @@
 import type BigNumber from "bignumber.js"
 import { bn, BN_ZERO, homeDayIso } from "@/lib/config"
-import { assetNativeCurrency } from "@/lib/constants/assets"
+import { assetNativeCurrency, isStablecoin } from "@/lib/constants/assets"
 import { computeCurrentInvestedUsd } from "@/lib/performance"
 import { computeDailyReturn, dailyReturnPct } from "@/lib/pnl/daily"
 import type {
@@ -454,8 +454,9 @@ function rollupGroup(opts: {
   let dailyReturnUsdBn = BN_ZERO
   let dailyDenomUsdBn = BN_ZERO
   for (const a of assets) {
-    // A fiat row may carry nested fund/bond children (funds related to their
-    // fiat); count them in the subtotal so the group total stays whole.
+    // A fiat row may carry nested fund / stablecoin children (cash-equivalents
+    // related to their fiat); count them in the subtotal so the group total
+    // stays whole.
     for (const row of a.children ? [a, ...a.children] : [a]) {
       totalValueUsdBn = totalValueUsdBn.plus(bn(row.currentValueUsd))
       totalValueTryBn = totalValueTryBn.plus(bn(row.currentValueTry))
@@ -482,31 +483,41 @@ function rollupGroup(opts: {
   }
 }
 
+/** A cash-equivalent that nests under the fiat it's denominated in: a `fund`
+ *  (e.g. a TRY money-market fund / PPF) or a USD-pegged stablecoin (USDT/USDC,
+ *  tracked as crypto but economically USD cash). */
+function isFiatNestable(a: EnrichedAsset): boolean {
+  return a.category === "fund" || isStablecoin(a)
+}
+
 /**
- * Relate funds (and bonds) to the fiat they're denominated in: each `fund`
- * asset is lifted out of the top level and attached as a child of the matching
- * fiat-currency row (a TRY money-market fund nests under the TRY cash row).
- * Stocks/crypto/gold are untouched. A fund whose currency has no fiat row stays
- * a top-level row so it never disappears. Group subtotals count children too
- * (see rollupGroup), so totals stay whole.
+ * Relate cash-equivalents to the fiat they're denominated in: each nestable
+ * asset (see {@link isFiatNestable}) is lifted out of the top level and attached
+ * as a child of the matching fiat-currency row — a TRY money-market fund nests
+ * under the TRY cash row, USDT/USDC nest under the USD cash row. Stocks,
+ * non-stablecoin crypto, and gold are untouched. A cash-equivalent whose
+ * currency has no fiat row stays a top-level row so it never disappears. Group
+ * subtotals count children too (see rollupGroup), so totals stay whole.
  */
-export function nestFundsUnderFiat(assets: EnrichedAsset[]): EnrichedAsset[] {
-  const fundsByCurrency = new Map<string, EnrichedAsset[]>()
+export function nestCashEquivalentsUnderFiat(
+  assets: EnrichedAsset[],
+): EnrichedAsset[] {
+  const childrenByCurrency = new Map<string, EnrichedAsset[]>()
   for (const a of assets) {
-    if (a.category !== "fund") continue
+    if (!isFiatNestable(a)) continue
     const cur = assetNativeCurrency(a)
-    const list = fundsByCurrency.get(cur) ?? []
+    const list = childrenByCurrency.get(cur) ?? []
     list.push(a)
-    fundsByCurrency.set(cur, list)
+    childrenByCurrency.set(cur, list)
   }
-  if (fundsByCurrency.size === 0) return assets
+  if (childrenByCurrency.size === 0) return assets
 
   const consumed = new Set<string>()
   const result: EnrichedAsset[] = []
   for (const a of assets) {
-    if (a.category === "fund") continue // placed as a child below (or re-added if orphan)
+    if (isFiatNestable(a)) continue // placed as a child below (or re-added if orphan)
     if (a.category === "fiat") {
-      const children = fundsByCurrency.get(a.ticker)
+      const children = childrenByCurrency.get(a.ticker)
       if (children && children.length > 0) {
         children.forEach((c) => consumed.add(c.id))
         result.push({ ...a, children })
@@ -515,8 +526,8 @@ export function nestFundsUnderFiat(assets: EnrichedAsset[]): EnrichedAsset[] {
     }
     result.push(a)
   }
-  // Orphan funds (no matching fiat row) stay visible as their own top-level rows.
-  for (const list of fundsByCurrency.values()) {
+  // Orphan cash-equivalents (no matching fiat row) stay visible as top-level rows.
+  for (const list of childrenByCurrency.values()) {
     for (const f of list) if (!consumed.has(f.id)) result.push(f)
   }
   return result

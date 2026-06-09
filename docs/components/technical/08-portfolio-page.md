@@ -47,17 +47,19 @@
   **Total | Daily** `ToggleGroup`, the group-by `ToggleGroup` (Tag/Platform/
   Category — `GroupBy = "platform" | "category" | "tag"`, no `currency` axis), and
   the sort `Select` (`SORT_LABELS` inlined here).
-- **Funds-nested-under-fiat** (replaces the deleted `CurrencyHoldings.tsx` card):
-  - `nestFundsUnderFiat(assets)` in `src/lib/portfolio/grouping.ts` lifts every
-    `category === "fund"` asset out of the top level and attaches it to the
-    matching fiat row as `children`: it buckets funds by `assetNativeCurrency(a)`,
-    then for each `fiat` asset whose `ticker` matches a currency bucket pushes
-    `{ ...a, children }`. Orphan funds (no matching fiat row) are re-appended as
-    top-level rows so they never disappear. Returns the input unchanged when there
-    are no funds.
+- **Cash-equivalents-nested-under-fiat** (replaces the deleted `CurrencyHoldings.tsx` card):
+  - `nestCashEquivalentsUnderFiat(assets)` in `src/lib/portfolio/grouping.ts` lifts
+    every nestable cash-equivalent — `isFiatNestable(a)` = `category === "fund"`
+    OR `isStablecoin(a)` (a USD-pegged stablecoin USDT/USDC, from
+    `src/lib/constants/assets.ts`) — out of the top level and attaches it to the
+    matching fiat row as `children`: it buckets them by `assetNativeCurrency(a)`
+    (funds → their fiat, stablecoins → USD), then for each `fiat` asset whose
+    `ticker` matches a currency bucket pushes `{ ...a, children }`. Orphans (no
+    matching fiat row) are re-appended as top-level rows so they never disappear.
+    Returns the input unchanged when there are none.
   - `EnrichedAsset.children?: EnrichedAsset[]` (`src/hooks/usePortfolio.ts`) holds
-    the nested funds; `usePortfolio`'s `nestedAssets` memo calls
-    `nestFundsUnderFiat(enrichedAssets)` **only** when `groupBy !== "platform"`
+    the nested cash-equivalents; `usePortfolio`'s `nestedAssets` memo calls
+    `nestCashEquivalentsUnderFiat(enrichedAssets)` **only** when `groupBy !== "platform"`
     (`groupBy === "platform"` passes `enrichedAssets` through unchanged) — the
     nesting is a currency view that doesn't compose with the platform axis.
   - `PortfolioRow.tsx` renders children recursively: `const childRows =

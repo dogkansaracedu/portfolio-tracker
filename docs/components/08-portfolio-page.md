@@ -53,19 +53,20 @@ asset set.
 **Search / filter.** A search box filters rows by asset name or ticker in real
 time. Inactive assets are hidden by default.
 
-**Funds nested under their fiat currency.** Inside the holdings table, each
-**fiat currency row** (e.g. TRY/USD/EUR cash) is an **expandable parent**: the
-**funds/bonds denominated in that currency** (e.g. a TRY money-market fund or
-PPF) render as **indented child rows beneath it**, each showing its own value
-and **after-tax** return (net of any at-source tax accrual). Rows are
+**Cash-equivalents nested under their fiat currency.** Inside the holdings table,
+each **fiat currency row** (e.g. TRY/USD/EUR cash) is an **expandable parent**:
+the **cash-equivalents denominated in that currency** render as **indented child
+rows beneath it** — a TRY money-market fund / PPF nests under the TRY row, and
+USD-pegged **stablecoins (USDT, USDC)** nest under the USD row — each showing its
+own value and **after-tax** return (net of any at-source tax accrual). Rows are
 **expanded by default** and can be collapsed. **Group subtotals count the nested
 children**, so a group header still equals the sum of everything under it and
-totals stay whole. **Stocks, crypto, and gold are not nested** — they are not
-"denominated in" a fiat the way cash and funds are, and they stay as ordinary
-top-level rows. A fund whose currency has no matching fiat row stays a top-level
-row so it never disappears. This nesting applies to the **category and tag**
-groupings; it is **not** applied in the platform group-by, where a fund isn't
-"in" a platform's cash row and the relationship doesn't compose.
+totals stay whole. **Stocks, non-stablecoin crypto, and gold are not nested** —
+they are not "denominated in" a fiat the way cash, funds, and stablecoins are,
+and they stay as ordinary top-level rows. A cash-equivalent whose currency has no
+matching fiat row stays a top-level row so it never disappears. This nesting
+applies to the **category and tag** groupings; it is **not** applied in the
+platform group-by, where the relationship doesn't compose.
 
 **Total | Daily return toggle.** A single toggle switches the return figure on
 **both group headers and asset rows** between two modes. It does **not** touch any
@@ -230,9 +231,10 @@ zero is neutral; consistent across rows, headers, and the summary bar.
       filters by name or ticker; values render in the selected currency.
 - [ ] Mobile renders cards; inactive hidden by default; obfuscation hides amounts
       while percentages stay visible.
-- [ ] In the category/tag groupings, funds/bonds appear as **indented child rows**
-      under their fiat currency row (expandable, expanded by default), each showing
+- [ ] In the category/tag groupings, funds and USD stablecoins (USDT/USDC) appear
+      as **indented child rows** under their fiat currency row (funds under their
+      fiat, stablecoins under USD; expandable, expanded by default), each showing
       its value and **after-tax** return; group subtotals include the nested
-      children so headers stay whole. Stocks/crypto/gold are not nested, and the
-      platform grouping shows no nesting. A fund with no matching fiat row stays a
-      top-level row.
+      children so headers stay whole. Stocks/non-stablecoin crypto/gold are not
+      nested, and the platform grouping shows no nesting. A cash-equivalent with no
+      matching fiat row stays a top-level row.
