@@ -53,6 +53,16 @@ asset set.
 **Search / filter.** A search box filters rows by asset name or ticker in real
 time. Inactive assets are hidden by default.
 
+**Cash & funds by currency.** A separate collapsible panel — above the main table,
+just under the summary bar — relates each fiat currency to the holdings that *are*
+that currency: its **cash** plus the **funds/bonds** parked in it (e.g. TRY cash +
+a TRY money-market fund). One **collapsible row per currency** shows that currency's
+total value and its **after-tax** return (net of any at-source tax accrual);
+expanding a row reveals the individual holdings with their own value and after-tax
+return. **Stocks, crypto, and gold are deliberately excluded** — they are not
+"denominated in" a fiat the way cash and funds are, and they stay in the main table.
+The panel is hidden entirely when no cash or fund positions are held.
+
 **Total | Daily return toggle.** A single toggle switches the return figure on
 **both group headers and asset rows** between two modes. It does **not** touch any
 other column, and it does **not** affect the summary bar.
@@ -169,6 +179,13 @@ row's return cell; default is **Total**.
 %, with an unrealized/realized split when any realized exists), and the held-asset
 count. **Not** affected by the toggle.
 
+**Cash & funds by currency panel:** a card between the summary bar and the filters,
+titled "Cash & funds by currency". Each currency is a clickable row (currency code,
+holding count, total value, after-tax return) that expands/collapses to list its
+individual holdings (ticker, value, after-tax return). Returns use the gain/loss
+palette; values follow the display-currency and obfuscation rules. Rows sort by
+value, highest first.
+
 **Mobile (cards).** Below the table breakpoint, each group renders a simplified
 header and its assets as cards (icon + ticker, price, platforms, value, and the
 mode-dependent return amount + % inline). Same toggle, same "—" rules.
@@ -207,3 +224,7 @@ zero is neutral; consistent across rows, headers, and the summary bar.
       filters by name or ticker; values render in the selected currency.
 - [ ] Mobile renders cards; inactive hidden by default; obfuscation hides amounts
       while percentages stay visible.
+- [ ] The "Cash & funds by currency" panel shows one collapsible row per currency
+      bucketing only cash + funds/bonds (stocks/crypto/gold excluded), with each
+      row's total value and **after-tax** return; expanding reveals the individual
+      holdings. The panel is hidden when no cash/fund positions are held.

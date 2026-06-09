@@ -43,7 +43,20 @@
   `gross … · −… tax` line when taxed. The unrealized/realized split stays gross.
 - `src/components/portfolio/PortfolioFilters.tsx` — search `Input`, the
   **Total | Daily** `ToggleGroup`, the group-by `ToggleGroup` (Tag/Platform/
-  Category), and the sort `Select` (`SORT_LABELS` inlined here).
+  Category — `GroupBy = "platform" | "category" | "tag"`, no `currency` axis), and
+  the sort `Select` (`SORT_LABELS` inlined here).
+- `src/components/portfolio/CurrencyHoldings.tsx` — the "Cash & funds by currency"
+  `Card`, rendered in `PortfolioPage.tsx` between the summary bar and the filters
+  (`<CurrencyHoldings assets={enrichedAssets} />`). Filters `EnrichedAsset[]` to
+  `VEHICLE_CATEGORIES = new Set(["fiat", "fund"])` (stocks/crypto/gold dropped),
+  buckets by `assetNativeCurrency(a)` into a `Map<string, CurrencyGroup>`, and sorts
+  groups by `valueUsd` desc. Per holding the after-tax return is
+  `unrealizedPnlUsd − taxAccrualUsd`, summed into the group's `netPnlUsd`; value
+  follows `currency` (`valueUsd`/`valueTry`). Accordion state is a local
+  `useState<Set<string>>(new Set())` of expanded currency codes (toggle adds/removes);
+  no persistence. Currency strings go through `o = obfuscate(v, obfuscated)`; returns
+  use `gainLossClass`/`formatSignedCurrency`. Returns `null` when no fiat/fund
+  positions exist.
 - `src/hooks/usePortfolio.ts` — the engine (below).
 - `src/lib/constants/portfolio.ts` — `RETURN_MODE_LABELS` (`{ total: "Total",
   daily: "Daily" }`), `RETURN_COLUMN_LABEL_TOTAL = "P&L"`,
