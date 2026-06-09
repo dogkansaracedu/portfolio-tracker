@@ -32,8 +32,17 @@
 - `src/components/dashboard/NetWorthCard.tsx` — net worth: primary + secondary
   currency. (Defined and exported; **not currently mounted** by the page — the
   hero's headline shows total value. See gotchas.)
-- `src/components/dashboard/AllocationChart.tsx` — the donut + legend; local
-  `CATEGORY_COLORS`/`CATEGORY_LABELS` maps; center-total overlay.
+- `src/components/dashboard/AllocationChart.tsx` — the **two-ring** donut +
+  grouped legend; consumes `AllocationNode[]` (`byAllocation`). Inner `Pie` =
+  top categories, outer `Pie` = leaves in the same order (fiat → its currencies,
+  others pass through), both `paddingAngle={0}` so the rings stay radially
+  aligned. Local `CATEGORY_COLORS`/`CATEGORY_LABELS` + a `CURRENCY_COLORS` green
+  ramp (TRY→USDT, dark→light) for the fiat children; `labelFor`/`colorFor`
+  resolve a node's key against them. Center-total overlay; legend renders Fiat's
+  `children` indented beneath it.
+- `src/lib/dashboard/allocation.ts` — pure `deriveAllocationSlices` + the
+  `AllocationNode` type (below). Separate module (not in the hook) so its test
+  doesn't import the Supabase-backed data hooks.
 - `src/components/dashboard/PlatformBreakdown.tsx` — ranked platform list with
   percent bars (plain divs, not Recharts).
 - `src/components/dashboard/TagBreakdown.tsx` — ranked tag list with percent bars;
@@ -64,11 +73,21 @@
 - Composes `useAssets` + `usePrices` + `useSnapshots` + `useTransactionData`;
   `loading` is the OR of all four. `usdTry = rates?.usd_try ?? 1`.
 - `latest = snapshots[len-1]`. Totals from `latest.total_usd`/`total_try`;
-  `byCategory`/`byPlatform`/`byTag` are `Object.entries(breakdown.by_*)` mapped to
+  `byPlatform`/`byTag` are `Object.entries(breakdown.by_*)` mapped to
   `{ …, valueUsd, valueTry, percentage }` and **sorted by `valueUsd` desc**.
   `by_platform` also carries `color`. No holdings × prices recompute here — the
   snapshot is the single source of truth (prevented the dashboard-vs-portfolio P&L
   drift, commit 3a3cc45).
+- `byAllocation = deriveAllocationSlices(breakdown.by_asset, assets, totalValueUsd)`
+  (`@/lib/dashboard/allocation`): the donut slices are re-derived from `by_asset`,
+  **not** read from `breakdown.by_category`. Cash, `fund` (PPF), and stablecoins
+  (`isStablecoin`) collapse into one `fiat` `AllocationNode` whose `children` are
+  the per-currency split (`fiatCurrencyKey`: stablecoins keep their ticker, cash +
+  funds fold into `assetNativeCurrency`); stablecoins therefore drop out of the
+  `crypto` total. Every other asset stays its own category node; an unknown ticker
+  becomes a top-level node keyed by the ticker. Plain `number` math (render-only
+  aggregation), same ticker→asset join as `deriveByCurrency`. `breakdown.by_category`
+  is now unused by the dashboard (still written to the snapshot).
 - `deriveTopMovers(breakdown.by_asset, assets, transactions, txRates)`: aggregates
   `value_usd` per ticker across platforms, **skips `category === "fiat"`**, then
   pairs with FIFO cost basis (`computeFIFOLots` from `@/lib/pnl/fifo`) →
@@ -178,16 +197,20 @@
   later renders/visits. It's intentionally **browser-local** (not server-synced) and
   **per-year** (a new key each tax year). Don't move the toast above the
   `loading`/`crossed` guards or it can fire on a half-loaded state.
-- **Color maps are component-local:** `CATEGORY_COLORS` (AllocationChart),
-  `TAG_COLORS` (TagBreakdown), and platform color (from the snapshot's
-  `by_platform[].color`) live in three places. Category/tag maps duplicate some
-  hues; a noted edge (not fixed) — consolidate into `@/lib/constants` if they grow.
+- **Color maps are component-local:** `CATEGORY_COLORS` + `CURRENCY_COLORS`
+  (AllocationChart), `CURRENCY_COLORS` (CurrencyBreakdown — a *different*,
+  non-green palette for the native-currency card), `TAG_COLORS` (TagBreakdown),
+  and platform color (from the snapshot's `by_platform[].color`) all live
+  locally. The two `CURRENCY_COLORS` maps intentionally differ: the allocation
+  donut uses a green ramp so the fiat currencies read as one cash block, while
+  the Currencies card uses distinct hues. A noted edge (not fixed) — consolidate
+  into `@/lib/constants` if they grow.
 - **Top movers ≠ 24h movers:** the label says "Top Movers" but the figure is
   lifetime unrealized P&L (no intraday price history exists). Movers are
   **USD-only** even under the TRY toggle.
 - **Empty/loading gating:** page shows skeletons while `useDashboard().loading ||
   usePnLSummary().loading`; the no-assets state keys off
-  `byCategory.length === 0 && byPlatform.length === 0`. The hero independently
+  `byAllocation.length === 0 && byPlatform.length === 0`. The hero independently
   guards `chartData.length >= 2` for its "not enough data" placeholder.
 - **Charts are lazy:** `DashboardHero` and `AllocationChart` import through
   `LazyChart.tsx`; they must stay default-exported for `React.lazy`.
