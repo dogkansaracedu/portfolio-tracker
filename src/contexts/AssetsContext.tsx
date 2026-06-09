@@ -44,7 +44,7 @@ export function AssetsProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchAssets(user.id)
+      const data = await fetchAssets()
       setAssets(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch assets")
