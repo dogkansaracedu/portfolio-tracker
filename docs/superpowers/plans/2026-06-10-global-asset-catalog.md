@@ -59,8 +59,8 @@ Create `supabase/migrations/20260610000000_global_asset_catalog.sql` with exactl
 -- Flip `assets` from per-user isolation to a single global, admin-managed
 -- catalog. Admin: imarooddy@gmail.com (201091b3-6381-48f2-860b-4947fac09c69).
 -- Platforms stay per-user. Admin's holdings/transactions are untouched.
-
-begin;
+-- (No explicit begin/commit — Supabase wraps each migration atomically, and
+-- none of the project's other migrations use them.)
 
 -- 1. Wipe non-admin portfolio data. Only the admin's assets form the global
 --    catalog; the one other account holds junk test data (a car logged as a
@@ -122,8 +122,6 @@ $$;
 
 revoke execute on function public.seed_user_data(uuid) from public;
 grant  execute on function public.seed_user_data(uuid) to authenticated;
-
-commit;
 ```
 
 - [ ] **Step 2: Sanity-check the file**
