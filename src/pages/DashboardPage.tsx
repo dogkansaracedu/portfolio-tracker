@@ -66,7 +66,7 @@ export default function DashboardPage() {
   const {
     totalValueUsd,
     totalValueTry,
-    byCategory,
+    byAllocation,
     byTag,
     byPlatform,
     byCurrency,
@@ -97,7 +97,7 @@ export default function DashboardPage() {
   }
 
   const hasNoAssets =
-    byCategory.length === 0 && byPlatform.length === 0
+    byAllocation.length === 0 && byPlatform.length === 0
 
   if (hasNoAssets) {
     return (
@@ -141,7 +141,7 @@ export default function DashboardPage() {
         <TagBreakdown byTag={byTag} />
         <Suspense fallback={<RouteSkeleton />}>
           <AllocationChart
-            byCategory={byCategory}
+            byAllocation={byAllocation}
             totalValueUsd={totalValueUsd}
             totalValueTry={totalValueTry}
           />

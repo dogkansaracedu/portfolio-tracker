@@ -6,6 +6,10 @@ import { useSnapshots } from "@/hooks/useSnapshots"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { computeFIFOLots } from "@/lib/pnl/fifo"
 import { assetNativeCurrency } from "@/lib/constants/assets"
+import {
+  deriveAllocationSlices,
+  type AllocationNode,
+} from "@/lib/dashboard/allocation"
 import type {
   Asset,
   ExchangeRate,
@@ -15,13 +19,6 @@ import type {
 } from "@/types/database"
 
 // ─── Types ──────────────────────────────────────────────────────────
-
-export interface CategoryAllocation {
-  category: string
-  valueUsd: number
-  valueTry: number
-  percentage: number
-}
 
 export interface PlatformAllocation {
   platformName: string
@@ -59,7 +56,7 @@ export interface TopMover {
 export interface DashboardData {
   totalValueUsd: number
   totalValueTry: number
-  byCategory: CategoryAllocation[]
+  byAllocation: AllocationNode[]
   byPlatform: PlatformAllocation[]
   byTag: TagAllocation[]
   byCurrency: CurrencyAllocation[]
@@ -179,7 +176,7 @@ function deriveByCurrency(
 /**
  * Dashboard data derived entirely from the latest snapshot's breakdown.
  *
- * Every aggregation (totals, by_category, by_platform, by_tag) is read from
+ * Every aggregation (totals, allocation, by_platform, by_tag) is read from
  * the snapshot — never re-computed from `holdings × prices` on the client.
  * This eliminates the duplicated math that produced bugs like the dashboard
  * P&L disagreeing with the portfolio P&L (commit 3a3cc45). The snapshot is
@@ -209,7 +206,7 @@ export function useDashboard(): DashboardData {
     const empty = {
       totalValueUsd: 0,
       totalValueTry: 0,
-      byCategory: [],
+      byAllocation: [],
       byPlatform: [],
       byTag: [],
       byCurrency: [],
@@ -222,14 +219,14 @@ export function useDashboard(): DashboardData {
     const totalValueUsd = Number(latest.total_usd ?? 0)
     const totalValueTry = Number(latest.total_try ?? 0)
 
-    const byCategory: CategoryAllocation[] = Object.entries(breakdown.by_category)
-      .map(([category, vals]) => ({
-        category,
-        valueUsd: vals.usd,
-        valueTry: vals.try,
-        percentage: vals.pct,
-      }))
-      .sort((a, b) => b.valueUsd - a.valueUsd)
+    // Allocation donut: re-derive hierarchical slices from `by_asset` (cash /
+    // PPF funds / stablecoins collapse into one fiat node, split by currency)
+    // rather than reading the flat `by_category` split. See lib/dashboard/allocation.
+    const byAllocation = deriveAllocationSlices(
+      breakdown.by_asset,
+      assets,
+      totalValueUsd,
+    )
 
     const byPlatform: PlatformAllocation[] = Object.entries(breakdown.by_platform)
       .map(([platformName, vals]) => ({
@@ -262,7 +259,7 @@ export function useDashboard(): DashboardData {
     return {
       totalValueUsd,
       totalValueTry,
-      byCategory,
+      byAllocation,
       byPlatform,
       byTag,
       byCurrency,

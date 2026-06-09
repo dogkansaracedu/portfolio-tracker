@@ -44,9 +44,19 @@ applies. Freshness is the snapshot writer's job, not the dashboard's.
 TRY), with the other currency as a smaller secondary line. Both come straight from
 the latest snapshot's totals.
 
-**Allocation breakdown.** A donut of value-by-category with the total in the
-center and a legend of category + percent. Percentages are each category's
-[allocation](GLOSSARY.md#allocation) (share of total value).
+**Allocation breakdown.** A two-level donut of value-by-category with the total
+in the center. Most categories are asset classes (stocks, gold, crypto, …), but
+**cash-equivalents collapse into a single "Fiat" category**: real fiat cash, PPF
+funds, and USD-pegged stablecoins (USDT/USDC) all count as fiat — so funds are
+**not** a standalone slice and stablecoins are **excluded from crypto**. The Fiat
+category is then broken down **by currency** (TRY incl. PPF funds, USD, EUR, and
+each stablecoin shown distinctly) on an outer ring around its inner-ring whole,
+so the user reads both "how much is cash" and "in which currencies" at once.
+Other categories pass straight through to the outer ring. The legend lists each
+category's [allocation](GLOSSARY.md#allocation) percent, with Fiat's per-currency
+split indented beneath it. This mirrors the Portfolio table's nesting of
+cash-equivalents under their fiat currency (Component 8). The separate currency
+breakdown below is a different view (every asset by its native currency).
 
 **Platform breakdown.** A ranked list (largest first) of each
 [Platform](GLOSSARY.md#platform): its color, value, and percent share, with a
@@ -175,7 +185,12 @@ display state.
 
 - **Net worth:** large primary amount in the selected currency; smaller secondary
   amount in the other currency. Empty-state copy when there is nothing to show.
-- **Allocation:** donut with center total; legend of colored category + percent.
+- **Allocation:** a two-ring donut with center total — inner ring = the top
+  categories (Fiat as one wedge), outer ring = the same order with Fiat split
+  into its currencies and every other category passing through unchanged. Legend
+  lists each category + percent, with Fiat's currency breakdown
+  (TRY/USD/EUR/USDC/USDT) indented beneath it; the fiat currencies share one
+  colour family so the cash wedge still reads as a single block.
 - **Platform breakdown:** ranked rows — color dot, name, percent, value, and a
   proportional bar (largest first).
 - **Tag breakdown:** ranked rows — color dot, tag, value, and a proportional bar.
@@ -204,8 +219,11 @@ display state.
 
 - [ ] Net worth shows in the selected currency (USD/TRY), with the other currency
       secondary, and **equals the Portfolio page total**.
-- [ ] Allocation donut shows by-category shares with correct percentages and a
-      center total.
+- [ ] The allocation donut groups cash, PPF funds, and stablecoins into one
+      **Fiat** category (no standalone fund slice; crypto excludes USDT/USDC),
+      and breaks Fiat down **by currency** on an outer ring (TRY incl. funds,
+      USD, EUR, USDC, USDT). Currency children reconcile to the Fiat whole and
+      the center shows the total.
 - [ ] Platform, tag, and native-currency breakdowns each render ranked rows with
       value, percent, and a proportional bar.
 - [ ] The foreign-income card shows YTD foreign (non-TRY, non-withheld) dividend +
