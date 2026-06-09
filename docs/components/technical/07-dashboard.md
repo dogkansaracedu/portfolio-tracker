@@ -21,10 +21,10 @@
 
 - `src/pages/DashboardPage.tsx` — page shell. Pulls breakdowns/snapshots from
   `useDashboard` and the live current-value/total-P&L from `usePnLSummary`, then
-  lays out hero → (tag + allocation) → (platform + movers) → (currency +
-  foreign-income) in a `grid-cols-1 md:grid-cols-2`. Owns the skeleton + no-assets
-  empty state; wraps
-  the lazy hero/allocation in `<Suspense>`.
+  lays out hero → (allocation + platform) → (movers + currency) in
+  `grid-cols-1 md:grid-cols-2` rows, with the foreign-income card full-width at
+  the bottom. Owns the skeleton + no-assets empty state; wraps the lazy
+  hero/allocation in `<Suspense>`.
 - `src/components/dashboard/DashboardHero.tsx` — the hero card: Value|P&L tabs,
   time-range buttons, benchmark `DropdownMenu`, the Recharts `AreaChart`, and the
   headline/delta/subtitle. Owns axis-tick math (`niceStep`/`niceTicks`,
@@ -35,18 +35,26 @@
 - `src/components/dashboard/AllocationChart.tsx` — the **two-ring** donut +
   grouped legend; consumes `AllocationNode[]` (`byAllocation`). Inner `Pie` =
   top categories, outer `Pie` = leaves in the same order (fiat → its currencies,
-  others pass through), both `paddingAngle={0}` so the rings stay radially
-  aligned. Local `CATEGORY_COLORS`/`CATEGORY_LABELS` + a `CURRENCY_COLORS` green
-  ramp (TRY→USDT, dark→light) for the fiat children; `labelFor`/`colorFor`
-  resolve a node's key against them. Center-total overlay; legend renders Fiat's
-  `children` indented beneath it.
+  others pass through), both `paddingAngle={0}` and `startAngle={90}
+  endAngle={-270}` (12 o'clock, clockwise) so the rings stay radially aligned.
+  Local `CATEGORY_COLORS`/`CATEGORY_LABELS` + a `CURRENCY_COLORS` green→teal→cyan
+  ramp for the fiat children; `labelFor`/`colorFor` resolve a node's key.
+  **Interaction is driven by local `activeKey` state** (not Recharts'
+  `activeShape`/`activeIndex` — `activeIndex` was dropped in Recharts 3, where
+  active state is Tooltip-bound; there is no `<Tooltip>` here): `onMouseEnter` on
+  each `Pie`/legend row sets `activeKey`, `onMouseLeave` clears it. Cells dim to
+  `fillOpacity` `DIM_OPACITY` (0.28) unless lit; `isLit` lights the hovered slice
+  plus its parent/children via a `parentOf` map (hover a currency → its fiat
+  wedge lights too, and vice-versa). The center overlay reads the total at rest
+  and the hovered slice's label/value/percent on hover (from a `meta` map).
+  `LegendRow` renders each slice's value + percent (value via `obfuscate`),
+  Fiat's `children` indented; its hover syncs the same `activeKey`. Pies set
+  `isAnimationActive={false}` so re-renders from hover don't re-animate.
 - `src/lib/dashboard/allocation.ts` — pure `deriveAllocationSlices` + the
   `AllocationNode` type (below). Separate module (not in the hook) so its test
   doesn't import the Supabase-backed data hooks.
 - `src/components/dashboard/PlatformBreakdown.tsx` — ranked platform list with
   percent bars (plain divs, not Recharts).
-- `src/components/dashboard/TagBreakdown.tsx` — ranked tag list with percent bars;
-  local `TAG_COLORS` map.
 - `src/components/dashboard/CurrencyBreakdown.tsx` — ranked native-currency list
   with percent bars; local `CURRENCY_COLORS` map (USD blue / TRY amber / EUR
   violet) + `FALLBACK_COLOR` slate. Mirrors `PlatformBreakdown` exactly.
@@ -73,9 +81,10 @@
 - Composes `useAssets` + `usePrices` + `useSnapshots` + `useTransactionData`;
   `loading` is the OR of all four. `usdTry = rates?.usd_try ?? 1`.
 - `latest = snapshots[len-1]`. Totals from `latest.total_usd`/`total_try`;
-  `byPlatform`/`byTag` are `Object.entries(breakdown.by_*)` mapped to
-  `{ …, valueUsd, valueTry, percentage }` and **sorted by `valueUsd` desc**.
-  `by_platform` also carries `color`. No holdings × prices recompute here — the
+  `byPlatform` is `Object.entries(breakdown.by_platform)` mapped to
+  `{ …, valueUsd, valueTry, percentage, color }` and **sorted by `valueUsd` desc**.
+  (`by_tag` is still written to the snapshot but the dashboard no longer reads it
+  — the Tags card was removed.) No holdings × prices recompute here — the
   snapshot is the single source of truth (prevented the dashboard-vs-portfolio P&L
   drift, commit 3a3cc45).
 - `byAllocation = deriveAllocationSlices(breakdown.by_asset, assets, totalValueUsd)`
@@ -199,11 +208,11 @@
   `loading`/`crossed` guards or it can fire on a half-loaded state.
 - **Color maps are component-local:** `CATEGORY_COLORS` + `CURRENCY_COLORS`
   (AllocationChart), `CURRENCY_COLORS` (CurrencyBreakdown — a *different*,
-  non-green palette for the native-currency card), `TAG_COLORS` (TagBreakdown),
-  and platform color (from the snapshot's `by_platform[].color`) all live
-  locally. The two `CURRENCY_COLORS` maps intentionally differ: the allocation
-  donut uses a green ramp so the fiat currencies read as one cash block, while
-  the Currencies card uses distinct hues. A noted edge (not fixed) — consolidate
+  non-green palette for the native-currency card), and platform color (from the
+  snapshot's `by_platform[].color`) all live locally. The two `CURRENCY_COLORS`
+  maps intentionally differ: the allocation donut uses a green→teal→cyan ramp so
+  the fiat currencies read as one cash block, while the Currencies card uses
+  distinct hues. A noted edge (not fixed) — consolidate
   into `@/lib/constants` if they grow.
 - **Top movers ≠ 24h movers:** the label says "Top Movers" but the figure is
   lifetime unrealized P&L (no intraday price history exists). Movers are
