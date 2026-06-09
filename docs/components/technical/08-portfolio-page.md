@@ -35,7 +35,9 @@
   `netUsd = returnUsd − taxAccrualUsd` as the headline (percent recomputed over
   `costBasisUsd`), with a muted `gross … · −… tax` annotation (desktop) / `· gross …`
   suffix (mobile). Shared `CurrentPrice` + `formatQuantity` helpers; asset cell links
-  to `/transactions/edit/:assetId`.
+  to `/transactions/edit/:assetId`. The desktop row also renders nested fund
+  children (chevron + recursive `nested` render — see the funds-nested-under-fiat
+  entry below).
 - `src/components/portfolio/PortfolioSummaryBar.tsx` — lifetime cards (value, P&L
   with unrealized/realized split, held count). **No `returnMode` prop** — by
   construction unaffected by the toggle. Takes `totalTaxAccrualUsd`; the P&L
@@ -45,18 +47,30 @@
   **Total | Daily** `ToggleGroup`, the group-by `ToggleGroup` (Tag/Platform/
   Category — `GroupBy = "platform" | "category" | "tag"`, no `currency` axis), and
   the sort `Select` (`SORT_LABELS` inlined here).
-- `src/components/portfolio/CurrencyHoldings.tsx` — the "Cash & funds by currency"
-  `Card`, rendered in `PortfolioPage.tsx` between the summary bar and the filters
-  (`<CurrencyHoldings assets={enrichedAssets} />`). Filters `EnrichedAsset[]` to
-  `VEHICLE_CATEGORIES = new Set(["fiat", "fund"])` (stocks/crypto/gold dropped),
-  buckets by `assetNativeCurrency(a)` into a `Map<string, CurrencyGroup>`, and sorts
-  groups by `valueUsd` desc. Per holding the after-tax return is
-  `unrealizedPnlUsd − taxAccrualUsd`, summed into the group's `netPnlUsd`; value
-  follows `currency` (`valueUsd`/`valueTry`). Accordion state is a local
-  `useState<Set<string>>(new Set())` of expanded currency codes (toggle adds/removes);
-  no persistence. Currency strings go through `o = obfuscate(v, obfuscated)`; returns
-  use `gainLossClass`/`formatSignedCurrency`. Returns `null` when no fiat/fund
-  positions exist.
+- **Funds-nested-under-fiat** (replaces the deleted `CurrencyHoldings.tsx` card):
+  - `nestFundsUnderFiat(assets)` in `src/lib/portfolio/grouping.ts` lifts every
+    `category === "fund"` asset out of the top level and attaches it to the
+    matching fiat row as `children`: it buckets funds by `assetNativeCurrency(a)`,
+    then for each `fiat` asset whose `ticker` matches a currency bucket pushes
+    `{ ...a, children }`. Orphan funds (no matching fiat row) are re-appended as
+    top-level rows so they never disappear. Returns the input unchanged when there
+    are no funds.
+  - `EnrichedAsset.children?: EnrichedAsset[]` (`src/hooks/usePortfolio.ts`) holds
+    the nested funds; `usePortfolio`'s `nestedAssets` memo calls
+    `nestFundsUnderFiat(enrichedAssets)` **only** when `groupBy !== "platform"`
+    (`groupBy === "platform"` passes `enrichedAssets` through unchanged) — the
+    nesting is a currency view that doesn't compose with the platform axis.
+  - `PortfolioRow.tsx` renders children recursively: `const childRows =
+    asset.children ?? []`, a `useState(hasChildren)` chevron (`ChevronDown`/
+    `ChevronRight`, default-open), and after the parent's `TableRow` it maps
+    `childRows` back through `<PortfolioRow … nested />`. The `nested` prop adds
+    `pl-6` indentation (and a spacer where a leaf child has no chevron). The mobile
+    `PortfolioRowCard` does **not** recurse into children (cards stay flat).
+  - `rollupGroup` (same file) iterates `a.children ? [a, ...a.children] : [a]` so
+    nested children are summed into the group's value/`totalPnlUsd`/
+    `totalTaxAccrualUsd`/daily totals — the header stays equal to the sum of every
+    visible row. Per child the after-tax figure reuses the row's
+    `unrealizedPnlUsd − taxAccrualUsd` (rendered in `PortfolioRow`, no new math).
 - `src/hooks/usePortfolio.ts` — the engine (below).
 - `src/lib/constants/portfolio.ts` — `RETURN_MODE_LABELS` (`{ total: "Total",
   daily: "Daily" }`), `RETURN_COLUMN_LABEL_TOTAL = "P&L"`,

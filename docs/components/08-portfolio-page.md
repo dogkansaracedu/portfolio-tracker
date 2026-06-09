@@ -53,15 +53,19 @@ asset set.
 **Search / filter.** A search box filters rows by asset name or ticker in real
 time. Inactive assets are hidden by default.
 
-**Cash & funds by currency.** A separate collapsible panel — above the main table,
-just under the summary bar — relates each fiat currency to the holdings that *are*
-that currency: its **cash** plus the **funds/bonds** parked in it (e.g. TRY cash +
-a TRY money-market fund). One **collapsible row per currency** shows that currency's
-total value and its **after-tax** return (net of any at-source tax accrual);
-expanding a row reveals the individual holdings with their own value and after-tax
-return. **Stocks, crypto, and gold are deliberately excluded** — they are not
-"denominated in" a fiat the way cash and funds are, and they stay in the main table.
-The panel is hidden entirely when no cash or fund positions are held.
+**Funds nested under their fiat currency.** Inside the holdings table, each
+**fiat currency row** (e.g. TRY/USD/EUR cash) is an **expandable parent**: the
+**funds/bonds denominated in that currency** (e.g. a TRY money-market fund or
+PPF) render as **indented child rows beneath it**, each showing its own value
+and **after-tax** return (net of any at-source tax accrual). Rows are
+**expanded by default** and can be collapsed. **Group subtotals count the nested
+children**, so a group header still equals the sum of everything under it and
+totals stay whole. **Stocks, crypto, and gold are not nested** — they are not
+"denominated in" a fiat the way cash and funds are, and they stay as ordinary
+top-level rows. A fund whose currency has no matching fiat row stays a top-level
+row so it never disappears. This nesting applies to the **category and tag**
+groupings; it is **not** applied in the platform group-by, where a fund isn't
+"in" a platform's cash row and the relationship doesn't compose.
 
 **Total | Daily return toggle.** A single toggle switches the return figure on
 **both group headers and asset rows** between two modes. It does **not** touch any
@@ -179,12 +183,14 @@ row's return cell; default is **Total**.
 %, with an unrealized/realized split when any realized exists), and the held-asset
 count. **Not** affected by the toggle.
 
-**Cash & funds by currency panel:** a card between the summary bar and the filters,
-titled "Cash & funds by currency". Each currency is a clickable row (currency code,
-holding count, total value, after-tax return) that expands/collapses to list its
-individual holdings (ticker, value, after-tax return). Returns use the gain/loss
-palette; values follow the display-currency and obfuscation rules. Rows sort by
-value, highest first.
+**Funds nested under fiat rows (in-table):** in the category and tag groupings, a
+fiat currency row that has funds/bonds in it carries a chevron toggle; expanding
+it reveals the funds as **indented child rows** directly beneath the fiat row,
+each with its own value and **after-tax** return. Child rows are expanded by
+default. The parent's group subtotal already includes the children, so the
+header stays equal to the sum of everything shown beneath it. Returns use the
+gain/loss palette; values follow the display-currency and obfuscation rules. The
+platform grouping shows no nesting.
 
 **Mobile (cards).** Below the table breakpoint, each group renders a simplified
 header and its assets as cards (icon + ticker, price, platforms, value, and the
@@ -224,7 +230,9 @@ zero is neutral; consistent across rows, headers, and the summary bar.
       filters by name or ticker; values render in the selected currency.
 - [ ] Mobile renders cards; inactive hidden by default; obfuscation hides amounts
       while percentages stay visible.
-- [ ] The "Cash & funds by currency" panel shows one collapsible row per currency
-      bucketing only cash + funds/bonds (stocks/crypto/gold excluded), with each
-      row's total value and **after-tax** return; expanding reveals the individual
-      holdings. The panel is hidden when no cash/fund positions are held.
+- [ ] In the category/tag groupings, funds/bonds appear as **indented child rows**
+      under their fiat currency row (expandable, expanded by default), each showing
+      its value and **after-tax** return; group subtotals include the nested
+      children so headers stay whole. Stocks/crypto/gold are not nested, and the
+      platform grouping shows no nesting. A fund with no matching fiat row stays a
+      top-level row.
