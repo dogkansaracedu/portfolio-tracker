@@ -109,7 +109,7 @@ export async function autoResolveSentinels({
       // resolve and create. Refetch and look up the existing row.
       if (isDuplicateTickerError(err)) {
         try {
-          const fresh = await fetchAssets(userId)
+          const fresh = await fetchAssets()
           const existing = findExisting(fresh, r.ticker)
           if (existing) {
             resolvedMap.set(sentinel, {
