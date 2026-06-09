@@ -10,6 +10,7 @@ import {
   buildSnapshotLookups,
   buildDailyReturnLookups,
   buildEnrichedAssets,
+  nestFundsUnderFiat,
   filterAssetsBySearch,
   sortAssets,
   groupAssets,
@@ -53,6 +54,8 @@ export interface EnrichedAsset {
   /** Denominator the daily % is taken on (prev value + period invested); summed
    *  by group rollups. */
   dailyDenomUsd: number
+  /** Funds/bonds nested under this fiat currency row (relate funds to fiat). */
+  children?: EnrichedAsset[]
 }
 
 export interface AssetGroup {
@@ -176,9 +179,20 @@ export function usePortfolio(): UsePortfolioReturn {
     ],
   )
 
+  const nestedAssets = useMemo(
+    // Nesting funds under their fiat currency is a currency view; it doesn't
+    // compose with the platform axis (a fund isn't "in" a platform's cash row),
+    // so only nest for the non-platform groupings.
+    () =>
+      groupBy === "platform"
+        ? enrichedAssets
+        : nestFundsUnderFiat(enrichedAssets),
+    [enrichedAssets, groupBy],
+  )
+
   const filteredAssets = useMemo(
-    () => filterAssetsBySearch(enrichedAssets, search),
-    [enrichedAssets, search],
+    () => filterAssetsBySearch(nestedAssets, search),
+    [nestedAssets, search],
   )
 
   const sortedAssets = useMemo(

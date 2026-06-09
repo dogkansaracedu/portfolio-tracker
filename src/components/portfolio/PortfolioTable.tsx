@@ -1,3 +1,4 @@
+import { Fragment } from "react"
 import {
   Table,
   TableBody,
@@ -90,12 +91,22 @@ export function PortfolioTable({
               </span>
             </div>
             {group.assets.map((asset) => (
-              <PortfolioRowCard
-                key={asset.id}
-                asset={asset}
-                returnMode={returnMode}
-                dailyReturnAvailable={dailyReturnAvailable}
-              />
+              <Fragment key={asset.id}>
+                <PortfolioRowCard
+                  asset={asset}
+                  returnMode={returnMode}
+                  dailyReturnAvailable={dailyReturnAvailable}
+                />
+                {asset.children?.map((child) => (
+                  <div key={child.id} className="pl-4">
+                    <PortfolioRowCard
+                      asset={child}
+                      returnMode={returnMode}
+                      dailyReturnAvailable={dailyReturnAvailable}
+                    />
+                  </div>
+                ))}
+              </Fragment>
             ))}
           </div>
         ))}
