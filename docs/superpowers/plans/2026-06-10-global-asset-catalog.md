@@ -29,27 +29,20 @@
 | `docs/components/02-database-schema-auth.md` + `technical/` | Modify | Assets RLS now global; `seed_user_data` seeds platforms only |
 | `docs/components/03-platform-asset-management.md` + `technical/` | Modify | Assets are a global admin catalog; read-only for non-admins |
 
-**The admin UUID** is a single real value retrieved in Task 1 and substituted in exactly **two** places: the migration (Task 2) and the constant (Task 4). Both files carry the literal token `__ADMIN_UUID__` until Task 1's value replaces it — there is no other placeholder.
+**The admin UUID** (`201091b3-6381-48f2-860b-4947fac09c69`, resolved in Task 1) is embedded directly in exactly **two** files: the migration (Task 2) and the constant (Task 4). No placeholder tokens remain.
 
 ---
 
-### Task 1: Resolve the admin UUID
+### Task 1: Resolve the admin UUID — DONE
 
-**Files:** none (records a value used by Tasks 2 & 4).
+**Resolved (2026-06-10, via Supabase MCP):**
+- Admin (`imarooddy@gmail.com`) `auth.users.id` = **`201091b3-6381-48f2-860b-4947fac09c69`**.
+- Every `__ADMIN_UUID__` in this plan is now the literal `201091b3-6381-48f2-860b-4947fac09c69`.
 
-- [ ] **Step 1: Get the UUID of `imarooddy@gmail.com` from the linked Supabase project**
-
-Run this in the Supabase SQL Editor (or via the Supabase MCP `execute_sql`):
-
-```sql
-select id, email from auth.users where email = 'imarooddy@gmail.com';
-```
-
-Expected: exactly one row. Copy the `id` (a UUID like `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`).
-
-- [ ] **Step 2: Record it**
-
-Hold this value as `ADMIN_UUID`. Every `__ADMIN_UUID__` token in Tasks 2 and 4 is replaced with this exact UUID. If the query returns zero rows, stop — the admin account must exist before this feature works.
+**Data audit (informs Task 2's cleanup):**
+- Admin owns 43 assets, 49 holdings, 394 transactions — the real portfolio → becomes the global catalog.
+- A second account `935432ab-c6a2-4fd5-8ac5-9b3a4c91053e` has 14 seeded assets + **1 holding + 1 transaction** for a junk asset (`MiTo` / "Alfa Romeo MiTo", a car logged as `stock_us`; admin has no such ticker).
+- **Decision:** wipe that account's portfolio data — delete its 1 transaction, 1 holding, and all 14 asset rows; **keep its per-user platforms**. Task 2's migration does this unconditionally for all non-admin users (not the earlier NOT-EXISTS guard, which would have spared the junk `MiTo` row and left a stray non-admin asset in the global catalog).
 
 ---
 
@@ -60,23 +53,23 @@ Hold this value as `ADMIN_UUID`. Every `__ADMIN_UUID__` token in Tasks 2 and 4 i
 
 - [ ] **Step 1: Create the migration file**
 
-Create `supabase/migrations/20260610000000_global_asset_catalog.sql` with exactly this content, then replace both `__ADMIN_UUID__` tokens with the value from Task 1:
+Create `supabase/migrations/20260610000000_global_asset_catalog.sql` with exactly this content (admin UUID already embedded — `201091b3-6381-48f2-860b-4947fac09c69`):
 
 ```sql
 -- Flip `assets` from per-user isolation to a single global, admin-managed
--- catalog. Admin: imarooddy@gmail.com. Platforms stay per-user.
--- Holdings/transactions are untouched (still per-user, still FK assets.id).
+-- catalog. Admin: imarooddy@gmail.com (201091b3-6381-48f2-860b-4947fac09c69).
+-- Platforms stay per-user. Admin's holdings/transactions are untouched.
 
 begin;
 
--- 1. Drop other users' untouched seed-duplicate asset rows. The NOT EXISTS
---    guards make this safe even if "only admin has data" is slightly off: a
---    row referenced by any holding/transaction is left in place rather than
---    cascade-deleting someone's history.
-delete from public.assets a
-where a.user_id <> '__ADMIN_UUID__'::uuid
-  and not exists (select 1 from public.holdings h where h.asset_id = a.id)
-  and not exists (select 1 from public.transactions t where t.asset_id = a.id);
+-- 1. Wipe non-admin portfolio data. Only the admin's assets form the global
+--    catalog; the one other account holds junk test data (a car logged as a
+--    US stock). Delete its transactions + holdings + asset rows. Per-user
+--    platforms are intentionally kept. (Order is explicit, not relying on the
+--    ON DELETE CASCADE from holdings/transactions → assets.)
+delete from public.transactions where user_id <> '201091b3-6381-48f2-860b-4947fac09c69'::uuid;
+delete from public.holdings     where user_id <> '201091b3-6381-48f2-860b-4947fac09c69'::uuid;
+delete from public.assets       where user_id <> '201091b3-6381-48f2-860b-4947fac09c69'::uuid;
 
 -- 2. Replace the four per-user RLS policies with global-read + admin-write.
 drop policy if exists assets_select on public.assets;
@@ -90,16 +83,16 @@ create policy assets_select on public.assets
 
 create policy assets_insert on public.assets
   for insert to authenticated
-  with check (auth.uid() = '__ADMIN_UUID__'::uuid);
+  with check (auth.uid() = '201091b3-6381-48f2-860b-4947fac09c69'::uuid);
 
 create policy assets_update on public.assets
   for update to authenticated
-  using (auth.uid() = '__ADMIN_UUID__'::uuid)
-  with check (auth.uid() = '__ADMIN_UUID__'::uuid);
+  using (auth.uid() = '201091b3-6381-48f2-860b-4947fac09c69'::uuid)
+  with check (auth.uid() = '201091b3-6381-48f2-860b-4947fac09c69'::uuid);
 
 create policy assets_delete on public.assets
   for delete to authenticated
-  using (auth.uid() = '__ADMIN_UUID__'::uuid);
+  using (auth.uid() = '201091b3-6381-48f2-860b-4947fac09c69'::uuid);
 
 -- 3. New users no longer get seeded assets (they read the global catalog).
 --    Keep seeding the 8 per-user platforms. This CREATE OR REPLACE supersedes
@@ -133,10 +126,10 @@ grant  execute on function public.seed_user_data(uuid) to authenticated;
 commit;
 ```
 
-- [ ] **Step 2: Sanity-check the file has no remaining token**
+- [ ] **Step 2: Sanity-check the file**
 
-Run: `grep -c "__ADMIN_UUID__" supabase/migrations/20260610000000_global_asset_catalog.sql`
-Expected: `0` (both tokens replaced with the real UUID).
+Run: `grep -c "201091b3-6381-48f2-860b-4947fac09c69" supabase/migrations/20260610000000_global_asset_catalog.sql`
+Expected: `8` matching lines (1 comment + 3 delete predicates + 4 policy clauses). Also confirm no leftover token: `grep -c "__ADMIN_UUID__" …` → `0`.
 
 - [ ] **Step 3: Commit the migration file** (apply is a separate, hand-held step in Task 3)
 
@@ -182,7 +175,7 @@ Run in SQL Editor:
 select user_id, count(*) from public.assets group by user_id;
 ```
 
-Expected: a single row — the admin UUID — with the full catalog count. (Any other `user_id` here means a row was referenced by a holding/transaction and was deliberately spared; investigate before proceeding.)
+Expected: a single row — the admin UUID `201091b3-6381-48f2-860b-4947fac09c69` — with 43 assets. (Any other `user_id` means the non-admin wipe didn't run; investigate before proceeding.) Also confirm the junk data is gone: `select count(*) from public.transactions where user_id <> '201091b3-6381-48f2-860b-4947fac09c69'::uuid;` → `0`.
 
 - [ ] **Step 4: Verify reseed seeds platforms only**
 
@@ -204,7 +197,7 @@ Expected: the body inserts into `platforms` only — no `insert into public.asse
 
 - [ ] **Step 1: Create the admin constant**
 
-Create `src/lib/constants/admin.ts`, then replace `__ADMIN_UUID__` with the Task 1 UUID:
+Create `src/lib/constants/admin.ts` (UUID already embedded):
 
 ```ts
 /**
@@ -215,7 +208,7 @@ Create `src/lib/constants/admin.ts`, then replace `__ADMIN_UUID__` with the Task
  * controls. Mirrors the uuid in migration
  * 20260610000000_global_asset_catalog.sql.
  */
-export const ADMIN_USER_ID = "__ADMIN_UUID__"
+export const ADMIN_USER_ID = "201091b3-6381-48f2-860b-4947fac09c69"
 ```
 
 - [ ] **Step 2: Create the hook**
@@ -233,10 +226,10 @@ export function useIsAdmin(): boolean {
 }
 ```
 
-- [ ] **Step 3: Verify the token is gone**
+- [ ] **Step 3: Verify the UUID is present**
 
-Run: `grep -c "__ADMIN_UUID__" src/lib/constants/admin.ts`
-Expected: `0`.
+Run: `grep -c "201091b3-6381-48f2-860b-4947fac09c69" src/lib/constants/admin.ts`
+Expected: `1`.
 
 - [ ] **Step 4: Build gate**
 
@@ -588,4 +581,4 @@ Re-read the touched docs (Task 7) against the final code; fix any drift. No sile
 - **Spec coverage:** RLS flip (Task 2), migration/cleanup (Tasks 2–3), seeding change (Task 2), admin constant + `useIsAdmin` (Task 4), `fetchAssets` global (Task 5), UI gating (Task 6), docs (Task 7), acceptance (Task 8). All spec sections mapped.
 - **Out-of-scope items** (remove `tags`, drop `assets.user_id`, new admin screens) are intentionally not tasked.
 - **Type consistency:** `canManage` prop name is identical across `AssetRow` definition (Task 6 Step 1) and both `AssetList` usages (Task 6 Step 4); `ADMIN_USER_ID` / `useIsAdmin` names match between Task 4 and Tasks 6/7.
-- **Placeholder:** the only token is `__ADMIN_UUID__`, a real value resolved in Task 1 and substituted in two named files, with grep checks (Task 2 Step 2, Task 4 Step 3) proving it's gone.
+- **Placeholder:** none — the admin UUID was resolved in Task 1 and is embedded literally in the migration (Task 2) and constant (Task 4), with grep checks confirming its presence.
