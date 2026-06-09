@@ -37,6 +37,11 @@ declares one of:
   rate. This source also produces the dated [Exchange rates](GLOSSARY.md#exchange-rate)
   the whole app converts through.
 - **equities source** → stocks, including Turkish (BIST) equities.
+- **Turkish-fund source** → Turkish mutual / money-market funds (e.g. a *Para
+  Piyasası Fonu* / PPF), which the equities source doesn't cover. The fund's
+  daily **NAV** (its per-unit price, quoted in TRY) is the price, converted to
+  the USD anchor like any other TRY-quoted asset. NAV publishes ~once a business
+  day, so these refresh on a daily-ish cadence with no market-hours gate.
 - **crypto source** → crypto and tokenized-gold tokens.
 - **manual** → the user types the price in; the engine never overwrites it.
 
@@ -138,6 +143,8 @@ falls back to the nearest known rate.
 
 - [ ] A Turkish (BIST) equity gets its price from the equities source (not the
       FX source), converted to USD via the latest rate.
+- [ ] A Turkish fund (PPF) gets its price from the Turkish-fund source as a
+      TRY-quoted NAV, converted to USD via the latest rate.
 - [ ] A `manual` asset keeps the entered price across refreshes; the engine never
       overwrites it.
 - [ ] Changing an asset's `price_source` re-routes how its price is fetched.

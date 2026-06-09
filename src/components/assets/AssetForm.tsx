@@ -21,13 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AssetIcon } from "@/components/common/AssetIcon";
 import { derivePriceId } from "@/lib/priceId";
-import { ASSET_CATEGORIES } from "@/lib/constants/assets";
-
-const PRICE_SOURCES = [
-  { value: "yahoo", label: "Yahoo Finance" },
-  { value: "tcmb", label: "TCMB" },
-  { value: "manual", label: "Manual" },
-];
+import { ASSET_CATEGORIES, PRICE_SOURCES } from "@/lib/constants/assets";
 
 const TICKER_HINTS: Record<string, string> = {
   fiat: 'Display shorthand, e.g. "USD", "TRY", "EUR"',

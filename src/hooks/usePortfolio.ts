@@ -10,7 +10,7 @@ import {
   buildSnapshotLookups,
   buildDailyReturnLookups,
   buildEnrichedAssets,
-  nestFundsUnderFiat,
+  nestCashEquivalentsUnderFiat,
   filterAssetsBySearch,
   sortAssets,
   groupAssets,
@@ -180,13 +180,13 @@ export function usePortfolio(): UsePortfolioReturn {
   )
 
   const nestedAssets = useMemo(
-    // Nesting funds under their fiat currency is a currency view; it doesn't
-    // compose with the platform axis (a fund isn't "in" a platform's cash row),
-    // so only nest for the non-platform groupings.
+    // Nesting cash-equivalents (funds, stablecoins) under their fiat currency is
+    // a currency view; it doesn't compose with the platform axis (they aren't
+    // "in" a platform's cash row), so only nest for the non-platform groupings.
     () =>
       groupBy === "platform"
         ? enrichedAssets
-        : nestFundsUnderFiat(enrichedAssets),
+        : nestCashEquivalentsUnderFiat(enrichedAssets),
     [enrichedAssets, groupBy],
   )
 
