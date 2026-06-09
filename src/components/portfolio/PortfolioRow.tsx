@@ -1,4 +1,5 @@
-import { Plus } from "lucide-react"
+import { useState } from "react"
+import { Plus, ChevronRight, ChevronDown } from "lucide-react"
 import { Link } from "react-router"
 import { TableRow, TableCell } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,8 @@ interface PortfolioRowProps {
   asset: EnrichedAsset
   returnMode: ReturnMode
   dailyReturnAvailable: boolean
+  /** True when rendered as a nested child (a fund under its fiat currency). */
+  nested?: boolean
 }
 
 function formatQuantity(balance: number, category: string): string {
@@ -62,10 +65,14 @@ export function PortfolioRow({
   asset,
   returnMode,
   dailyReturnAvailable,
+  nested = false,
 }: PortfolioRowProps) {
   const { currency, obfuscated } = useDisplayCurrency()
   const { openTransactionModal } = useTransactionModal()
   const o = (v: string) => obfuscate(v, obfuscated)
+  const childRows = asset.children ?? []
+  const hasChildren = childRows.length > 0
+  const [open, setOpen] = useState(hasChildren)
 
   // Per-unit price and cost render in the asset's OWN currency (TUPRS in ₺,
   // gram gold in ₺) with the USD equivalent in parentheses — price at today's
@@ -99,16 +106,36 @@ export function PortfolioRow({
   const netIsPositive = netUsd >= 0
 
   return (
+    <>
     <TableRow>
       <TableCell>
-        <Link
-          to={`/transactions/edit/${asset.id}`}
-          className="flex items-center gap-2 text-left hover:underline focus:outline-none focus-visible:underline"
-          title="View / edit transactions"
-        >
-          <AssetIcon asset={asset} size="sm" />
-          <span className="font-medium">{asset.ticker}</span>
-        </Link>
+        <div className={`flex items-center gap-1 ${nested ? "pl-6" : ""}`}>
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              aria-label={open ? "Collapse" : "Expand"}
+              className="rounded p-0.5 hover:bg-muted"
+            >
+              {open ? (
+                <ChevronDown className="size-3.5 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="size-3.5 text-muted-foreground" />
+              )}
+            </button>
+          ) : nested ? (
+            <span className="inline-block size-3.5" />
+          ) : null}
+          <Link
+            to={`/transactions/edit/${asset.id}`}
+            className="flex items-center gap-2 text-left hover:underline focus:outline-none focus-visible:underline"
+            title="View / edit transactions"
+          >
+            <AssetIcon asset={asset} size="sm" />
+            <span className="font-medium">{asset.ticker}</span>
+          </Link>
+        </div>
       </TableCell>
 
       <TableCell>
@@ -203,6 +230,18 @@ export function PortfolioRow({
         </Button>
       </TableCell>
     </TableRow>
+      {hasChildren &&
+        open &&
+        childRows.map((child) => (
+          <PortfolioRow
+            key={child.id}
+            asset={child}
+            returnMode={returnMode}
+            dailyReturnAvailable={dailyReturnAvailable}
+            nested
+          />
+        ))}
+    </>
   )
 }
 

@@ -1,13 +1,11 @@
 import { PortfolioSummaryBar } from "@/components/portfolio/PortfolioSummaryBar"
 import { PortfolioFilters } from "@/components/portfolio/PortfolioFilters"
 import { PortfolioTable } from "@/components/portfolio/PortfolioTable"
-import { CurrencyHoldings } from "@/components/portfolio/CurrencyHoldings"
 import { usePortfolio } from "@/hooks/usePortfolio"
 
 export default function PortfolioPage() {
   const {
     groups,
-    enrichedAssets,
     totalValueUsd,
     totalValueTry,
     totalPnlUsd,
@@ -51,9 +49,6 @@ export default function PortfolioPage() {
         totalIncomeUsd={totalIncomeUsd}
         heldAssetCount={heldAssetCount}
       />
-
-      {/* Cash & funds related to their fiat — collapsible per currency */}
-      <CurrencyHoldings assets={enrichedAssets} />
 
       {/* Filters */}
       <PortfolioFilters
