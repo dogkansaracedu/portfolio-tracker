@@ -81,7 +81,6 @@ export function PortfolioFilters({
           <ToggleGroupItem value="tag">Tag</ToggleGroupItem>
           <ToggleGroupItem value="platform">Platform</ToggleGroupItem>
           <ToggleGroupItem value="category">Category</ToggleGroupItem>
-          <ToggleGroupItem value="currency">Currency</ToggleGroupItem>
         </ToggleGroup>
 
         {/* Sort by */}
