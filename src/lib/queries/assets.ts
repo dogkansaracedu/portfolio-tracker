@@ -1,11 +1,10 @@
 import { supabase } from "@/lib/supabase"
 import type { Asset, AssetInsert, AssetUpdate } from "@/types/database"
 
-export async function fetchAssets(userId: string): Promise<Asset[]> {
+export async function fetchAssets(): Promise<Asset[]> {
   const { data, error } = await supabase
     .from("assets")
     .select("*")
-    .eq("user_id", userId)
     .order("name")
 
   if (error) throw error
