@@ -24,11 +24,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 interface AssetRowProps {
   asset: Asset;
   prices: Record<string, PriceCache>;
+  canManage: boolean;
   onEdit: (asset: Asset) => void;
   onDeactivate: (asset: Asset) => void;
 }
 
-export function AssetRow({ asset, prices, onEdit, onDeactivate }: AssetRowProps) {
+export function AssetRow({ asset, prices, canManage, onEdit, onDeactivate }: AssetRowProps) {
   const price = prices[asset.price_id ?? asset.ticker];
   // Native currency comes from what the asset IS (its category/ticker), not
   // from which price_cache columns are filled — the edge function back-fills
@@ -92,7 +93,7 @@ export function AssetRow({ asset, prices, onEdit, onDeactivate }: AssetRowProps)
         </Badge>
       </TableCell>
       <TableCell className="text-right">
-        {asset.is_active && !asset.is_currency && (
+        {canManage && asset.is_active && !asset.is_currency && (
           <DropdownMenu>
             <DropdownMenuTrigger
               render={

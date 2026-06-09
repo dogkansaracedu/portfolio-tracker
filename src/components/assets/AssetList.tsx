@@ -3,6 +3,7 @@ import { bn, BN_ZERO } from "@/lib/config";
 import { useAssets } from "@/hooks/useAssets";
 import { useHoldings } from "@/hooks/useHoldings";
 import { usePrices } from "@/hooks/usePrices";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import type { Asset } from "@/types/database";
 import { AssetForm } from "@/components/assets/AssetForm";
 import { AssetRow } from "@/components/assets/AssetRow";
@@ -32,6 +33,7 @@ export function AssetList() {
     useAssets();
   const { holdings } = useHoldings();
   const { prices } = usePrices();
+  const isAdmin = useIsAdmin();
 
   // Owned = net balance across all platforms is positive. Matches how the
   // portfolio decides what's held (usePortfolio filters totalBalance > 0); a
@@ -108,10 +110,12 @@ export function AssetList() {
           {assets.filter((a) => a.is_active).length} active /{" "}
           {assets.length} total assets
         </p>
-        <Button size="sm" onClick={openCreateForm}>
-          <Plus className="size-4" />
-          Add Asset
-        </Button>
+        {isAdmin && (
+          <Button size="sm" onClick={openCreateForm}>
+            <Plus className="size-4" />
+            Add Asset
+          </Button>
+        )}
       </div>
 
       {assets.length === 0 ? (
@@ -139,6 +143,7 @@ export function AssetList() {
                   key={asset.id}
                   asset={asset}
                   prices={prices}
+                  canManage={isAdmin}
                   onEdit={handleEdit}
                   onDeactivate={handleDeactivate}
                 />
@@ -167,6 +172,7 @@ export function AssetList() {
                     key={asset.id}
                     asset={asset}
                     prices={prices}
+                    canManage={isAdmin}
                     onEdit={handleEdit}
                     onDeactivate={handleDeactivate}
                   />
