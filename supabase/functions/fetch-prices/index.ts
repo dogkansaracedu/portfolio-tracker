@@ -1,6 +1,7 @@
 import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { fetchYahooQuote } from "../_shared/yahoo.ts"
+import { fetchTefasQuote } from "../_shared/tefas.ts"
 import { splitPrice } from "../_shared/currency.ts"
 import { HOME_TIMEZONE, TROY_OZ_GRAMS } from "../_shared/constants.ts"
 
@@ -26,6 +27,10 @@ const STOCK_CADENCE_MS = 60_000
 /** FX/gold come from TCMB, which publishes ~once a day — no point re-pulling
  *  the XML every ping. */
 const FX_CADENCE_MS = 15 * 60 * 1000
+
+/** Turkish funds (TEFAS) publish their NAV ~once a business day, so polling
+ *  more often is wasted; the daily cron force-refresh still captures EOD. */
+const FUND_CADENCE_MS = 6 * 60 * 60 * 1000
 
 const TCMB_TODAY_URL = "https://www.tcmb.gov.tr/kurlar/today.xml"
 
@@ -327,6 +332,95 @@ async function refreshYahooPrices(
   return { updated, errors }
 }
 
+/** Step 2.5 — TEFAS (Turkish mutual / money-market funds, "PPF"). Each fund's
+ *  daily NAV is fetched by its fund code (`price_id ?? ticker`) and is always
+ *  TRY-quoted, so it converts through `splitPrice(..., "TRY", ...)` exactly like
+ *  a BIST quote. No market-hours gate — NAV publishes once a business day, so a
+ *  per-fund daily cadence is enough (force refetches everything). */
+async function refreshTefasPrices(
+  supabase: ServiceClient,
+  opts: {
+    force: boolean
+    usdTry: number | null
+    eurUsd: number | null
+    updatedAtMs: Map<string, number>
+    nowMs: number
+    nowIso: string
+  },
+): Promise<{ updated: number; errors: string[] }> {
+  const { force, usdTry, eurUsd, updatedAtMs, nowMs, nowIso } = opts
+  const errors: string[] = []
+
+  let assets: { ticker: string; price_id: string | null }[]
+  try {
+    const { data } = await supabase
+      .from("assets")
+      .select("ticker, price_id")
+      .eq("price_source", "tefas")
+    assets = (data ?? []) as typeof assets
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown TEFAS error"
+    return { updated: 0, errors: [`TEFAS: ${msg}`] }
+  }
+  if (assets.length === 0) return { updated: 0, errors }
+
+  // Fetch key is the fund code (price_id ?? ticker), which is also the
+  // price_cache key. Dedupe identical codes.
+  const codes = new Set<string>()
+  for (const a of assets) codes.add(a.price_id ?? a.ticker)
+
+  let updated = 0
+  let fetchedAny = false
+
+  for (const code of codes) {
+    const last = updatedAtMs.get(code) ?? 0
+    if (!force && last && nowMs - last < FUND_CADENCE_MS) continue
+
+    // Be gentle on TEFAS: 1s between actual fetches (skipped funds don't count).
+    if (fetchedAny) await sleep(1000)
+    fetchedAny = true
+
+    try {
+      const { status, quote } = await fetchTefasQuote(code)
+
+      if (!quote) {
+        errors.push(
+          `TEFAS ${code}: ${status === null ? "request failed" : `HTTP ${status}`}`
+        )
+        continue
+      }
+      if (quote.price == null) {
+        errors.push(`TEFAS ${code}: no NAV in response`)
+        continue
+      }
+
+      // NAV is always TRY.
+      const split = splitPrice(quote.price, quote.currency, { usdTry, eurUsd })
+      if (!split) {
+        errors.push(`TEFAS ${code}: unsupported currency ${quote.currency}`)
+        continue
+      }
+
+      await supabase.from("price_cache").upsert(
+        {
+          ticker: code,
+          price_usd: split.price_usd,
+          price_try: split.price_try,
+          source: "tefas",
+          updated_at: nowIso,
+        },
+        { onConflict: "ticker" }
+      )
+      updated++
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      errors.push(`TEFAS ${code}: ${msg}`)
+    }
+  }
+
+  return { updated, errors }
+}
+
 /** Step 3 (cron only) — chain the server-side EOD snapshot now that prices are
  *  fresh. Fire-and-forget. Must forward X-Cron-Token: take-snapshots authorizes
  *  on that, not the JWT. */
@@ -410,6 +504,18 @@ Deno.serve(async (req) => {
   })
   errors.push(...yahoo.errors)
   updated += yahoo.updated
+
+  // Step 2.5 — TEFAS (Turkish funds / PPF; daily NAV, no market-hours gate).
+  const tefas = await refreshTefasPrices(supabase, {
+    force,
+    usdTry: rates.usdTry,
+    eurUsd: rates.eurUsd,
+    updatedAtMs,
+    nowMs,
+    nowIso,
+  })
+  errors.push(...tefas.errors)
+  updated += tefas.updated
 
   // Step 3 — daily EOD snapshot (cron only).
   if (doSnapshot) {
