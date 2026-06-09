@@ -7,7 +7,7 @@
 The primary landing view after login — a one-glance summary of the whole
 portfolio. It answers "what am I worth, where is it, and how has it moved?" with:
 net worth in the chosen display currency, an [allocation](GLOSSARY.md#allocation)
-breakdown, per-[Platform](GLOSSARY.md#platform), per-tag, and per-native-currency
+breakdown, per-[Platform](GLOSSARY.md#platform) and per-native-currency
 breakdowns, the top movers, and a hero showing total value (or period gain/loss) over a selectable
 time range — all derived from the latest [Snapshot](GLOSSARY.md#snapshot) so the
 numbers agree with the Portfolio page by construction.
@@ -33,8 +33,8 @@ numbers agree with the Portfolio page by construction.
 ## Behaviors / rules
 
 **Snapshot-sourced by construction.** Net worth and every breakdown
-(category / [Platform](GLOSSARY.md#platform) / tag) come from the latest
-[Snapshot](GLOSSARY.md#snapshot) — never re-derived from holdings × prices on the
+(allocation / [Platform](GLOSSARY.md#platform) / native currency) come from the
+latest [Snapshot](GLOSSARY.md#snapshot) — never re-derived from holdings × prices on the
 client. This guarantees the dashboard's net worth equals the Portfolio page total.
 Where a value depends on live quantity, the
 [snapshot price / live quantity](GLOSSARY.md#snapshot-price-and-live-quantity) rule
@@ -58,13 +58,17 @@ split indented beneath it. This mirrors the Portfolio table's nesting of
 cash-equivalents under their fiat currency (Component 8). The separate currency
 breakdown below is a different view (every asset by its native currency).
 
+**Allocation interaction.** The donut is interactive: with nothing hovered, the
+center shows the portfolio total; hovering any slice — or its legend row —
+highlights that slice (and its related parent/children) while dimming the rest,
+and the center swaps to the hovered slice's name, value, and share. Chart and
+legend highlight together. Each legend row shows the slice's value **and** its
+[allocation](GLOSSARY.md#allocation) percent; values follow the privacy toggle
+(masked when amounts are hidden), percentages stay visible.
+
 **Platform breakdown.** A ranked list (largest first) of each
 [Platform](GLOSSARY.md#platform): its color, value, and percent share, with a
 proportional bar. More legible than a chart for a handful of platforms.
-
-**Tag breakdown.** The same ranked-list treatment for cross-cutting tags (e.g.
-`usd`, `crypto`, `commodity`) — independent of the category axis, since one asset
-can carry several tags.
 
 **Currency breakdown.** The same ranked-list treatment by each asset's
 **native currency** (the currency its price is natively quoted in — e.g. USD,
@@ -165,15 +169,16 @@ today it is **+$4,000**, and the user deposited **$2,000** mid-month.
 
 ## Contract (I/O)
 
-**Inputs:** the latest [Snapshot](GLOSSARY.md#snapshot) (totals + by-category /
-by-platform / by-tag / by-asset breakdowns) and the snapshot history; the live
+**Inputs:** the latest [Snapshot](GLOSSARY.md#snapshot) (totals + by-platform /
+by-asset breakdowns; the allocation donut is derived from by-asset) and the
+snapshot history; the live
 money-weighted total value and total P&L (USD + TRY + %); the latest FX rate; the
 asset set and transaction history (for top-movers cost basis and for netting
 period-deployed capital); a chosen benchmark series for the P&L overlay; the
 display currency and the amount-obfuscation flag.
 
 **Outputs (rendered):** net worth (primary + secondary currency); the allocation
-donut; platform, tag, and native-currency breakdown lists; the foreign-income
+donut; platform and native-currency breakdown lists; the foreign-income
 heads-up card (YTD vs threshold + progress bar) and, on first crossing, a one-shot
 notification; the top-movers list; the hero (headline,
 area chart, period delta + percent, lifetime-total subtitle, benchmark percent).
@@ -181,19 +186,22 @@ Session UI state: view mode (value/P&L), time range, and selected benchmark
 (persisted across re-mounts); display currency and obfuscation come from the global
 display state.
 
-## UI contract — net worth, allocation, platform/tag breakdown, top movers, hero with range, privacy toggle
+## UI contract — net worth, allocation, platform breakdown, top movers, hero with range, privacy toggle
 
 - **Net worth:** large primary amount in the selected currency; smaller secondary
   amount in the other currency. Empty-state copy when there is nothing to show.
-- **Allocation:** a two-ring donut with center total — inner ring = the top
-  categories (Fiat as one wedge), outer ring = the same order with Fiat split
-  into its currencies and every other category passing through unchanged. Legend
-  lists each category + percent, with Fiat's currency breakdown
-  (TRY/USD/EUR/USDC/USDT) indented beneath it; the fiat currencies share one
-  colour family so the cash wedge still reads as a single block.
+- **Allocation:** a two-ring donut, starting at 12 o'clock and sweeping
+  clockwise — inner ring = the top categories (Fiat as one wedge), outer ring =
+  the same order with Fiat split into its currencies and every other category
+  passing through unchanged. The fiat currencies share one colour family so the
+  cash wedge still reads as a single block. The center shows the portfolio total
+  at rest and the hovered slice's name/value/percent on hover; hovering a slice
+  or legend row highlights it and dims the rest (chart and legend in sync). A
+  caption notes "inner: asset class · outer: fiat by currency". The legend lists
+  each slice's value + percent (value masked under the privacy toggle), with
+  Fiat's currency breakdown (TRY/USD/EUR/USDC/USDT) indented beneath it.
 - **Platform breakdown:** ranked rows — color dot, name, percent, value, and a
   proportional bar (largest first).
-- **Tag breakdown:** ranked rows — color dot, tag, value, and a proportional bar.
 - **Currency breakdown:** ranked rows — color dot, native currency code, percent,
   value, and a proportional bar (largest first); empty-state copy when none.
 - **Foreign-income heads-up:** a "Foreign income · <year>" card — YTD TRY amount,
@@ -222,9 +230,13 @@ display state.
 - [ ] The allocation donut groups cash, PPF funds, and stablecoins into one
       **Fiat** category (no standalone fund slice; crypto excludes USDT/USDC),
       and breaks Fiat down **by currency** on an outer ring (TRY incl. funds,
-      USD, EUR, USDC, USDT). Currency children reconcile to the Fiat whole and
-      the center shows the total.
-- [ ] Platform, tag, and native-currency breakdowns each render ranked rows with
+      USD, EUR, USDC, USDT). Currency children reconcile to the Fiat whole.
+- [ ] The allocation donut is interactive: the center shows the total at rest and
+      the hovered slice's name/value/percent on hover; hovering a slice or its
+      legend row highlights it (and its parent/children) and dims the rest, chart
+      and legend in sync. Legend rows show value + percent (value masked under the
+      privacy toggle).
+- [ ] Platform and native-currency breakdowns each render ranked rows with
       value, percent, and a proportional bar.
 - [ ] The foreign-income card shows YTD foreign (non-TRY, non-withheld) dividend +
       interest in TRY vs the 22,000 TL threshold, with a progress bar that goes

@@ -28,13 +28,6 @@ export interface PlatformAllocation {
   percentage: number
 }
 
-export interface TagAllocation {
-  tag: string
-  valueUsd: number
-  valueTry: number
-  percentage: number
-}
-
 export interface CurrencyAllocation {
   currency: string
   valueUsd: number
@@ -58,7 +51,6 @@ export interface DashboardData {
   totalValueTry: number
   byAllocation: AllocationNode[]
   byPlatform: PlatformAllocation[]
-  byTag: TagAllocation[]
   byCurrency: CurrencyAllocation[]
   topMovers: TopMover[]
   snapshots: Snapshot[]
@@ -208,7 +200,6 @@ export function useDashboard(): DashboardData {
       totalValueTry: 0,
       byAllocation: [],
       byPlatform: [],
-      byTag: [],
       byCurrency: [],
       topMovers: [],
     }
@@ -238,15 +229,6 @@ export function useDashboard(): DashboardData {
       }))
       .sort((a, b) => b.valueUsd - a.valueUsd)
 
-    const byTag: TagAllocation[] = Object.entries(breakdown.by_tag)
-      .map(([tag, vals]) => ({
-        tag,
-        valueUsd: vals.usd,
-        valueTry: vals.try,
-        percentage: vals.pct,
-      }))
-      .sort((a, b) => b.valueUsd - a.valueUsd)
-
     const topMovers = deriveTopMovers(
       breakdown.by_asset,
       assets,
@@ -261,7 +243,6 @@ export function useDashboard(): DashboardData {
       totalValueTry,
       byAllocation,
       byPlatform,
-      byTag,
       byCurrency,
       topMovers,
     }

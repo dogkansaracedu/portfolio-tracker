@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DashboardHero, AllocationChart } from "@/components/charts/LazyChart"
 import RouteSkeleton from "@/components/layout/RouteSkeleton"
-import TagBreakdown from "@/components/dashboard/TagBreakdown"
 import PlatformBreakdown from "@/components/dashboard/PlatformBreakdown"
 import CurrencyBreakdown from "@/components/dashboard/CurrencyBreakdown"
 import TopMovers from "@/components/dashboard/TopMovers"
@@ -67,7 +66,6 @@ export default function DashboardPage() {
     totalValueUsd,
     totalValueTry,
     byAllocation,
-    byTag,
     byPlatform,
     byCurrency,
     topMovers,
@@ -138,7 +136,6 @@ export default function DashboardPage() {
       </Suspense>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <TagBreakdown byTag={byTag} />
         <Suspense fallback={<RouteSkeleton />}>
           <AllocationChart
             byAllocation={byAllocation}
@@ -146,17 +143,15 @@ export default function DashboardPage() {
             totalValueTry={totalValueTry}
           />
         </Suspense>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <PlatformBreakdown byPlatform={byPlatform} />
-        <TopMovers topMovers={topMovers} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <TopMovers topMovers={topMovers} />
         <CurrencyBreakdown byCurrency={byCurrency} />
-        <ForeignIncomeCard />
       </div>
+
+      <ForeignIncomeCard />
     </div>
   )
 }
