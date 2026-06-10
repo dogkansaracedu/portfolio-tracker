@@ -5,7 +5,7 @@
 Manage the two reference entities the rest of the app builds on: the **platforms** an investor holds assets on, and the **global assets** they track. This is the CRUD surface for that reference data — it does not record balances or transactions, only the definitions those hang off of.
 
 ## Depends on
-- Component 2 (data store & auth). All platforms and assets are scoped to the signed-in user.
+- Component 2 (data store & auth). Platforms are scoped to the signed-in user; assets are a single global catalog (one shared set for all users), writable only by the admin.
 
 ## Concepts used — links into [GLOSSARY](GLOSSARY.md)
 - [Platform](GLOSSARY.md#platform) — where assets are held (broker, exchange, bank, physical bucket).
@@ -21,7 +21,7 @@ Manage the two reference entities the rest of the app builds on: the **platforms
 - **Asset count:** each platform shows how many distinct assets it currently holds (counting only holdings with balance > 0).
 
 ### Assets — CRUD
-An asset is **global: one row per ticker per user** — it is not tied to a platform, and it carries no balance (see [Holding](GLOSSARY.md#holding)). Editable fields:
+An asset is **global: one shared row per ticker for all users**, curated by the [Admin](GLOSSARY.md#admin) — it is not tied to a platform, and it carries no balance (see [Holding](GLOSSARY.md#holding)). Only the admin can create/edit/deactivate; every other user sees the catalog **read-only**. Admin-editable fields:
 - `ticker` — display symbol (e.g. `BTC`, `AAPL`, `USD`).
 - `name` — display name (e.g. `Bitcoin`).
 - `category` — free-form bucket (`fiat`, `crypto`, `gold`, `fund`, `stock_us`, `stock_bist`, …). Drives the per-ticker hint, the native currency, and how the icon is resolved. (`fund` is a Turkish money-market fund / PPF — TRY-native, priced by manually-entered NAV.)
@@ -31,6 +31,11 @@ An asset is **global: one row per ticker per user** — it is not tied to a plat
 - `price_id` — the identifier that feed uses (e.g. `BTC-USD`, `THYAO.IS`). **Falls back to `ticker` when blank.** For exchange-listed stocks it can be auto-derived from the ticker (e.g. a BIST ticker → its exchange-suffixed form) and stays in sync with the ticker until the user hand-edits it, after which their value is preserved.
 - `icon_url` — optional manual logo override (see Icons below).
 - `is_currency` — marks the asset as fiat/cash. Currency assets carry [Fiat FX P&L](GLOSSARY.md#fiat-fx-pl), are priced as 1 unit of themselves, and are **not** user-editable/deactivatable from this surface (they're managed as part of the system's currency set).
+
+### Roles & visibility
+- **Admin** (a single designated account) sees the full create/edit/deactivate surface.
+- **Every other user** sees the same catalog (prices, categories, icons, the held/not-held split) but **read-only**: no "Add Asset" action and no per-row actions menu. Their personal "held" state is still derived from their own holdings, so the split works per user.
+- The catalog is enforced server-side (database write policies), so hiding the controls is convenience, not the security boundary.
 
 ### Native price currency
 An asset's price is shown in its **native** currency, derived from the asset itself (its category/ticker), never from which price columns happen to be filled:
@@ -63,7 +68,7 @@ The icon is **decorative** — the adjacent ticker/name text carries the meaning
 
 ## UI contract
 - **Platforms:** a list/grid of platform cards (color dot + name + asset count + an actions menu for Edit / Delete). An "Add Platform" action opens a create dialog; the create dialog offers quick-select name presets (common broker/exchange names) and a fixed color swatch palette.
-- **Assets:** a table with columns **Ticker (with icon + name), Category, Price (native, with `~$` estimate when non-USD), Group/Tags, Status (Active/Inactive)**, plus a per-row actions menu (Edit / Deactivate) — the menu is hidden for currency assets. The header shows "active / total" counts. The "Not held" group is collapsible. An "Add Asset" action opens the create/edit dialog.
+- **Assets:** a table with columns **Ticker (with icon + name), Category, Price (native, with `~$` estimate when non-USD), Group/Tags, Status (Active/Inactive)**, plus a per-row actions menu (Edit / Deactivate) — the menu is hidden for currency assets. The header shows "active / total" counts. The "Not held" group is collapsible. An "Add Asset" action opens the create/edit dialog. The "Add Asset" action and the per-row actions menu are shown **only to the admin**; non-admin users get a read-only table.
 - **Asset dialog:** category select (with a per-category ticker hint), ticker, display name, an icon field with a **live icon preview** + a hint that blank auto-resolves from the ticker, price-source select, price-id field (auto-filled/overridable per the rule above), an at-source tax-rate field shown **only when the category is `fund`** (a fraction 0–1; blank = none), and a comma-separated tags field.
 - Inactive assets render visibly dimmed.
 - Both lists show loading and error states and a friendly empty state.
@@ -79,4 +84,5 @@ The icon is **decorative** — the adjacent ticker/name text carries the meaning
 - [ ] The `fund` category (PPF) is TRY-native and manually priced; selecting it reveals the at-source tax-rate field, and a set rate (e.g. `0.175`) makes the asset's gain report net of tax (per the P&L engine's after-tax rule), while blank leaves it gross.
 - [ ] Each asset shows an icon: override if set, else an auto logo, else a stable monogram; a manual `icon_url` overrides everywhere and updates the dialog preview live.
 - [ ] The asset list floats held assets to the top and collapses not-held assets behind a toggle.
+- [ ] As admin, adding/editing/deactivating an asset is reflected for every user; as a non-admin, the page is read-only (no Add button, no row actions) and a direct write is rejected by the database.
 - [ ] All changes persist across refreshes.
