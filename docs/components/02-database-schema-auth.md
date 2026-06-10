@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Define the persistent data model and the authentication boundary the whole app sits behind. Every other component reads and writes through the entities described here, and every read/write is scoped to the signed-in user. This component owns: the entity catalog, strict per-user data isolation, email/password authentication, an allowlist gate on signup, and the automatic seeding of a usable starter dataset for each new user.
+Define the persistent data model and the authentication boundary the whole app sits behind. Every other component reads and writes through the entities described here. Most reads/writes are scoped to the signed-in user; the lone exception is the **asset catalog**, which is global (shared by all users, writable only by the admin). This component owns: the entity catalog, per-user data isolation (with the global-asset-catalog exception), email/password authentication, an allowlist gate on signup, and the automatic seeding of a usable starter dataset for each new user.
 
 ## Depends on
 
@@ -21,7 +21,7 @@ Define the persistent data model and the authentication boundary the whole app s
 
 - The system persists seven user-facing entity kinds. Follow each link for fields and relationships:
   - [Platform](GLOSSARY.md#platform) — per-user; where assets are held.
-  - [Asset](GLOSSARY.md#asset) — per-user, **global** (one row per ticker per user; no platform on the asset itself).
+  - [Asset](GLOSSARY.md#asset) — a single **global catalog** shared by all users (one row per ticker; no platform on the asset itself). All authenticated users read it; only the [admin](GLOSSARY.md#admin) writes it.
   - [Holding](GLOSSARY.md#holding) — per-user; the balance of one asset on one platform, derived from its transactions, never entered directly.
   - [Transaction](GLOSSARY.md#transaction) — per-user; the dated events that drive holding balances.
   - [Snapshot](GLOSSARY.md#snapshot) — per-user; one frozen aggregation per user per date.
@@ -32,8 +32,9 @@ Define the persistent data model and the authentication boundary the whole app s
 
 ### Per-user data isolation (the core invariant)
 
-- Every row of every user-facing entity carries an owning user. A signed-in user can read and write **only their own** rows; another user's rows are invisible and unmodifiable, enforced at the data layer (not merely in the UI).
-- Global/shared data (prices, exchange rates, benchmark series) is **read-only** to users: any signed-in user may read it; none may write it. Only the system's background fetch path writes it.
+- Every row of every **per-user** entity (platforms, holdings, transactions, snapshots) carries an owning user. A signed-in user can read and write **only their own** rows; another user's rows are invisible and unmodifiable, enforced at the data layer (not merely in the UI).
+- **Assets are the exception:** they are a single **global catalog** shared by every user — all authenticated users read the same asset rows, and only the [admin](GLOSSARY.md#admin) account may create/edit/deactivate them. The admin-write restriction is enforced at the data layer, not merely in the UI.
+- Other global/shared data (prices, exchange rates, benchmark series) is **read-only** to users: any signed-in user may read it; none may write it. Only the system's background fetch path writes it.
 - Deleting a user cascades to all of that user's owned rows.
 
 ### Authentication
@@ -53,11 +54,11 @@ Define the persistent data model and the authentication boundary the whole app s
 ### New-user seeding
 
 - Immediately after a successful signup, the new user is **auto-seeded** with a starter dataset so the app is usable on first login instead of empty:
-  - a fixed set of **default [platforms](GLOSSARY.md#platform)** (the brokers / exchanges / banks / a physical bucket the owner uses), and
-  - a fixed set of **default [assets](GLOSSARY.md#asset)** spanning the core categories — the fiat currencies (including the [USD anchor](GLOSSARY.md#usd-anchor) and the local currency), the major holdable assets, and representative stocks.
-- Seeding writes **only into the new user's own rows** and cannot be aimed at another user.
-- The default asset set always includes the fiat currency rows, because later flows (e.g. the auto-paired cash side of a trade) assume each user has a fiat row for each currency they transact in.
-- Seeding is best-effort: if it fails, the account still exists and the user can log in; they simply start with an empty dataset and add their own.
+  - a fixed set of **default [platforms](GLOSSARY.md#platform)** (the brokers / exchanges / banks / a physical bucket the owner uses).
+  - No assets are seeded per-user — every user already shares the single **global [asset](GLOSSARY.md#asset) catalog** (the fiat currencies including the [USD anchor](GLOSSARY.md#usd-anchor) and the local currency, the major holdable assets, and representative stocks), so a new user sees the full catalog immediately without any seeding.
+- Seeding writes **only into the new user's own rows** (its platforms) and cannot be aimed at another user.
+- The shared asset catalog always includes the fiat currency rows, because later flows (e.g. the auto-paired cash side of a trade) assume each currency has a fiat row.
+- Seeding is best-effort: if it fails, the account still exists and the user can log in; they simply start with no platforms (the shared asset catalog is still visible) and add their own.
 
 ## Contract (I/O)
 
@@ -74,7 +75,7 @@ Define the persistent data model and the authentication boundary the whole app s
 
 **Outputs / postconditions:**
 
-- After a successful `signUp`: an account exists **and** the user's default platforms + assets exist (best-effort).
+- After a successful `signUp`: an account exists **and** the user's default platforms exist (best-effort); the global asset catalog is already visible to them without per-user seeding.
 - After a successful `signIn`: a persistent session exists; protected areas render.
 - After `signOut`: the session is cleared; protected areas stop rendering.
 
@@ -97,8 +98,8 @@ Define the persistent data model and the authentication boundary the whole app s
 
 - A non-allowlisted email submitted at signup is **rejected**, and no account is created for it.
 - An allowlisted email can sign up; the same email, if removed from the allowlist afterward, still has its existing account but a *new* signup with a different non-listed email is rejected.
-- A brand-new (allowlisted) user, on first login, already has the default set of platforms and assets — including a fiat row for each default currency — rather than an empty workspace.
+- A brand-new (allowlisted) user, on first login, already has the default set of platforms and sees the shared global asset catalog — including a fiat row for each default currency — rather than an empty workspace.
 - The email allowlist match is case-insensitive (`Person@Example.com` matches a listed `person@example.com`).
-- A signed-in user can read and write only their own platforms / assets / holdings / transactions / snapshots; they can read but not write the shared price, exchange-rate, and benchmark data; they can neither read nor write the allowlist.
+- A signed-in user can read and write only their own platforms / holdings / transactions / snapshots; they can read the shared global asset catalog but write it only if they are the admin; they can read but not write the shared price, exchange-rate, and benchmark data; they can neither read nor write the allowlist.
 - Visiting a protected area without a session redirects to login; the protected content never renders unauthenticated.
 - Reloading the page keeps the user logged in; a background session refresh that doesn't change identity does not trigger a visible data reload.
