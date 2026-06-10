@@ -18,8 +18,9 @@ vehicle). Fields: `name`, `color` (a display color used across charts and dots).
 Platforms are per-user.
 
 ### Asset
-A tradable or held thing, **global: one row per ticker per user** (no platform on
-the asset itself — balances live on [Holdings](#holding)). Fields: `ticker`
+A tradable or held thing, **global: one row per ticker, shared by every user and
+curated by the [Admin](#admin)** (no platform on the asset itself — balances live on
+[Holdings](#holding)). Non-admin users read the catalog read-only. Fields: `ticker`
 (display symbol), `name`, `category` (free-form text — `fiat`, `crypto`, `gold`,
 `stock_us`, `stock_bist`, `vehicle`, …), `tags[]` (cross-cutting allocation labels,
 e.g. `["crypto","usd"]`), `price_source` (which feed prices it — live values are `yahoo`, `tcmb`, and
@@ -143,6 +144,13 @@ price/FX movement. See the [formula](#daily-return-formula).
 
 ### Allocation
 An asset's (or group's) **current value ÷ total portfolio value**, as a percent.
+
+### Admin
+The single account that curates the global [Asset](#asset) catalog. Only the
+admin can create / edit / deactivate assets; everyone else reads the catalog
+read-only. Enforced in the database (the asset write RLS policies check a
+hardcoded user id) and mirrored in the UI. Platforms are unaffected — they stay
+per-user.
 
 ### Snapshot price and live quantity
 Displayed value = **live [Holding](#holding) balance × the latest snapshot's
