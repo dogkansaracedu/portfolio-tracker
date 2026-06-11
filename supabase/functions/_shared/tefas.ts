@@ -1,14 +1,17 @@
-/** TEFAS (Türkiye Elektronik Fon Alım Satım Platformu) fund-price fetch, used by
- *  `fetch-prices` for Turkish mutual / money-market funds (PPF). A fund's price
- *  is its daily NAV (net asset value, per unit), always quoted in TRY. The
- *  legacy `BindHistoryInfo` API was retired in 2026 ("Method not found or
+/** TEFAS (Türkiye Elektronik Fon Alım Satım Platformu) fund-price fetch, used
+ *  by `fetch-prices` (latest NAV) and `backfill-snapshots` (NAV history) for
+ *  Turkish mutual / money-market funds (PPF). A fund's price is its daily NAV
+ *  (net asset value, per unit), always quoted in TRY. The legacy
+ *  `BindHistoryInfo` API was retired in 2026 ("Method not found or
  *  disabled!"); this hits the current `/api/funds/fonFiyatBilgiGetir` JSON
  *  endpoint. */
 
 const TEFAS_PRICE_URL = "https://www.tefas.gov.tr/api/funds/fonFiyatBilgiGetir"
 
-/** `periyod` (months) is restricted to {1,3,6,12,36,60}; 1 returns ~the last
- *  month of daily NAVs and we take the most recent. */
+/** The only `periyod` (months of history) values the API accepts. */
+const PERIYOD_STEPS = [1, 3, 6, 12, 36, 60] as const
+
+/** 1 returns ~the last month of daily NAVs and we take the most recent. */
 const PERIYOD_LATEST = 1
 
 /** TEFAS sends no CORS headers and WAF-blocks non-browser requests, so we
@@ -98,4 +101,60 @@ export async function fetchTefasQuote(fonKodu: string): Promise<TefasResult> {
       date: latest.tarih ?? null,
     },
   }
+}
+
+export interface TefasHistoryResult {
+  /** HTTP status, or null if the request never completed (network error). */
+  status: number | null
+  /** Daily NAVs in TRY keyed by date (`tarih`, YYYY-MM-DD), business days
+   *  only (weekends and market holidays publish nothing). Empty on failure. */
+  closes: Map<string, number>
+}
+
+/** Smallest allowed `periyod` whose window (ending today) reaches back to
+ *  `fromDate`. The API caps at 60 months — older dates are unfetchable. */
+function periyodFor(fromDate: string): number {
+  const ageMs = Date.now() - new Date(`${fromDate}T00:00:00Z`).getTime()
+  const months = Math.ceil(ageMs / (30 * 86_400_000))
+  return PERIYOD_STEPS.find((p) => p >= months) ?? 60
+}
+
+/** Fetch a fund's daily NAV history covering `fromDate` → today (subject to
+ *  the API's 60-month cap). Never throws — network/HTTP/parse failures
+ *  surface as an empty `closes` map plus the status, mirroring
+ *  `fetchTefasQuote` so callers branch on one check. */
+export async function fetchTefasHistory(
+  fonKodu: string,
+  fromDate: string,
+): Promise<TefasHistoryResult> {
+  const closes = new Map<string, number>()
+  let res: Response
+  try {
+    res = await fetch(TEFAS_PRICE_URL, {
+      method: "POST",
+      headers: browserHeaders(fonKodu),
+      body: JSON.stringify({
+        fonKodu,
+        dil: "TR",
+        periyod: periyodFor(fromDate),
+      }),
+    })
+  } catch {
+    return { status: null, closes }
+  }
+
+  if (!res.ok) return { status: res.status, closes }
+
+  let data: { resultList?: TefasRow[] }
+  try {
+    data = await res.json()
+  } catch {
+    return { status: res.status, closes }
+  }
+
+  for (const row of data?.resultList ?? []) {
+    if (typeof row?.fiyat !== "number" || !row.tarih) continue
+    closes.set(row.tarih, row.fiyat)
+  }
+  return { status: res.status, closes }
 }
