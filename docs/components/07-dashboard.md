@@ -2,6 +2,10 @@
 
 > Layer: behavioral (tech-agnostic). Implementation → [technical/07-dashboard.md](technical/07-dashboard.md)
 
+> ⏳ The taxes-paid behavior referenced below is **spec'd but not yet implemented**
+> ([tax-payments design](../superpowers/specs/2026-06-12-tax-payments-design.md));
+> remove this marker when it ships.
+
 ## Purpose
 
 The primary landing view after login — a one-glance summary of the whole
@@ -107,12 +111,17 @@ selectable time range:
   total P&L (the same money-weighted total the Portfolio page reports) and a
   benchmark's cumulative percent return over the range.
 
-**Lifetime total stays gross.** The subtitle's lifetime total P&L, its percent
-(over [peak net invested](GLOSSARY.md#peak-net-invested-capital)), the period
-delta, and the chart carry no [at-source](GLOSSARY.md#at-source-tax) adjustment —
-they are the plain money-weighted figures. The [after-tax](GLOSSARY.md#after-tax-pl)
-(net) view is deliberately confined to taxed asset rows on the
-[Portfolio page](08-portfolio-page.md); nothing tax-related renders here.
+**Lifetime total stays gross of estimates — but is net of taxes actually paid.**
+The subtitle's lifetime total P&L, its percent (over
+[peak net invested](GLOSSARY.md#peak-net-invested-capital)), the period delta, and
+the chart carry no [at-source](GLOSSARY.md#at-source-tax) *accrual* adjustment —
+the [after-tax](GLOSSARY.md#after-tax-pl) (estimated, net) view is deliberately
+confined to taxed asset rows on the [Portfolio page](08-portfolio-page.md), and no
+estimated-tax figure renders here. Recorded
+[tax payments](GLOSSARY.md#tax-payment), by contrast, are inside the
+money-weighted [Total P&L](GLOSSARY.md#total-pl) **by definition** — real money
+that left the book — so the lifetime figures reflect them without any tax
+annotation on this page.
 
 **Period P&L = the chart's delta (money-weighted).** The hero's period change is
 the [money-weighted](GLOSSARY.md#money-weighted) value change over the chosen
@@ -246,10 +255,11 @@ display state.
 - [ ] The hero's period P&L is the **money-weighted** value change over the chosen
       range and **equals the chart line's end-to-end delta**; mid-period deposits
       do not count as gains.
-- [ ] In P&L mode, the lifetime **Total** subtitle shows the **gross**
-      money-weighted P&L with no tax annotation; the lifetime percent, period
-      delta, and chart are gross as well. After-tax detail appears only on the
-      Portfolio page's taxed rows.
+- [ ] In P&L mode, the lifetime **Total** subtitle shows the money-weighted P&L
+      with no estimated-tax annotation (recorded tax payments are already inside
+      it by definition); the lifetime percent, period delta, and chart follow the
+      same rule. After-tax (estimated) detail appears only on the Portfolio
+      page's taxed rows.
 - [ ] Toggling privacy **hides amounts but keeps percentages visible** (allocation
       %, period %, total %, benchmark %).
 - [ ] With < 2 points in the chosen range the hero shows a "not enough data"

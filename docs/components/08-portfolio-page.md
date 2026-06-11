@@ -2,6 +2,11 @@
 
 > Layer: behavioral (tech-agnostic). Implementation → [technical/08-portfolio-page.md](technical/08-portfolio-page.md)
 
+> ⏳ The taxes-paid behaviors below (summary-bar line, unrealized-only accrual)
+> are **spec'd but not yet implemented**
+> ([tax-payments design](../superpowers/specs/2026-06-12-tax-payments-design.md));
+> remove this marker when they ship.
+
 ## Purpose
 
 The detailed asset view that complements the dashboard's summary. It lists every
@@ -94,16 +99,20 @@ other column, and it does **not** affect the summary bar.
 **After-tax (net) headline — taxed asset rows only, Total mode.** For positions in
 an asset that carries an at-source tax rate, the **Total** return on the **asset
 row** is shown **after tax** as the headline figure: `net = gross − tax`, where tax
-is the at-source accrual on the position's gain. The **gross** figure and the tax
-deducted are shown beside it as a muted annotation, so nothing is hidden. The
-percent is recomputed on the net amount over the same cost basis. **Group headers
-and the summary bar stay gross** — the after-tax view is deliberately confined to
-the rows (a deliberate de-cluttering: aggregate figures everywhere are the plain
-money-weighted totals). Consequently a group holding a taxed asset reads slightly
-**above** the sum of its rows' net headlines, by exactly the group's tax accrual;
-each row still shows its gross beside the net, so the figures reconcile by eye.
-Untaxed positions render exactly as before. **Daily** return stays gross — tax is
-on the *cumulative* gain, not a single day's move.
+is the at-source accrual on the position's **unrealized** gain (realized gains are
+covered by recorded [tax payments](GLOSSARY.md#tax-payment), not estimates — see
+Component 6 rules 7–8; the row's breakdown also shows its cumulative taxes
+actually paid). The **gross** figure and the tax deducted are shown beside it as a
+muted annotation, so nothing is hidden. The percent is recomputed on the net
+amount over the same cost basis. **Group headers and the summary bar stay gross
+of the accrual** — the estimated after-tax view is deliberately confined to the
+rows (a deliberate de-cluttering: aggregate figures everywhere are the plain
+money-weighted totals, which by definition already include taxes actually paid).
+Consequently a group holding a taxed asset reads slightly **above** the sum of
+its rows' net headlines, by exactly the group's tax accrual; each row still shows
+its gross beside the net, so the figures reconcile by eye. Untaxed positions
+render exactly as before. **Daily** return stays gross — tax is on the
+*cumulative* gain, not a single day's move.
 
 **Daily "—" rules.**
 - **No prior snapshot** (zero or one snapshot total): daily is unavailable.
@@ -183,8 +192,9 @@ alongside group-by and sort. Switching it re-renders every group header and ever
 row's return cell; default is **Total**.
 
 **Summary bar:** above the table — total portfolio value, lifetime P&L (amount +
-%, with an unrealized/realized split when any realized exists), and the held-asset
-count. **Not** affected by the toggle.
+%, with an unrealized/realized split when any realized exists, and a
+**"Taxes paid: −$X"** line when any [tax payment](GLOSSARY.md#tax-payment) has
+been recorded), and the held-asset count. **Not** affected by the toggle.
 
 **Funds nested under fiat rows (in-table):** in the category and tag groupings, a
 fiat currency row that has funds/bonds in it carries a chevron toggle; expanding
@@ -231,6 +241,9 @@ zero is neutral; consistent across rows, headers, and the summary bar.
 - [ ] Value = live balance × latest snapshot price; the page total equals the
       dashboard's net worth.
 - [ ] The summary bar shows the lifetime total and does **not** change with the toggle.
+- [ ] When any tax payment exists, the summary bar's P&L split includes a
+      **Taxes paid** line; taxed rows' breakdowns show their attributed cumulative
+      taxes paid.
 - [ ] Group by platform/category/tag shows headers with correct subtotals; search
       filters by name or ticker; values render in the selected currency.
 - [ ] Mobile renders cards; inactive hidden by default; obfuscation hides amounts

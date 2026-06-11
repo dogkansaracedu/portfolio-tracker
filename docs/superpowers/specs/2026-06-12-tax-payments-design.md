@@ -102,6 +102,26 @@ the realized gain shows gross; the user records both together.)
 happens (value dropped — same as fees). An external payment never moves daily
 return (no tracked value changed). A deliberate, locally-truthful asymmetry.
 
+**2e. P&L-over-time stays reconciled with the headline.** The snapshot-derived
+series (Component 10) becomes
+`value(date) − net invested(date) − external taxes paid on/before date`. Tracked
+taxes are already inside frozen snapshot values; without the external term the
+chart's "now" point would disagree with the hero after a beyanname payment. The
+series steps down on the payment date. Monthly returns are untouched by external
+taxes (neither a flow nor a value change); a tracked tax reads as that period's
+cost, like a standalone fee.
+
+**2f. Recognition timing (cash basis).** A tax txn affects figures from its
+**payment date** on — prior periods never restate. Concretely: the beyanname for
+2025 gains, paid March 2026, leaves every 2025-scoped figure untouched (snapshot
+values, monthly returns, any year-bounded view) and reduces lifetime Total P&L —
+and the P&L-over-time line — from March 2026. Each beyanname installment
+(March / July) is its own txn. Backdating to Dec 31 is possible (dates are free)
+but not recommended: the cash factually left in 2026, and converting at an
+earlier date's FX rate (TRY depreciating) would overstate the USD cost. Seeing a
+liability *before* it's paid is the estimated-accrual layer's job, which for
+foreign gains is explicitly out of scope here.
+
 ## Component 3 — Display
 
 - **Transactions page**: `tax` rows in the timeline with their own badge, native
@@ -143,6 +163,13 @@ All money math in bignumber.js, per project convention.
 - **06 P&L engine** (behavioral + technical): formula, invariant, accrual
   narrowing, daily-return note.
 - **07 Dashboard / 08 Portfolio**: breakdown line, entry form, taxed-row note.
+- **10 Snapshots & performance**: the external-taxes term in P&L-over-time;
+  monthly-returns note.
+
+> Behavioral docs + GLOSSARY were updated ahead of implementation (2026-06-12, at
+> the user's request) with ⏳ spec'd-not-shipped markers; the implementation
+> change removes the markers and writes the **technical** docs (which name real
+> files/functions and so can only be written with the code).
 
 ## Non-goals (explicitly out of scope)
 
