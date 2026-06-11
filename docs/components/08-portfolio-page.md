@@ -91,17 +91,19 @@ other column, and it does **not** affect the summary bar.
   only its price movement (not its cost). Because the figure is money-weighted,
   [fiat FX](GLOSSARY.md#fiat-fx-pl) swings show up automatically.
 
-**After-tax (net) headline — Total mode only.** For positions in an asset that
-carries an at-source tax rate, the **Total** return is shown **after tax** as the
-headline figure: `net = gross − tax`, where tax is the at-source accrual on the
-position's gain. The **gross** figure and the tax deducted are shown beside it as a
-muted annotation, so nothing is hidden. The percent is recomputed on the net amount
-over the same cost basis. This applies to **asset rows, group headers, and the
-summary bar's headline**, keeping the invariant that **a group header equals the sum
-of its visible rows** (rows show net too). Untaxed positions (no at-source rate)
-render exactly as before. **Daily** return stays gross — tax is on the *cumulative*
-gain, not a single day's move. In the summary bar, only the headline goes net; the
-unrealized/realized split below stays gross.
+**After-tax (net) headline — taxed asset rows only, Total mode.** For positions in
+an asset that carries an at-source tax rate, the **Total** return on the **asset
+row** is shown **after tax** as the headline figure: `net = gross − tax`, where tax
+is the at-source accrual on the position's gain. The **gross** figure and the tax
+deducted are shown beside it as a muted annotation, so nothing is hidden. The
+percent is recomputed on the net amount over the same cost basis. **Group headers
+and the summary bar stay gross** — the after-tax view is deliberately confined to
+the rows (a deliberate de-cluttering: aggregate figures everywhere are the plain
+money-weighted totals). Consequently a group holding a taxed asset reads slightly
+**above** the sum of its rows' net headlines, by exactly the group's tax accrual;
+each row still shows its gross beside the net, so the figures reconcile by eye.
+Untaxed positions render exactly as before. **Daily** return stays gross — tax is
+on the *cumulative* gain, not a single day's move.
 
 **Daily "—" rules.**
 - **No prior snapshot** (zero or one snapshot total): daily is unavailable.
@@ -212,10 +214,10 @@ zero is neutral; consistent across rows, headers, and the summary bar.
 - [ ] The Total | Daily toggle flips the return figure on **both** group headers
       and asset rows; default is **Total** (prior behavior unchanged).
 - [ ] In Total mode, the return is lifetime unrealized (value − cost basis), amount + %.
-- [ ] In Total mode, a taxed position shows the **after-tax (net)** return as the
-      headline, with **gross** and the deducted tax annotated beside it; untaxed
-      positions render unchanged. Net flows through rows, group headers, and the
-      summary-bar headline (Daily mode stays gross).
+- [ ] In Total mode, a taxed position's **row** shows the **after-tax (net)** return
+      as the headline, with **gross** and the deducted tax annotated beside it;
+      untaxed positions render unchanged. **Group headers and the summary bar stay
+      gross** (Daily mode stays gross everywhere).
 - [ ] In Daily mode, the return is the money-weighted change since the previous
       snapshot, amount + %.
 - [ ] An asset **bought today** shows a daily return measured from its purchase
@@ -223,7 +225,9 @@ zero is neutral; consistent across rows, headers, and the summary bar.
 - [ ] With ≤ 1 snapshot, Daily mode renders "—" everywhere, and the toggle still
       switches modes cleanly.
 - [ ] When the daily percent base ≤ 0, the amount shows but the percent is "—".
-- [ ] Each group header's return equals the sum of its **visible** rows (both modes).
+- [ ] Each group header's return equals the sum of its **visible** rows' gross
+      figures (both modes); a group holding a taxed asset therefore reads above
+      its rows' net headlines by the group's tax accrual.
 - [ ] Value = live balance × latest snapshot price; the page total equals the
       dashboard's net worth.
 - [ ] The summary bar shows the lifetime total and does **not** change with the toggle.

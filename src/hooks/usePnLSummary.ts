@@ -15,10 +15,6 @@ export interface PnLSummary {
   totalPnlTry: number
   /** null = nothing ever deployed (peak ≤ 0) → render "—". */
   totalPnlPct: number | null
-  /** At-source tax accrued (USD). After-tax headline = totalPnlUsd − this. */
-  totalTaxAccrualUsd: number
-  totalPnlAfterTaxUsd: number
-  totalPnlAfterTaxTry: number
   loading: boolean
 }
 
@@ -37,7 +33,6 @@ export function usePnLSummary(): PnLSummary {
     totalIncomeUsd,
     totalInvestedUsd,
     totalPeakInvestedUsd,
-    totalTaxAccrualUsd,
     loading: pnlLoading,
   } = usePnL(holdings, prices)
 
@@ -59,9 +54,6 @@ export function usePnLSummary(): PnLSummary {
       totalPnlUsd: totalPnlUsd.toNumber(),
       totalPnlTry: totalPnlUsd.times(rate).toNumber(),
       totalPnlPct: totalPnlPct?.toNumber() ?? null,
-      totalTaxAccrualUsd: totalTaxAccrualUsd.toNumber(),
-      totalPnlAfterTaxUsd: totalPnlUsd.minus(totalTaxAccrualUsd).toNumber(),
-      totalPnlAfterTaxTry: totalPnlUsd.minus(totalTaxAccrualUsd).times(rate).toNumber(),
       loading: holdingsLoading || pricesLoading || pnlLoading,
     }
   }, [
@@ -71,7 +63,6 @@ export function usePnLSummary(): PnLSummary {
     totalIncomeUsd,
     totalInvestedUsd,
     totalPeakInvestedUsd,
-    totalTaxAccrualUsd,
     usdTry,
     holdingsLoading,
     pricesLoading,

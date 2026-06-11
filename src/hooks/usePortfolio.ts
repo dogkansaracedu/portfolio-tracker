@@ -66,8 +66,6 @@ export interface AssetGroup {
   totalValueUsd: number
   totalValueTry: number
   totalPnlUsd: number
-  /** Summed at-source tax accrual across the group's assets, in USD. */
-  totalTaxAccrualUsd: number
   dailyReturnUsd: number
   dailyReturnPct: number | null
 }
@@ -88,7 +86,6 @@ interface UsePortfolioReturn {
   totalIncomeUsd: number
   totalPnlUsd: number
   totalPnlPct: number | null
-  totalTaxAccrualUsd: number
   heldAssetCount: number
   loading: boolean
   error: string | null
@@ -127,7 +124,6 @@ export function usePortfolio(): UsePortfolioReturn {
     totalUnrealizedPnlUsd,
     totalRealizedPnlUsd,
     totalIncomeUsd,
-    totalTaxAccrualUsd,
     totalInvestedUsd,
     totalPeakInvestedUsd,
     transactions,
@@ -247,7 +243,6 @@ export function usePortfolio(): UsePortfolioReturn {
     totalIncomeUsd: totalIncomeUsd.toNumber(),
     totalPnlUsd: totalPnlUsdBn.toNumber(),
     totalPnlPct: totalPnlPctBn?.toNumber() ?? null,
-    totalTaxAccrualUsd: totalTaxAccrualUsd.toNumber(),
     heldAssetCount: enrichedAssets.length,
     loading,
     error,

@@ -25,9 +25,8 @@
   `COL_COUNT = 9`.
 - `src/components/portfolio/PortfolioGroupHeader.tsx` — full-width subtotal row;
   picks `group.totalPnlUsd` (total) vs `group.dailyReturnUsd` + `dailyReturnPct`
-  (daily); renders "—" when `!dailyReturnAvailable`. In **Total** mode, when
-  `group.totalTaxAccrualUsd > 0` the headline is `groupNet = totalPnlUsd −
-  totalTaxAccrualUsd` with a muted `gross {totalPnlUsd}` suffix; daily stays gross.
+  (daily); renders "—" when `!dailyReturnAvailable`. Both modes stay **gross** —
+  the after-tax treatment lives only in `PortfolioRow`.
 - `src/components/portfolio/PortfolioRow.tsx` — exports **both** the desktop
   `PortfolioRow` and the mobile `PortfolioRowCard`; each picks
   `unrealizedPnlUsd`/`unrealizedPnlPct` (total) vs `dailyReturnUsd`/`dailyReturnPct`
@@ -40,9 +39,8 @@
   entry below).
 - `src/components/portfolio/PortfolioSummaryBar.tsx` — lifetime cards (value, P&L
   with unrealized/realized split, held count). **No `returnMode` prop** — by
-  construction unaffected by the toggle. Takes `totalTaxAccrualUsd`; the P&L
-  **headline** shows `netPnl = totalPnlUsd − totalTaxAccrualUsd` with a muted
-  `gross … · −… tax` line when taxed. The unrealized/realized split stays gross.
+  construction unaffected by the toggle. The P&L **headline** is the gross
+  `totalPnlUsd`; no after-tax figures here.
 - `src/components/portfolio/PortfolioFilters.tsx` — search `Input`, the
   **Total | Daily** `ToggleGroup`, the group-by `ToggleGroup` (Tag/Platform/
   Category — `GroupBy = "platform" | "category" | "tag"`, no `currency` axis), and
@@ -108,14 +106,14 @@
   txs filtered to `platform_id` — same `computeDailyReturn` call.
 - Group rollups (`AssetGroup`) sum `dailyReturnUsd` + `dailyDenomUsd` over the
   group's assets in the **same loop** that sums `totalPnlUsd`, then
-  `dailyReturnPct(Σreturn, Σdenom)` → `dailyReturnPct: number | null`. The same loop
-  sums `taxAccrualUsd` → `totalTaxAccrualUsd` (group-level after-tax).
+  `dailyReturnPct(Σreturn, Σdenom)` → `dailyReturnPct: number | null`. No tax
+  rollup — group and portfolio aggregates stay gross.
 - After-tax wiring (view-model only, no new money math — reuses the engine's
   `taxAccrualUsd`): `enrichAsset` copies `pnl?.taxAccrualUsd` to
   `EnrichedAsset.taxAccrualUsd`; `scopeAssetToPlatform` uses the matched
   `hp.taxAccrualUsd` (per-(asset, platform), **not** the spread asset-level value) so
-  platform grouping doesn't double-count. The hook exposes the engine's
-  `totalTaxAccrualUsd` (BigNumber → number).
+  platform grouping doesn't double-count. Consumed only by `PortfolioRow` — the
+  engine's portfolio-level `totalTaxAccrualUsd` is currently unrendered.
 - Totals: `totalPnlUsd`/`totalPnlPct` via `summarizePnLTotals` (shared with the
   dashboard — money-weighted value − net invested).
 
