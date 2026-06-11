@@ -107,15 +107,12 @@ selectable time range:
   total P&L (the same money-weighted total the Portfolio page reports) and a
   benchmark's cumulative percent return over the range.
 
-**After-tax (net) lifetime total.** The subtitle's lifetime total P&L is shown
-**after tax** (`net = gross − tax`, where tax is the summed
-[at-source](GLOSSARY.md#at-source-tax) accrual across taxed holdings), mirroring
-the [Portfolio summary bar](08-portfolio-page.md). Its colour and sign follow the
-net amount. When any tax was deducted, a muted line beneath shows the **gross**
-figure and the tax taken, so nothing is hidden; with no tax it renders exactly as
-before (net == gross, no extra line). The lifetime **percent stays gross** (over
-[peak net invested](GLOSSARY.md#peak-net-invested-capital)) — tax adjusts the
-amount, not the return ratio. The period delta and the chart stay gross.
+**Lifetime total stays gross.** The subtitle's lifetime total P&L, its percent
+(over [peak net invested](GLOSSARY.md#peak-net-invested-capital)), the period
+delta, and the chart carry no [at-source](GLOSSARY.md#at-source-tax) adjustment —
+they are the plain money-weighted figures. The [after-tax](GLOSSARY.md#after-tax-pl)
+(net) view is deliberately confined to taxed asset rows on the
+[Portfolio page](08-portfolio-page.md); nothing tax-related renders here.
 
 **Period P&L = the chart's delta (money-weighted).** The hero's period change is
 the [money-weighted](GLOSSARY.md#money-weighted) value change over the chosen
@@ -249,10 +246,10 @@ display state.
 - [ ] The hero's period P&L is the **money-weighted** value change over the chosen
       range and **equals the chart line's end-to-end delta**; mid-period deposits
       do not count as gains.
-- [ ] In P&L mode, the lifetime **Total** subtitle shows the **after-tax (net)**
-      P&L as the headline figure with **gross** and the deducted tax annotated
-      beside it when taxed; untaxed portfolios render exactly as before. The
-      lifetime percent stays gross; the period delta + chart stay gross.
+- [ ] In P&L mode, the lifetime **Total** subtitle shows the **gross**
+      money-weighted P&L with no tax annotation; the lifetime percent, period
+      delta, and chart are gross as well. After-tax detail appears only on the
+      Portfolio page's taxed rows.
 - [ ] Toggling privacy **hides amounts but keeps percentages visible** (allocation
       %, period %, total %, benchmark %).
 - [ ] With < 2 points in the chosen range the hero shows a "not enough data"

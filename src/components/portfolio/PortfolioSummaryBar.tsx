@@ -14,8 +14,6 @@ interface PortfolioSummaryBarProps {
   totalPnlUsd: number
   /** null = nothing ever deployed (peak ≤ 0) → render "—". */
   totalPnlPct: number | null
-  /** Summed at-source tax accrual across all assets, in USD. */
-  totalTaxAccrualUsd: number
   totalUnrealizedPnlUsd: number
   totalRealizedPnlUsd: number
   totalIncomeUsd: number
@@ -27,7 +25,6 @@ export function PortfolioSummaryBar({
   totalValueTry,
   totalPnlUsd,
   totalPnlPct,
-  totalTaxAccrualUsd,
   totalUnrealizedPnlUsd,
   totalRealizedPnlUsd,
   totalIncomeUsd,
@@ -37,11 +34,9 @@ export function PortfolioSummaryBar({
   const o = (v: string) => obfuscate(v, obfuscated)
 
   const displayValue = currency === "USD" ? totalValueUsd : totalValueTry
-  // Only the headline P&L goes net (after-tax); the unrealized/realized split
-  // below stays gross. After-tax = gross − at-source tax accrual.
-  const taxed = totalTaxAccrualUsd > 0
-  const netPnl = totalPnlUsd - totalTaxAccrualUsd
-  const pnlIsPositive = netPnl >= 0
+  // Headline P&L stays gross — the after-tax (net) view lives only on taxed
+  // asset rows in the holdings table.
+  const pnlIsPositive = totalPnlUsd >= 0
   const hasRealized = Math.abs(totalRealizedPnlUsd) > 0.005
   const hasIncome = Math.abs(totalIncomeUsd) > 0.005
 
@@ -70,19 +65,12 @@ export function PortfolioSummaryBar({
                   pnlIsPositive
                 )}`}
               >
-                {o(formatSignedCurrency(netPnl, "USD"))}
+                {o(formatSignedCurrency(totalPnlUsd, "USD"))}
               </span>
               <span className={`text-sm ${gainLossClass(pnlIsPositive)}`}>
                 ({totalPnlPct == null ? "—" : formatSignedPercent(totalPnlPct)})
               </span>
             </div>
-            {taxed && (
-              <span className="text-xs text-muted-foreground tabular-nums">
-                gross {o(formatSignedCurrency(totalPnlUsd, "USD"))}
-                {" · "}
-                −{o(formatCurrency(totalTaxAccrualUsd, "USD"))} tax
-              </span>
-            )}
             {hasRealized && (
               <span className="text-xs text-muted-foreground tabular-nums">
                 Unrealized {o(formatSignedCurrency(totalUnrealizedPnlUsd, "USD"))}
