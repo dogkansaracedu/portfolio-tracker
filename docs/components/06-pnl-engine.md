@@ -2,6 +2,11 @@
 
 > Layer: behavioral (tech-agnostic). Implementation → [technical/06-pnl-engine.md](technical/06-pnl-engine.md)
 
+> ⏳ The tax-payment behaviors below (rule 8, the external-taxes term, the
+> narrowed accrual in rule 7) are **spec'd but not yet implemented**
+> ([tax-payments design](../superpowers/specs/2026-06-12-tax-payments-design.md));
+> remove this marker when they ship.
+
 ## Purpose
 
 A pure computation layer that turns a holding's transaction history, current
@@ -59,6 +64,8 @@ holding's transactions oldest-first:
 - **cash legs** (`cash_credit` / `cash_debit`) → **ignored by FIFO**. Cash is a
   medium of exchange, not a tradeable lot; including it would mint meaningless
   lots on USD/TRY/EUR. (It still matters for *net invested* — see rule 3.)
+- **tax** → **ignored by FIFO** (it sits on cash holdings or outside the book;
+  there is no in-kind tax). Its P&L effect is rule 8, not a lot event.
 
 **Worked example.** Buy 2 @ $100, later buy 3 @ $110, then sell 4:
 
@@ -91,7 +98,7 @@ See [Total P&L](GLOSSARY.md#total-pl) and [net invested capital](GLOSSARY.md#net
 The headline is **not** a FIFO sum — it is:
 
 ```
-Total P&L (USD) = current value − net invested capital
+Total P&L (USD) = current value − net invested capital − external taxes paid
 ```
 
 [Net invested capital](GLOSSARY.md#net-invested-capital) is the cumulative USD
@@ -99,7 +106,9 @@ actually deployed: buys + fees add; sells + dividends/interest subtract;
 transfers cancel (out + in net to zero, a lone transfer_in adds its cost basis);
 **cash legs net out the trade they pair with** — a sell's proceeds leave
 "invested" via the sell, and its paired `cash_credit` adds them back, so a sale
-that lands cash on-platform nets to **zero** invested change. Total-return % is
+that lands cash on-platform nets to **zero** invested change. **`tax` has no
+effect on net invested** (or its peak) — a tax is a cost, not a withdrawal; see
+rule 8 for how each funding kind reaches the total. Total-return % is
 over [peak net invested capital](GLOSSARY.md#peak-net-invested-capital) (the running
 max), **not** the current balance — so withdrawing your own money never changes the %,
 and it can't explode as the current balance shrinks toward zero.
@@ -161,16 +170,47 @@ denominators, then take the percentage once.
 worth $220 now → daily = 220 − 0 − 210 = **+$10**, over a base of
 0 + 210 = 210 → **+4.76%**.
 
-### 7. After-tax (at-source) overlay
+### 7. After-tax (at-source) overlay — estimates, unrealized-only
 
 See [After-tax P&L](GLOSSARY.md#after-tax-pl) and [at-source tax](GLOSSARY.md#at-source-tax).
 Some holdings carry a fixed tax taken **at source** on their gains (a Turkish PPF:
 17.5%). For these, the engine reports a **tax accrual** = rate × the *positive
-native gain* (held + any realized), so the displayed gain is net (₺1,000 gain →
-₺825). It is an **additive overlay**: gross unrealized/realized are untouched and
-the money-weighted invariant still holds; after-tax Total P&L = gross Total P&L −
-total tax accrual. The rate is per-asset config (it changes yearly); assets without
-a rate are unaffected.
+**unrealized** native gain*, so the displayed gain is net (₺1,000 open gain →
+₺825). Realized gains are **excluded from the accrual**: their tax is whatever
+[tax payment](GLOSSARY.md#tax-payment) was actually recorded at redemption
+(rule 8) — *estimates on open positions, actuals on closed ones*, so the same
+gain is never taxed twice. It is an **additive overlay**: gross
+unrealized/realized are untouched and the money-weighted invariant still holds;
+after-tax Total P&L = gross Total P&L − total tax accrual. The rate is per-asset
+config (it changes yearly); assets without a rate are unaffected.
+
+### 8. Taxes paid (actuals)
+
+See [Tax payment](GLOSSARY.md#tax-payment). Recorded actual taxes reduce the
+canonical total — each exactly once, via its funding kind:
+
+- **Tracked** (debited a cash holding): the value drop *is* the cost — the
+  formula in rule 3 picks it up through `current value`, with no explicit term.
+  Because `tax` never touches net invested, it reads as a cost, not a
+  withdrawal. At holding scope it reduces the fiat holding's deployed basis like
+  an outflow, so the cost does **not** surface as [fiat FX P&L](GLOSSARY.md#fiat-fx-pl).
+- **External** (no balance touched): subtracted explicitly as
+  `external taxes paid`, converted to USD at the **transaction-date** rate.
+
+The decomposition gains a **taxes-paid** line (per asset via its attribution,
+plus a portfolio total, external subtotal distinguishable) and the invariant
+becomes:
+
+```
+value − net invested − external taxes = unrealized + realized + income − taxes paid (all)
+```
+
+**Recognition is cash-basis** — the payment date. A declaration paid in March
+2026 reduces the total from March 2026 on; the prior year's figures don't
+restate. **Daily return asymmetry (deliberate):** a tracked tax shows as a real
+cost on its payment day (the value moved, same as fees); an external tax never
+moves daily return (no tracked value changed) — it appears only in cumulative
+figures (rule 3, and the P&L-over-time series in Component 10).
 
 ## Contract (I/O)
 
@@ -189,9 +229,11 @@ a rate are unaffected.
   total realized (full history), income, **net invested capital**, **peak net
   invested**, and the canonical **Total P&L** (USD, TRY, %). The % is over peak and is
   **null → render "—"** when peak ≤ 0 (nothing ever deployed). Plus `totalTaxAccrualUsd`
-  — the portfolio sum of the per-asset [after-tax](GLOSSARY.md#after-tax-pl) overlay.
+  — the portfolio sum of the per-asset [after-tax](GLOSSARY.md#after-tax-pl) overlay —
+  and the **taxes-paid totals** (all taxes paid in USD, with the external subtotal
+  distinguishable).
 - **Per asset (cont.):** `taxAccrualUsd` — the at-source tax accrual for that
-  holding (0 when it carries no rate).
+  holding (0 when it carries no rate) — and its attributed cumulative taxes paid.
 - **Per realizing transaction:** a realized-P&L entry (proceeds, cost basis,
   realized USD, native gain when single-currency) keyed by transaction id.
 - **Daily return** per asset / holding, with the denominator for group rollups.
@@ -216,5 +258,13 @@ a rate are unaffected.
       renders "—" when peak ≤ 0 (nothing ever deployed).
 - [ ] An at-source-taxed asset (e.g. PPF, 17.5%) reports its gain net of tax via an
       additive accrual; gross figures and the money-weighted invariant are unchanged.
+- [ ] The accrual covers the **unrealized** gain only; a redemption with its recorded
+      withholding never double-counts (estimate on the open remainder, actual on the
+      sold portion).
+- [ ] A tracked tax payment reduces Total P&L through the cash it debited; an
+      external one through the explicit term — each exactly once; net invested and
+      peak are identical with and without tax txns.
+- [ ] Recognition is cash-basis: a tax txn affects figures from its payment date
+      on; prior periods don't restate.
 
 See [P&L Methodology](../pnl-methodology.md) for why money-weighted is canonical.

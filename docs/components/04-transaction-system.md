@@ -2,6 +2,10 @@
 
 > Layer: behavioral (tech-agnostic). Implementation → [technical/04-transaction-system.md](technical/04-transaction-system.md)
 
+> ⏳ The `tax` type described below is **spec'd but not yet implemented**
+> ([tax-payments design](../superpowers/specs/2026-06-12-tax-payments-design.md));
+> remove this marker when it ships.
+
 ## Purpose
 
 The core data-entry workflow. Lets the user record every event that changes what
@@ -41,7 +45,7 @@ correct. Sell rows surface their realized profit/loss inline.
 
 ### Transaction types and balance effect
 
-A transaction is one of seven user-recordable types, plus two cash legs the system
+A transaction is one of eight user-recordable types, plus two cash legs the system
 creates on its own. Each type either **adds** to or **subtracts** from the
 [Holding](GLOSSARY.md#holding) it sits on:
 
@@ -54,6 +58,7 @@ creates on its own. Each type either **adds** to or **subtracts** from the
 | `dividend` | yes | add |
 | `interest` | yes | add |
 | `fee` | yes | subtract |
+| `tax` | yes | subtract (tracked funding) / **none** (external) |
 | `cash_credit` | auto (paired to a sell) | add (to the fiat holding) |
 | `cash_debit` | auto (paired to a funded buy) | subtract (from the fiat holding) |
 
@@ -89,6 +94,7 @@ pairing is recorded with `linked_tx_id` and the cash leg sits on the fiat
 | `transfer_in` / `transfer_out` | no | — | — | — |
 | `dividend` / `interest` | no | — | — | — |
 | `fee` (standalone) | no | — | — | — |
+| `tax` | no | — | — | — |
 
 Only `buy` and `sell` ever carry a cash leg. A fee in a different currency than the
 price currency stays informational (the cash leg carries `total_cost` unmodified). A
@@ -96,6 +102,30 @@ funded buy must not overdraw the funding platform's cash — insufficient cash i
 rejected with an inline error (compared with strict `<`, so exactly-enough is
 allowed). The cash legs net against deposits, so a sell and its `cash_credit` cancel
 in [net invested capital](GLOSSARY.md#net-invested-capital).
+
+### Tax payments record actual taxes, never computed ones
+
+A [`tax` transaction](GLOSSARY.md#tax-payment) records a tax **actually paid** —
+the amount always typed in by the user from a broker statement or tax receipt.
+Two funding kinds:
+
+- **Tracked** — the tax left money the app tracks. The txn sits on the cash/fiat
+  holding the money left and subtracts from its balance. The at-source
+  withholding flow: record the fund `sell` at **gross** (realized P&L stays
+  correct; the auto `cash_credit` credits gross proceeds), then the `tax` txn
+  debits that platform's cash by the withheld amount. `related_asset_id` points
+  at the taxed asset so the cost is attributable to it.
+- **External** — paid from money the app doesn't track (e.g. the annual
+  declaration paid from a personal bank account). No holding balance changes; the
+  row carries only date, amount, currency, and a note. `related_asset_id` stays
+  empty — a declaration covering many assets is a portfolio-level cost, never
+  force-allocated.
+
+A `tax` txn never consumes FIFO lots (it lives on cash holdings or outside the
+book — there is no in-kind tax case) and never carries a cash leg. It is a
+**cost, not a withdrawal**: [net invested capital](GLOSSARY.md#net-invested-capital)
+ignores it entirely. Recognition is **cash basis** — the payment date, not the
+year whose gains the tax covers.
 
 ### Transfers move cost basis, book no P&L
 
@@ -148,7 +178,8 @@ cost basis.
 `unit_price` + `price_currency` (asset-native; for price-bearing types), optional
 `fee` + `fee_currency`, optional notes. A `buy` may also carry a **funding source**
 (external, or a platform to debit). A `transfer_out` also takes a **destination
-platform**.
+platform**. A `tax` carries a **funding kind** (a tracked cash holding to debit, or
+external) and an optional **related asset** (the taxed asset, when there is one).
 
 **Output / effects:**
 
@@ -186,8 +217,11 @@ A type-driven form: choosing the type reveals only the relevant fields.
   confirmation line shows `Sale proceeds: <amount> → credited to {platform} {currency}`.
 - `transfer_out`: a **destination platform**; the cost-basis line is shown read-only
   (auto-computed).
+- `tax`: a **funding kind** selector — a tracked cash holding (pick which) or
+  "External (no balance change)" — plus amount + currency (defaults TRY), an
+  optional related asset, date, and notes.
 - Sell / transfer-out / fee are blocked when the amount exceeds the current balance on
-  that platform.
+  that platform; a tracked `tax` is blocked the same way.
 - "Save & add another" records the entry and keeps the form open with type / asset /
   platform / date / currency / funding / notes intact, clearing only amount and price.
 
@@ -225,6 +259,9 @@ and funded buys) or rolls back entirely, after which holding balances are recomp
       sells; % omitted when cost basis is zero).
 - [ ] A trade's price currency is **defaulted from the asset and editable**, never a
       free picker decoupled from the asset.
+- [ ] A tracked `tax` debits its cash holding (and is rejected when it would
+      overdraw it); an external `tax` changes no balance. Neither creates a cash
+      leg, consumes lots, or moves net invested.
 - [ ] Importing a broker PDF yields editable, validated grid rows; cancelled/non-trade
       rows are skipped.
 - [ ] Pasting or uploading rows populates the grid with locale-tolerant parsing.
