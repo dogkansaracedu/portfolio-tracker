@@ -42,11 +42,11 @@ When backfilling, the user picks one of two densities:
 - **Recent-daily + older-weekly (default)** — one snapshot for **each of the last ~30 days**, then **one every 7 days** walking back to the earliest transaction. Recent ranges keep daily detail; long ranges (1Y / ALL) stay lightweight. The earliest transaction date and today are always included as anchors.
 - **Each transaction day** — one snapshot only for days a transaction occurred. More precise on activity, sparser through quiet periods.
 
-Overwrite option: when on, the **entire date range** from the earliest transaction through today is wiped and rebuilt (not just the targeted dates) so stale rows from a prior, differently-spaced backfill can't survive. When off, dates are upserted in place.
+Overwrite option: when on, the **entire date range** from the earliest transaction through today is wiped and rebuilt (not just the targeted dates) so stale rows from a prior, differently-spaced backfill can't survive. When off, dates are upserted in place. Exception either way: a date the rebuild **cannot price is never deleted** — any existing snapshot on that date survives, and the run reports the skipped dates. An overwrite must never destroy a record it cannot replace.
 
 ### Correctness guards (all writers)
 
-- **Unpriceable holding → skip the date.** If any held asset has no usable price (missing, non-positive, or [stale](GLOSSARY.md#staleness)) for the target date, the writer skips that date with a logged reason rather than freezing a total that silently omits the holding. A manual write surfaces the skip to the user; automatic/backfill writers log and move on.
+- **Unpriceable holding → skip the date.** If any held asset has no usable price (missing, non-positive, or [stale](GLOSSARY.md#staleness)) for the target date, the writer skips that date with a logged reason rather than freezing a total that silently omits the holding. A manual write surfaces the skip to the user; the automatic writer logs and moves on; the backfill logs **and** reports every skipped date (with the holdings it couldn't price) in its run summary — a skip is never silent.
 - **Empty portfolio → write a $0 snapshot.** When every position is closed, the date is written with total = 0 so charts draw a flat $0 line through the closed period instead of interpolating a fictional value.
 
 ### Computed performance values
@@ -77,7 +77,7 @@ All performance math is [money-weighted](GLOSSARY.md#money-weighted) and [USD-an
 
 **Backfill**
 - In: density choice (recent-daily+older-weekly | each-transaction-day), overwrite flag.
-- Out: target dates produced, snapshots written, tickers priced, per-source warnings. Density: daily ≤ ~30 days, weekly older.
+- Out: target dates produced, snapshots written, tickers priced, skipped dates (with the unpriceable holdings), per-source warnings. Density: daily ≤ ~30 days, weekly older.
 
 **Performance read**
 - In: the snapshot history, transactions, exchange rates, current net invested / P&L / value (from the P&L engine), selected range.
@@ -107,4 +107,4 @@ All performance math is [money-weighted](GLOSSARY.md#money-weighted) and [USD-an
 - Monthly returns are time-weighted so a mid-period deposit doesn't read as a gain.
 - Category attribution shows per-category P&L and contribution %, sorted by magnitude, and reconciles to lifetime totals.
 - A benchmark index can be overlaid on the value path without affecting portfolio totals.
-- Overwrite backfill rebuilds the whole earliest-transaction→today range; non-overwrite upserts in place.
+- Overwrite backfill rebuilds the whole earliest-transaction→today range — except dates it cannot price, which are skipped, reported, and never deleted; non-overwrite upserts in place.

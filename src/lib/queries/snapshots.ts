@@ -254,6 +254,9 @@ export interface BackfillResult {
   snapshots_written: number
   tickers_priced: string[]
   sample: Array<{ date: string; total_usd: number; total_try: number }>
+  /** Dates the run could not price (also summarized as an `errors` line).
+   *  Skipped dates are never deleted by an overwrite run. */
+  skipped?: Array<{ user_id: string; dates: string[]; unpriced: string[] }>
   errors?: string[]
   timestamp: string
 }
@@ -262,11 +265,13 @@ export interface BackfillResult {
  * Trigger the `backfill-snapshots` Edge Function. Generates one snapshot
  * per target date (every month-start since the earliest transaction, or
  * one per transaction date) by replaying transactions and pulling
- * historical prices from Yahoo Finance.
+ * historical prices from Yahoo Finance (stocks/crypto/gold) and TEFAS
+ * (Turkish fund NAVs).
  *
  * Long-running: typically 30–90 seconds depending on the number of
  * unique tickers. Optionally overwrites existing snapshots in the
- * targeted (user, date) range.
+ * targeted (user, date) range — except dates the run couldn't price,
+ * which are reported in `skipped`/`errors` and left untouched.
  */
 export async function triggerBackfillSnapshots(
   opts: BackfillOptions,

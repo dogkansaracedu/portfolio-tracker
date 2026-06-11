@@ -2,6 +2,7 @@ import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { splitPrice } from "../_shared/currency.ts"
 import { TROY_OZ_GRAMS } from "../_shared/constants.ts"
+import { fetchTefasHistory } from "../_shared/tefas.ts"
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -322,18 +323,26 @@ async function handle(
     Math.floor(new Date(`${today}T00:00:00Z`).getTime() / 1000) + 86400
 
   // Discover which price_ids we actually need (only assets that ever had a tx).
-  // Keyed by the fetch key (price_id ?? ticker) so priceMaps lines up.
+  // Keyed by the fetch key (price_id ?? ticker) so priceMaps lines up. Also
+  // record each key's earliest tx date (txs are date-ascending) so per-asset
+  // fetchers (TEFAS) can request only the window the asset was actually held.
   const heldPriceIds = new Set<string>()
+  const earliestTxByPriceId = new Map<string, string>()
   for (const t of txs) {
     const a = assetsById.get(t.asset_id)
-    if (a) heldPriceIds.add(a.price_id ?? a.ticker)
+    if (!a) continue
+    const pid = a.price_id ?? a.ticker
+    heldPriceIds.add(pid)
+    if (!earliestTxByPriceId.has(pid)) {
+      earliestTxByPriceId.set(pid, t.date.slice(0, 10))
+    }
   }
 
   // priceMaps is keyed by price_id (price_id ?? ticker) everywhere.
   const priceMaps = new Map<string, Map<string, number>>()
-  // Source currency per Yahoo symbol (from meta.currency), used to convert
-  // its native closes to USD. Symbols not listed here are treated as USD
-  // (XAU_GRAM is derived from USD/oz).
+  // Source currency per symbol (Yahoo `meta.currency`; TEFAS is always TRY),
+  // used to convert its native closes to USD. Symbols not listed here are
+  // treated as USD (XAU_GRAM is derived from USD/oz).
   const currencyByPriceId = new Map<string, string>()
 
   // Stocks, crypto, and tokenized gold via Yahoo (sequential w/ small delay)
@@ -352,6 +361,29 @@ async function handle(
         `Yahoo ${priceId}: ${e instanceof Error ? e.message : String(e)}`,
       )
     }
+  }
+
+  // Turkish funds via TEFAS — daily NAVs, always TRY, same endpoint the live
+  // fetcher uses. The API serves at most 60 months back from today; a fund
+  // held longer than that stays unpriced on the oldest dates (which are then
+  // skipped + reported below, never silently dropped).
+  const tefasPriceIds = [...heldPriceIds].filter((pid) => {
+    const a = assetsByPriceId.get(pid)
+    return a?.price_source === "tefas"
+  })
+  for (const priceId of tefasPriceIds) {
+    const from = earliestTxByPriceId.get(priceId) ?? earliestTxDate
+    const { status, closes } = await fetchTefasHistory(priceId, from)
+    if (closes.size === 0) {
+      errors.push(
+        `TEFAS ${priceId}: ${status === null ? "request failed" : `HTTP ${status}, no NAVs`}`,
+      )
+    } else {
+      priceMaps.set(priceId, closes)
+      currencyByPriceId.set(priceId, "TRY")
+    }
+    // Be gentle on TEFAS: 1s between fetches, same as the live fetcher.
+    await new Promise((r) => setTimeout(r, 1000))
   }
 
   // Physical gold (XAU_GRAM) via Yahoo gold futures (GC=F is USD/oz)
@@ -402,6 +434,10 @@ async function handle(
     total_try: number
     breakdown: unknown
   }> = []
+  // Dates this run could NOT price, per user (date → unpriced tickers).
+  // These are excluded from the overwrite wipe and reported in the result —
+  // a skip must never silently delete or hide a date.
+  const skippedByUser = new Map<string, Map<string, string[]>>()
 
   for (const [userId, userTxs] of txsByUser) {
     for (const date of targetDates) {
@@ -523,16 +559,31 @@ async function handle(
         byTag[k].pct = safePct(byTag[k].usd)
 
       // Skip only when at least one held asset couldn't be priced
-      // (partial data — typically a holding bought before its Yahoo history
+      // (partial data — typically a holding bought before its price-history
       // window). An empty portfolio is a real, honest state: the user
       // closed all positions. Write a 0-valued snapshot so charts render
       // a flat $0 line through that period instead of an interpolated
       // gap. Percent-change consumers handle 0-anchor by falling back to
       // invested-capital as denominator.
-      const hasUnpriced = byAsset.some(
-        (a) => a.amount > 0 && a.price_usd <= 0,
-      )
-      if (hasUnpriced) continue
+      const unpricedTickers = [
+        ...new Set(
+          byAsset
+            .filter((a) => a.amount > 0 && a.price_usd <= 0)
+            .map((a) => a.ticker),
+        ),
+      ]
+      if (unpricedTickers.length > 0) {
+        console.log(
+          `[backfill] skip ${userId} ${date}: unpriced ${unpricedTickers.join(", ")}`,
+        )
+        let perDate = skippedByUser.get(userId)
+        if (!perDate) {
+          perDate = new Map()
+          skippedByUser.set(userId, perDate)
+        }
+        perDate.set(date, unpricedTickers)
+        continue
+      }
 
       inserts.push({
         user_id: userId,
@@ -554,6 +605,23 @@ async function handle(
     }
   }
 
+  // ── Surface skipped dates in the result ──────────────────────────
+  // One warning line per affected user (the Settings card renders
+  // `errors`), plus the structured `skipped` field in the response.
+  const skipped: Array<{
+    user_id: string
+    dates: string[]
+    unpriced: string[]
+  }> = []
+  for (const [userId, perDate] of skippedByUser) {
+    const dates = [...perDate.keys()].sort()
+    const tickers = [...new Set([...perDate.values()].flat())].sort()
+    skipped.push({ user_id: userId, dates, unpriced: tickers })
+    errors.push(
+      `skipped ${dates.length} date(s) with unpriced holdings (${tickers.join(", ")}): ${dates[0]} → ${dates[dates.length - 1]}`,
+    )
+  }
+
   // ── Optionally wipe existing snapshots in the affected range ─────
   // Range-based wipe (not date-list wipe). Earlier behavior deleted
   // only the exact dates this run is about to write — but stale rows
@@ -561,16 +629,28 @@ async function handle(
   // snapshot the new run doesn't target this time) survived. The user
   // expectation for "overwrite existing snapshots" is "wipe the slate
   // for the affected user-history window, then rewrite", so we delete
-  // every snapshot in [earliestTxDate, today] for the affected users.
+  // every snapshot in [earliestTxDate, today] for the affected users —
+  // EXCEPT dates this run failed to price. Deleting a date we can't
+  // rewrite is permanent data loss, not an overwrite (that's exactly
+  // how 2026-06-01 → 06-10 were lost on 2026-06-10, when a TEFAS
+  // holding was unpriceable here): an existing row on a skipped date
+  // survives instead.
   if (overwrite && inserts.length > 0) {
     const userIds = [...new Set(inserts.map((i) => i.user_id))]
-    const { error: delErr } = await supabase
-      .from("snapshots")
-      .delete()
-      .in("user_id", userIds)
-      .gte("snapshot_date", earliestTxDate)
-      .lte("snapshot_date", today)
-    if (delErr) errors.push(`delete existing: ${delErr.message}`)
+    for (const userId of userIds) {
+      const skippedDates = [...(skippedByUser.get(userId)?.keys() ?? [])]
+      let del = supabase
+        .from("snapshots")
+        .delete()
+        .eq("user_id", userId)
+        .gte("snapshot_date", earliestTxDate)
+        .lte("snapshot_date", today)
+      if (skippedDates.length > 0) {
+        del = del.not("snapshot_date", "in", `(${skippedDates.join(",")})`)
+      }
+      const { error: delErr } = await del
+      if (delErr) errors.push(`delete existing: ${delErr.message}`)
+    }
   }
 
   // ── Upsert all snapshots ───────────────────────────────────────
@@ -595,6 +675,7 @@ async function handle(
         total_usd: i.total_usd,
         total_try: i.total_try,
       })),
+      skipped: skipped.length > 0 ? skipped : undefined,
       errors: errors.length > 0 ? errors : undefined,
       timestamp: new Date().toISOString(),
     }),
