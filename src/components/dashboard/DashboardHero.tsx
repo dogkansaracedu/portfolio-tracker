@@ -46,15 +46,10 @@ interface DashboardHeroProps {
   currentValueUsd: number
   currentValueTry: number
   /** Live total P&L (usePnLSummary) — same number the Portfolio page shows;
-   *  feeds the "Total" subtitle and anchors the chart's "now" point. */
+   *  feeds the "Total" subtitle and anchors the chart's "now" point. Gross:
+   *  the after-tax view lives only on the Portfolio page's taxed rows. */
   totalPnlUsd: number
   totalPnlTry: number
-  /** After-tax cumulative P&L (gross − at-source tax accrual); the headline
-   *  "Total" figure. Gross stays on a muted line + the % stays gross. */
-  totalPnlAfterTaxUsd: number
-  totalPnlAfterTaxTry: number
-  /** Summed at-source tax accrual across all assets, in USD. */
-  totalTaxAccrualUsd: number
   /** null = nothing ever deployed (peak ≤ 0) → render "—". */
   totalPnlPct: number | null
   usdTry: number
@@ -156,9 +151,6 @@ export default function DashboardHero({
   currentValueTry,
   totalPnlUsd,
   totalPnlTry,
-  totalPnlAfterTaxUsd,
-  totalPnlAfterTaxTry,
-  totalTaxAccrualUsd,
   totalPnlPct,
   usdTry,
 }: DashboardHeroProps) {
@@ -212,12 +204,6 @@ export default function DashboardHero({
   const totalPnlUsdNow = totalPnlUsd
   const totalPnlTryNow = totalPnlTry
   const totalPnlPctNow = totalPnlPct
-  // Headline "Total" P&L is after-tax (gross − at-source tax accrual), mirroring
-  // the Portfolio summary bar. The % stays gross. Invested = value − gross P&L
-  // (tax accrual doesn't change deployed capital).
-  const totalPnlAfterTaxUsdNow = totalPnlAfterTaxUsd
-  const totalPnlAfterTaxTryNow = totalPnlAfterTaxTry
-  const taxed = totalTaxAccrualUsd > 0
   const investedNowUsd = currentValueUsd - totalPnlUsdNow
   const investedNowTry = currentValueTry - totalPnlTryNow
 
@@ -235,11 +221,10 @@ export default function DashboardHero({
   const periodColor =
     delta.usd === 0 ? "text-muted-foreground" : gainLossClass(delta.usd > 0)
 
-  // Color + sign of the headline "Total" follow the after-tax value.
   const totalPnlColor =
-    totalPnlAfterTaxUsdNow === 0
+    totalPnlUsdNow === 0
       ? "text-muted-foreground"
-      : gainLossClass(totalPnlAfterTaxUsdNow > 0)
+      : gainLossClass(totalPnlUsdNow > 0)
 
   // For the P&L chart we want the area to start at 0 (range start = baseline)
   // and climb/fall to the period delta. Subtract rangeStart from each point.
@@ -459,42 +444,14 @@ export default function DashboardHero({
                 <span className={cn("font-medium", totalPnlColor)}>
                   {obfuscate(
                     formatSignedCurrency(
-                      currency === "USD"
-                        ? totalPnlAfterTaxUsdNow
-                        : totalPnlAfterTaxTryNow,
-                      currency,
-                    ),
-                    obfuscated,
-                  )}
-                </span>{" "}
-                {/* % stays gross (over peak net invested) — tax adjusts the
-                    amount, not the return ratio. */}
-                ({totalPnlPctNow == null ? "—" : formatSignedPercent(totalPnlPctNow, 2)})
-              </span>
-              {taxed && (
-                <span className="text-muted-foreground">
-                  gross{" "}
-                  {obfuscate(
-                    formatSignedCurrency(
                       currency === "USD" ? totalPnlUsdNow : totalPnlTryNow,
                       currency,
                     ),
                     obfuscated,
                   )}
-                  {" · "}
-                  −
-                  {obfuscate(
-                    formatCurrency(
-                      currency === "USD"
-                        ? totalTaxAccrualUsd
-                        : totalTaxAccrualUsd * usdTry,
-                      currency,
-                    ),
-                    obfuscated,
-                  )}{" "}
-                  tax
-                </span>
-              )}
+                </span>{" "}
+                ({totalPnlPctNow == null ? "—" : formatSignedPercent(totalPnlPctNow, 2)})
+              </span>
               <span className="text-muted-foreground">·</span>
               <DropdownMenu>
                 <DropdownMenuTrigger

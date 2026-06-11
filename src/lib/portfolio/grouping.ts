@@ -450,7 +450,6 @@ function rollupGroup(opts: {
   let totalValueUsdBn = BN_ZERO
   let totalValueTryBn = BN_ZERO
   let totalPnlUsdBn = BN_ZERO
-  let totalTaxAccrualUsdBn = BN_ZERO
   let dailyReturnUsdBn = BN_ZERO
   let dailyDenomUsdBn = BN_ZERO
   for (const a of assets) {
@@ -461,7 +460,6 @@ function rollupGroup(opts: {
       totalValueUsdBn = totalValueUsdBn.plus(bn(row.currentValueUsd))
       totalValueTryBn = totalValueTryBn.plus(bn(row.currentValueTry))
       totalPnlUsdBn = totalPnlUsdBn.plus(bn(row.unrealizedPnlUsd))
-      totalTaxAccrualUsdBn = totalTaxAccrualUsdBn.plus(bn(row.taxAccrualUsd))
       dailyReturnUsdBn = dailyReturnUsdBn.plus(bn(row.dailyReturnUsd))
       dailyDenomUsdBn = dailyDenomUsdBn.plus(bn(row.dailyDenomUsd))
     }
@@ -477,7 +475,6 @@ function rollupGroup(opts: {
     totalValueUsd: totalValueUsdBn.toNumber(),
     totalValueTry: totalValueTryBn.toNumber(),
     totalPnlUsd: totalPnlUsdBn.toNumber(),
-    totalTaxAccrualUsd: totalTaxAccrualUsdBn.toNumber(),
     dailyReturnUsd: dailyAvailable ? dailyReturnUsdBn.toNumber() : 0,
     dailyReturnPct: groupDailyPct !== null ? groupDailyPct.toNumber() : null,
   }
