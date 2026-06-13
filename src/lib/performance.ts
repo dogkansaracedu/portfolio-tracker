@@ -276,6 +276,72 @@ export function subPeriodReturn(
   }
 }
 
+export interface TWRPoint {
+  date: string
+  /** Cumulative TWR % since the window's first point (0 at that first point). */
+  cumulativePct: number
+}
+
+export interface TWRSeries {
+  points: TWRPoint[]
+  /** Cumulative TWR % at the last point. */
+  endPct: number
+  /** True if any sub-period that contained an external flow spanned > 1 day
+   *  (i.e. relied on non-daily snapshots — Modified-Dietz approximation). */
+  approximate: boolean
+}
+
+/**
+ * Portfolio time-weighted return (gold-standard, daily-valued where snapshots
+ * are daily): geometrically link the per-snapshot money-weighted returns,
+ * removing external cash flows at each boundary. Value-weighting across holdings
+ * is automatic because each period reads the snapshot TOTAL. Rebased to 0% at
+ * the window's first snapshot. See docs/return-metrics.md.
+ */
+export function computeTWRSeries(
+  snapshots: Snapshot[],
+  transactions: Transaction[],
+  rates: ExchangeRate[],
+): TWRSeries {
+  const snaps = sortSnapshotsAsc(snapshots)
+  if (snaps.length === 0) return { points: [], endPct: 0, approximate: false }
+
+  const sortedTxs = [...transactions].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  )
+  const internalParentIds = collectPairedParentIds(transactions)
+
+  let factor = bn(1)
+  let approximate = false
+  const points: TWRPoint[] = [
+    { date: snaps[0].snapshot_date, cumulativePct: 0 },
+  ]
+
+  for (let i = 1; i < snaps.length; i++) {
+    const sp = subPeriodReturn(
+      snaps[i - 1],
+      snaps[i],
+      sortedTxs,
+      rates,
+      internalParentIds,
+    )
+    if (sp.returnFraction !== null) {
+      factor = factor.times(bn(1).plus(sp.returnFraction))
+    }
+    if (sp.hadExternalFlow && sp.spanDays > 1) approximate = true
+    points.push({
+      date: snaps[i].snapshot_date,
+      cumulativePct: factor.minus(1).times(BN_HUNDRED).toNumber(),
+    })
+  }
+
+  return {
+    points,
+    endPct: factor.minus(1).times(BN_HUNDRED).toNumber(),
+    approximate,
+  }
+}
+
 /**
  * Modified Dietz monthly returns.
  *
