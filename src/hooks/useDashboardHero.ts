@@ -5,6 +5,7 @@ import {
   computePnLTimeSeries,
   computeCurrentInvestedUsd,
   computePeakInvestedUsd,
+  computeTWRSeries,
   type TimeRange,
 } from "@/lib/performance"
 import { resolveHeroPctDenom } from "@/lib/dashboard/heroPercent"
@@ -32,6 +33,9 @@ export interface HeroPoint {
   /** P&L-mode benchmark return as cumulative % from the chart's range start.
    *  Always 0 in value mode and at the range-start anchor itself. */
   benchmarkPct: number
+  /** Cumulative portfolio TWR % since the window start (0 at the start anchor).
+   *  Populated in P&L mode; 0 in value mode. */
+  twrPct: number
 }
 
 export interface DashboardHeroData {
@@ -54,6 +58,14 @@ export interface DashboardHeroData {
    *  when there's no usable starting value (e.g. ALL range whose synthetic
    *  zero-anchor lands before the first snapshot); callers must guard. */
   pnlDenom: { usd: number; try: number }
+  /** P&L mode: cumulative portfolio TWR % at "now" (window end). */
+  twrEnd: number
+  /** P&L mode: cumulative index TWR % at "now" (= last point's benchmarkPct). */
+  benchmarkEnd: number
+  /** P&L mode: twrEnd − benchmarkEnd, in percentage points. */
+  gapPts: number
+  /** P&L mode: window relied on weekly snapshots with a flow → "approximate". */
+  approximate: boolean
   loading: boolean
 }
 
@@ -164,6 +176,10 @@ export function useDashboardHero({
         rangeStart: { usd: 0, try: 0, date: null },
         delta: { usd: 0, try: 0, pct: 0 },
         pnlDenom: { usd: 0, try: 0 },
+        twrEnd: 0,
+        benchmarkEnd: 0,
+        gapPts: 0,
+        approximate: false,
         loading: pnlLoading,
       }
     }
@@ -315,6 +331,7 @@ export function useDashboardHero({
         compareUsd: compare.usd,
         compareTry: compare.try,
         benchmarkPct: 0,
+        twrPct: 0,
       }
     })
 
@@ -341,6 +358,33 @@ export function useDashboardHero({
           chartData[i].benchmarkPct =
             c != null && c > 0 ? (c / base - 1) * 100 : 0
         }
+      }
+    }
+
+    // Portfolio TWR series, same window as the chart, extended to live "now".
+    // computeTWRSeries only reads snapshot_date + total_usd, so a minimal "now"
+    // snapshot suffices (mirrors the fakeSnapshots cast used above).
+    let twrEnd = 0
+    let approximate = false
+    if (viewMode === "pnl") {
+      const windowSnaps = filterByTimeRange(snapshots, timeRange)
+      const nowSnaps = [
+        ...windowSnaps,
+        {
+          snapshot_date: today,
+          total_usd: currentValueUsd,
+        } as unknown as Snapshot,
+      ]
+      const twr = computeTWRSeries(nowSnaps, transactions, rates)
+      twrEnd = twr.endPct
+      approximate = twr.approximate
+      const twrByDate = new Map<string, number>()
+      for (const p of twr.points) twrByDate.set(p.date, p.cumulativePct)
+      let lastTwr = 0
+      for (const point of chartData) {
+        const v = twrByDate.get(point.date)
+        if (v !== undefined) lastTwr = v
+        point.twrPct = v ?? lastTwr
       }
     }
 
@@ -422,6 +466,10 @@ export function useDashboardHero({
       rangeStart: { usd: startUsd, try: startTry, date: start?.date ?? null },
       delta: { usd: deltaUsd, try: deltaTry, pct: deltaPct },
       pnlDenom,
+      twrEnd,
+      benchmarkEnd: end?.benchmarkPct ?? 0,
+      gapPts: twrEnd - (end?.benchmarkPct ?? 0),
+      approximate,
       loading: pnlLoading,
     }
   }, [
