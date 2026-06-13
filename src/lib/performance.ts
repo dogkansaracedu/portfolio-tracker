@@ -217,6 +217,65 @@ function externalCashFlowUsd(
   }
 }
 
+export interface SubPeriodReturn {
+  /** Period Modified-Dietz return as a fraction (e.g. 0.1 = +10%); null when the
+   *  capital base ≤ 0 (degenerate ~empty period). */
+  returnFraction: ReturnType<typeof bn> | null
+  /** Period gain in USD (numerator: vEnd − vStart − net external flow). */
+  returnUsd: ReturnType<typeof bn>
+  /** True if any external cash flow landed inside this period. */
+  hadExternalFlow: boolean
+  /** Calendar length of the period in days (≥ 1). */
+  spanDays: number
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+/**
+ * Money-weighted (Modified Dietz) return for one snapshot-to-snapshot period,
+ * with external cash flows removed and time-weighted within the period. Shared
+ * by `computeMonthlyReturns` (labelled monthly returns) and `computeTWRSeries`
+ * (geometric linking → TWR). Internal asset↔cash swaps are excluded via
+ * `internalParentIds` (see `externalCashFlowUsd`).
+ */
+export function subPeriodReturn(
+  prevSnap: Snapshot,
+  currSnap: Snapshot,
+  sortedTxs: Transaction[],
+  rates: ExchangeRate[],
+  internalParentIds: Set<string>,
+): SubPeriodReturn {
+  const vStart = bn(prevSnap.total_usd ?? 0)
+  const vEnd = bn(currSnap.total_usd ?? 0)
+  const periodStart = new Date(`${prevSnap.snapshot_date}T00:00:00Z`).getTime()
+  const periodEnd = new Date(`${currSnap.snapshot_date}T00:00:00Z`).getTime()
+  const spanDays = Math.max(1, (periodEnd - periodStart) / MS_PER_DAY)
+
+  let netCashFlow = BN_ZERO
+  let weightedCashFlow = BN_ZERO
+  let hadExternalFlow = false
+  for (const tx of sortedTxs) {
+    const txDate = new Date(`${tx.date.slice(0, 10)}T00:00:00Z`).getTime()
+    if (txDate <= periodStart || txDate > periodEnd) continue
+    const c = externalCashFlowUsd(tx, rates, internalParentIds)
+    if (c.isZero()) continue
+    hadExternalFlow = true
+    const t = (txDate - periodStart) / MS_PER_DAY
+    const w = (spanDays - t) / spanDays
+    netCashFlow = netCashFlow.plus(c)
+    weightedCashFlow = weightedCashFlow.plus(c.times(w))
+  }
+
+  const denom = vStart.plus(weightedCashFlow)
+  const numer = vEnd.minus(vStart).minus(netCashFlow)
+  return {
+    returnFraction: denom.isLessThanOrEqualTo(0) ? null : numer.div(denom),
+    returnUsd: numer,
+    hadExternalFlow,
+    spanDays,
+  }
+}
+
 /**
  * Modified Dietz monthly returns.
  *
@@ -241,46 +300,22 @@ export function computeMonthlyReturns(
   // not external flows (see externalCashFlowUsd).
   const internalParentIds = collectPairedParentIds(transactions)
 
-  const MS_PER_DAY = 24 * 60 * 60 * 1000
-
   for (let i = 1; i < snaps.length; i++) {
     const prevSnap = snaps[i - 1]
     const currSnap = snaps[i]
-    const vStart = bn(prevSnap.total_usd)
-    const vEnd = bn(currSnap.total_usd)
-
-    const periodStart = new Date(`${prevSnap.snapshot_date}T00:00:00Z`)
-    const periodEnd = new Date(`${currSnap.snapshot_date}T00:00:00Z`)
-    const totalDays = Math.max(
-      1,
-      (periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY,
+    const sp = subPeriodReturn(
+      prevSnap,
+      currSnap,
+      sortedTxs,
+      rates,
+      internalParentIds,
     )
-
-    let netCashFlow = BN_ZERO
-    let weightedCashFlow = BN_ZERO
-    for (const tx of sortedTxs) {
-      const txDate = new Date(`${tx.date.slice(0, 10)}T00:00:00Z`).getTime()
-      if (txDate <= periodStart.getTime() || txDate > periodEnd.getTime()) continue
-      const c = externalCashFlowUsd(tx, rates, internalParentIds)
-      if (c.isZero()) continue
-      const t = (txDate - periodStart.getTime()) / MS_PER_DAY
-      const w = (totalDays - t) / totalDays
-      netCashFlow = netCashFlow.plus(c)
-      weightedCashFlow = weightedCashFlow.plus(c.times(w))
-    }
-
-    const denom = vStart.plus(weightedCashFlow)
-    if (denom.isLessThanOrEqualTo(0)) continue
-
-    const numer = vEnd.minus(vStart).minus(netCashFlow)
-    const returnPct = numer.div(denom).times(BN_HUNDRED).toNumber()
-    const returnUsd = numer.toNumber()
-
+    if (sp.returnFraction === null) continue
     returns.push({
       month: currSnap.snapshot_date.slice(0, 7),
       label: formatMonthLabel(currSnap.snapshot_date),
-      returnPct,
-      returnUsd,
+      returnPct: sp.returnFraction.times(BN_HUNDRED).toNumber(),
+      returnUsd: sp.returnUsd.toNumber(),
     })
   }
 
