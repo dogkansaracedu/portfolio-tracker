@@ -2,7 +2,7 @@
 
 Date: 2026-06-06 · Companion to `docs/pnl-methodology.md` (definitions, return-% methodology, and known issues).
 
-Purpose: a verifiable, case-by-case description of how the P&L engine **must** behave. Each case lists concrete inputs and the exact expected outputs. Use it to (a) hand the engine off to anyone (or future-you), (b) manually verify on prod, and (c) drive the automated tests. These cases are now wired as **Vitest** tests against the real engine (`computePortfolioPnL`): `src/lib/pnl/cases.test.ts`, `peak.test.ts`, `totals.test.ts`, and `src/lib/portfolio/daily.test.ts`. Run `npm test`.
+Purpose: a verifiable, case-by-case description of how the P&L engine **must** behave. Each case lists concrete inputs and the exact expected outputs. Use it to (a) hand the engine off to anyone (or future-you), (b) manually verify on prod, and (c) drive the automated tests. These cases are now wired as **Vitest** tests against the real engine (`computePortfolioPnL`): `src/lib/pnl/cases.test.ts`, `peak.test.ts`, `totals.test.ts`, and `src/lib/portfolio/daily.test.ts`. The time-weighted-return cases at the end run against `computeTWRSeries` in `src/lib/twr.test.ts`. Run `npm test`.
 
 ---
 
@@ -202,6 +202,51 @@ total value − net invested  ==  unrealized + realized + income   (±$0.01)
 If `usePnL` ever `console.warn`s `[usePnL] P&L reconciliation mismatch`, a case is broken — capture the two printed numbers and the transactions that triggered it.
 
 ---
+
+## Time-Weighted Return (vs an index)
+
+These mirror `src/lib/twr.test.ts` (`computeTWRSeries` in `src/lib/performance.ts`).
+TWR measures **holdings performance only**: each snapshot-to-snapshot period's
+money-weighted return is taken with that period's **external cash flow removed**,
+then the periods are **geometrically chained** and rebased to 0% at the window
+start. Value-weighting across holdings is automatic — each period reads the
+snapshot **total**. See [GLOSSARY → Time-Weighted Return](components/GLOSSARY.md#time-weighted-return-twr).
+
+### TWR-1 — Chaining flow-free periods: +20% then −10% = +8%
+**Inputs:** snapshots 100 → 120 → 108, no transactions.
+**Expected:** `(1.20 × 0.90) − 1 =` **+8%** (`endPct ≈ 8`); the first point's
+`cumulativePct = 0` (rebased to the window start).
+
+### TWR-2 — Mid-window deposit on flat prices = 0%
+**Inputs:** snapshots 100 → 150 over one week; a **$50 deposit** lands inside the
+period (no price movement).
+**Expected:** the deposit is removed, so the holdings did nothing → **0%**
+(`endPct ≈ 0`). A deposit must not masquerade as a +50% return.
+
+### TWR-3 — Value-weighting within a period via the snapshot total = +18%
+**Inputs:** one period, two holdings: GOLD $5,000 → $7,500 (**+50%**) and STOCK
+$20,000 → $22,000 (**+10%**); no flows.
+**Expected:** the period return is read off the totals: `(29,500 − 25,000) ÷
+25,000 =` **+18%** — the larger STOCK position pulls the blended return toward its
++10%, not the naive (50+10)/2 = 30%. **+18%** (`endPct ≈ 18`).
+
+### TWR-4 — Withdrawal contributes no gain/loss; weights reset after it = +35.7%
+**Inputs:** four snapshots —
+1. $25,000 (GOLD 5,000 + STOCK 20,000)
+2. $29,500 (GOLD 7,500 + STOCK 22,000) — period return **+18%**
+3. $10,000 (GOLD 5,000 + STOCK 5,000) with a **$19,500 withdrawal** in the period
+   → the withdrawal is removed, so this period is **flat (~0%)**, not a −66% crash
+4. $11,500 (GOLD 6,000 + STOCK 5,500) — period return **+15%**
+**Expected:** `(1.18 × 1.00 × 1.15) − 1 =` **+35.7%** (`endPct ≈ 35.7`). The
+withdrawal neither helps nor hurts the return, and the post-withdrawal period is
+weighted off the new (smaller) base.
+
+### TWR-5 — "approximate" flag (daily vs weekly with a flow)
+**Inputs:** (a) weekly snapshots 100 → 160 with a deposit **inside** the 7-day
+period; (b) daily snapshots 100 → 160 with a deposit on the closing day.
+**Expected:** (a) `approximate === true` — a flow inside a >1-day period is a
+Modified-Dietz approximation; (b) `approximate === false` — daily periods are
+exact. (`endPct` value isn't asserted here; the flag is the point.)
 
 ## How to verify on prod (manual)
 
