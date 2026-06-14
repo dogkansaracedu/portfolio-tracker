@@ -461,10 +461,6 @@ export default function DashboardHero({
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <span className={cn("font-medium", periodColor)}>
-                {formatSignedPercent(delta.pct, 2)}
-              </span>
-              <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">
                 Total{" "}
                 <span className={cn("font-medium", totalPnlColor)}>
@@ -489,7 +485,7 @@ export default function DashboardHero({
                       {formatSignedPercent(benchmarkEnd, 2)}
                     </span>{" "}
                     <span className={cn("font-medium", gapColor)}>
-                      ({formatSignedPercent(gapPts, 1)} pts)
+                      ({formatSignedPercent(gapPts, 1).replace("%", "")} pts)
                     </span>
                   </span>
                   <ChevronDown className="size-3" />
