@@ -159,8 +159,8 @@ export default function DashboardHero({
   // refresh on tab focus return causes consumer re-renders that can reset
   // local state).
   const [viewMode, setViewMode] = usePersistedState<HeroViewMode>(
-    "dashboardHero.viewMode",
-    "value",
+    "dashboardHero.viewMode.v2",
+    "pnl",
   )
   const [timeRange, setTimeRange] = usePersistedState<TimeRange>(
     "dashboardHero.timeRange",
@@ -184,6 +184,10 @@ export default function DashboardHero({
     compareNow,
     delta,
     pnlDenom,
+    twrEnd,
+    benchmarkEnd,
+    gapPts,
+    approximate,
   } = useDashboardHero({
     snapshots,
     currentValueUsd,
@@ -225,6 +229,13 @@ export default function DashboardHero({
     totalPnlUsdNow === 0
       ? "text-muted-foreground"
       : gainLossClass(totalPnlUsdNow > 0)
+
+  // P&L headline is the TWR %: green/red by direction, muted at exactly flat.
+  const twrColor =
+    twrEnd === 0 ? "text-muted-foreground" : gainLossClass(twrEnd > 0)
+  // Gap (TWR − index) chip: green when ahead of the market, red when behind.
+  const gapColor =
+    gapPts === 0 ? "text-muted-foreground" : gainLossClass(gapPts > 0)
 
   // For the P&L chart we want the area to start at 0 (range start = baseline)
   // and climb/fall to the period delta. Subtract rangeStart from each point.
@@ -273,7 +284,18 @@ export default function DashboardHero({
     const benchValuesInCurrency = displayChartData.map(
       (p) => (p.benchmarkPct / 100) * denom,
     )
-    const pnlAllValues = [...pnlValues, ...benchValuesInCurrency, 0]
+    // The portfolio line now plots twrPct (also on the right % axis), so its
+    // currency-equivalent must participate in the shared min/max bound too —
+    // otherwise a TWR that out- or under-performs the benchmark would clip.
+    const twrValuesInCurrency = displayChartData.map(
+      (p) => (p.twrPct / 100) * denom,
+    )
+    const pnlAllValues = [
+      ...pnlValues,
+      ...benchValuesInCurrency,
+      ...twrValuesInCurrency,
+      0,
+    ]
     const pnlMin = Math.min(...pnlAllValues)
     const pnlMax = Math.max(...pnlAllValues)
     const pad = Math.max((pnlMax - pnlMin) * 0.08, Math.abs(denom) * 0.01)
@@ -303,8 +325,6 @@ export default function DashboardHero({
     if (!props.active || !props.payload || props.payload.length === 0) return null
     const point = props.payload[0].payload
     if (!point) return null
-    const pnlVal = currency === "USD" ? point.valueUsd : point.valueTry
-    const pnlPctVal = denom !== 0 ? (pnlVal / denom) * 100 : 0
     let dateLabel: string
     if (point.label === "Şimdi") {
       dateLabel = "Şimdi"
@@ -328,13 +348,9 @@ export default function DashboardHero({
       >
         <p className="mb-1.5 font-medium text-muted-foreground">{dateLabel}</p>
         <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
-          <span className="text-muted-foreground">Portfolio</span>
+          <span className="text-muted-foreground">You (TWR)</span>
           <span className="text-right font-medium">
-            {obfuscate(formatSignedCurrency(pnlVal, currency), obfuscated)}
-          </span>
-          <span className="text-muted-foreground">Portfolio</span>
-          <span className="text-right font-medium">
-            {formatSignedPercent(pnlPctVal, 2)}
+            {formatSignedPercent(point.twrPct, 2)}
           </span>
           <span className="text-muted-foreground">{activeBenchmark.label}</span>
           <span className="text-right font-medium">
@@ -388,16 +404,26 @@ export default function DashboardHero({
           <p
             className={cn(
               "text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl",
-              viewMode === "pnl" && periodColor,
+              viewMode === "pnl" && twrColor,
             )}
           >
-            {obfuscate(
-              viewMode === "pnl"
-                ? formatSignedCurrency(headlineValue, currency)
-                : formatCurrency(headlineValue, currency),
-              obfuscated,
-            )}
+            {viewMode === "pnl"
+              ? formatSignedPercent(twrEnd, 2)
+              : obfuscate(formatCurrency(headlineValue, currency), obfuscated)}
           </p>
+          {viewMode === "pnl" && (
+            <p className="text-xs text-muted-foreground">
+              Growth vs market — time-weighted, deposits/withdrawals removed
+              {approximate && (
+                <span
+                  className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase"
+                  title="Older history is weekly-sampled; periods containing a deposit or withdrawal are estimated."
+                >
+                  approximate
+                </span>
+              )}
+            </p>
+          )}
           {viewMode === "value" ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className={cn("font-medium", periodColor)}>
@@ -460,7 +486,10 @@ export default function DashboardHero({
                   <span>
                     {activeBenchmark.label}{" "}
                     <span className="font-medium text-foreground">
-                      {formatSignedPercent(compareNow.pct, 2)}
+                      {formatSignedPercent(benchmarkEnd, 2)}
+                    </span>{" "}
+                    <span className={cn("font-medium", gapColor)}>
+                      ({formatSignedPercent(gapPts, 1)} pts)
                     </span>
                   </span>
                   <ChevronDown className="size-3" />
@@ -594,36 +623,61 @@ export default function DashboardHero({
                     strokeOpacity={0.5}
                   />
                 )}
-                <Area
-                  yAxisId="primary"
-                  type="monotone"
-                  dataKey={currency === "USD" ? "valueUsd" : "valueTry"}
-                  name="primary"
-                  stroke={strokeColor}
-                  fill={fillColor}
-                  strokeWidth={2}
-                />
-                <Area
-                  yAxisId={viewMode === "pnl" ? "compare" : "primary"}
-                  type="monotone"
-                  dataKey={
-                    viewMode === "pnl"
-                      ? "benchmarkPct"
-                      : currency === "USD"
-                        ? "compareUsd"
-                        : "compareTry"
-                  }
-                  name="compare"
-                  stroke="var(--muted-foreground)"
-                  fill="transparent"
-                  // De-emphasized: thin stroke + partial opacity so the
-                  // benchmark reads as a reference line, not a peer to the
-                  // portfolio line.
-                  strokeWidth={1}
-                  strokeOpacity={0.45}
-                  strokeDasharray={viewMode === "pnl" ? undefined : "4 4"}
-                  isAnimationActive={false}
-                />
+                {viewMode === "pnl" ? (
+                  <>
+                    {/* P&L mode is a TWR-vs-index % race: both lines share the
+                        right (%) axis and start ~0% at the window's left edge.
+                        Bold = your time-weighted return. */}
+                    <Area
+                      yAxisId="compare"
+                      type="monotone"
+                      dataKey="twrPct"
+                      name="primary"
+                      stroke={strokeColor}
+                      fill="url(#hero-fill)"
+                      strokeWidth={2}
+                    />
+                    <Area
+                      yAxisId="compare"
+                      type="monotone"
+                      dataKey="benchmarkPct"
+                      name="compare"
+                      stroke="var(--muted-foreground)"
+                      fill="transparent"
+                      // De-emphasized: thin stroke + partial opacity so the
+                      // benchmark reads as a reference line, not a peer to the
+                      // portfolio (TWR) line.
+                      strokeWidth={1}
+                      strokeOpacity={0.45}
+                      isAnimationActive={false}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Area
+                      yAxisId="primary"
+                      type="monotone"
+                      dataKey={currency === "USD" ? "valueUsd" : "valueTry"}
+                      name="primary"
+                      stroke={strokeColor}
+                      fill={fillColor}
+                      strokeWidth={2}
+                    />
+                    <Area
+                      yAxisId="primary"
+                      type="monotone"
+                      dataKey={currency === "USD" ? "compareUsd" : "compareTry"}
+                      name="compare"
+                      stroke="var(--muted-foreground)"
+                      fill="transparent"
+                      // De-emphasized: thin dashed reference line for cost basis.
+                      strokeWidth={1}
+                      strokeOpacity={0.45}
+                      strokeDasharray="4 4"
+                      isAnimationActive={false}
+                    />
+                  </>
+                )}
               </AreaChart>
             </ResponsiveContainer>
           </div>
