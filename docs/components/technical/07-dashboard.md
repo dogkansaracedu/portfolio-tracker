@@ -136,7 +136,18 @@
 - `pnlDenom` = portfolio value at the visible start; the hero uses it to calibrate
   the left (currency) axis to the right (%) axis.
 - Benchmark overlay (P&L mode): `closesAtOrBefore` two-pointer walk fills
-  `benchmarkPct` as cumulative % from the first usable close.
+  per-point `benchmarkPct` as cumulative % from the first usable close.
+- **Portfolio TWR overlay (P&L mode):** `computeTWRSeries(nowSnaps, transactions,
+  rates)` (`@/lib/performance`) over `filterByTimeRange(snapshots, timeRange)`
+  plus a minimal live "now" snapshot (`computeTWRSeries` only reads `snapshot_date` +
+  `total_usd`, so the same `Snapshot`-shaped cast used for `fakeSnapshots`
+  suffices). Its `points[].cumulativePct` are mapped onto each chart point's
+  `twrPct` (carried forward for points the series doesn't cover); `endPct` →
+  `twrEnd`, `approximate` → `approximate`. Top-level fields exposed: `twrEnd`
+  (portfolio TWR % at "now"), `benchmarkEnd` (`= last point's benchmarkPct`),
+  `gapPts` (`twrEnd − benchmarkEnd`, percentage points), and `approximate`. Both
+  series are **rebased to 0% at the visible window start** (TWR by construction;
+  benchmark by anchoring on its first usable close).
 - `xTicks`: one tick per unique formatted label (avoids the same month string
   repeating for dense daily snapshots); last label forced to `"Şimdi"`.
 
@@ -158,21 +169,35 @@
 ### Hero rendering specifics (`DashboardHero.tsx`)
 
 - View mode / time range / benchmark id persisted via `usePersistedState`
-  (`dashboardHero.viewMode` default `"value"`, `.timeRange` default `"1M"`,
-  `.benchmark` default `SPY`) — survives the re-mounts an auth-token refresh on tab
-  focus triggers. `TIME_RANGES` includes **2Y**.
-- P&L mode subtracts `chartData[0]` from each point so the area starts at 0 and a
-  `ReferenceLine y={0}` is drawn; line color is green/red by `delta.usd` sign
-  (`rgb(16 185 129)` / `rgb(239 68 68)`), independent of theme primary.
-- Dual Y-axes in P&L mode: left = `compactCurrency` USD/TRY ticks from `niceTicks`;
-  right = same physical positions relabeled `%` via `pctTicks = pnlTicks / denom ×
-  100`, so the green line reads identically off both axes. Benchmark plotted as `%`
-  on the right axis (thin, 0.45 opacity).
-- **"Total" subtitle (P&L mode):** rendered from the gross `totalPnlUsd`/`Try`
-  props (usePnLSummary); colour/sign use `gainLossClass(totalPnlUsdNow > 0)`;
-  percent = `totalPnlPct` (over peak net invested). No after-tax figures are
-  rendered or plumbed here — the engine's tax accrual surfaces only on the
-  Portfolio page's taxed rows (component 8).
+  (**`dashboardHero.viewMode.v2` default `"pnl"`** — the key was bumped from
+  `dashboardHero.viewMode` (default `"value"`) when the vs-market view became the
+  default, so existing users land on the new default rather than a stale persisted
+  `"value"`; `.timeRange` default `"1M"`, `.benchmark` default `SPY`) — survives the
+  re-mounts an auth-token refresh on tab focus triggers. `TIME_RANGES` includes **2Y**.
+- **P&L mode is a TWR-vs-index percent race:** the chart plots **two `<Area>`s on
+  the right (%) axis** — `dataKey="twrPct"` (the portfolio's time-weighted return,
+  the lead line, green/red by `twrEnd` sign) and `dataKey="benchmarkPct"` (the
+  index, thin, low opacity) — both already rebased to 0% at the window start by the
+  hook. A `ReferenceLine y={0}` marks the shared baseline. (Value mode keeps the
+  single value `<Area>` with a cost-basis reference line.)
+- Left (currency) axis in P&L mode is still drawn for scale, calibrated so the
+  percent lines aren't clipped: `niceTicks` are taken over the TWR/benchmark
+  percent extent, and `chartData` carries a derived `pnlUsd = (twrPct / 100) ×
+  denom` purely so the left USD/TRY axis stays aligned with the right (%) axis the
+  lines actually plot on. Tooltip rows show **You (TWR)** and the index, each via
+  `formatSignedPercent`.
+- **Headline (P&L mode)** = `formatSignedPercent(twrEnd, 2)`, colored by `twrColor`
+  (`gainLossClass(twrEnd > 0)`, muted when exactly flat). The subtitle row shows the
+  period delta %, the dollar lifetime **Total** P&L (+ %), and the benchmark
+  dropdown label with `formatSignedPercent(benchmarkEnd, 2)` and the gap
+  `({formatSignedPercent(gapPts, 1)} pts)` colored by `gapColor`
+  (`gainLossClass(gapPts > 0)` — green when ahead of the market). An
+  **"approximate"** badge renders next to the headline when `approximate` is true.
+- **"Total" subtitle (P&L mode):** the dollar figure is rendered from the gross
+  `totalPnlUsd`/`Try` props (usePnLSummary); colour/sign use
+  `gainLossClass(totalPnlUsdNow > 0)`; percent = `totalPnlPct` (over peak net
+  invested). No after-tax figures are rendered or plumbed here — the engine's tax
+  accrual surfaces only on the Portfolio page's taxed rows (component 8).
 
 ## Notes & gotchas
 

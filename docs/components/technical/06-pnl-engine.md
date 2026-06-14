@@ -40,9 +40,16 @@
 - `computePnLTimeSeries(snapshots, txs, rates)` → historical `{date, totalUsd,
   investedUsd, pnlUsd}` points (`snapshot.total_usd − cumulative invested`); the
   series the chart draws and the "now" anchor must reconcile with.
-- Also houses `computeMonthlyReturns` (Modified Dietz), YTD/all-time/CAGR,
-  drawdown, and `computeCategoryAttribution` (Component 10 territory, but
-  consumes `AssetPnL`).
+- Also houses `computeMonthlyReturns` (Modified Dietz), `subPeriodReturn` (the
+  per-snapshot Modified-Dietz period return, extracted so it can be reused), and
+  `computeTWRSeries` (geometrically links `subPeriodReturn` over a window → the
+  portfolio **time-weighted return** series; rebased to 0% at the window start,
+  external cash flows removed per period, value-weighting automatic from the
+  snapshot total, `approximate` flag when a flow falls in a >1-day period). Plus
+  YTD/all-time/CAGR, drawdown, and `computeCategoryAttribution` (Component 10
+  territory, but consumes `AssetPnL`). Full TWR detail and the Dashboard wiring
+  live in [technical/10-snapshots-performance.md](10-snapshots-performance.md)
+  and [technical/07-dashboard.md](07-dashboard.md).
 
 ### `src/hooks/*` — wiring
 

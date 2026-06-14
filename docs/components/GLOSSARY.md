@@ -107,6 +107,24 @@ Comparing value today against **dollars actually deployed** (not a time-weighted
 index return). The app's canonical total is money-weighted. See
 [P&L Methodology](../pnl-methodology.md).
 
+### Time-Weighted Return (TWR)
+A return that measures **only the performance of the holdings**, with the timing
+and size of your own deposits/withdrawals stripped out — so it answers "did my
+picks beat the index?" without giving credit (or blame) for when cash went in or
+out. It is built by computing each period's return, **removing the external cash
+flow that landed in that period**, and then **geometrically chaining** the
+periods together (`(1 + r₁) × (1 + r₂) × … − 1`). Within a single period the
+return is **value-weighted automatically** — it is read off the whole-portfolio
+total, so a big holding moves it more than a small one. The series is **rebased
+to 0% at the window's start** so the portfolio and the index begin from the same
+line. This is the basis **indices quote their returns on** ("the S&P is +25%"),
+which is why it is the fair head-to-head against a benchmark. Contrast with
+[money-weighted](#money-weighted) [Total P&L](#total-pl) (credits *your* cash-flow
+timing) and Simple ROI (gain ÷ money in, ignoring time). It is most accurate when
+each period is one day; over longer (e.g. weekly) periods that contain a flow it
+is an approximation. See the [formula](#time-weighted-return-formula); engine fn
+`computeTWRSeries`.
+
 ### FIFO lots and cost basis
 Buys stack as **lots**; a sell consumes the **oldest lots first** (FIFO) and books
 realized P&L per consumed lot. **Cost basis** = the USD cost of the remaining lots.
@@ -217,3 +235,22 @@ dailyReturnPct = denom <= 0 ? null : dailyReturnUsd / denom × 100
 (the most recent before today, home-local day), bucketed by home-local calendar day.
 Equals Δ(value − invested) over the period — the [Total P&L](#total-pl) applied across
 it, so fiat FX is included automatically.
+
+### Time-Weighted Return formula
+For each period *i* between two consecutive snapshots, take its money-weighted
+(Modified-Dietz) return with the period's **external cash flow removed**:
+```
+r_i  = (V_end − V_start − C) / (V_start + Σ C_j · w_j),   w_j = (T − t_j) / T
+```
+where `C` is the net external cash flow in the period, `t_j` the day each flow
+landed, and `T` the period length. Then **geometrically chain** the periods and
+rebase to 0% at the window start:
+```
+cumulativeTWR(n) = [ Π (1 + r_i)  for i = 1..n ] − 1
+```
+Value-weighting across holdings is automatic — `V_start`/`V_end` are the
+**whole-portfolio totals**. A period with `V_start ≤ 0` contributes a neutral
+factor (skipped). A window is flagged **approximate** when any period that
+contained a flow spanned more than one day (weekly-sampled history). See
+[Time-Weighted Return](#time-weighted-return-twr); engine fn `computeTWRSeries`
+(per-period `subPeriodReturn`).
