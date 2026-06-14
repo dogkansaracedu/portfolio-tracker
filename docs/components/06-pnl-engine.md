@@ -33,8 +33,8 @@ This component *uses* most P&L vocabulary; it does not define it. See:
 
 - [USD anchor](GLOSSARY.md#usd-anchor) · [Net invested capital](GLOSSARY.md#net-invested-capital) · [Money-weighted](GLOSSARY.md#money-weighted)
 - [FIFO lots and cost basis](GLOSSARY.md#fifo-lots-and-cost-basis) · [Realized and unrealized](GLOSSARY.md#realized-and-unrealized) · [Fiat FX P&L](GLOSSARY.md#fiat-fx-pl)
-- [Daily return](GLOSSARY.md#daily-return) · [Snapshot](GLOSSARY.md#snapshot) · [Exchange rate](GLOSSARY.md#exchange-rate)
-- Formulas: [Total P&L](GLOSSARY.md#total-pl) · [Daily return formula](GLOSSARY.md#daily-return-formula)
+- [Daily return](GLOSSARY.md#daily-return) · [Time-Weighted Return](GLOSSARY.md#time-weighted-return-twr) · [Snapshot](GLOSSARY.md#snapshot) · [Exchange rate](GLOSSARY.md#exchange-rate)
+- Formulas: [Total P&L](GLOSSARY.md#total-pl) · [Daily return formula](GLOSSARY.md#daily-return-formula) · [Time-Weighted Return formula](GLOSSARY.md#time-weighted-return-formula)
 - Deep rationale (incl. the return-% methodology — TWR vs money-weighted vs peak): [P&L Methodology](../pnl-methodology.md)
 - Verifiable behaviour: [worked P&L cases](../pnl-test-cases.md) (run as Vitest)
 
@@ -212,6 +212,28 @@ cost on its payment day (the value moved, same as fees); an external tax never
 moves daily return (no tracked value changed) — it appears only in cumulative
 figures (rule 3, and the P&L-over-time series in Component 10).
 
+### 9. Time-weighted return (vs an index)
+
+See [Time-Weighted Return](GLOSSARY.md#time-weighted-return-twr). Alongside the
+money-weighted total (rule 3), the engine produces a **time-weighted return**
+series — the basis on which an index quotes its own return, so it is the fair
+head-to-head against a benchmark. It measures **only how the holdings performed**:
+the timing and size of the owner's own deposits and withdrawals are **removed**,
+period by period, before the periods are chained together. Within each period the
+return is **value-weighted automatically** — it is read off the whole-portfolio
+total, so a larger holding moves it more. The series is **rebased to 0% at the
+window's start**, so the portfolio and the index both begin from the same line and
+the gap between them is read directly.
+
+It is most accurate when each period is one day; over a longer span (e.g.
+weekly-sampled history) that contains a deposit or withdrawal it is an
+**approximation**, and a window so affected is flagged as such. A period that
+starts from no value contributes nothing (it is skipped, not counted as a loss).
+
+**Worked example.** Over three daily periods the holdings go +20%, then −10%,
+then flat → time-weighted return = `(1.20 × 0.90) − 1 =` **+8%**, independent of
+any cash added or removed along the way.
+
 ## Contract (I/O)
 
 **Inputs**
@@ -237,6 +259,10 @@ figures (rule 3, and the P&L-over-time series in Component 10).
 - **Per realizing transaction:** a realized-P&L entry (proceeds, cost basis,
   realized USD, native gain when single-currency) keyed by transaction id.
 - **Daily return** per asset / holding, with the denominator for group rollups.
+- **Time-weighted return series** for a window: a rebased-to-0% cumulative
+  percent at each snapshot, the end value, and an "approximate" flag (set when a
+  flow fell inside a multi-day period). Built from the snapshot history + the
+  transaction flows; consumed by the Dashboard's vs-market view (Component 7).
 
 ## Acceptance
 
@@ -266,5 +292,9 @@ figures (rule 3, and the P&L-over-time series in Component 10).
       peak are identical with and without tax txns.
 - [ ] Recognition is cash-basis: a tax txn affects figures from its payment date
       on; prior periods don't restate.
+- [ ] **Time-weighted return** chains per-period returns with the period's
+      external cash flow removed, rebased to 0% at the window start: chaining +20%
+      then −10% reads **+8%**, a flow on flat prices reads **0%**, and a window
+      with a flow inside a multi-day period is flagged **approximate**.
 
 See [P&L Methodology](../pnl-methodology.md) for why money-weighted is canonical.

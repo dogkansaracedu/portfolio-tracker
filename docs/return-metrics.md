@@ -88,10 +88,13 @@ Withdrawal example: buy $30k → buy $20k (peak $50k) → withdraw $25k (current
 - Realized (FIFO) + unrealized = sub-views; fiat carries FX P&L; PPF after-tax overlay.
 - **Performance page:** Modified Dietz monthly returns, YTD, CAGR, max drawdown — **not**
   wired to the headline.
-- **Benchmark:** normalized SPY/QQQ price line overlaid on the P&L chart (visual only; a
-  cumulative `close/base − 1` line — **not** cash-flow-simulated, no head-to-head number).
-- **Gaps:** #1 (real TWR-vs-index) and #3 (windowed Modified-Dietz rate) not yet built.
-  #3 reuses the existing Modified Dietz machinery.
+- **vs Market (#1, SHIPPED 2026-06-14):** the dashboard hero's default view is a
+  **TWR-vs-index % race** — the portfolio's time-weighted return (`computeTWRSeries`)
+  and the index's cumulative return, both rebased to 0% at the window start, with the
+  headline = portfolio TWR % and the gap vs the index in points. Same basis on both
+  sides (TWR vs TWR), so it clears the apples-to-oranges trap above.
+- **Gaps:** #3 (windowed Modified-Dietz rate) not yet built; it reuses the existing
+  Modified Dietz machinery (`subPeriodReturn`).
 
 ## UI direction
 
@@ -105,10 +108,12 @@ questions into one graph:**
 ## Decisions
 
 - **Index comparison → TWR**, and **TWR is the default dashboard return metric** — it
-  replaces the money-weighted % as the dashboard headline and the P&L-view chart
-  (spec'd 2026-06-14, `superpowers/specs/2026-06-14-twr-vs-market-design.md`). Scope:
-  portfolio-level dashboard only; the money-weighted **engine**, the dollar **Total P&L**,
-  and **per-asset / Portfolio-page** figures are unchanged. Dollars stay as headline stats.
+  replaces the money-weighted % as the dashboard headline and the P&L-view chart.
+  **SHIPPED 2026-06-14** (`computeTWRSeries` in `src/lib/performance.ts`; the dashboard
+  hero's P&L view is now the default and renders a TWR-vs-index % race — see
+  `superpowers/specs/2026-06-14-twr-vs-market-design.md`). Scope: portfolio-level
+  dashboard only; the money-weighted **engine**, the dollar **Total P&L**, and
+  **per-asset / Portfolio-page** figures are unchanged. Dollars stay as headline stats.
 - **Growth from investing → Simple ROI** (money-weighted % demoted to secondary, still
   shown on the Portfolio page — metric #2).
 - **Per-dollar rate → Modified Dietz** (extend the existing monthly-returns code to a window).
