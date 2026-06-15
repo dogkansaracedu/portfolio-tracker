@@ -27,7 +27,7 @@
 | `src/contexts/PricesContext.tsx` | App-wide shared price store + the presence-gated polling loop. |
 | `src/hooks/usePrices.ts` | Thin re-export of `usePricesContext` as `usePrices` (preserves the original import path). |
 | `src/lib/priceId.ts` | `canonicalizeTicker`, `derivePriceId(ticker, category, source)` — key resolution = `price_id ?? ticker`. |
-| `src/lib/prices.ts` | Formatters + staleness: `formatCurrency`, `gainLossClass`, `formatSignedCurrency`, `formatSignedPercent`, `isStale`, `getStalenessLevel`. |
+| `src/lib/prices.ts` | Formatters + staleness: `formatCurrency`, `gainLossClass`, `formatSignedCurrency`, `formatSignedPercent`, `isStale`, `getStalenessLevel`. Plus `priceMapsEqual` / `ratesEqual` — value-equality used by the poll's no-op-`setState` guard (see polling loop). |
 | `src/lib/queries/prices.ts` | `fetchPrices()` (→ map keyed by fetch-key), `fetchPrice(key)`. |
 | `src/lib/queries/exchangeRates.ts` | `fetchLatestRates`, `fetchRateForDate` (nearest ≤ date), `ensureHistoricalRate`, `ensureHistoricalRatesForDates`. |
 | `src/components/prices/PriceDisplay.tsx` | Price + colored staleness dot + tooltip. |
@@ -131,6 +131,17 @@ background ping (`backgroundRefresh`) deliberately does **not** toggle
 `refreshing`, so the manual-refresh spinner doesn't blink every cycle; the manual
 `refreshPrices` does. `staleAssets` is computed via `isStale` (>30min) and keyed
 by `price_id` (internal-only list).
+
+- **No-op-`setState` guard (anti-flicker).** Each `readMs` poll re-fetches the
+  cache, but most reads return value-identical rows. `loadPrices` compares the
+  fresh data against current state (`priceMapsEqual` / `ratesEqual`, and a plain
+  `===` on the newest `updated_at`) via functional updates and **keeps the old
+  reference when nothing changed**. Without this, every 10s tick replaced
+  `prices`/`rates` with fresh object references, cascading new identities through
+  `usePnL` → `usePortfolio`'s memo chain → a full `PortfolioTable` re-render
+  (and re-running `SnapshotsContext`'s effect) on every tick — the visible
+  "portfolio refreshes itself" flicker. The store now only emits a new reference
+  when a price/rate actually moved.
 
 **Historical-rate backfill.** `ensureHistoricalRate` (single non-USD tx) and
 `ensureHistoricalRatesForDates` (bulk import) invoke `fetch-historical-rate`

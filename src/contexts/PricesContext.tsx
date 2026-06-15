@@ -9,7 +9,7 @@ import {
 import type { PriceCache, ExchangeRate } from "@/types/database"
 import { fetchPrices } from "@/lib/queries/prices"
 import { fetchLatestRates } from "@/lib/queries/exchangeRates"
-import { isStale } from "@/lib/prices"
+import { isStale, priceMapsEqual, ratesEqual } from "@/lib/prices"
 import { PRICE_POLL } from "@/lib/config"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -56,15 +56,21 @@ export function PricesProvider({ children }: { children: ReactNode }) {
         fetchPrices(),
         fetchLatestRates(),
       ])
-      setPrices(priceMap)
-      setRates(latestRates)
+      // The poll re-reads the cache every `readMs`; most reads return the same
+      // rows. Bail out of the setState when the data is value-identical so an
+      // unchanged re-read doesn't churn a new object reference through every
+      // consumer (which rebuilds the portfolio memo chain and flickers the
+      // table). Functional updates keep the old reference on a no-op change.
+      setPrices((prev) => (priceMapsEqual(prev, priceMap) ? prev : priceMap))
+      setRates((prev) => (ratesEqual(prev, latestRates) ? prev : latestRates))
 
       const timestamps = Object.values(priceMap)
         .map((p) => p.updated_at)
         .filter(Boolean)
       if (timestamps.length > 0) {
         timestamps.sort()
-        setLastUpdated(timestamps[timestamps.length - 1])
+        const newest = timestamps[timestamps.length - 1]
+        setLastUpdated((prev) => (prev === newest ? prev : newest))
       }
     } catch (err) {
       console.error("Failed to load prices:", err)

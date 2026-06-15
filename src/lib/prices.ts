@@ -1,5 +1,6 @@
 import { CURRENCY_CONFIG, DECIMALS, getAmountDecimals } from "@/lib/config"
 import type { FiatCurrency } from "@/lib/constants/currencies"
+import type { PriceCache, ExchangeRate } from "@/types/database"
 
 export const OBFUSCATED_VALUE = "••••••"
 
@@ -96,6 +97,56 @@ export function isStale(
   const updated = new Date(updatedAt).getTime()
   const now = Date.now()
   return now - updated > thresholdMinutes * 60 * 1000
+}
+
+/**
+ * Structural equality for the prices map (keyed by price_id). The live poll
+ * re-reads `price_cache` every few seconds; when nothing upstream changed the
+ * fetched rows are value-identical to what's already in state. Comparing here
+ * lets the store skip a no-op `setState`, so an identical re-read doesn't churn
+ * a fresh object reference through every price consumer (which otherwise
+ * rebuilds the whole portfolio memo chain and flickers the table each tick).
+ * Compares only the value-bearing fields consumers read — `updated_at` and the
+ * two prices; `ticker`/`source` are stable per key.
+ */
+export function priceMapsEqual(
+  a: Record<string, PriceCache>,
+  b: Record<string, PriceCache>
+): boolean {
+  const aKeys = Object.keys(a)
+  if (aKeys.length !== Object.keys(b).length) return false
+  for (const key of aKeys) {
+    const pa = a[key]
+    const pb = b[key]
+    if (!pb) return false
+    if (
+      pa.updated_at !== pb.updated_at ||
+      pa.price_usd !== pb.price_usd ||
+      pa.price_try !== pb.price_try
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+/**
+ * Value equality for the latest exchange-rate row — the same no-op-`setState`
+ * guard as {@link priceMapsEqual}, applied to the single rates row.
+ */
+export function ratesEqual(
+  a: ExchangeRate | null,
+  b: ExchangeRate | null
+): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return (
+    a.date === b.date &&
+    a.usd_try === b.usd_try &&
+    a.eur_try === b.eur_try &&
+    a.eur_usd === b.eur_usd &&
+    a.gold_gram_try === b.gold_gram_try
+  )
 }
 
 /**
