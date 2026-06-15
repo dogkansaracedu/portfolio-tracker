@@ -150,6 +150,12 @@
   benchmark by anchoring on its first usable close).
 - `xTicks`: one tick per unique formatted label (avoids the same month string
   repeating for dense daily snapshots); last label forced to `"Şimdi"`.
+- **1D intraday branch:** `DashboardHero` passes `intradaySnapshots` (from
+  `useSnapshots` via `useDashboard`) into the hook; when `timeRange === "1D"` the
+  series is built from those hourly totals by the pure `buildIntradaySeries`
+  (`@/lib/dashboard/intraday.ts`) — the last ~24h of points on a time-of-day axis
+  with the live current value as the right-edge "now" point — instead of the
+  snapshot/TWR path above.
 
 ### `useForeignIncomeYtd.ts` specifics
 
@@ -180,6 +186,10 @@
   index, thin, low opacity) — both already rebased to 0% at the window start by the
   hook. A `ReferenceLine y={0}` marks the shared baseline. (Value mode keeps the
   single value `<Area>` with a cost-basis reference line.)
+- **1D hides the index:** the benchmark `<Area>` and the subtitle's "vs index"
+  chip are gated behind `timeRange !== "1D"` (a single daily index close can't draw
+  an intraday line); the 1D series comes from `buildIntradaySeries` (see the
+  `useDashboardHero` 1D branch above) and the tooltip shows HH:mm times.
 - Left (currency) axis in P&L mode is still drawn for scale, calibrated so the
   percent lines aren't clipped: `niceTicks` are taken over the TWR/benchmark
   percent extent, and `chartData` carries a derived `pnlUsd = (twrPct / 100) ×

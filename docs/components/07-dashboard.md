@@ -151,7 +151,9 @@ methodology as the P&L engine — Component 6 /
 **Time ranges.** Selectable windows: 1D, 1W, 1M, 3M, YTD, 1Y, **2Y**, and ALL.
 The series is anchored to the user's first activity, so a short-history portfolio
 on a long range still renders cleanly from the actual entry point rather than from
-an empty window edge.
+an empty window edge. The 1-day range shows intraday (hourly) detail on a
+time-of-day axis; longer ranges use daily snapshots. The market-index comparison
+is hidden in the 1-day range.
 
 **Percent denominator rules** (so a percent is never misleading):
 - Value mode, normal window → ΔValue ÷ starting value of the period.
