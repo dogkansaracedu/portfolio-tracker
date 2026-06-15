@@ -25,33 +25,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Restore existing session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // Apply a session update only when identity actually changed, so a
+    // reference-churning re-set never invalidates the app's `[user]` effects.
+    // Two things deliver the session on mount — `getSession()` and
+    // `onAuthStateChange`'s INITIAL_SESSION — and they race. Whichever lands
+    // second carries the *same* user id but a fresh object reference; setting
+    // it unconditionally flips `user` to a new reference a second time, firing
+    // every `[user]` effect twice (e.g. two identical `fetchTransactionsForAll
+    // Assets` calls, doubled snapshot/holdings loads). TOKEN_REFRESHED on tab
+    // focus is the same hazard. Guarding both paths by id / access_token keeps
+    // the reference stable across all of these.
+    const applySession = (session: Session | null) => {
+      setSession((prev) =>
+        prev?.access_token === session?.access_token ? prev : session,
+      );
+      setUser((prev) => {
+        const next = session?.user ?? null;
+        return prev?.id === next?.id ? prev : next;
+      });
       setLoading(false);
+    };
+
+    // Restore existing session on mount.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      applySession(session);
     });
 
     // Listen for auth state changes (login, logout, token refresh).
-    //
-    // TOKEN_REFRESHED fires on every tab focus return after the JWT TTL
-    // window. Naively calling setUser/setSession every time would replace
-    // the user object reference, invalidating every `[user]` effect
-    // dependency across the app — refetching all data and re-rendering
-    // tables. We bail out when the identity hasn't actually changed.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession((prev) => {
-        if (prev?.access_token === session?.access_token) return prev;
-        return session;
-      });
-      setUser((prev) => {
-        const next = session?.user ?? null;
-        if (prev?.id === next?.id) return prev;
-        return next;
-      });
-      setLoading(false);
+      applySession(session);
     });
 
     return () => {

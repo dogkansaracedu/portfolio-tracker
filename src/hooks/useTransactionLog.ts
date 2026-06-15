@@ -53,16 +53,32 @@ function filtersToParams(filters: TransactionLogFilters): URLSearchParams {
 
 export function useTransactionLog() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const filters = useMemo(() => filtersFromParams(searchParams), [searchParams])
+
+  // On the first visit with no filters in the URL, default to the current year
+  // so we don't load the entire history. The ref guard ensures this applies
+  // once per mount, so explicitly choosing "All Time" (which also clears the
+  // params) doesn't bounce straight back to this year.
+  const initialized = useRef(false)
+
+  // Apply the default window *synchronously* on the first render with an empty
+  // URL, so the first (and only) server fetch already carries `dateFrom`.
+  // Seeding it via the effect below alone would fire an unfiltered full-history
+  // fetch first, then refetch once the param lands — two requests for one view.
+  const filters = useMemo(() => {
+    const fromParams = filtersFromParams(searchParams)
+    if (!initialized.current && searchParams.toString() === "") {
+      return { ...fromParams, ...defaultFilters() }
+    }
+    return fromParams
+  }, [searchParams])
   const setFilters = (next: TransactionLogFilters) =>
     setSearchParams(filtersToParams(next), { replace: true })
   const { rates } = useTransactionData()
 
-  // On the first visit with no filters in the URL, default to the current year
-  // so we don't load the entire history. The ref guard ensures this fires once
-  // per mount, so explicitly choosing "All Time" (which also clears the params)
-  // doesn't bounce straight back to this year.
-  const initialized = useRef(false)
+  // Mirror the synchronous default into the URL so filters stay shareable and
+  // survive reload. By the time this runs, `filters` already carries the
+  // default, so the param write produces the same `serverFilters` and triggers
+  // no extra fetch.
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
