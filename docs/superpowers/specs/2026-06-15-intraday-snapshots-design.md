@@ -126,8 +126,11 @@ based. The 1D view learns a **timestamp** X-axis:
   the existing transaction-replay (`computeCurrentInvestedUsd` / `computePnLTimeSeries`
   date lookup). The rolling 24h window can straddle one date boundary — map each point's
   `captured_at` to its home-timezone calendar date for the invested lookup.
-- **Overlay suppressed in 1D:** `benchmarkPct`/`twrPct` stay 0 for the 1D range; the hero's
-  overlay line/chip is hidden when `timeRange === "1D"`.
+- **Index overlay suppressed in 1D:** the portfolio line still moves — in P&L mode it shows
+  the intraday cumulative % change (`twrPct(t) = (value(t)/value(windowStart) − 1) × 100`),
+  in value mode the intraday value line. Only the **benchmark/index** overlay is hidden in
+  1D: `benchmarkPct` stays 0, and the gray index Area + the "vs index" chip + gap-pts are not
+  rendered when `timeRange === "1D"`. The "approximate" badge never applies to 1D.
 - 1W and all longer ranges are **unchanged** — they read daily snapshots exactly as today.
 
 `TimeRange` already includes `"1D"`; no new range value is added.
@@ -135,8 +138,10 @@ based. The 1D view learns a **timestamp** X-axis:
 ## Edge cases & guards
 
 - **Unpriced hour →** skip that user's row, log it, keep going (do not destroy any data).
-- **Empty portfolio →** write a `total=0` intraday row (consistent with the daily writer's
-  $0 rule) so the 1D chart draws a flat $0 line rather than a gap.
+- **Empty portfolio →** no intraday row is written (matches `take-snapshots`' bulk path,
+  which only iterates users with non-zero active holdings). The 1D chart's live "now" anchor
+  (current value, 0 when closed) covers the right edge, so a freshly-emptied portfolio still
+  renders without a special $0 row.
 - **First hour / cold start →** if `intraday_snapshots` is empty for a user, the 1D view
   shows just the live "now" point (and the "not enough data" hint may apply, same as a
   sparse daily chart). It fills in as the cron runs.
@@ -175,7 +180,7 @@ based. The 1D view learns a **timestamp** X-axis:
   right-edge; 1W+ are visually unchanged.
 - The index/TWR overlay does not render in the 1D range.
 - An unpriced hour is skipped (logged), never destroys a daily snapshot or writes a wrong
-  total; an empty portfolio writes a $0 intraday row.
+  total; a fully-closed portfolio simply gets no intraday row that hour (now-anchor covers it).
 - No third copy of the valuation loop exists: `take-snapshots` and `take-intraday-snapshots`
   both call `_shared/valuation.ts`; `take-snapshots` behavior is preserved.
 </content>
