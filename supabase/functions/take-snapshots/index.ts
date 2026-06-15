@@ -1,70 +1,13 @@
 import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { HOME_TIMEZONE } from "../_shared/constants.ts"
-
-interface HoldingRow {
-  user_id: string
-  balance: number
-  assets: {
-    ticker: string
-    price_id: string | null
-    name: string
-    category: string
-    tags: string[] | null
-    is_active: boolean
-  } | null
-  platforms: { name: string; color: string } | null
-}
-
-interface PriceRow {
-  ticker: string
-  price_usd: number | null
-  price_try: number | null
-  updated_at: string | null
-}
+import { valueHoldings, type HoldingRow, type PriceRow } from "../_shared/valuation.ts"
 
 interface RateRow {
   usd_try: number | null
   eur_try: number | null
   gold_gram_try: number | null
 }
-
-interface CategoryAgg {
-  usd: number
-  try_val: number
-}
-
-interface PlatformAgg {
-  usd: number
-  try_val: number
-  color: string
-}
-
-interface TagAgg {
-  usd: number
-  try_val: number
-}
-
-interface AssetEntry {
-  ticker: string
-  name: string
-  platform: string
-  amount: number
-  price_usd: number
-  value_usd: number
-  value_try: number
-  /** True when the price_cache row existed but was older than STALE_PRICE_MS,
-   *  so it was treated as unpriced. Used only to label the skip message. */
-  stale: boolean
-}
-
-// A price_cache row older than this is treated as MISSING. price_cache is
-// upserted in place (keyed on ticker) and never expires, so a multi-day
-// upstream outage would otherwise leave yesterday's price in place and let it
-// masquerade as today's net worth. 36h tolerates a normal daily refresh cycle
-// (incl. weekends, since updated_at tracks the last fetch, not the last market
-// move) while still catching a real outage.
-const STALE_PRICE_MS = 36 * 60 * 60 * 1000
 
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin")
@@ -172,100 +115,20 @@ Deno.serve(async (req) => {
   }> = []
 
   for (const [userId, userHoldings] of byUser) {
-    const byAsset: AssetEntry[] = []
-    const categoryTotals: Record<string, CategoryAgg> = {}
-    const platformTotals: Record<string, PlatformAgg> = {}
-    const tagTotals: Record<string, TagAgg> = {}
-    let totalUsd = 0
-    let totalTry = 0
+    const v = valueHoldings(
+      userHoldings,
+      prices,
+      { usdTry, eurTry, goldGramTry },
+      nowMs,
+    )
 
-    for (const h of userHoldings) {
-      const asset = h.assets!
-      const platform = h.platforms!
-      // price_cache is keyed by price_id (the fetch key); fall back to ticker
-      // until rows are backfilled.
-      const price = prices[asset.price_id ?? asset.ticker]
-      // Treat a stale row (older than STALE_PRICE_MS) as unpriced so it trips
-      // the skip guard below rather than booking yesterday's price as today's.
-      const updatedAt = price?.updated_at
-      const stale =
-        updatedAt != null && nowMs - new Date(updatedAt).getTime() > STALE_PRICE_MS
-      const priceUsd = stale ? 0 : price?.price_usd ?? 0
-      const priceTry = stale ? 0 : price?.price_try ?? priceUsd * usdTry
-
-      const valueUsd = h.balance * priceUsd
-      const valueTry = h.balance * priceTry
-
-      totalUsd += valueUsd
-      totalTry += valueTry
-
-      byAsset.push({
-        ticker: asset.ticker,
-        name: asset.name,
-        platform: platform.name,
-        amount: h.balance,
-        price_usd: priceUsd,
-        value_usd: valueUsd,
-        value_try: valueTry,
-        stale,
-      })
-
-      const cat = asset.category
-      if (!categoryTotals[cat]) categoryTotals[cat] = { usd: 0, try_val: 0 }
-      categoryTotals[cat].usd += valueUsd
-      categoryTotals[cat].try_val += valueTry
-
-      const plat = platform.name
-      if (!platformTotals[plat]) {
-        platformTotals[plat] = { usd: 0, try_val: 0, color: platform.color }
-      }
-      platformTotals[plat].usd += valueUsd
-      platformTotals[plat].try_val += valueTry
-
-      for (const tag of asset.tags ?? []) {
-        if (!tagTotals[tag]) tagTotals[tag] = { usd: 0, try_val: 0 }
-        tagTotals[tag].usd += valueUsd
-        tagTotals[tag].try_val += valueTry
-      }
-    }
-
-    const safeDiv = (n: number) => (totalUsd > 0 ? (n / totalUsd) * 100 : 0)
-
-    const byCategory: Record<string, { usd: number; try: number; pct: number }> = {}
-    for (const [k, v] of Object.entries(categoryTotals)) {
-      byCategory[k] = { usd: v.usd, try: v.try_val, pct: safeDiv(v.usd) }
-    }
-
-    const byPlatform: Record<
-      string,
-      { usd: number; try: number; color: string; pct: number }
-    > = {}
-    for (const [k, v] of Object.entries(platformTotals)) {
-      byPlatform[k] = {
-        usd: v.usd,
-        try: v.try_val,
-        color: v.color,
-        pct: safeDiv(v.usd),
-      }
-    }
-
-    const byTag: Record<string, { usd: number; try: number; pct: number }> = {}
-    for (const [k, v] of Object.entries(tagTotals)) {
-      byTag[k] = { usd: v.usd, try: v.try_val, pct: safeDiv(v.usd) }
-    }
-
-    // Skip the snapshot if any held asset is unpriced OR its price is stale.
-    // The cron writes once per day; without this guard a missing entry (e.g.
-    // an upstream API 4xx during the 23:55 UTC run) or a stale-but-nonzero
-    // entry (a multi-day outage leaving an old price in place) silently
-    // encodes a wrong total that the dashboard then trusts indefinitely. This
-    // is exactly how the 2026-04-09 orphan was created — the cash holding had
-    // no price-cache entry yet so it dropped out of the totals. Honest answer:
-    // skip. Stale rows are zeroed above, so they fall into this same filter.
-    const unpriced = byAsset.filter((a) => a.amount > 0 && a.price_usd <= 0)
-    if (unpriced.length > 0) {
+    // Skip the snapshot if any held asset is unpriced OR stale. The cron writes
+    // once per day; a missing/stale entry would silently encode a wrong total
+    // the dashboard then trusts indefinitely (the 2026-04-09 orphan). Honest
+    // answer: skip the whole date.
+    if (v.unpriced.length > 0) {
       errors.push(
-        `user ${userId}: skipped — ${unpriced.length} unpriced/stale holding(s): ${unpriced
+        `user ${userId}: skipped — ${v.unpriced.length} unpriced/stale holding(s): ${v.unpriced
           .map((a) => (a.stale ? `${a.ticker} (stale)` : a.ticker))
           .join(", ")}`,
       )
@@ -275,14 +138,14 @@ Deno.serve(async (req) => {
     snapshotInserts.push({
       user_id: userId,
       snapshot_date: today,
-      total_usd: totalUsd,
-      total_try: totalTry,
+      total_usd: v.totalUsd,
+      total_try: v.totalTry,
       breakdown: {
         rates: { usd_try: usdTry, eur_try: eurTry, gold_gram_try: goldGramTry },
-        by_category: byCategory,
-        by_platform: byPlatform,
-        by_tag: byTag,
-        by_asset: byAsset,
+        by_category: v.byCategory,
+        by_platform: v.byPlatform,
+        by_tag: v.byTag,
+        by_asset: v.byAsset,
       },
     })
     usersProcessed++
