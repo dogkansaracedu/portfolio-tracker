@@ -18,7 +18,7 @@
 |---|---|
 | `supabase/functions/fetch-prices/index.ts` | **Orchestrator** — single endpoint the frontend pings and the daily cron forces. Runs FX step → Yahoo step → TEFAS step → (cron only) snapshot trigger. Self-throttles per asset. |
 | `supabase/functions/fetch-historical-rate/index.ts` | On-demand TCMB fetch for **one past date** (non-USD transactions). Walks back ≤7 days to the nearest published rate; upserts `exchange_rates`. |
-| `supabase/functions/_shared/yahoo.ts` | `fetchYahooQuote(symbol)` — single Yahoo chart-endpoint quote; reads `meta.currency`; never throws (returns `{ status, quote: null }` on failure). |
+| `supabase/functions/_shared/yahoo.ts` | `fetchYahooQuote(symbol)` — single Yahoo chart-endpoint quote; requests `interval=5m&range=1d&includePrePost=true` and derives the price via the pure `pickLatestPrice` (newer of `regularMarketPrice@regularMarketTime` vs the last non-null intraday close@its candle time — so pre/after-hours prints surface); reads `meta.currency`; never throws (returns `{ status, quote: null }` on failure). Unit-tested in `src/lib/queries/yahoo.test.ts`. |
 | `supabase/functions/_shared/tefas.ts` | `fetchTefasQuote(fonKodu)` — single TEFAS fund NAV (latest of `periyod:1`); always TRY; never throws. |
 | `supabase/functions/_shared/currency.ts` | `splitPrice(price, currency, rates)` → `{ price_usd, price_try }` per source currency; `null` for unsupported (e.g. `GBp`). `categoryForQuote`. |
 | `supabase/functions/_shared/constants.ts` | `HOME_TIMEZONE` (`Europe/Istanbul`, for BIST hours), `TROY_OZ_GRAMS` (oz→gram gold). |
@@ -142,6 +142,19 @@ best-effort; failures leave the nearest-prior-rate fallback
 - **Yahoo is the only free BIST source** and runs ~15min delayed — accepted.
   Yahoo is also unofficial/fragile (browser User-Agent headers in
   `_shared/yahoo.ts`); the client never throws so one bad symbol can't sink a run.
+- **Extended-hours prices come from the intraday candle series, not a meta
+  field.** The chart `meta` has no `marketState`/`preMarketPrice`/`postMarketPrice`
+  (those live in the crumb-gated `v7/quote` endpoint we deliberately avoid). With
+  `includePrePost=true` the pre/after-hours prints appear as candles in
+  `indicators.quote[0].close`; `pickLatestPrice` reads the last non-null one. `meta`
+  *does* expose `hasPrePostMarketData` (whether the symbol has any) and
+  `currentTradingPeriod` (pre/regular/post epoch bounds) if finer logic is ever
+  needed. The selection is pure + fixture-tested; `fetchYahooQuote`'s `fetch` is
+  mocked in `src/lib/queries/yahoo.test.ts`.
+- **Yahoo aggressively rate-limits (HTTP 429) by source IP**, independent of
+  market state — a shared/datacenter IP can be throttled even when the data is
+  available. `includePrePost` does not change request *count* (still one fetch
+  per symbol), only the payload, so it doesn't worsen this.
 - **`price_cache.ticker` holds `price_id`, not the display ticker** — the most
   common footgun. Always look up with `prices[asset.price_id ?? asset.ticker]`.
 - **Staleness thresholds live in two places**: client `isStale`/`getStalenessLevel`
