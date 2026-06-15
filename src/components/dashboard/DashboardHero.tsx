@@ -332,6 +332,8 @@ export default function DashboardHero({
     let dateLabel: string
     if (point.label === "Şimdi") {
       dateLabel = "Şimdi"
+    } else if (timeRange === "1D") {
+      dateLabel = point.label
     } else {
       const d = new Date(point.dateMs)
       dateLabel = d.toLocaleDateString("tr-TR", {
@@ -478,33 +480,37 @@ export default function DashboardHero({
                 </span>{" "}
                 ({totalPnlPctNow == null ? "—" : formatSignedPercent(totalPnlPctNow, 2)})
               </span>
-              <span className="text-muted-foreground">·</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  className="inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-foreground"
-                >
-                  <span>
-                    {activeBenchmark.label}{" "}
-                    <span className="font-medium text-foreground">
-                      {formatSignedPercent(benchmarkEnd, 2)}
-                    </span>{" "}
-                    <span className={cn("font-medium", gapColor)}>
-                      ({formatSignedPercent(gapPts, 1).replace("%", "")} pts)
-                    </span>
-                  </span>
-                  <ChevronDown className="size-3" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {BENCHMARKS.map((b) => (
-                    <DropdownMenuItem
-                      key={b.id}
-                      onClick={() => setBenchmarkId(b.id)}
+              {timeRange !== "1D" && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-foreground"
                     >
-                      {b.fullName}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      <span>
+                        {activeBenchmark.label}{" "}
+                        <span className="font-medium text-foreground">
+                          {formatSignedPercent(benchmarkEnd, 2)}
+                        </span>{" "}
+                        <span className={cn("font-medium", gapColor)}>
+                          ({formatSignedPercent(gapPts, 1).replace("%", "")} pts)
+                        </span>
+                      </span>
+                      <ChevronDown className="size-3" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {BENCHMARKS.map((b) => (
+                        <DropdownMenuItem
+                          key={b.id}
+                          onClick={() => setBenchmarkId(b.id)}
+                        >
+                          {b.fullName}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              )}
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">
                 Invested{" "}
@@ -605,6 +611,7 @@ export default function DashboardHero({
                     if (Number.isNaN(ms)) return ""
                     const point = chartData.find((p) => p.dateMs === ms)
                     if (point?.label === "Şimdi") return "Şimdi"
+                    if (timeRange === "1D") return point?.label ?? ""
                     const d = new Date(ms)
                     return d.toLocaleDateString("tr-TR", {
                       day: "2-digit",
@@ -637,20 +644,22 @@ export default function DashboardHero({
                       fill="url(#hero-fill)"
                       strokeWidth={2}
                     />
-                    <Area
-                      yAxisId="compare"
-                      type="monotone"
-                      dataKey="benchmarkPct"
-                      name="compare"
-                      stroke="var(--muted-foreground)"
-                      fill="transparent"
-                      // De-emphasized: thin stroke + partial opacity so the
-                      // benchmark reads as a reference line, not a peer to the
-                      // portfolio (TWR) line.
-                      strokeWidth={1}
-                      strokeOpacity={0.45}
-                      isAnimationActive={false}
-                    />
+                    {timeRange !== "1D" && (
+                      <Area
+                        yAxisId="compare"
+                        type="monotone"
+                        dataKey="benchmarkPct"
+                        name="compare"
+                        stroke="var(--muted-foreground)"
+                        fill="transparent"
+                        // De-emphasized: thin stroke + partial opacity so the
+                        // benchmark reads as a reference line, not a peer to the
+                        // portfolio (TWR) line.
+                        strokeWidth={1}
+                        strokeOpacity={0.45}
+                        isAnimationActive={false}
+                      />
+                    )}
                   </>
                 ) : (
                   <>
