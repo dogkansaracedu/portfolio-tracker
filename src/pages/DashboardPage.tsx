@@ -70,6 +70,7 @@ export default function DashboardPage() {
     byCurrency,
     topMovers,
     snapshots,
+    intradaySnapshots,
     usdTry,
     loading,
   } = useDashboard()
@@ -123,6 +124,7 @@ export default function DashboardPage() {
       <Suspense fallback={<RouteSkeleton />}>
         <DashboardHero
           snapshots={snapshots}
+          intradaySnapshots={intradaySnapshots}
           currentValueUsd={pnl.totalValueUsd}
           currentValueTry={pnl.totalValueTry}
           totalPnlUsd={pnl.totalPnlUsd}

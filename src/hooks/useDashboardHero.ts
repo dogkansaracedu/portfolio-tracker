@@ -9,7 +9,8 @@ import {
   type TimeRange,
 } from "@/lib/performance"
 import { resolveHeroPctDenom } from "@/lib/dashboard/heroPercent"
-import type { BenchmarkPrice, Snapshot } from "@/types/database"
+import { buildIntradaySeries } from "@/lib/dashboard/intraday"
+import type { BenchmarkPrice, Snapshot, IntradaySnapshot } from "@/types/database"
 
 export type HeroViewMode = "value" | "pnl"
 
@@ -71,6 +72,7 @@ export interface DashboardHeroData {
 
 interface UseDashboardHeroArgs {
   snapshots: Snapshot[]
+  intradaySnapshots: IntradaySnapshot[]
   currentValueUsd: number
   currentValueTry: number
   viewMode: HeroViewMode
@@ -146,6 +148,7 @@ function formatLabel(dateStr: string, range: TimeRange): string {
  */
 export function useDashboardHero({
   snapshots,
+  intradaySnapshots,
   currentValueUsd,
   currentValueTry,
   viewMode,
@@ -177,6 +180,72 @@ export function useDashboardHero({
         delta: { usd: 0, try: 0, pct: 0 },
         pnlDenom: { usd: 0, try: 0 },
         twrEnd: 0,
+        benchmarkEnd: 0,
+        gapPts: 0,
+        approximate: false,
+        loading: pnlLoading,
+      }
+    }
+
+    // ── 1D: intraday (hourly) view ───────────────────────────────────
+    // Built from the rolling-24h intraday totals (time-of-day axis) plus the
+    // live "now" anchor — not the daily snapshots. The index/benchmark overlay
+    // is suppressed for 1D (one daily close can't draw an intraday line).
+    if (timeRange === "1D") {
+      const nowMs = Date.now()
+      const investedNow = computeCurrentInvestedUsd(transactions, rates)
+      const series = buildIntradaySeries({
+        intraday: intradaySnapshots,
+        nowUsd: currentValueUsd,
+        nowTry: currentValueTry,
+        nowMs,
+      })
+      const chartData: HeroPoint[] = series.points.map((p) => {
+        const ratio = p.valueUsd > 0 ? p.valueTry / p.valueUsd : usdTry
+        const pnlUsd = p.valueUsd - investedNow
+        return {
+          date: p.date,
+          dateMs: p.dateMs,
+          label: p.label,
+          // Value mode reads valueUsd/valueTry; P&L mode reads twrPct (intraday
+          // % change) and the secondary line stays flat at 0 (overlay hidden).
+          valueUsd: viewMode === "pnl" ? pnlUsd : p.valueUsd,
+          valueTry: viewMode === "pnl" ? pnlUsd * ratio : p.valueTry,
+          compareUsd: viewMode === "pnl" ? p.valueUsd : investedNow,
+          compareTry: viewMode === "pnl" ? p.valueTry : investedNow * ratio,
+          benchmarkPct: 0,
+          twrPct: viewMode === "pnl" ? p.twrPct : 0,
+        }
+      })
+      const startUsd = chartData[0]?.valueUsd ?? 0
+      const startTry = chartData[0]?.valueTry ?? 0
+      const endUsd = chartData[chartData.length - 1]?.valueUsd ?? 0
+      const endTry = chartData[chartData.length - 1]?.valueTry ?? 0
+      const pnlDenom =
+        viewMode === "pnl" && chartData.length > 0
+          ? { usd: chartData[0].compareUsd, try: chartData[0].compareTry }
+          : { usd: 0, try: 0 }
+      return {
+        chartData,
+        xTicks: series.xTicks,
+        current: { usd: endUsd, try: endTry },
+        compareNow:
+          viewMode === "pnl"
+            ? { usd: 0, try: 0, pct: 0 }
+            : {
+                usd: chartData[chartData.length - 1]?.compareUsd ?? 0,
+                try: chartData[chartData.length - 1]?.compareTry ?? 0,
+                pct: 0,
+              },
+        compareKind: viewMode === "pnl" ? "percent" : "currency",
+        rangeStart: { usd: startUsd, try: startTry, date: chartData[0]?.date ?? null },
+        delta: {
+          usd: series.deltaUsd,
+          try: series.deltaTry,
+          pct: series.deltaPct,
+        },
+        pnlDenom,
+        twrEnd: viewMode === "pnl" ? series.twrEnd : 0,
         benchmarkEnd: 0,
         gapPts: 0,
         approximate: false,
@@ -474,6 +543,7 @@ export function useDashboardHero({
     }
   }, [
     snapshots,
+    intradaySnapshots,
     transactions,
     rates,
     currentValueUsd,
