@@ -14,6 +14,7 @@ import type {
   Asset,
   ExchangeRate,
   Snapshot,
+  IntradaySnapshot,
   SnapshotBreakdown,
   Transaction,
 } from "@/types/database"
@@ -54,6 +55,8 @@ export interface DashboardData {
   byCurrency: CurrencyAllocation[]
   topMovers: TopMover[]
   snapshots: Snapshot[]
+  /** Rolling-24h intraday (hourly) totals — feeds the hero's 1D view. */
+  intradaySnapshots: IntradaySnapshot[]
   /** Latest USD/TRY rate, or 1 if unavailable. */
   usdTry: number
   loading: boolean
@@ -181,7 +184,8 @@ function deriveByCurrency(
 export function useDashboard(): DashboardData {
   const { assets, loading: assetsLoading } = useAssets()
   const { rates, loading: pricesLoading } = usePrices()
-  const { snapshots, loading: snapshotsLoading } = useSnapshots()
+  const { snapshots, intradaySnapshots, loading: snapshotsLoading } =
+    useSnapshots()
   const { transactions, rates: txRates, loading: txLoading } =
     useTransactionData()
 
@@ -193,7 +197,7 @@ export function useDashboard(): DashboardData {
 
   const result = useMemo((): Omit<
     DashboardData,
-    "snapshots" | "usdTry" | "loading"
+    "snapshots" | "intradaySnapshots" | "usdTry" | "loading"
   > => {
     const empty = {
       totalValueUsd: 0,
@@ -248,5 +252,5 @@ export function useDashboard(): DashboardData {
     }
   }, [latest, assets, transactions, txRates])
 
-  return { ...result, snapshots, usdTry, loading }
+  return { ...result, snapshots, intradaySnapshots, usdTry, loading }
 }

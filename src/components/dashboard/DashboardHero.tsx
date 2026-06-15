@@ -39,10 +39,12 @@ import {
   findBenchmark,
 } from "@/lib/constants/benchmarks"
 import type { TimeRange } from "@/lib/performance"
-import type { Snapshot } from "@/types/database"
+import type { Snapshot, IntradaySnapshot } from "@/types/database"
 
 interface DashboardHeroProps {
   snapshots: Snapshot[]
+  /** Rolling-24h intraday (hourly) totals — feeds the hero's 1D view. */
+  intradaySnapshots: IntradaySnapshot[]
   currentValueUsd: number
   currentValueTry: number
   /** Live total P&L (usePnLSummary) — same number the Portfolio page shows;
@@ -147,6 +149,7 @@ function niceTicks(
 
 export default function DashboardHero({
   snapshots,
+  intradaySnapshots,
   currentValueUsd,
   currentValueTry,
   totalPnlUsd,
@@ -190,6 +193,7 @@ export default function DashboardHero({
     approximate,
   } = useDashboardHero({
     snapshots,
+    intradaySnapshots,
     currentValueUsd,
     currentValueTry,
     viewMode,
