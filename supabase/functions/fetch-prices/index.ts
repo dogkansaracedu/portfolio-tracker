@@ -421,13 +421,13 @@ async function refreshTefasPrices(
   return { updated, errors }
 }
 
-/** Step 3 (cron only) — chain the server-side EOD snapshot now that prices are
- *  fresh. Fire-and-forget. Must forward X-Cron-Token: take-snapshots authorizes
- *  on that, not the JWT. */
-function triggerSnapshot(cronToken: string): void {
+/** Step 3 (cron only) — chain a server-side snapshot function now that prices
+ *  are fresh. Fire-and-forget. Must forward X-Cron-Token: the chained function
+ *  authorizes on that, not the JWT. */
+function triggerChainedFunction(fnName: string, cronToken: string): void {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  fetch(`${supabaseUrl}/functions/v1/take-snapshots`, {
+  fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -437,7 +437,7 @@ function triggerSnapshot(cronToken: string): void {
     },
     body: "{}",
   }).catch((err) => {
-    console.error("take-snapshots invoke failed:", err)
+    console.error(`${fnName} invoke failed:`, err)
   })
 }
 
@@ -458,7 +458,7 @@ Deno.serve(async (req) => {
   const cronToken = Deno.env.get("CRON_TOKEN")
   const isCron = !!cronToken && req.headers.get("X-Cron-Token") === cronToken
 
-  let body: { force?: boolean; snapshot?: boolean } = {}
+  let body: { force?: boolean; snapshot?: boolean; intraday?: boolean } = {}
   try {
     body = await req.json()
   } catch {
@@ -466,6 +466,7 @@ Deno.serve(async (req) => {
   }
   const force = isCron && body.force === true
   const doSnapshot = isCron && body.snapshot === true
+  const doIntraday = isCron && body.intraday === true
 
   const supabase = getServiceClient()
   const nowMs = Date.now()
@@ -520,10 +521,20 @@ Deno.serve(async (req) => {
   // Step 3 — daily EOD snapshot (cron only).
   if (doSnapshot) {
     try {
-      triggerSnapshot(cronToken!)
+      triggerChainedFunction("take-snapshots", cronToken!)
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown snapshot error"
       errors.push(`take-snapshots: ${msg}`)
+    }
+  }
+
+  // Step 3.5 — hourly intraday snapshot (cron only).
+  if (doIntraday) {
+    try {
+      triggerChainedFunction("take-intraday-snapshots", cronToken!)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown intraday error"
+      errors.push(`take-intraday-snapshots: ${msg}`)
     }
   }
 
