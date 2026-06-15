@@ -27,12 +27,16 @@ Define the persistent data model and the authentication boundary the whole app s
   - [Snapshot](GLOSSARY.md#snapshot) — per-user; one frozen aggregation per user per date.
   - [Price](GLOSSARY.md#price) — shared/global cache of the latest unit price per asset key; readable by any signed-in user, written only by the system's price-fetch path.
   - [Exchange rate](GLOSSARY.md#exchange-rate) — shared/global historical FX by date; readable by any signed-in user, written only by the system.
+- **Intraday snapshots** — a transient, totals-only record of the portfolio's value
+  captured roughly hourly and kept only for about the last day (older points are
+  pruned). They exist solely to draw the intraday (single-day) value view; the daily
+  snapshot remains the authoritative per-day record.
 - A separate **benchmark price** series (daily-close index history, e.g. SPY / QQQ) is also stored globally and readable by any signed-in user; it backs the "performance vs market" overlay and is written only by the system.
 - A **signup allowlist** (set of permitted emails, each with an optional note and an added-at timestamp) exists purely to gate account creation. It is operator-managed and is **not** readable or writable by ordinary users.
 
 ### Per-user data isolation (the core invariant)
 
-- Every row of every **per-user** entity (platforms, holdings, transactions, snapshots) carries an owning user. A signed-in user can read and write **only their own** rows; another user's rows are invisible and unmodifiable, enforced at the data layer (not merely in the UI).
+- Every row of every **per-user** entity (platforms, holdings, transactions, snapshots, intraday snapshots) carries an owning user. A signed-in user can read and write **only their own** rows; another user's rows are invisible and unmodifiable, enforced at the data layer (not merely in the UI).
 - **Assets are the exception:** they are a single **global catalog** shared by every user — all authenticated users read the same asset rows, and only the [admin](GLOSSARY.md#admin) account may create/edit/deactivate them. The admin-write restriction is enforced at the data layer, not merely in the UI.
 - Other global/shared data (prices, exchange rates, benchmark series) is **read-only** to users: any signed-in user may read it; none may write it. Only the system's background fetch path writes it.
 - Deleting a user cascades to all of that user's owned rows.
@@ -100,6 +104,6 @@ Define the persistent data model and the authentication boundary the whole app s
 - An allowlisted email can sign up; the same email, if removed from the allowlist afterward, still has its existing account but a *new* signup with a different non-listed email is rejected.
 - A brand-new (allowlisted) user, on first login, already has the default set of platforms and sees the shared global asset catalog — including a fiat row for each default currency — rather than an empty workspace.
 - The email allowlist match is case-insensitive (`Person@Example.com` matches a listed `person@example.com`).
-- A signed-in user can read and write only their own platforms / holdings / transactions / snapshots; they can read the shared global asset catalog but write it only if they are the admin; they can read but not write the shared price, exchange-rate, and benchmark data; they can neither read nor write the allowlist.
+- A signed-in user can read and write only their own platforms / holdings / transactions / snapshots / intraday snapshots; they can read the shared global asset catalog but write it only if they are the admin; they can read but not write the shared price, exchange-rate, and benchmark data; they can neither read nor write the allowlist.
 - Visiting a protected area without a session redirects to login; the protected content never renders unauthenticated.
 - Reloading the page keeps the user logged in; a background session refresh that doesn't change identity does not trigger a visible data reload.

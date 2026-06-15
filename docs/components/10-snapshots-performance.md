@@ -38,6 +38,12 @@ Capture the portfolio's value and composition once per day as a frozen [snapshot
 2. **Manual "now"** — the user can capture today's snapshot on demand from the performance view.
 3. **Live trailing of today** — while the app is open, today's snapshot is kept in step with the freshest data the client has: a price refresh or a transaction add/edit/delete rewrites today's row so the value chart's "now" point stays current. Price-driven rewrites are skipped when today's total hasn't actually moved.
 4. **Historical backfill** — on demand (from settings), the system reconstructs past snapshots by replaying transactions against historical prices/rates. See density below.
+5. **Hourly intraday (rolling 24h)** — a scheduled job captures the portfolio's
+   **total value** every hour into a separate intraday store, keeping only the
+   last ~24 hours; older hourly points are pruned automatically. These points are
+   totals-only (no breakdown) and exist solely to render intraday detail in the
+   1-day view. The permanent record of each day remains the daily snapshot — the
+   intraday store is never an authoritative history.
 
 ### Backfill density
 
@@ -58,6 +64,11 @@ Overwrite option: when on, the **entire date range** from the earliest transacti
 All performance math is [money-weighted](GLOSSARY.md#money-weighted) and [USD-anchored](GLOSSARY.md#usd-anchor).
 
 - **Portfolio value over time** — the snapshot totals, plotted chronologically. The chart's "now" point equals the live money-weighted total shown on the dashboard.
+- **Intraday value (1-day view)** — the last ~24 hours of hourly totals plotted on
+  a time-of-day axis, with the live current value as the right-edge "now" point.
+  In P&L mode the line shows the cumulative % change since the window's first
+  point; the market-index comparison is **not** shown for the 1-day view (a single
+  daily index close can't draw an intraday line).
 - **P&L over time** — for any snapshot, `total value(date) − net invested(date) − external taxes paid on/before date`. Net invested is the cumulative cost basis deployed up to that date (buys + fees − sells − dividends/interest; transfers carry cost basis in/out and net to zero for genuine platform-to-platform moves; auto-paired cash legs cancel an asset↔cash swap so it isn't double-counted; [tax payments](GLOSSARY.md#tax-payment) never enter it). The external-taxes term keeps the series reconciled with the live [Total P&L](GLOSSARY.md#total-pl) headline: a tracked tax is already inside the frozen snapshot values, while an external one (no balance touched) would otherwise make the chart's "now" point disagree with the hero. The series therefore **steps down on the payment date** — cash-basis, in the year paid, not the year whose gains the tax covers.
 - **Monthly returns** — the money-weighted return between consecutive snapshots, with mid-period cash flows time-weighted (a deposit halfway through the period counts for ~half the period) so depositing capital does not masquerade as a gain. Only flows that genuinely cross the portfolio boundary count; internal asset↔cash swaps, dividends, interest, and standalone fees do not inflate the return. A **tracked** tax payment reads as that period's cost (the value dropped, like a standalone fee); an **external** one is neither a flow nor a value change, so monthly returns ignore it — it appears only in the cumulative P&L series above.
   - Worked example: period start value 10,000; end value 11,500; a 1,000 deposit at the period midpoint. Time-weight w = (T − t)/T = 0.5. Return = (11,500 − 10,000 − 1,000) / (10,000 + 1,000·0.5) = 500 / 10,500 ≈ **+4.76%**. Counting the deposit as gain would wrongly read +15%.

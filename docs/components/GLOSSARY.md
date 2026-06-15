@@ -63,6 +63,12 @@ re-deriving from holdings × prices.** Fields: `snapshot_date`, `total_usd`,
   close value"; `price_usd` is the per-unit price used by the
   [snapshot-price / live-quantity rule](#snapshot-price-and-live-quantity).
 
+There are two snapshot stores. The **daily snapshot** (one per calendar day,
+full breakdown) is the authoritative record of a day's value. **Intraday
+snapshots** are a transient, totals-only rolling 24-hour window (one per hour,
+pruned after a day) used only to draw the 1-day intraday view; they never serve
+as authoritative history.
+
 ### Price
 The current/cached unit price of an asset, in USD and TRY, with its `source` and
 `updated_at`. Distinct from the asset's *native* price currency. See
