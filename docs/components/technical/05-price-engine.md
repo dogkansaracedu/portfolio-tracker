@@ -16,7 +16,7 @@
 
 | Path | Role |
 |---|---|
-| `supabase/functions/fetch-prices/index.ts` | **Orchestrator** — single endpoint the frontend pings and the daily cron forces. Runs FX step → Yahoo step → TEFAS step → (cron only) snapshot trigger. Self-throttles per asset. |
+| `supabase/functions/fetch-prices/index.ts` | **Orchestrator** — single endpoint the frontend pings and the daily cron forces. Runs FX step → Yahoo step → TEFAS step → (cron only) snapshot/intraday trigger. Self-throttles per asset. |
 | `supabase/functions/fetch-historical-rate/index.ts` | On-demand TCMB fetch for **one past date** (non-USD transactions). Walks back ≤7 days to the nearest published rate; upserts `exchange_rates`. |
 | `supabase/functions/_shared/yahoo.ts` | `fetchYahooQuote(symbol)` — single Yahoo chart-endpoint quote; requests `interval=5m&range=1d&includePrePost=true` and derives the price via the pure `pickLatestPrice` (newer of `regularMarketPrice@regularMarketTime` vs the last non-null intraday close@its candle time — so pre/after-hours prints surface); reads `meta.currency`; never throws (returns `{ status, quote: null }` on failure). Unit-tested in `src/lib/queries/yahoo.test.ts`. |
 | `supabase/functions/_shared/tefas.ts` | `fetchTefasQuote(fonKodu)` — single TEFAS fund NAV (latest of `periyod:1`); always TRY; never throws. |
@@ -111,9 +111,12 @@ USD). When the FX step is skipped/failed, `ensureConversionRates` loads the last
 - Yahoo fetches are **1s apart** (only counting symbols actually fetched — a run
   that only refreshes crypto stays fast).
 - **`force`** (cron only, gated on a matching `X-Cron-Token` / `CRON_TOKEN`)
-  bypasses guard + cadence + market hours and refetches everything; the cron may
-  also chain `take-snapshots` (Component 10). Public/frontend pings can **only**
-  trigger a normal throttled refresh — they can't force or snapshot.
+  bypasses guard + cadence + market hours and refetches everything. The cron may
+  then chain a snapshot writer (Component 10): `snapshot=true` chains
+  `take-snapshots` (daily EOD), `intraday=true` chains `take-intraday-snapshots`
+  (hourly totals). Both go through the shared `triggerChainedFunction`
+  fire-and-forget helper. Public/frontend pings can **only** trigger a normal
+  throttled refresh — they can't force or chain a snapshot.
 
 **Client polling loop (`PricesContext`):** `PricesProvider` hoists the old
 per-call `usePrices` hook into one shared instance. While a tab is **visible**
