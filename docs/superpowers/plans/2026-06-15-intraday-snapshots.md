@@ -37,6 +37,8 @@
 
 **Docs:**
 - Modify `docs/components/10-snapshots-performance.md`, `docs/components/technical/10-snapshots-performance.md`, `docs/components/07-dashboard.md`, `docs/components/technical/07-dashboard.md`, `docs/components/GLOSSARY.md`.
+- Modify `docs/components/02-database-schema-auth.md` + `docs/components/technical/02-database-schema-auth.md` (new per-user table).
+- Modify `docs/components/technical/05-price-engine.md` (new `intraday` flag + chain).
 
 ---
 
@@ -1259,6 +1261,8 @@ git commit -m "feat(dashboard): render intraday 1D view, hide index overlay/chip
 - Modify: `docs/components/technical/10-snapshots-performance.md`
 - Modify: `docs/components/07-dashboard.md` + `docs/components/technical/07-dashboard.md`
 - Modify: `docs/components/GLOSSARY.md`
+- Modify: `docs/components/02-database-schema-auth.md` + `docs/components/technical/02-database-schema-auth.md`
+- Modify: `docs/components/technical/05-price-engine.md`
 
 - [ ] **Step 1: Behavioral spec — `docs/components/10-snapshots-performance.md`**
 
@@ -1327,10 +1331,53 @@ pruned after a day) used only to draw the 1-day intraday view; they never serve
 as authoritative history.
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Database schema — `docs/components/02-database-schema-auth.md` (behavioral)**
+
+The new table is a per-user entity, so it joins the isolation invariant. Update the two enumerations:
+
+1. In "Per-user data isolation" (the line listing `platforms, holdings, transactions, snapshots`), change it to `platforms, holdings, transactions, snapshots, intraday snapshots`.
+2. In "Data model (what is stored)", add a bullet describing the entity in tech-neutral terms:
+
+```markdown
+- **Intraday snapshots** — a transient, totals-only record of the portfolio's value
+  captured roughly hourly and kept only for about the last day (older points are
+  pruned). They exist solely to draw the intraday (single-day) value view; the daily
+  snapshot remains the authoritative per-day record.
+```
+
+3. In "Acceptance — tech-neutral" (the line "read and write only their own platforms / holdings / transactions / snapshots"), add `intraday snapshots` to that list.
+
+- [ ] **Step 6: Database schema — `docs/components/technical/02-database-schema-auth.md`**
+
+1. In the migrations table, add two rows (after the `20260610000000_global_asset_catalog.sql` row, in timestamp order):
+
+```markdown
+| `20260615000000_intraday_snapshots.sql` | Adds per-user `intraday_snapshots` table (timestamp-keyed, totals-only: `captured_at`, `total_usd`, `total_try`) + index `idx_intraday_user_captured` + four `auth.uid() = user_id` RLS policies. Rolling 24h window — written hourly, pruned by `take-intraday-snapshots`. |
+| `20260615000100_schedule_intraday_snapshot_cron.sql` | Schedules pg_cron `hourly-intraday-snapshot` (`0 * * * *`) → POSTs `fetch-prices` with `{force, intraday}`. No schema change. |
+```
+
+2. In the RLS / isolation paragraph, add `intraday_snapshots` to the list of per-user tables with four `auth.uid() = user_id` policies (alongside `platforms`, `holdings`, `transactions`, `snapshots`).
+
+- [ ] **Step 7: Price engine — `docs/components/technical/05-price-engine.md`**
+
+The orchestrator gained a second cron-only chain. Update the `force`/chain bullet (the one covering `force` and the `take-snapshots` chain, ~lines 113–116):
+
+```markdown
+- **`force`** (cron only, gated on a matching `X-Cron-Token` / `CRON_TOKEN`)
+  bypasses guard + cadence + market hours and refetches everything. The cron may
+  then chain a snapshot writer (Component 10): `snapshot=true` chains
+  `take-snapshots` (daily EOD), `intraday=true` chains `take-intraday-snapshots`
+  (hourly totals). Both go through the shared `triggerChainedFunction`
+  fire-and-forget helper. Public/frontend pings can **only** trigger a normal
+  throttled refresh — they can't force or chain a snapshot.
+```
+
+Also update the orchestrator file-map row (line 19) if it names the steps: "Runs FX → Yahoo → TEFAS → (cron only) snapshot/intraday trigger."
+
+- [ ] **Step 8: Commit**
 
 ```bash
-git add docs/components/10-snapshots-performance.md docs/components/technical/10-snapshots-performance.md docs/components/07-dashboard.md docs/components/technical/07-dashboard.md docs/components/GLOSSARY.md
+git add docs/components/10-snapshots-performance.md docs/components/technical/10-snapshots-performance.md docs/components/07-dashboard.md docs/components/technical/07-dashboard.md docs/components/GLOSSARY.md docs/components/02-database-schema-auth.md docs/components/technical/02-database-schema-auth.md docs/components/technical/05-price-engine.md
 git commit -m "docs: intraday hourly snapshots + 1D view"
 ```
 
@@ -1396,7 +1443,7 @@ git add -A && git commit -m "chore: intraday snapshots post-deploy tweaks"
 - 1D view at intraday resolution, time-of-day axis → Tasks 8, 9, 10. ✓
 - Index/TWR overlay suppressed in 1D; portfolio line still moves (intraday %) → Tasks 9 (twrPct), 10 (hide Area/chip). ✓
 - Unpriced hour skipped (not the date); empty portfolio → now-anchor covers it → Task 3. ✓
-- Docs (10, 07, GLOSSARY) → Task 11. ✓
+- Docs (behavioral+technical 10 & 07, GLOSSARY, behavioral+technical 02, technical 05) → Task 11. ✓
 
 **Type consistency:** `valueHoldings()` / `ValuationResult` (Task 2) consumed identically in Tasks 2 & 3. `IntradaySnapshot` (Task 6) used in Tasks 7, 8, 9. `buildIntradaySeries` signature (Task 8) matches its call site (Task 9). `triggerChainedFunction(fnName, cronToken)` (Task 4) called with both function names. `intradaySnapshots` threads prop → context (7) → hook arg (9) → component (10).
 
