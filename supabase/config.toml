@@ -399,6 +399,12 @@ verify_jwt = false
 [functions.fetch-prices]
 verify_jwt = false
 
+# Hourly intraday snapshot. Same server-only pattern as take-snapshots:
+# authorized by X-Cron-Token, writes totals-only rows via the service role,
+# callers cannot inject data. Chained from fetch-prices on the hourly cron.
+[functions.take-intraday-snapshots]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
