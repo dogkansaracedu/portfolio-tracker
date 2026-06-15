@@ -14,12 +14,13 @@ import { useTransactionModal } from "@/contexts/TransactionContext"
 import { bn } from "@/lib/config"
 import {
   fetchSnapshots,
+  fetchIntradaySnapshots,
   createSnapshot,
   buildSnapshotInsert,
   persistSnapshot,
   deleteSnapshot,
 } from "@/lib/queries/snapshots"
-import type { Snapshot, PriceCache, ExchangeRate } from "@/types/database"
+import type { Snapshot, IntradaySnapshot, PriceCache, ExchangeRate } from "@/types/database"
 
 /**
  * Debounce windows for the auto-snapshot effect.
@@ -41,6 +42,7 @@ const TX_REFRESH_DEBOUNCE_MS = 200
 
 interface SnapshotsContextValue {
   snapshots: Snapshot[]
+  intradaySnapshots: IntradaySnapshot[]
   loading: boolean
   error: string | null
   takeSnapshot: (
@@ -59,20 +61,26 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
   const { txVersion } = useTransactionModal()
   const { holdings } = useHoldings()
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
+  const [intradaySnapshots, setIntradaySnapshots] = useState<IntradaySnapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!user) {
       setSnapshots([])
+      setIntradaySnapshots([])
       setLoading(false)
       return
     }
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchSnapshots(user.id)
+      const [data, intraday] = await Promise.all([
+        fetchSnapshots(user.id),
+        fetchIntradaySnapshots(user.id),
+      ])
       setSnapshots(data)
+      setIntradaySnapshots(intraday)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load snapshots")
     } finally {
@@ -214,6 +222,7 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
     <SnapshotsContext.Provider
       value={{
         snapshots,
+        intradaySnapshots,
         loading,
         error,
         takeSnapshot,
