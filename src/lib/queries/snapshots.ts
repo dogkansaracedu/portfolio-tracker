@@ -3,6 +3,7 @@ import { bn, BN_ZERO, BN_HUNDRED, homeDayIso } from "@/lib/config"
 import { supabase } from "@/lib/supabase"
 import type {
   Snapshot,
+  IntradaySnapshot,
   SnapshotInsert,
   SnapshotBreakdown,
   Holding,
@@ -16,6 +17,26 @@ export async function fetchSnapshots(userId: string): Promise<Snapshot[]> {
     .select("*")
     .eq("user_id", userId)
     .order("snapshot_date", { ascending: true })
+
+  if (error) throw error
+  return data ?? []
+}
+
+const INTRADAY_WINDOW_MS = 24 * 60 * 60 * 1000
+
+/** The rolling 24h of intraday (hourly) totals for the 1D hero view. The cron
+ *  prunes server-side; this `gte` is a belt-and-suspenders bound so a late prune
+ *  never leaks an older row into the chart. */
+export async function fetchIntradaySnapshots(
+  userId: string,
+): Promise<IntradaySnapshot[]> {
+  const since = new Date(Date.now() - INTRADAY_WINDOW_MS).toISOString()
+  const { data, error } = await supabase
+    .from("intraday_snapshots")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("captured_at", since)
+    .order("captured_at", { ascending: true })
 
   if (error) throw error
   return data ?? []

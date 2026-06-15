@@ -96,6 +96,17 @@ export interface Snapshot {
   created_at: string;
 }
 
+/** A totals-only intraday point. The hourly cron writes one per hour and prunes
+ *  rows older than 24h, so the client only ever sees a rolling ~24h window.
+ *  Distinct from `Snapshot`: timestamp-keyed (`captured_at`), no breakdown. */
+export interface IntradaySnapshot {
+  id: string;
+  user_id: string;
+  captured_at: string;
+  total_usd: number | null;
+  total_try: number | null;
+}
+
 export interface ExchangeRate {
   date: string;
   source: string;
