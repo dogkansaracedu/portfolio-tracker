@@ -194,7 +194,9 @@
   percent lines aren't clipped: `niceTicks` are taken over the TWR/benchmark
   percent extent, and `chartData` carries a derived `pnlUsd = (twrPct / 100) ×
   denom` purely so the left USD/TRY axis stays aligned with the right (%) axis the
-  lines actually plot on. Tooltip rows show **You (TWR)** and the index, each via
+  lines actually plot on. The axis pad floor is `denom × 1%` for multi-range views
+  but `denom × 0.1%` for `1D`, so a sub-1% intraday day fills the chart instead of
+  collapsing into a sliver. Tooltip rows show **You (TWR)** and the index, each via
   `formatSignedPercent`.
 - **Headline (P&L mode)** = `formatSignedPercent(twrEnd, 2)`, colored by `twrColor`
   (`gainLossClass(twrEnd > 0)`, muted when exactly flat). The subtitle row shows the

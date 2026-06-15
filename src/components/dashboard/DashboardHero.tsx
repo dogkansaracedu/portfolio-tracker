@@ -302,7 +302,12 @@ export default function DashboardHero({
     ]
     const pnlMin = Math.min(...pnlAllValues)
     const pnlMax = Math.max(...pnlAllValues)
-    const pad = Math.max((pnlMax - pnlMin) * 0.08, Math.abs(denom) * 0.01)
+    // The denom×1% pad floor stops multi-month ranges from over-magnifying tiny
+    // P&L noise. But an intraday day is usually well under 1%, so that floor
+    // would dominate and squash the 1D line into a sliver (axis ±2% for a 0.9%
+    // day). Use a much smaller floor (0.1%) for 1D so the axis fits the day.
+    const padFloor = Math.abs(denom) * (timeRange === "1D" ? 0.001 : 0.01)
+    const pad = Math.max((pnlMax - pnlMin) * 0.08, padFloor)
     const pnlTicks = niceTicks(pnlMin - pad, pnlMax + pad, 5)
     const tickMinUsd = pnlTicks[0]
     const tickMaxUsd = pnlTicks[pnlTicks.length - 1]
@@ -313,7 +318,7 @@ export default function DashboardHero({
       pnlTicks,
       pctTicks,
     }
-  }, [viewMode, displayChartData, currency, denom])
+  }, [viewMode, displayChartData, currency, denom, timeRange])
 
   const formatRightAxisTick = (v: number) => {
     // niceTicks emits integers for any span >= 5%, so 0 decimals is
