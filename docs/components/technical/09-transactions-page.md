@@ -54,9 +54,14 @@
 
 **Hooks** (`src/hooks/`)
 - `useTransactionLog.ts` — the page's view-model. Reads/writes filters via URL search
-  params (`useSearchParams`); first visit with empty params seeds `dateFrom = Jan 1
-  this year` (`thisYearStartISO`) behind a `useRef` once-guard so picking "All Time"
-  doesn't bounce back. Sends date/asset/platform to the **server** query
+  params (`useSearchParams`); first visit with empty params defaults to `dateFrom = Jan
+  1 this year` (`thisYearStartISO`) behind a `useRef` once-guard so picking "All Time"
+  doesn't bounce back. The default is applied **synchronously in the `filters` memo on
+  the first render** (not only via the URL-seeding effect), so the first and only server
+  fetch already carries `dateFrom` — seeding through the effect alone fired an
+  unfiltered full-history fetch first, then refetched once the param landed (two
+  requests, plus a duplicate child-row fetch, per visit). Sends date/asset/platform to
+  the **server** query
   (`useTransactions(serverFilters)`); applies the **type** filter client-side; builds
   the `summary` (count + buy/sell volume) by `normalizeToUsd`-ing each row's total.
 - `useTransactions.ts` — two exports: `useTransactionMutations()` (create/edit/delete
