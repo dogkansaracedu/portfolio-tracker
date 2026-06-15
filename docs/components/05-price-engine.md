@@ -86,6 +86,17 @@ during Turkish market hours; outside the continuous session and on weekends
 their price can't move, so they're skipped (saving wasted calls). Other
 asset classes are not market-gated.
 
+**Equity prices follow the latest traded price, including extended-hours
+sessions.** Where a market publishes pre-market or after-hours trades (e.g. US
+equities), the most recent such trade is used as the current price — the value
+is *not* frozen at the official regular-session close. During the regular
+session the live regular price is used (it is more current than the last
+extended-hours print). Markets without an extended session, and asset classes
+that trade continuously (crypto, tokenized gold), are unaffected. Because there
+is a single shared price store, this latest price is what the daily
+[Snapshot](GLOSSARY.md#snapshot) records too — a snapshot taken while a foreign
+market is still in an extended session reflects that session's price, by design.
+
 **Single shared price store.** Every consumer (header, portfolio, dashboard, the
 snapshot writer) reads from **one** app-wide price store. A manual refresh
 propagates to all of them at once; the presence/refresh loop runs **once per app
