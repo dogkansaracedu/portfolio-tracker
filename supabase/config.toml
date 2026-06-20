@@ -405,6 +405,12 @@ verify_jwt = false
 [functions.take-intraday-snapshots]
 verify_jwt = false
 
+# Ticker resolution (Yahoo lookup). Added 2026-05-25 and deployed manually, but
+# its config block was missed at the time — declared here so the GitHub
+# integration manages it. verify_jwt matches the live setting.
+[functions.resolve-tickers]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327
