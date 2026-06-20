@@ -24,8 +24,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Supabase
+# Supabase / Deno (edge functions tooling, generated locally)
 supabase/.temp/
+/deno.lock
 
 # Local data backups (financial data, not for git)
 data-backup/
