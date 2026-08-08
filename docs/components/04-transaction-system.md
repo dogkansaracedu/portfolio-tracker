@@ -237,6 +237,14 @@ inline errors. Rows can be added blank, or **imported** three ways:
 2. **Upload a CSV** file exported from a spreadsheet.
 3. **Import a broker PDF statement** — parses only executed buy/sell rows (cancelled
    and non-trade rows are skipped); each parsed row lands in the grid for review.
+   Statements may overlap (monthly back-imports): rows already recorded on the
+   broker's platform are excluded and counted as "already imported" instead of
+   landing in the grid. Matching is **count-based** on the transaction's identifying
+   fields (day, asset, type, quantity, unit price, currency) — dates carry no time
+   of day, so if the statement holds more identical trades than are already
+   recorded, only the surplus is imported. Rows already sitting unsaved in the grid
+   count as recorded. If the existing-transactions lookup fails, the import reports
+   the error and offers nothing to add (it never silently re-imports).
 
 Imported tickers/platforms that don't match an existing [Asset](GLOSSARY.md#asset) or
 [Platform](GLOSSARY.md#platform) are surfaced. Unknown tickers are marked as "new"
@@ -264,6 +272,9 @@ and funded buys) or rolls back entirely, after which holding balances are recomp
       leg, consumes lots, or moves net invested.
 - [ ] Importing a broker PDF yields editable, validated grid rows; cancelled/non-trade
       rows are skipped.
+- [ ] Re-importing an overlapping broker PDF adds no duplicates: already-recorded
+      rows are excluded with a visible count, and same-day identical trades beyond
+      the recorded count still import.
 - [ ] Pasting or uploading rows populates the grid with locale-tolerant parsing.
 - [ ] An unknown ticker is surfaced and resolved **before** anything is saved.
 - [ ] Bulk save is atomic and recomputes every touched holding's balance.
