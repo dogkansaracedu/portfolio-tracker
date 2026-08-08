@@ -24,7 +24,7 @@ function setup(assets = ASSETS): {
 } {
   return {
     ctx: buildMidasRowContext(assets, PLATFORMS),
-    stats: { skippedCancelled: 0, skippedNonTrade: 0 },
+    stats: { skippedNotExecuted: 0, skippedNonTrade: 0 },
   }
 }
 
@@ -109,7 +109,7 @@ describe("accountCellsToRow", () => {
       notes: "Hesaplar Arası Para Transferi",
       relatedAssetId: null,
     })
-    expect(stats).toEqual({ skippedCancelled: 0, skippedNonTrade: 0 })
+    expect(stats).toEqual({ skippedNotExecuted: 0, skippedNonTrade: 0 })
   })
 
   it("maps Para Yatırma to transfer_in and parses thousands-free TR numbers", () => {
@@ -198,7 +198,7 @@ describe("accountCellsToRow", () => {
       stats,
     )
     expect(row).toBe(null)
-    expect(stats.skippedCancelled).toBe(1)
+    expect(stats.skippedNotExecuted).toBe(1)
   })
 
   it("drops non-data rows (section title, empty-section marker) without counting them", () => {
@@ -213,7 +213,7 @@ describe("accountCellsToRow", () => {
     expect(
       accountCellsToRow({ TALEP_TARIHI: "Kayıt bulunmamaktadır." }, ctx, stats),
     ).toBe(null)
-    expect(stats).toEqual({ skippedCancelled: 0, skippedNonTrade: 0 })
+    expect(stats).toEqual({ skippedNotExecuted: 0, skippedNonTrade: 0 })
   })
 
   it("reports an error (no sentinel) when the currency has no cash asset", () => {
@@ -259,7 +259,7 @@ describe("dividendCellsToRow", () => {
       notes: "SPYM dividend (gross 2.87, withholding 0.57)",
       relatedAssetId: "spym",
     })
-    expect(stats).toEqual({ skippedCancelled: 0, skippedNonTrade: 0 })
+    expect(stats).toEqual({ skippedNotExecuted: 0, skippedNonTrade: 0 })
   })
 
   it("canonicalizes the payer ticker before resolving it (BRK.B → BRK-B)", () => {
@@ -297,7 +297,7 @@ describe("dividendCellsToRow", () => {
     expect(
       dividendCellsToRow({ ODEME_TARIHI: "Kayıt bulunmamaktadır." }, ctx, stats),
     ).toBe(null)
-    expect(stats).toEqual({ skippedCancelled: 0, skippedNonTrade: 0 })
+    expect(stats).toEqual({ skippedNotExecuted: 0, skippedNonTrade: 0 })
   })
 
   it("reports an error when the payout currency has no cash asset", () => {
@@ -336,12 +336,50 @@ describe("tradeCellsToRow", () => {
     })
   })
 
-  it("drops a non-date row before the status check so titles aren't counted as skipped", () => {
+  it("drops a non-date row before the fill check so titles aren't counted as skipped", () => {
     const { ctx, stats } = setup()
     expect(
       tradeCellsToRow({ TARIH: "HESAP İŞLEMLERİ (01/06/26 - 30/06/26)" }, ctx, stats),
     ).toBe(null)
-    expect(stats).toEqual({ skippedCancelled: 0, skippedNonTrade: 0 })
+    expect(stats).toEqual({ skippedNotExecuted: 0, skippedNonTrade: 0 })
+  })
+
+  // "Kalanın Süresi Doldu" = the unfilled remainder expired. The filled part is
+  // a real trade; dropping it leaves the matching sell with no cost basis.
+  it("imports a partially filled order for the quantity that actually filled", () => {
+    const { ctx, stats } = setup()
+    const row = tradeCellsToRow(
+      {
+        ...CELLS,
+        SEMBOL: "SPYM",
+        ISLEM_DURUMU: "Kalanın Süresi Doldu",
+        EMIR_ADET: "40",
+        GERCEKLESEN_ADET: "36",
+        ORT_FIYAT: "69,00",
+      },
+      ctx,
+      stats,
+    )
+    expect(row?.amount).toBe("36")
+    expect(row?.unitPrice).toBe("69.00")
+    expect(row?.type).toBe("buy")
+    expect(stats).toEqual({ skippedNotExecuted: 0, skippedNonTrade: 0 })
+  })
+
+  it.each([
+    ["İptal Edildi", "0"],
+    ["Süresi Doldu", "-"],
+    ["Gerçekleşti", ""],
+  ])("skips a %s order that filled nothing", (status, filled) => {
+    const { ctx, stats } = setup()
+    expect(
+      tradeCellsToRow(
+        { ...CELLS, ISLEM_DURUMU: status, GERCEKLESEN_ADET: filled },
+        ctx,
+        stats,
+      ),
+    ).toBe(null)
+    expect(stats.skippedNotExecuted).toBe(1)
   })
 
   it("encodes an unknown symbol as a new-asset sentinel", () => {

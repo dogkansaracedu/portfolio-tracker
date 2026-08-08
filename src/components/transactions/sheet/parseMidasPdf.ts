@@ -1,4 +1,5 @@
 import type { Asset, Platform, TransactionType } from "@/types/database"
+import { bn } from "@/lib/config"
 import { loadPdfjs } from "@/lib/pdf/loadPdfjs"
 import { MIDAS_PLATFORM_NAME } from "@/lib/constants/brokers"
 import { FIAT_ASSET_CATEGORY } from "@/lib/constants/assets"
@@ -212,7 +213,7 @@ function rowToCells(
 }
 
 export interface MidasParseStats {
-  skippedCancelled: number
+  skippedNotExecuted: number
   skippedNonTrade: number
 }
 
@@ -271,9 +272,13 @@ export function tradeCellsToRow(
   const date = parseDate(cells.TARIH?.trim() ?? "")
   if (!date) return null
 
-  const status = cells.ISLEM_DURUMU?.trim() ?? ""
-  if (status !== MIDAS_EXECUTED_STATUS) {
-    stats.skippedCancelled++
+  // Filled quantity — not status — decides whether shares changed hands. A
+  // "Kalanın Süresi Doldu" order (remainder expired) still fills part of the
+  // order, and dropping it would leave the later sell with no cost basis.
+  // Cancelled/expired orders fill nothing and fall out here.
+  const amount = normalizeNumber(cells.GERCEKLESEN_ADET ?? "")
+  if (!amount || !bn(amount).gt(0)) {
+    stats.skippedNotExecuted++
     return null
   }
 
@@ -308,7 +313,7 @@ export function tradeCellsToRow(
     assetId,
     platformId: ctx.midasPlatformId,
     type,
-    amount: normalizeNumber(cells.GERCEKLESEN_ADET ?? ""),
+    amount,
     unitPrice: normalizeNumber(cells.ORT_FIYAT ?? ""),
     priceCurrency: currency,
     fee: normalizeNumber(cells.ISLEM_UCRETI ?? ""),
@@ -330,7 +335,7 @@ export function accountCellsToRow(
 
   const status = cells.ISLEM_DURUMU?.trim() ?? ""
   if (status !== MIDAS_EXECUTED_STATUS) {
-    stats.skippedCancelled++
+    stats.skippedNotExecuted++
     return null
   }
 
@@ -443,7 +448,7 @@ export async function parseMidasPdf(
   platforms: Platform[],
 ): Promise<ParseSummary> {
   const ctx = buildMidasRowContext(assets, platforms)
-  const stats: MidasParseStats = { skippedCancelled: 0, skippedNonTrade: 0 }
+  const stats: MidasParseStats = { skippedNotExecuted: 0, skippedNonTrade: 0 }
 
   let pdfjs: Awaited<ReturnType<typeof loadPdfjs>>
   try {
@@ -532,7 +537,7 @@ export async function parseMidasPdf(
     rows,
     unresolvedAssets: Array.from(ctx.unresolvedAssets),
     unresolvedPlatforms,
-    skipped: stats.skippedCancelled + stats.skippedNonTrade,
+    skipped: stats.skippedNotExecuted + stats.skippedNonTrade,
     errors,
   }
 }
