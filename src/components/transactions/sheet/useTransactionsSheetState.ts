@@ -40,7 +40,8 @@ function snapshotEquals(a: SheetSnapshot, b: SheetSnapshot): boolean {
     a.unitPrice === b.unitPrice &&
     a.priceCurrency === b.priceCurrency &&
     a.fee === b.fee &&
-    a.notes === b.notes
+    a.notes === b.notes &&
+    a.relatedAssetId === b.relatedAssetId
   )
 }
 
@@ -55,6 +56,7 @@ function pickSnapshot(row: SheetRow): SheetSnapshot {
     priceCurrency: row.priceCurrency,
     fee: row.fee,
     notes: row.notes,
+    relatedAssetId: row.relatedAssetId,
   }
 }
 
@@ -84,6 +86,7 @@ function blankRow(defaults: BlankRowDefaults = {}): SheetRow {
     priceCurrency: defaults.priceCurrency ?? DEFAULT_CURRENCY,
     fee: "",
     notes: "",
+    relatedAssetId: null,
     status: "new",
     original: null,
     errors: {},
@@ -176,6 +179,9 @@ function reduce(state: SheetState, action: Action): SheetState {
         return {
           ...base,
           ...partial,
+          // Parsers may omit it (or spread it as undefined); the row field is
+          // non-optional and the save payload needs a real null.
+          relatedAssetId: partial.relatedAssetId ?? null,
           status: "new" as RowStatus,
           original: null,
           errors: {},

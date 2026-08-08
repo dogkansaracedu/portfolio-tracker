@@ -73,6 +73,24 @@ describe("dedupeImportedRows", () => {
     expect(result.duplicates).toBe(0)
   })
 
+  it("dedupes cash-side rows (dividend/interest/transfer) on the fiat asset", () => {
+    const cash = (over: Partial<DedupCandidate>) =>
+      row({ assetId: "usd-cash", unitPrice: "1", ...over })
+    const parsed = [
+      cash({ type: "dividend", amount: "2.30" }),
+      cash({ type: "interest", amount: "31.71" }),
+      cash({ type: "transfer_out", amount: "900" }),
+    ]
+    const existing = [
+      cash({ type: "dividend", amount: "2.3" }),
+      cash({ type: "interest", amount: "31.71" }),
+    ]
+    const result = dedupeImportedRows(parsed, existing)
+    expect(result.duplicates).toBe(2)
+    expect(result.kept).toHaveLength(1)
+    expect(result.kept[0].type).toBe("transfer_out")
+  })
+
   it("does not choke on empty/unparseable numbers (collapse to 0 via bn())", () => {
     const result = dedupeImportedRows(
       [row({ amount: "" })],

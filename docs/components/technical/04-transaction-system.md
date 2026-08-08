@@ -35,7 +35,9 @@
   transactions for the statement's date range (`fetchTransactions`) and drops
   duplicates via `dedupeImportedRows` (unsaved grid rows passed in as `gridRows`
   count as existing; saved ones don't — they'd double-count with the DB fetch);
-  a failed lookup aborts the import instead of skipping the check.
+  a failed lookup aborts the import instead of skipping the check. The fetch is
+  parents-only, which already covers the cash-side kinds (interest / dividend /
+  transfer rows carry no `linked_tx_id`), so dedup works unchanged for them.
 - `dedupeImportedRows.ts` — pure count-based duplicate filter keyed on
   date|asset|type|amount|unitPrice|currency (`bn()`-normalized numbers, sentinel
   assets never match). Vitest: `dedupeImportedRows.test.ts`.
@@ -49,7 +51,13 @@
   header-alias + positional column detection, locale-tolerant date/number/currency/type
   normalization, ticker/platform lookup, unresolved-set collection.
 - `parseMidasPdf.ts` — geometry-based Midas statement parser (see gotchas); emits
-  `ParsedRow[]`, encoding unknown symbols as `new:TICKER` sentinels.
+  `ParsedRow[]`, encoding unknown trade symbols as `new:TICKER` sentinels. Reads all
+  three statement tables — YATIRIM İŞLEMLERİ (trades), HESAP İŞLEMLERİ (cash ops),
+  TEMETTÜ İŞLEMLERİ (dividends). Pure, exported, unit-tested pieces:
+  `headerKindForLabels` (labels → `MidasTableKind`), `buildMidasRowContext`
+  (ticker→asset + currency→fiat-asset lookups, Midas platform id, unresolved sets,
+  error set), and one cells→`ParsedRow` mapper per kind — `tradeCellsToRow`,
+  `accountCellsToRow`, `dividendCellsToRow`. Vitest: `parseMidasPdf.test.ts`.
 - `validation.ts` — `validateField` / `validateRow`: required fields, ISO date (not
   future), numeric checks, price-required-by-type, supported currency; sentinel asset
   ids pass as valid intermediates.
@@ -59,7 +67,9 @@
   via Yahoo (`resolveTickers`) and create it; returns resolved map + leftovers + a
   duplicate-ticker race fallback.
 - `types.ts` — `SheetRow`, `RowStatus`, `SheetField`, `SheetSnapshot`,
-  `snapshotFromTx`.
+  `snapshotFromTx`. `relatedAssetId` is part of `SheetRow`/`SheetSnapshot` but **not**
+  of `SheetField` — it is carried metadata (no grid column, no validation), read from
+  `tx.related_asset_id` on load and written back by both save paths.
 
 ### Typed cells — `src/components/transactions/sheet/cells/`
 - `CellShell.tsx` — wrapper for every editable cell; red ring + tooltip on error.
@@ -81,8 +91,12 @@
   `buildChildRow`, `validateFundingCash`.
 - `src/lib/constants/transaction-types.ts` — type enum + `ADD_TYPES`/`SUBTRACT_TYPES`,
   `TYPES_WITH_LINKED_CHILD`, `USER_PICKABLE_TYPES`, display labels/colours.
-- `src/lib/constants/midas-pdf.ts` — Midas header aliases, executed-status token,
-  Alış/Satış → buy/sell map.
+- `src/lib/constants/midas-pdf.ts` — Midas header aliases (all three tables),
+  `MidasTableKind`, executed-status token, `MIDAS_TYPE_MAP` (Alış/Satış → buy/sell),
+  `MIDAS_ACCOUNT_TYPE_MAP` (Para Yatırma/Çekme → transfer_in/out),
+  `MIDAS_OTHER_INCOME_TYPE` + `MIDAS_INTEREST_DESCRIPTION_TOKEN` (Diğer Gelir whose
+  description mentions *Nema* → `interest`), `MIDAS_SECURITY_TICKER_SEPARATOR`, and
+  `midasDividendNote(ticker, gross, withholding)`.
 - `src/lib/queries/transactions.ts` — fetch (parents-only by default; children when an
   asset is filtered), `fetchLinkedChild(ren)`, single CRUD, and `bulkInsertTransactions`
   (the RPC wrapper) with `BulkInsertRow`/`BulkInsertResult`.
@@ -124,8 +138,29 @@ Beyond the shared `transactions` / `holdings` / `assets` schema (Component 2):
 - **Midas PDF parsing is geometry-based.** Text fragments are grouped into rows by `y`,
   merged into phrases by `x`-gap, and assigned to columns by the **midpoint** between
   header `x`-starts (tolerates data text starting a few px left of its header). Header
-  labels vary between statement variants, so each field accepts an alias list; only rows
-  with status = executed and type ∈ {Alış, Satış} become transactions.
+  labels vary between statement variants, so each field accepts an alias list.
+- **One page holds several stacked tables.** The page loop doesn't stop at the first
+  header: every row is tested with `detectHeader`, a match switches the **active
+  layout + kind**, and every subsequent row is mapped under it until the next header.
+  Layouts never carry across pages (column x-positions are page-local). Kind is decided
+  by a field pair unique to each table — trade `TARIH`+`SEMBOL`, account
+  `ISLEM_TARIHI`+`TUTAR_YP`, dividend `ODEME_TARIHI`+`NET_TEMETTU`. The **trade** header
+  is still the "is this a Midas PDF?" marker.
+- **Every mapper gates on its own date column first.** Section titles
+  (`HESAP İŞLEMLERİ (…)`), the `*Stopaj, …` footnote, and `Kayıt bulunmamaktadır.` all
+  land under whatever layout is active; failing `parseDate` drops them silently so they
+  never inflate the skipped count. Only after that gate do the status/type checks run.
+- **Cash-side rows resolve a seeded fiat asset, never a sentinel.** The cash tables
+  carry the currency inside the amount cell (`"2000,00 USD"`), split by
+  `splitAmountCurrency`; the asset is the `category='fiat'` row whose ticker is that
+  code. A missing one is a parse **error** (surfaced in `ParseSummary.errors`, deduped
+  via a `Set`) — an import must not create fiat rows. Cash rows use `unitPrice = "1"`.
+- **A dividend books the NET amount on cash** (that's what the account actually
+  received, and what the same-day auto-reinvest buy spends) with `relatedAssetId` = the
+  payer, matching the app's cash-dividend model (`pnl/cases.test.ts` `dividendCash`,
+  `useTransactions` `addLens`). The payer ticker is the token before `" - "` in
+  `Sermaya Piyasası Aracı`, canonicalized before lookup; an uncatalogued payer stays
+  `null` (no `new:` sentinel) and is named in the note instead.
 - **Unknown tickers flow as `new:TICKER` sentinels.** Save first auto-resolves (reuse
   existing → Yahoo `resolveTickers` → create), and only leftovers open
   `ResolveAssetsStepper`; the commit pauses until the queue empties, and Cancel aborts

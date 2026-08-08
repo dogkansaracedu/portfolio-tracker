@@ -647,7 +647,7 @@ function buildPayload(row: SheetRow): Omit<TransactionInsert, "user_id"> {
     total_cost: totalCost.toNumber(),
     fee: fee.toNumber(),
     fee_currency: row.fee ? row.priceCurrency : null,
-    related_asset_id: null,
+    related_asset_id: row.relatedAssetId ?? null,
     linked_tx_id: null,
     notes: row.notes || null,
   }
@@ -673,7 +673,7 @@ function buildBulkPayload(row: SheetRow): BulkInsertRow {
     total_cost: totalCost.toFixed(),
     fee: fee.toFixed(),
     fee_currency: row.fee ? row.priceCurrency : null,
-    related_asset_id: null,
+    related_asset_id: row.relatedAssetId ?? null,
     notes: row.notes || null,
     // Bulk buys debit cash on their own platform so portfolio totals
     // don't inflate; sells already auto-credit cash in the RPC.
