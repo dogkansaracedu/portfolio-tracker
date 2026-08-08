@@ -6,7 +6,7 @@ import { snapshot, buy } from "@/lib/pnl/test-fixtures"
  * Daily-return baseline = the most recent snapshot dated BEFORE today (in the
  * home timezone), not `snapshots[length-2]`. Period transactions are bucketed
  * by their home-local calendar day so the boundary matches the snapshot's local
- * date. See the 2026-06-06 design spec §4.
+ * date. See docs/pnl-test-cases.md ("Period / daily return").
  */
 describe("buildDailyReturnLookups — baseline by date", () => {
   it("picks the most recent snapshot before today, even if today's isn't written yet", () => {

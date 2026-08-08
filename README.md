@@ -4,7 +4,7 @@ Personal multi-platform portfolio tracker — see total net worth in USD and TRY
 
 Solo project. React + Vite + Supabase. PWA-friendly so it works on mobile.
 
-See [PRD.md](./docs/PRD.md) for the product requirements; design notes live in [`docs/`](./docs/) (start at [`docs/README.md`](./docs/README.md)).
+Documentation lives in [`docs/`](./docs/) (start at [`docs/README.md`](./docs/README.md)) — `docs/components/` is the source of truth for how the app behaves.
 
 ## Tech stack
 
@@ -78,8 +78,9 @@ supabase/
   config.toml        # Supabase CLI config (verify_jwt, auth, etc.)
 
 docs/
-  budget-feature-plan.md             # Brainstorm/plan for the future budget feature
-  components/                        # Per-component product specs (build order, tasks, status)
+  components/                        # Behavioral specs + technical docs + GLOSSARY (source of truth)
+  pnl-methodology.md                 # Canonical P&L definition and return-metric decisions
+  pnl-test-cases.md                  # Worked P&L cases, run as Vitest (npm test)
 ```
 
 ## Environment variables
@@ -183,7 +184,7 @@ To onboard a new person:
    ```
    (Or use Table Editor → `signup_allowlist` → Insert row.)
 2. Share the production URL. They sign up with the email you allowlisted.
-3. The signup-trigger seeds their default platforms and assets automatically (Component 2 → seed function).
+3. The signup-trigger seeds their default platforms automatically (Component 2 → seed function).
 
 To revoke (blocks *future* signups; does not delete an existing account):
 ```sql
@@ -194,8 +195,6 @@ To list:
 ```sql
 SELECT email, added_at, note FROM public.signup_allowlist ORDER BY added_at;
 ```
-
-When the allowlist migration was first applied, every then-existing `auth.users` email was auto-grandfathered, so the live accounts at the time were not locked out.
 
 ### Common deploy snags
 
@@ -209,9 +208,9 @@ When the allowlist migration was first applied, every then-existing `auth.users`
 
 - All money / quantity math goes through **BigNumber.js**. Never `Number()` on an amount. Numeric DB columns are written as `BigNumber.toFixed()` strings to preserve precision.
 - UI strings are **English**. Translate any Turkish copy you touch.
-- No tests. Stay disciplined about types and small functions instead.
+- Tests cover the P&L engine only (Vitest, `npm test` — worked cases in [`docs/pnl-test-cases.md`](./docs/pnl-test-cases.md)). Elsewhere, stay disciplined about types and small functions.
 - Keep migrations append-only — never edit a shipped migration.
 
 ## Status
 
-MVP ~90% complete. See [PRD §16](./docs/PRD.md#16-mvp-scope-summary) for the feature matrix. Known gaps: data **export**, PWA service worker. (CSV + Midas PDF *import* and the manual "Take Snapshot" button have since landed — see Components 4 and 10.)
+Known gaps: data **export**, PWA service worker.

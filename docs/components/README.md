@@ -79,7 +79,8 @@ Detailed, per-component stack lives in each `technical/` doc. In summary:
 - **Edge functions:** `fetch-prices` (consolidated price + FX orchestrator — no
   separate per-source functions), `fetch-historical-rate`, `fetch-benchmark-history`,
   `resolve-tickers`, `take-snapshots`, `backfill-snapshots`.
-- **No tests** (by design) — discipline via types and small functions.
+- **Tests:** Vitest, scoped to the P&L engine (`src/lib/pnl/*.test.ts`); the rest
+  of the app relies on types and small functions rather than automated tests.
 
 ## Implementation notes
 
@@ -87,9 +88,9 @@ Detailed, per-component stack lives in each `technical/` doc. In summary:
   `holdings`. See [GLOSSARY: Asset](GLOSSARY.md#asset) / [Holding](GLOSSARY.md#holding).
 - **Category** is free-form text (not an enum): `fiat`, `crypto`, `gold`,
   `stock_us`, `stock_bist`, `vehicle`, … **Tags** are a cross-cutting array.
-- **`price_source`** routes pricing (`yahoo`, `tcmb`, `manual`; `coingecko` is a
-  dormant legacy value); **`price_id`** is the provider's fetch identifier
-  (falls back to `ticker`).
-- **Signup seeding** auto-creates **8 platforms + 13 global assets** for a new user.
+- **`price_source`** routes pricing (`yahoo`, `tcmb`, `tefas`, `manual`);
+  **`price_id`** is the provider's fetch identifier (falls back to `ticker`).
+- **Signup seeding** auto-creates **8 platforms** for a new user; assets are not
+  seeded per-user (the catalog is global and already visible).
 - **P&L is money-weighted** (`value − net invested`, USD-anchored) — see
   [P&L Methodology](../pnl-methodology.md).
