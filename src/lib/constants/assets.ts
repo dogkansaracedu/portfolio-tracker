@@ -18,6 +18,10 @@ export const ASSET_CATEGORIES = [
 
 export type AssetCategoryValue = (typeof ASSET_CATEGORIES)[number]["value"]
 
+/** Category of the seeded per-currency cash rows (one per fiat currency,
+ *  `ticker` = the ISO code). Cash-side transactions sit on these. */
+export const FIAT_ASSET_CATEGORY: AssetCategoryValue = "fiat"
+
 export const PRICE_SOURCES = [
   { value: "yahoo", label: "Yahoo Finance" },
   { value: "tcmb", label: "TCMB" },

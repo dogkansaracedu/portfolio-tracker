@@ -130,9 +130,10 @@ export function MidasPdfImportButton({ assets, platforms, gridRows, onAppend }: 
         <div className="space-y-3 p-4">
           <div className="text-sm font-medium">Import Midas PDF statement</div>
           <p className="text-xs text-muted-foreground">
-            Pick the PDF account statement Midas emails or exports. Only
-            executed buy/sell rows are imported — cancelled and pending rows
-            are skipped. Parsed rows land in the grid as new rows for review.
+            Pick the PDF account statement Midas emails or exports. Imports
+            executed trades, cash deposits and withdrawals, nema interest, and
+            cash dividends — cancelled, pending, and unrecognised rows are
+            skipped. Parsed rows land in the grid as new rows for review.
           </p>
           <input
             ref={fileInputRef}

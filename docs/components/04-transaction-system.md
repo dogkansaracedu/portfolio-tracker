@@ -201,8 +201,24 @@ inline errors. Rows can be added blank, or **imported** three ways:
 1. **Paste** tab-separated rows copied from a spreadsheet (header row auto-detected,
    else positional columns). Locale-tolerant date and number parsing.
 2. **Upload a CSV** file exported from a spreadsheet.
-3. **Import a broker PDF statement** — parses only executed buy/sell rows (cancelled
-   and non-trade rows are skipped); each parsed row lands in the grid for review.
+3. **Import a broker PDF statement** — a statement carries several stacked tables and
+   all of them are read:
+   - **Trades** → executed buys/sells on the traded [Asset](GLOSSARY.md#asset)
+     (cancelled and pending rows are skipped).
+   - **Cash operations** → deposits and withdrawals as transfers on the **cash
+     balance** for the row's currency, and credited interest on idle cash as an
+     interest entry on that same cash balance. The statement's own description text
+     is kept as the row's note. Rows in any other state, or of a kind the importer
+     doesn't recognise, are skipped and counted.
+   - **Dividends** → a cash dividend recorded on the **cash balance** for its payout
+     currency, at the **net** amount actually credited (gross and withholding are
+     preserved in the note), **referencing the paying security** so P&L attributes
+     it to that position. A payer not in the catalog is left unreferenced rather than
+     invented — its ticker still appears in the note.
+
+   Cash-side rows need the currency's cash balance to exist; if it doesn't, those
+   rows are skipped and the import says so (cash balances are never created by an
+   import). Each parsed row lands in the grid for review.
    Statements may overlap (monthly back-imports): rows already recorded on the
    broker's platform are excluded and counted as "already imported" instead of
    landing in the grid. Matching is **count-based** on the transaction's identifying
@@ -233,8 +249,11 @@ and funded buys) or rolls back entirely, after which holding balances are recomp
       sells; % omitted when cost basis is zero).
 - [ ] A trade's price currency is **defaulted from the asset and editable**, never a
       free picker decoupled from the asset.
-- [ ] Importing a broker PDF yields editable, validated grid rows; cancelled/non-trade
-      rows are skipped.
+- [ ] Importing a broker PDF yields editable, validated grid rows for **all** of its
+      sections — trades, cash deposits/withdrawals, interest on idle cash, and cash
+      dividends; cancelled and unrecognised rows are skipped and counted.
+- [ ] An imported cash dividend sits on the payout currency's cash balance at the
+      **net** amount and references the paying security.
 - [ ] Re-importing an overlapping broker PDF adds no duplicates: already-recorded
       rows are excluded with a visible count, and same-day identical trades beyond
       the recorded count still import.

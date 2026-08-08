@@ -31,6 +31,9 @@ export interface SheetRow {
   priceCurrency: string
   fee: string
   notes: string
+  /** Security a cash-side row refers to (a dividend sits on the fiat asset and
+   *  points at the payer). Carried through save; no grid column edits it. */
+  relatedAssetId: string | null
   status: RowStatus
   /** Snapshot of fields at load time. Null for `new` rows. Used to compute
    *  dirty-vs-clean transitions and to power Discard. */
@@ -49,6 +52,7 @@ export type SheetSnapshot = Pick<
   | "priceCurrency"
   | "fee"
   | "notes"
+  | "relatedAssetId"
 >
 
 export type RowCounts = Record<RowStatus, number>
@@ -72,5 +76,6 @@ export function snapshotFromTx(tx: TransactionWithDetails): SheetSnapshot {
     priceCurrency: tx.price_currency || "USD",
     fee: tx.fee ? String(tx.fee) : "",
     notes: tx.notes ?? "",
+    relatedAssetId: tx.related_asset_id,
   }
 }
