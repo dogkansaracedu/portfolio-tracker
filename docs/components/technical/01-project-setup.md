@@ -19,14 +19,16 @@
 ## File map
 
 - `index.html` — HTML entry; mounts `#root`, loads `/src/main.tsx`; contains the pre-paint theme script and PWA/`theme-color` meta + manifest link.
-- `vite.config.ts` — Vite config: `react()` + `tailwindcss()` plugins; `@` alias → `./src`.
+- `vite.config.ts` — Vite config: `react()` + `tailwindcss()` plugins; `@` alias → `./src`; `define`s the build-identity globals `__BUILD_VERSION__` (from `package.json`), `__BUILD_COMMIT__` (`resolveCommitSha()`), `__BUILD_TIME__` (ISO stamp at config evaluation).
 - `tsconfig.json` / `tsconfig.app.json` / `tsconfig.node.json` — project-references TS config; `@/*` path alias declared in both root and app configs.
 - `components.json` — shadcn/ui config (style/baseColor/aliases/registries).
 - `src/main.tsx` — React entry; `createRoot` under `<StrictMode>`; wraps `<App/>` in the provider stack (`ThemeProvider` → `TooltipProvider` → `DisplayProvider` → `AuthProvider` → `AssetsProvider` → `PlatformsProvider` → `PricesProvider` → `TransactionDataProvider` → `TransactionProvider` → `HoldingsProvider` → `SnapshotsProvider`) and renders `<Toaster/>`.
 - `src/App.tsx` — router: public `/login`, `/signup`; everything else under `<ProtectedRoute>`. Full-screen authenticated routes `transactions/edit` and `transactions/edit/:assetId` render outside the shell; the rest nest under `<AppLayout>` (index = Dashboard; `portfolio`, `transactions`, `performance`, `settings`). Non-critical pages are `lazy()` + `<Suspense fallback={<RouteSkeleton/>}>` (via the local `Lazy` wrapper).
 - `src/index.css` — Tailwind 4 entry: `@import "tailwindcss"`, `tw-animate-css`, `shadcn/tailwind.css`, Geist font; `@custom-variant dark`, `@theme inline` design tokens, sidebar/chart CSS variables.
 - `src/components/layout/AppLayout.tsx` — shell: `<Sidebar/>` + `<Header/>` + scrollable `<main><Outlet/></main>` + `<MobileNav/>`; also mounts the global `AddTransactionModal` and restores/persists per-route scroll position in `sessionStorage`.
-- `src/components/layout/Sidebar.tsx` — desktop-only (`hidden md:flex`) left nav; exports the shared `navItems` array (5 routes + lucide icons) reused by `MobileNav`.
+- `src/components/layout/Sidebar.tsx` — desktop-only (`hidden md:flex`) left nav; exports the shared `navItems` array (5 routes + lucide icons) reused by `MobileNav`; footer row renders `<BuildBadge/>`.
+- `src/components/common/BuildBadge.tsx` — muted mono `v<version> · <sha7>` stamp; `title` carries full sha + build time.
+- `src/lib/constants/build-info.ts` — reads the injected globals and derives `BUILD_COMMIT_SHORT` (7 chars, `"dev"` when empty), `BUILD_LABEL`, `BUILD_TOOLTIP`. The globals are declared in `src/vite-env.d.ts`.
 - `src/components/layout/MobileNav.tsx` — fixed bottom nav (`md:hidden`); consumes `navItems` from `Sidebar`.
 - `src/components/layout/Header.tsx` — top bar: mobile page title (from a `pageTitles` map), hide/show-values toggle, `ThemeToggle`, `CurrencyToggle`, `PriceRefreshButton`, `UserMenu`.
 - `src/components/layout/UserMenu.tsx` — account dropdown; shows signed-in email; sign-out via `AlertDialog` confirm, then `navigate("/login", { replace: true })`.
@@ -49,6 +51,7 @@ None owned here. This component consumes the auth session (`useAuth`) for the ga
 - **shadcn here is Base-UI-flavored** (`@base-ui/react`), so some primitives use `render={<...>}` slot props (see `Header`/`UserMenu` triggers) rather than `asChild`. `DropdownMenuLabel` must sit inside a `Group`, hence the plain-`div` header in `UserMenu`.
 - **Full-screen routes bypass the shell** by being nested directly under `ProtectedRoute` (siblings of `AppLayout`), not under `AppLayout` — that's how `transactions/edit*` gets no sidebar/header.
 - **Per-route scroll restore** lives in `AppLayout` (`sessionStorage`, rAF retry up to ~1s because async/lazy content grows height after first paint).
+- **Build identity is baked in, not fetched.** `resolveCommitSha()` prefers Vercel's `VERCEL_GIT_COMMIT_SHA` (its checkout is shallow and `git` isn't guaranteed) and only shells out to `git rev-parse HEAD` for local builds; failure yields `""`, which renders as `dev`. Because the sha is a `define` constant, **a stale badge means a stale bundle** — that's the point. The badge only exists in the shell, so full-screen routes (`transactions/edit*`) and mobile widths don't show it.
 
 ## Setup / commands
 
