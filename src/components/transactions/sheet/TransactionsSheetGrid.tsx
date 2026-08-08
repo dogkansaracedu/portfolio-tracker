@@ -48,6 +48,9 @@ interface Controls {
   saving: boolean
   loading: boolean
   counts: { new: number; dirty: number; deleted: number; invalid: number; clean: number }
+  /** Current grid rows (loaded + unsaved). Lets the import buttons dedup
+   *  against rows already appended in this session. */
+  rows: SheetRow[]
   addBlankRow: () => void
   appendRows: (rows: Partial<SheetRow>[]) => void
   save: () => Promise<void>
@@ -413,6 +416,7 @@ export function TransactionsSheetGrid({
       saving,
       loading,
       counts,
+      rows,
       addBlankRow: () =>
         addBlankRow({
           assetId,
