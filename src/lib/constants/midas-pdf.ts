@@ -39,8 +39,10 @@ export type MidasHeaderField = keyof typeof MIDAS_HEADER_ALIASES
 /** The tables the statement carries, each with its own header layout. */
 export type MidasTableKind = "trade" | "account" | "dividend"
 
+/** Status token for a completed cash operation. Trades are judged on filled
+ *  quantity instead — a partially filled order ("Kalanın Süresi Doldu") is a
+ *  real trade despite never reading as executed. */
 export const MIDAS_EXECUTED_STATUS = "Gerçekleşti"
-export const MIDAS_CANCELLED_STATUS = "İptal Edildi"
 
 export const MIDAS_TYPE_MAP: Record<string, TransactionType> = {
   Alış: TRANSACTION_TYPES.BUY,
@@ -72,5 +74,3 @@ export function midasDividendNote(
 ): string {
   return `${ticker} dividend (gross ${gross}, withholding ${withholding})`
 }
-
-export const MIDAS_REPORT_TITLE_TOKEN = "YATIRIM İŞLEMLER"

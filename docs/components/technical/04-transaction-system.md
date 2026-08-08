@@ -92,7 +92,8 @@
 - `src/lib/constants/transaction-types.ts` — type enum + `ADD_TYPES`/`SUBTRACT_TYPES`,
   `TYPES_WITH_LINKED_CHILD`, `USER_PICKABLE_TYPES`, display labels/colours.
 - `src/lib/constants/midas-pdf.ts` — Midas header aliases (all three tables),
-  `MidasTableKind`, executed-status token, `MIDAS_TYPE_MAP` (Alış/Satış → buy/sell),
+  `MidasTableKind`, `MIDAS_EXECUTED_STATUS` (cash rows only), `MIDAS_TYPE_MAP`
+  (Alış/Satış → buy/sell),
   `MIDAS_ACCOUNT_TYPE_MAP` (Para Yatırma/Çekme → transfer_in/out),
   `MIDAS_OTHER_INCOME_TYPE` + `MIDAS_INTEREST_DESCRIPTION_TOKEN` (Diğer Gelir whose
   description mentions *Nema* → `interest`), `MIDAS_SECURITY_TICKER_SEPARATOR`, and
@@ -153,7 +154,14 @@ Beyond the shared `transactions` / `holdings` / `assets` schema (Component 2):
 - **Every mapper gates on its own date column first.** Section titles
   (`HESAP İŞLEMLERİ (…)`), the `*Stopaj, …` footnote, and `Kayıt bulunmamaktadır.` all
   land under whatever layout is active; failing `parseDate` drops them silently so they
-  never inflate the skipped count. Only after that gate do the status/type checks run.
+  never inflate the skipped count. Only after that gate do the fill/status/type checks run.
+- **Trades are gated on filled quantity, not status.** `tradeCellsToRow` requires
+  `bn(GERCEKLESEN_ADET).gt(0)`; `MIDAS_EXECUTED_STATUS` is only consulted for **cash**
+  rows (which have no quantity column). Midas reports a partly filled order as
+  `Kalanın Süresi Doldu` — status-gating dropped those buys while their later sells
+  still imported, leaving the sell with **no FIFO cost basis**. Cancelled/expired
+  orders report `0` (or `-`) filled and still fall out, counted in
+  `skippedNotExecuted`.
 - **Cash-side rows resolve a seeded fiat asset, never a sentinel.** The cash tables
   carry the currency inside the amount cell (`"2000,00 USD"`), split by
   `splitAmountCurrency`; the asset is the `category='fiat'` row whose ticker is that
