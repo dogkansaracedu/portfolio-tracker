@@ -203,8 +203,12 @@ inline errors. Rows can be added blank, or **imported** three ways:
 2. **Upload a CSV** file exported from a spreadsheet.
 3. **Import a broker PDF statement** — a statement carries several stacked tables and
    all of them are read:
-   - **Trades** → executed buys/sells on the traded [Asset](GLOSSARY.md#asset)
-     (cancelled and pending rows are skipped).
+   - **Trades** → buys/sells on the traded [Asset](GLOSSARY.md#asset). What makes a
+     row a trade is the **quantity that actually filled**, not the order's reported
+     state: a partly filled order whose remainder expired is imported for its filled
+     quantity, while an order that filled nothing is skipped and counted. (An order
+     that fills partly and is sold later would otherwise leave that sell with no
+     cost basis.)
    - **Cash operations** → deposits and withdrawals as transfers on the **cash
      balance** for the row's currency, and credited interest on idle cash as an
      interest entry on that same cash balance. The statement's own description text
@@ -251,7 +255,9 @@ and funded buys) or rolls back entirely, after which holding balances are recomp
       free picker decoupled from the asset.
 - [ ] Importing a broker PDF yields editable, validated grid rows for **all** of its
       sections — trades, cash deposits/withdrawals, interest on idle cash, and cash
-      dividends; cancelled and unrecognised rows are skipped and counted.
+      dividends; rows that moved nothing and unrecognised rows are skipped and counted.
+- [ ] A partly filled order imports for the quantity that filled; an order that filled
+      nothing does not import.
 - [ ] An imported cash dividend sits on the payout currency's cash balance at the
       **net** amount and references the paying security.
 - [ ] Re-importing an overlapping broker PDF adds no duplicates: already-recorded
