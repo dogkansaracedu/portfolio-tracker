@@ -423,12 +423,14 @@ export function TransactionsSheetGrid({
           priceCurrency: currencyForAssetId(assets, assetId),
         }),
       // Default each imported row's currency from its resolved asset (overrides
-      // the parser's USD fallback). Unresolved sentinel rows keep the parsed
+      // a parser that guessed). A `new:` sentinel resolves to no asset, so
+      // asking for its currency would answer DEFAULT_CURRENCY and silently
+      // relabel e.g. a TRY BIST buy as USD — those rows keep the parsed
       // currency until the resolve step assigns a real asset.
       appendRows: (incoming) =>
         appendRows(
           incoming.map((r) =>
-            r.assetId
+            r.assetId && !isNewAssetSentinel(r.assetId)
               ? { ...r, priceCurrency: currencyForAssetId(assets, r.assetId) }
               : r,
           ),
