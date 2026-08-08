@@ -64,11 +64,14 @@ metrics, and each is surfaced in its own view — **one graph never mixes two of
 |---|---|---|---|
 | "Did I beat the index?" | **TWR** (mine vs the index's) | Dashboard hero, vs-market view (the default) — `computeTWRSeries` | Invisible — by design |
 | "How much did I grow from *investing*, not from adding cash?" | **Simple ROI** = Total P&L $ ÷ peak net invested (§1–§2) | The engine headline: Dashboard + Portfolio | $ preserved, % stable (peak can't shrink) |
-| "What % did each of my dollars earn?" | **Modified Dietz** (money-weighted rate) | Performance page monthly returns — `computeMonthlyReturns` / `subPeriodReturn` | Negative weighted flow → lower average capital; the rate stays honest |
+| "What % did each of my dollars earn?" | **MWR / XIRR** (money-weighted rate) | Dashboard hero MWR measure + lifetime "%/yr" chip — `computeMWRSeries` / `computeLifetimeXirrPct`; per-period, the Performance page monthly returns — `computeMonthlyReturns` / `subPeriodReturn` | Outflow at its real date → less capital at work afterwards; the rate stays honest |
 
-**XIRR** — the annualized version of the Modified-Dietz question — is **deferred**; it
-is not built. A portfolio-level *windowed* Modified-Dietz rate ("my money's rate over
-this range") is likewise not built; it would reuse `subPeriodReturn`.
+**XIRR is the app's single money-weighted core** (`src/lib/xirr.ts`). Everything
+money-weighted resolves to that one solver: the windowed MWR series, the lifetime
+annualized chip, the what-if index, and each per-period return `subPeriodReturn`
+hands to TWR's geometric chain. The **Modified Dietz** linear approximation that
+used to compute those per-period returns has been retired — there is no second
+formula.
 
 ### The metrics, precisely
 
@@ -78,7 +81,7 @@ to +25% over the year → ends ≈ $13,570, gain ≈ $1,570**:
 | Metric | Formula | Value | Accounts for… |
 |---|---|---|---|
 | **Simple ROI** | gain ÷ money in | **13%** | dollars only (ignores time) |
-| **Modified Dietz** | gain ÷ time-weighted average capital | **24%** | dollars + time (linear weight) |
+| **Modified Dietz** *(retired — see below)* | gain ÷ time-weighted average capital | **24%** | dollars + time (linear weight) |
 | **XIRR** | rate `r` solving NPV = 0 | **25%/yr** | dollars + time + compounding/annualized |
 | **TWR** | chain `(1 + r_subperiod)` | n/a here | nothing about cash flows — pure price path |
 
@@ -88,12 +91,18 @@ to +25% over the year → ends ≈ $13,570, gain ≈ $1,570**:
 - **Simple ROI** is not a rate and not annualized: "how much I'm up on what I put in."
   A regular monthly contributor sees it **understate** them (it divides by money that
   barely had time to work).
-- **Modified Dietz** is XIRR's simpler cousin: money-weighted, **not** annualized,
-  linear time weight, and it needs only start/end value + dated flows (**no daily
+- **Modified Dietz** was XIRR's simpler cousin: money-weighted, **not** annualized,
+  linear time weight, same inputs (start/end value + dated flows, **no daily
   snapshots**). Second example: start $50k, add $10k spread through the year (weight
   ≈ 0.5); the $50k earns 10% and the $10k earns 20% → gain $7k;
   `R = 7,000 ÷ (50,000 + 10,000 × 0.5) = ` **12.7%** — correctly below the naive 15%
-  average, and above the Simple ROI of 7,000 ÷ 60,000 = 11.7%.
+  average, and above the Simple ROI of 7,000 ÷ 60,000 = 11.7%. **It is no longer
+  used.** It was a first-order approximation of exactly the question XIRR answers
+  exactly, so keeping both meant two engines disagreeing on one question; the app now
+  solves every such period as an XIRR and de-annualizes it back over the period. The
+  two agree whenever a period is flow-free or its gain is exactly zero, and diverge as
+  flow size, flow timing and the period's return grow (worked case: TWR-6 in
+  [pnl-test-cases.md](pnl-test-cases.md), +69.72% vs Dietz's +66.67%).
 - **XIRR** is money-weighted **and** annualized — the standard brokerage "personal rate
   of return." Annualization can look inflated over short or heavy-DCA windows.
 - **TWR** removes cash-flow timing entirely and chains per-period returns. **It is the
@@ -130,9 +139,12 @@ truth; the % is a lens.**
 
 ### Caveats
 
-- **TWR needs a clean, gap-free daily snapshot series** — far more data-hungry than
-  Modified Dietz / Simple ROI, which only need dated cash flows. A window whose
-  flow-bearing periods span more than a day is flagged `approximate`.
+- **TWR needs a clean, gap-free daily snapshot series** — far more data-hungry than a
+  windowed MWR / Simple ROI, which need only endpoint values and dated cash flows. A
+  window whose flow-bearing periods span more than a day is flagged `approximate`.
+  That flag is a **data** caveat, not a formula one: each period's XIRR is exact for
+  the flows it is given, but with no valuation on the flow's own date the period
+  absorbs some of that flow's timing.
 - The index side must be a **total return** (dividend-adjusted close) for fairness;
   Yahoo `adjclose` provides this.
 
@@ -176,8 +188,6 @@ separately (see §6 for the not-yet-built YTD return).
 - **Period / YTD money-weighted return** ("this year", §4) — the highest-value
   addition; resets per period so a re-entry isn't diluted. Then **XIRR** (annualized
   personal rate of return, §3).
-- **Windowed Modified-Dietz rate** — "what each of my dollars earned over this range",
-  reusing `subPeriodReturn`.
 - **USD-inflation-adjusted (real) returns** — deflate each invested dollar by US CPI
   before the `value − invested` subtraction, shown alongside nominal.
 
@@ -192,8 +202,10 @@ separately (see §6 for the not-yet-built YTD return).
 | Unrealized | `computeUnrealizedPnL` | `src/lib/pnl/unrealized.ts` |
 | Income (dividend/interest) | `computeIncomeUsd` | `src/lib/pnl/income.ts` |
 | Period / daily return + baseline | `computeDailyReturn`, `buildDailyReturnLookups` | `src/lib/pnl/daily.ts`, `src/lib/portfolio/grouping.ts` |
+| XIRR solver (single money-weighted core) | `solveXirrLog1p`, `deannualizeLog1p`, `solveXirr` | `src/lib/xirr.ts` |
 | Time-weighted return (vs index) | `computeTWRSeries`, `subPeriodReturn` | `src/lib/performance.ts` |
-| Modified-Dietz monthly returns | `computeMonthlyReturns` | `src/lib/performance.ts` |
+| Money-weighted return (windowed / lifetime) | `computeMWRSeries`, `computeLifetimeXirrPct` | `src/lib/mwr.ts` |
+| Monthly returns (per-period XIRR) | `computeMonthlyReturns` | `src/lib/performance.ts` |
 | Wiring + reconciliation assert | `usePnL` (thin wrapper) | `src/hooks/usePnL.ts` |
 
 ## References

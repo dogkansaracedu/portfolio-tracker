@@ -1,5 +1,13 @@
 import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
 import { normalizeToUsd } from "@/lib/pnl/currency"
+import {
+  DAYS_PER_YEAR,
+  MS_PER_DAY,
+  deannualizeLog1p,
+  solveXirrLog1p,
+  yearsBetween,
+} from "@/lib/xirr"
+import type { XirrFlow } from "@/lib/xirr"
 import type { Snapshot, Transaction, ExchangeRate } from "@/types/database"
 import type { AssetPnL } from "@/lib/pnl/types"
 
@@ -62,8 +70,10 @@ function localIso(d: Date): string {
  * Defensive ascending-by-date copy. The metrics functions assume ASC order
  * (fetchSnapshots provides it) but sort locally so a future or unsorted caller
  * can't silently corrupt drawdown peaks, period pairing, or the YTD anchor.
+ *
+ * Exported for `lib/mwr.ts`, which needs the identical window ordering.
  */
-function sortSnapshotsAsc(snapshots: Snapshot[]): Snapshot[] {
+export function sortSnapshotsAsc(snapshots: Snapshot[]): Snapshot[] {
   return [...snapshots].sort((a, b) =>
     a.snapshot_date < b.snapshot_date ? -1 : a.snapshot_date > b.snapshot_date ? 1 : 0,
   )
@@ -145,8 +155,11 @@ export function filterByTimeRange(
  * internal asset↔cash swaps for cash-flow purposes — the offsetting cash leg
  * keeps the value inside the tracked portfolio (snapshot total_usd includes
  * on-platform cash). Mirrors the netting applyTxToInvested already performs.
+ *
+ * Exported for `lib/mwr.ts` — the money-weighted engine must classify flows
+ * identically to TWR, so it imports this rather than re-deriving the pairing.
  */
-function collectPairedParentIds(transactions: Transaction[]): Set<string> {
+export function collectPairedParentIds(transactions: Transaction[]): Set<string> {
   const ids = new Set<string>()
   for (const tx of transactions) {
     if (
@@ -160,7 +173,7 @@ function collectPairedParentIds(transactions: Transaction[]): Set<string> {
 }
 
 /**
- * External cash flow signed value for Modified Dietz, in USD (BigNumber).
+ * External cash flow signed value for the return engines, in USD (BigNumber).
  *
  * "External" means value crossing the tracked-portfolio boundary — not a
  * reallocation inside it. snapshot total_usd INCLUDES on-platform cash (fiat
@@ -168,8 +181,8 @@ function collectPairedParentIds(transactions: Transaction[]): Set<string> {
  *   - a sell whose proceeds stay as a paired cash_credit, and
  *   - a buy funded by a paired cash_debit
  * move no value across the boundary → contribute 0. Counting them would tell
- * Modified Dietz that capital left/entered when it merely changed form (e.g. a
- * value-neutral BTC→USD sell would otherwise print a large phantom return).
+ * the return engine that capital left/entered when it merely changed form (e.g.
+ * a value-neutral BTC→USD sell would otherwise print a large phantom return).
  * Only genuinely external events count: an externally-funded buy (no
  * cash_debit) is capital in; a legacy sell with no cash_credit is proceeds
  * out; transfers carry cost basis across the boundary. Dividends, interest and
@@ -178,8 +191,11 @@ function collectPairedParentIds(transactions: Transaction[]): Set<string> {
  * the set of buy/sell parents that have a paired cash child.
  *
  * Sign convention: positive = inflow into the portfolio (capital deployed).
+ *
+ * Exported for `lib/mwr.ts` (XIRR flows use this exact definition and sign) —
+ * one external-flow rule for both return engines.
  */
-function externalCashFlowUsd(
+export function externalCashFlowUsd(
   tx: Transaction,
   rates: ExchangeRate[],
   internalParentIds: Set<string>,
@@ -218,10 +234,12 @@ function externalCashFlowUsd(
 }
 
 export interface SubPeriodReturn {
-  /** Period Modified-Dietz return as a fraction (e.g. 0.1 = +10%); null when the
-   *  capital base ≤ 0 (degenerate ~empty period). */
+  /** The period's money-weighted (XIRR) return as a cumulative fraction over the
+   *  period (e.g. 0.1 = +10%); null when the solver finds no rate — a degenerate
+   *  period (no capital at work, zero span) or one with no sign change (e.g.
+   *  wiped out to zero). Callers treat null as a neutral period. */
   returnFraction: ReturnType<typeof bn> | null
-  /** Period gain in USD (numerator: vEnd − vStart − net external flow). */
+  /** Period gain in USD (vEnd − vStart − net external flow). */
   returnUsd: ReturnType<typeof bn>
   /** True if any external cash flow landed inside this period. */
   hadExternalFlow: boolean
@@ -229,14 +247,31 @@ export interface SubPeriodReturn {
   spanDays: number
 }
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000
-
 /**
- * Money-weighted (Modified Dietz) return for one snapshot-to-snapshot period,
- * with external cash flows removed and time-weighted within the period. Shared
- * by `computeMonthlyReturns` (labelled monthly returns) and `computeTWRSeries`
- * (geometric linking → TWR). Internal asset↔cash swaps are excluded via
- * `internalParentIds` (see `externalCashFlowUsd`).
+ * The period's **money-weighted (XIRR) return** for one snapshot-to-snapshot
+ * period, expressed as a cumulative fraction over the period.
+ *
+ * The period is solved as a miniature XIRR problem (`lib/xirr.ts` — the app's
+ * single money-weighted core, shared with `lib/mwr.ts`): the opening value
+ * `vStart` is an inflow dated at the period start, every external cash flow in
+ * `(periodStart, periodEnd]` enters at its own date with the sign
+ * `externalCashFlowUsd` gives it, and `vEnd` is the terminal amount at the
+ * period end. The solver returns an ANNUAL rate, which is then de-annualized
+ * back over the period's own span — `(1+r)^spanYears − 1` — so the caller gets
+ * the fraction actually earned between the two snapshots.
+ *
+ * Because flows are discounted at their real dates rather than given a linear
+ * time weight, this is exact where the retired Modified Dietz formula was a
+ * first-order approximation. The two agree whenever the period is flow-free or
+ * its gain is exactly zero, and diverge as flow size, flow timing and the
+ * period's return all grow.
+ *
+ * Shared by `computeMonthlyReturns` (labelled monthly returns) and
+ * `computeTWRSeries` (geometric linking → TWR: chaining the per-period
+ * money-weighted returns is what makes the chain time-weighted, since each
+ * period's own deposits are neutralized before the next link). Internal
+ * asset↔cash swaps are excluded via `internalParentIds` (see
+ * `externalCashFlowUsd`).
  */
 export function subPeriodReturn(
   prevSnap: Snapshot,
@@ -247,30 +282,37 @@ export function subPeriodReturn(
 ): SubPeriodReturn {
   const vStart = bn(prevSnap.total_usd ?? 0)
   const vEnd = bn(currSnap.total_usd ?? 0)
-  const periodStart = new Date(`${prevSnap.snapshot_date}T00:00:00Z`).getTime()
-  const periodEnd = new Date(`${currSnap.snapshot_date}T00:00:00Z`).getTime()
+  const startDate = prevSnap.snapshot_date
+  const endDate = currSnap.snapshot_date
+  const periodStart = new Date(`${startDate}T00:00:00Z`).getTime()
+  const periodEnd = new Date(`${endDate}T00:00:00Z`).getTime()
   const spanDays = Math.max(1, (periodEnd - periodStart) / MS_PER_DAY)
 
+  // The opening value behaves exactly like a deposit made at the period start:
+  // capital put to work for the whole span. A flow dated ON the start date is
+  // already inside `vStart` (the snapshot contains that day's activity), hence
+  // the `(periodStart, periodEnd]` half-open boundary — identical to the
+  // window convention in `lib/mwr.ts`.
+  const flows: XirrFlow[] = [{ date: startDate, amountUsd: vStart }]
   let netCashFlow = BN_ZERO
-  let weightedCashFlow = BN_ZERO
   let hadExternalFlow = false
   for (const tx of sortedTxs) {
     const txDate = new Date(`${tx.date.slice(0, 10)}T00:00:00Z`).getTime()
     if (txDate <= periodStart || txDate > periodEnd) continue
-    const c = externalCashFlowUsd(tx, rates, internalParentIds)
-    if (c.isZero()) continue
+    const amountUsd = externalCashFlowUsd(tx, rates, internalParentIds)
+    if (amountUsd.isZero()) continue
     hadExternalFlow = true
-    const t = (txDate - periodStart) / MS_PER_DAY
-    const w = (spanDays - t) / spanDays
-    netCashFlow = netCashFlow.plus(c)
-    weightedCashFlow = weightedCashFlow.plus(c.times(w))
+    netCashFlow = netCashFlow.plus(amountUsd)
+    flows.push({ date: tx.date.slice(0, 10), amountUsd })
   }
 
-  const denom = vStart.plus(weightedCashFlow)
-  const numer = vEnd.minus(vStart).minus(netCashFlow)
+  const logGrowth = solveXirrLog1p(flows, vEnd, endDate)
   return {
-    returnFraction: denom.isLessThanOrEqualTo(0) ? null : numer.div(denom),
-    returnUsd: numer,
+    returnFraction:
+      logGrowth === null
+        ? null
+        : deannualizeLog1p(logGrowth, yearsBetween(startDate, endDate)),
+    returnUsd: vEnd.minus(vStart).minus(netCashFlow),
     hadExternalFlow,
     spanDays,
   }
@@ -286,8 +328,11 @@ export interface TWRSeries {
   points: TWRPoint[]
   /** Cumulative TWR % at the last point. */
   endPct: number
-  /** True if any sub-period that contained an external flow spanned > 1 day
-   *  (i.e. relied on non-daily snapshots — Modified-Dietz approximation). */
+  /** True if any sub-period that contained an external flow spanned > 1 day.
+   *  Not a formula caveat — the per-period XIRR is exact for the flows it is
+   *  given — but a DATA caveat: without a valuation on the flow's own date we
+   *  cannot see what the portfolio was worth when the money landed, so the
+   *  period's return absorbs some of the flow's own timing. */
   approximate: boolean
 }
 
@@ -343,14 +388,14 @@ export function computeTWRSeries(
 }
 
 /**
- * Modified Dietz monthly returns.
- *
- * R = (V_end − V_start − C) / (V_start + Σ C_i · w_i),  w_i = (T − t_i) / T
+ * Monthly returns — each one the period's money-weighted (XIRR) return, via
+ * `subPeriodReturn`.
  *
  * Without daily granularity, "monthly" here means "between consecutive
- * snapshots". Cash flows that happened inside the period are weighted by
- * the time they were exposed to market movement, so depositing $1k mid-period
- * doesn't masquerade as +X% return.
+ * snapshots". Cash flows that happened inside the period enter the solve at
+ * their real dates, so they earn only the time they were actually exposed to
+ * market movement and depositing $1k mid-period doesn't masquerade as +X%
+ * return.
  */
 export function computeMonthlyReturns(
   snapshots: Snapshot[],
@@ -438,7 +483,7 @@ export function computeCAGR(
   const startDate = new Date(firstTransactionDate)
   const endDate = new Date()
   const years =
-    (endDate.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+    (endDate.getTime() - startDate.getTime()) / (DAYS_PER_YEAR * MS_PER_DAY)
   if (years < 0.08) return null // Less than ~1 month
 
   const ratio = currentValueUsd / totalInvestedUsd
