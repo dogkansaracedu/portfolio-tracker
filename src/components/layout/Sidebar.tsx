@@ -7,6 +7,7 @@ import {
   Settings,
 } from "lucide-react"
 import Logo from "@/components/common/Logo"
+import BuildBadge from "@/components/common/BuildBadge"
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -42,6 +43,9 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+      <div className="border-t px-4 py-2.5">
+        <BuildBadge />
+      </div>
     </aside>
   )
 }

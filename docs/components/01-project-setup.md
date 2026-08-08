@@ -31,6 +31,7 @@ None — this component is pre-domain. It defines structure (routes, shell, them
   - **Mobile:** the side navigation is hidden; a bottom navigation bar lists the same five screens, plus the top header remains.
   - The active screen is visually indicated in whichever navigation is showing.
   - Only the content region scrolls; navigation and header stay fixed.
+- **Build identity.** The shell displays the running build's version and source-revision identifier, unobtrusively, at the foot of the desktop side navigation — so the user can tell at a glance which build is live after a deploy. Hovering reveals the full revision identifier and the build timestamp. The values are fixed when the bundle is built, not read at runtime; a build made outside version control still renders a stable placeholder rather than failing.
 - **Theme.** The app supports a light and a dark theme. The choice is user-toggleable, persists across reloads and sessions, and on first visit defaults to the operating-system preference. The correct theme must be applied before first paint (no flash of the wrong theme).
 - **Lazy screens.** Screens may load on demand the first time they're visited; while a screen's content is loading, a neutral placeholder shows in the content region.
 
@@ -50,7 +51,7 @@ Consumes: a signed-in/anonymous session signal and a sign-out action (owned by t
 What the user sees and can do:
 
 - **App shell (authenticated, shell screens):**
-  - Desktop: left side navigation with the product name/logo and the five screen links (icon + label); a top header.
+  - Desktop: left side navigation with the product name/logo and the five screen links (icon + label); a top header. The side navigation's bottom-left corner carries a muted build stamp (`v<version> · <short revision>`), selectable for copying, with the full revision and build time on hover.
   - Mobile: a fixed bottom bar with the five screens (icon + label); the side navigation is not shown; the header shows the current screen's title.
   - Header controls (right-aligned): hide/show-values toggle, theme toggle, display-currency toggle, a price-refresh control, and an account menu. (Each control's behavior belongs to its own component; setup only guarantees the header hosts them.)
   - Account menu: shows who is signed in and offers sign-out; sign-out asks for confirmation, then returns the user to `login`.
@@ -72,3 +73,4 @@ Any stack must pass these:
 - A signed-in user can open the account menu, confirm sign-out, and is returned to `login`.
 - Deep-linking to any authenticated path while signed in lands on that screen inside the shell (or full-screen, for full-screen flows).
 - Visiting a not-yet-loaded screen shows a neutral placeholder, then the screen.
+- The desktop side navigation shows the running build's version and short revision; the deployed value matches the revision the bundle was built from, and a build made without version-control metadata still renders without error.
