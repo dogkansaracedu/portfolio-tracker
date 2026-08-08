@@ -1,0 +1,267 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TL ⇄ USD Rota Karşılaştırıcı</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --ink: #15181d;
+    --muted: #6b7280;
+    --line: #e4e7ec;
+    --accent: #2563eb;
+    --win-bg: #ecfdf5;
+    --win-line: #10b981;
+    --win-ink: #047857;
+    --lose-ink: #9ca3af;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0e12; --card: #15181d; --ink: #e7eaee; --muted: #9aa3af;
+      --line: #262a31; --accent: #60a5fa; --win-bg: #07241c; --win-line: #10b981;
+      --win-ink: #4ade80; --lose-ink: #5b626c;
+      --shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 20px 16px 64px; }
+  h1 { font-size: 20px; margin: 4px 0 2px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow);
+  }
+  .card > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .field { margin-bottom: 2px; }
+  input[type="number"] {
+    width: 100%; padding: 9px 11px; font-size: 16px; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 9px;
+    -moz-appearance: textfield;
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .verdict {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    padding: 11px 13px; border-radius: 10px; margin-bottom: 13px;
+    background: var(--win-bg); border: 1px solid var(--win-line); color: var(--win-ink);
+    font-weight: 600; font-size: 14px;
+  }
+  .verdict.neutral { background: var(--bg); border-color: var(--line); color: var(--muted); }
+  .verdict small { font-weight: 500; color: inherit; opacity: .85; font-size: 12.5px; }
+
+  .routes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .routes { grid-template-columns: 1fr; } }
+  .route {
+    border: 1px solid var(--line); border-radius: 11px; padding: 13px;
+    background: var(--bg); position: relative;
+  }
+  .route.win { border-color: var(--win-line); background: var(--win-bg); }
+  .route .rname { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px; }
+  .route.win .rname { color: var(--win-ink); }
+  .route .big { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+  .route .rate { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .route .brk { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.5;
+    border-top: 1px dashed var(--line); padding-top: 7px; }
+  .pill { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+    background: var(--win-line); color: #fff; text-transform: uppercase; letter-spacing: .04em; }
+  .amt-row { margin-bottom: 13px; max-width: 280px; }
+  .reset { background: none; border: none; color: var(--accent); font-size: 12.5px;
+    cursor: pointer; padding: 0; text-decoration: underline; }
+  .foot { color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .foot code { background: var(--bg); padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line); }
+</style>
+
+<div class="wrap">
+  <h1>TL ⇄ USD Rota Karşılaştırıcı</h1>
+  <p class="sub">Direkt (banka/kuyumcu) vs Kripto (TL → USDT → USD) — hangisi daha kârlı?</p>
+
+  <!-- KURLAR -->
+  <div class="card">
+    <h2>Kurlar &amp; ücretler</h2>
+    <div class="grid">
+      <div class="field"><label for="usdAsk">Banka USD <b>alış</b>ın (₺/$ ödediğin)</label>
+        <input type="number" id="usdAsk" step="0.01" value="46" inputmode="decimal"></div>
+      <div class="field"><label for="usdBid">Banka USD <b>satış</b>ın (₺/$ aldığın)</label>
+        <input type="number" id="usdBid" step="0.01" value="45" inputmode="decimal"></div>
+      <div class="field"><label for="usdtTryAsk">USDT alış (USDT başına ödediğin ₺)</label>
+        <input type="number" id="usdtTryAsk" step="0.01" value="45.55" inputmode="decimal"></div>
+      <div class="field"><label for="usdtTryBid">USDT satış (USDT başına aldığın ₺)</label>
+        <input type="number" id="usdtTryBid" step="0.01" value="45.45" inputmode="decimal"></div>
+      <div class="field"><label for="parity">USDT/USD paritesi (1 USDT = ? $)</label>
+        <input type="number" id="parity" step="0.0001" value="0.997" inputmode="decimal"></div>
+      <div class="field"><label for="comm">İşlem komisyonu % (her bacakta)</label>
+        <input type="number" id="comm" step="0.01" value="0.2" inputmode="decimal"></div>
+    </div>
+    <div style="margin-top:12px"><button class="reset" id="reset">↺ Varsayılan kurlara dön</button></div>
+  </div>
+
+  <!-- ALIM -->
+  <div class="card">
+    <h2>💵 Dolar Alımı — TL ile USD almak</h2>
+    <div class="amt-row field"><label for="buyTl">Bozdurulacak tutar (₺)</label>
+      <input type="number" id="buyTl" step="100" value="50000" inputmode="decimal"></div>
+    <div class="verdict" id="buyVerdict"></div>
+    <div class="routes">
+      <div class="route" id="buyDirect"></div>
+      <div class="route" id="buyCrypto"></div>
+    </div>
+  </div>
+
+  <!-- SATIM -->
+  <div class="card">
+    <h2>💰 Dolar Satımı — USD bozup TL almak</h2>
+    <div class="amt-row field"><label for="sellUsd">Bozdurulacak tutar ($)</label>
+      <input type="number" id="sellUsd" step="50" value="1000" inputmode="decimal"></div>
+    <div class="verdict" id="sellVerdict"></div>
+    <div class="routes">
+      <div class="route" id="sellDirect"></div>
+      <div class="route" id="sellCrypto"></div>
+    </div>
+  </div>
+
+  <p class="foot">
+    <b>Kripto rota:</b> Alımda <code>TL → USDT (×komisyon) → USD (×parite ×komisyon)</code>,
+    satımda tersi. Komisyon iki bacakta da uygulanır. Midas USDT↔USD bacağında ayrı komisyon
+    almıyorsa komisyonu yine de gir; parite (0,997) o bacağın maliyetini temsil eder.
+    Sabit ücret yok → kazanan rota tutardan bağımsızdır; tutar yalnızca mutlak farkı belirler.
+  </p>
+</div>
+
+<script>
+  "use strict";
+  var IDS = ["usdAsk","usdBid","usdtTryAsk","usdtTryBid","parity","comm","buyTl","sellUsd"];
+  var DEFAULTS = { usdAsk:46, usdBid:45, usdtTryAsk:45.55, usdtTryBid:45.45, parity:0.997, comm:0.2 };
+  var STORE_KEY = "usd-route-compare-v1";
+
+  var trNum = function (d) {
+    return new Intl.NumberFormat("tr-TR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  };
+  var f2 = trNum(2), f4 = trNum(4);
+  var fmtTL  = function (x) { return f2.format(x) + " ₺"; };
+  var fmtUSD = function (x) { return f2.format(x) + " $"; };
+  var fmtRate = function (x) { return f4.format(x) + " ₺/$"; };
+  var fmtPct = function (x) { return "%" + trNum(x >= 10 ? 1 : 2).format(x); };
+
+  function val(id) {
+    var n = parseFloat(document.getElementById(id).value);
+    return isFinite(n) ? n : NaN;
+  }
+  function ok() { for (var i = 0; i < arguments.length; i++) { var v = arguments[i]; if (!isFinite(v) || v <= 0) return false; } return true; }
+
+  function routeCard(name, main, rateLabel, rateVal, brkHtml, isWin) {
+    return '<div class="rname">' + name + (isWin ? ' <span class="pill">kazanan</span>' : '') + '</div>'
+      + '<div class="big">' + main + '</div>'
+      + '<div class="rate">' + rateLabel + ' <b>' + rateVal + '</b></div>'
+      + (brkHtml ? '<div class="brk">' + brkHtml + '</div>' : '');
+  }
+  function setWin(el, win) { el.className = "route" + (win ? " win" : ""); }
+  function dash(el, name) { el.className = "route"; el.innerHTML = '<div class="rname">' + name + '</div><div class="big" style="color:var(--lose-ink)">—</div>'; }
+
+  function compute() {
+    var usdAsk = val("usdAsk"), usdBid = val("usdBid");
+    var ua = val("usdtTryAsk"), ub = val("usdtTryBid");
+    var p = val("parity"), c = val("comm") / 100;
+    if (!isFinite(c) || c < 0) c = 0;
+    var k = 1 - c; // her bacakta kalan oran
+
+    // ---------- ALIM (TL -> USD) ----------
+    var buyTl = val("buyTl");
+    var elBV = document.getElementById("buyVerdict");
+    var elBD = document.getElementById("buyDirect");
+    var elBC = document.getElementById("buyCrypto");
+    if (ok(usdAsk, ua, p, buyTl)) {
+      var bdUsd = buyTl / usdAsk;                       // direkt
+      var bcUsdt = (buyTl / ua) * k;                    // TL -> USDT
+      var bcUsd  = bcUsdt * p * k;                      // USDT -> USD
+      var bdRate = usdAsk;
+      var bcRate = buyTl / bcUsd;                        // efektif ₺/$
+      var cryptoWins = bcUsd > bdUsd;
+      var diffUsd = Math.abs(bcUsd - bdUsd);
+      var pct = (Math.max(bcUsd, bdUsd) / Math.min(bcUsd, bdUsd) - 1) * 100;
+      var markup = (1 / (p * k * k) - 1) * 100;          // USDT/TRY üstüne ek maliyet
+
+      setWin(elBD, !cryptoWins);
+      elBD.innerHTML = routeCard("Direkt (banka)", fmtUSD(bdUsd), "Efektif kur:", fmtRate(bdRate), "", !cryptoWins);
+      setWin(elBC, cryptoWins);
+      elBC.innerHTML = routeCard("Kripto (USDT)", fmtUSD(bcUsd), "Efektif kur:", fmtRate(bcRate),
+        bcUsdt.toFixed(2) + " USDT → " + fmtUSD(bcUsd) + "<br>USDT/TRY üstüne +" + fmtPct(markup) + " (parite+komisyon)", cryptoWins);
+
+      if (diffUsd < 1e-9) {
+        elBV.className = "verdict neutral";
+        elBV.innerHTML = "İki rota eşit. <small>Efektif kur " + fmtRate(bdRate) + "</small>";
+      } else {
+        elBV.className = "verdict";
+        elBV.innerHTML = (cryptoWins ? "✅ Kripto rotası avantajlı" : "✅ Direkt (banka) avantajlı")
+          + " <small>" + fmtUSD(diffUsd) + " daha fazla (" + fmtPct(pct) + ") · "
+          + (cryptoWins ? fmtRate(bcRate) + " vs " + fmtRate(bdRate) : fmtRate(bdRate) + " vs " + fmtRate(bcRate)) + "</small>";
+      }
+    } else { elBV.className = "verdict neutral"; elBV.textContent = "Kurları ve tutarı gir."; dash(elBD, "Direkt (banka)"); dash(elBC, "Kripto (USDT)"); }
+
+    // ---------- SATIM (USD -> TL) ----------
+    var sellUsd = val("sellUsd");
+    var elSV = document.getElementById("sellVerdict");
+    var elSD = document.getElementById("sellDirect");
+    var elSC = document.getElementById("sellCrypto");
+    if (ok(usdBid, ub, p, sellUsd)) {
+      var sdTl = sellUsd * usdBid;                      // direkt
+      var scUsdt = (sellUsd / p) * k;                   // USD -> USDT
+      var scTl = scUsdt * ub * k;                       // USDT -> TL
+      var sdRate = usdBid;
+      var scRate = scTl / sellUsd;                       // efektif ₺/$
+      var cryptoWinsS = scTl > sdTl;
+      var diffTl = Math.abs(scTl - sdTl);
+      var pctS = (Math.max(scTl, sdTl) / Math.min(scTl, sdTl) - 1) * 100;
+
+      setWin(elSD, !cryptoWinsS);
+      elSD.innerHTML = routeCard("Direkt (banka)", fmtTL(sdTl), "Efektif kur:", fmtRate(sdRate), "", !cryptoWinsS);
+      setWin(elSC, cryptoWinsS);
+      elSC.innerHTML = routeCard("Kripto (USDT)", fmtTL(scTl), "Efektif kur:", fmtRate(scRate),
+        scUsdt.toFixed(2) + " USDT → " + fmtTL(scTl), cryptoWinsS);
+
+      if (diffTl < 1e-9) {
+        elSV.className = "verdict neutral";
+        elSV.innerHTML = "İki rota eşit. <small>Efektif kur " + fmtRate(sdRate) + "</small>";
+      } else {
+        elSV.className = "verdict";
+        elSV.innerHTML = (cryptoWinsS ? "✅ Kripto rotası avantajlı" : "✅ Direkt (banka) avantajlı")
+          + " <small>" + fmtTL(diffTl) + " daha fazla (" + fmtPct(pctS) + ") · "
+          + (cryptoWinsS ? fmtRate(scRate) + " vs " + fmtRate(sdRate) : fmtRate(sdRate) + " vs " + fmtRate(scRate)) + "</small>";
+      }
+    } else { elSV.className = "verdict neutral"; elSV.textContent = "Kurları ve tutarı gir."; dash(elSD, "Direkt (banka)"); dash(elSC, "Kripto (USDT)"); }
+
+    save();
+  }
+
+  function save() {
+    try {
+      var o = {}; IDS.forEach(function (id) { o[id] = document.getElementById(id).value; });
+      localStorage.setItem(STORE_KEY, JSON.stringify(o));
+    } catch (e) {}
+  }
+  function load() {
+    try {
+      var o = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+      if (o) IDS.forEach(function (id) { if (o[id] != null && o[id] !== "") document.getElementById(id).value = o[id]; });
+    } catch (e) {}
+  }
+
+  IDS.forEach(function (id) { document.getElementById(id).addEventListener("input", compute); });
+  document.getElementById("reset").addEventListener("click", function () {
+    Object.keys(DEFAULTS).forEach(function (id) { document.getElementById(id).value = DEFAULTS[id]; });
+    compute();
+  });
+
+  load();
+  compute();
+</script>
