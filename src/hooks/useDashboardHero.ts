@@ -8,11 +8,22 @@ import {
   computeTWRSeries,
   type TimeRange,
 } from "@/lib/performance"
+import {
+  closesAtOrBefore,
+  computeLifetimeXirrPct,
+  computeMWRSeries,
+  computeWhatIfIndexMWRSeries,
+} from "@/lib/mwr"
 import { resolveHeroPctDenom } from "@/lib/dashboard/heroPercent"
 import { buildIntradaySeries } from "@/lib/dashboard/intraday"
 import type { BenchmarkPrice, Snapshot, IntradaySnapshot } from "@/types/database"
 
 export type HeroViewMode = "value" | "pnl"
+
+/** Which return measure the Performance-mode percent race plots.
+ *  TWR = time-weighted (strategy vs index, flows removed);
+ *  MWR = money-weighted / XIRR (the investor's dollars, flow timing counts). */
+export type HeroMeasure = "twr" | "mwr"
 
 /** What the secondary chart line / chip represents at any moment. */
 export type CompareKind = "currency" | "percent"
@@ -31,11 +42,14 @@ export interface HeroPoint {
    *  mode; kept on the type so the data shape is uniform. */
   compareUsd: number
   compareTry: number
-  /** P&L-mode benchmark return as cumulative % from the chart's range start.
-   *  Always 0 in value mode and at the range-start anchor itself. */
+  /** P&L-mode index return as cumulative % from the chart's range start, in the
+   *  ACTIVE measure: the raw index rebase under TWR, the what-if index (same
+   *  flows) under MWR. Always 0 in value mode and at the range-start anchor. */
   benchmarkPct: number
-  /** Cumulative portfolio TWR % since the window start (0 at the start anchor).
-   *  Populated in P&L mode; 0 in value mode. */
+  /** Cumulative portfolio return % since the window start (0 at the start
+   *  anchor), in the ACTIVE measure — time-weighted under `measure: "twr"`,
+   *  money-weighted (XIRR) under `"mwr"`. Populated in P&L mode; 0 in value
+   *  mode. (Field name kept from the TWR-only build; it carries either.) */
   twrPct: number
 }
 
@@ -59,14 +73,20 @@ export interface DashboardHeroData {
    *  when there's no usable starting value (e.g. ALL range whose synthetic
    *  zero-anchor lands before the first snapshot); callers must guard. */
   pnlDenom: { usd: number; try: number }
-  /** P&L mode: cumulative portfolio TWR % at "now" (window end). */
+  /** P&L mode: the portfolio's cumulative return % at "now" (window end) in the
+   *  ACTIVE measure (TWR or MWR). */
   twrEnd: number
-  /** P&L mode: cumulative index TWR % at "now" (= last point's benchmarkPct). */
+  /** P&L mode: the index's cumulative return % at "now" in the ACTIVE measure
+   *  (= last point's benchmarkPct — raw index under TWR, what-if under MWR). */
   benchmarkEnd: number
   /** P&L mode: twrEnd − benchmarkEnd, in percentage points. */
   gapPts: number
-  /** P&L mode: window relied on weekly snapshots with a flow → "approximate". */
+  /** P&L mode: window relied on weekly snapshots with a flow → "approximate".
+   *  Always false under `measure: "mwr"` (MWR needs no intermediate valuations). */
   approximate: boolean
+  /** P&L mode: lifetime annualized XIRR % ("+X.X%/yr" chip). Null when the
+   *  history spans < 1 year or the solver has no solution — never a fake 0. */
+  lifetimeXirrPct: number | null
   loading: boolean
 }
 
@@ -77,6 +97,9 @@ interface UseDashboardHeroArgs {
   currentValueTry: number
   viewMode: HeroViewMode
   timeRange: TimeRange
+  /** Which return measure the P&L-mode percent race plots. Only meaningful in
+   *  P&L mode outside 1D — the intraday branch ignores it entirely. */
+  measure?: HeroMeasure
   usdTry: number
   /** P&L mode: live total P&L (usePnLSummary) used to anchor the chart's "now"
    *  point so it matches the headline Total. Falls back to value − invested. */
@@ -89,30 +112,23 @@ interface UseDashboardHeroArgs {
 }
 
 /**
- * Two-pointer lookup: walk `series` (already sorted ascending by date) in
- * lockstep with the caller's ascending date list. Returns the close at or
- * before `target` for each target. `null` when no preceding close exists.
- *
- * Linear in the larger of the two lists — beats N × O(log N) binary searches
- * when chart and benchmark are both dense (5y daily ≈ 1250 rows).
+ * Write a dated cumulative-% series onto one of the chart's percent fields,
+ * carrying the last known value forward across chart points the series doesn't
+ * cover (e.g. the synthetic $0 anchor, or a snapshot the engine skipped).
  */
-function closesAtOrBefore(
-  series: BenchmarkPrice[],
-  targets: string[],
-): Array<number | null> {
-  const out: Array<number | null> = new Array(targets.length).fill(null)
-  if (series.length === 0) return out
-  let i = 0
-  let lastClose: number | null = null
-  for (let t = 0; t < targets.length; t++) {
-    const target = targets[t]
-    while (i < series.length && series[i].date <= target) {
-      lastClose = series[i].close_usd
-      i++
-    }
-    out[t] = lastClose
+function applyPctSeries(
+  chartData: HeroPoint[],
+  points: ReadonlyArray<{ date: string; cumulativePct: number }>,
+  field: "twrPct" | "benchmarkPct",
+): void {
+  const byDate = new Map<string, number>()
+  for (const p of points) byDate.set(p.date, p.cumulativePct)
+  let last = 0
+  for (const point of chartData) {
+    const v = byDate.get(point.date)
+    if (v !== undefined) last = v
+    point[field] = v ?? last
   }
-  return out
 }
 
 function pad2(n: number): string {
@@ -145,6 +161,12 @@ function formatLabel(dateStr: string, range: TimeRange): string {
  *
  * Transfers (incl. opening-balance entries) are treated as neutral cash
  * flows so they don't distort short-range P&L.
+ *
+ * In P&L mode (outside 1D) `measure` selects which return the percent race
+ * plots: "twr" (default) draws the time-weighted return vs the index's own
+ * return; "mwr" draws the cumulative money-weighted (XIRR) return vs the
+ * what-if index (the same external flows placed into the index on the same
+ * dates). Both land on the same `twrPct`/`benchmarkPct` fields.
  */
 export function useDashboardHero({
   snapshots,
@@ -153,6 +175,7 @@ export function useDashboardHero({
   currentValueTry,
   viewMode,
   timeRange,
+  measure = "twr",
   usdTry,
   currentPnlUsd,
   currentPnlTry,
@@ -183,9 +206,18 @@ export function useDashboardHero({
         benchmarkEnd: 0,
         gapPts: 0,
         approximate: false,
+        lifetimeXirrPct: null,
         loading: pnlLoading,
       }
     }
+
+    // Lifetime annualized XIRR — range-independent (every external flow ever,
+    // against the live value today), so it is computed once for both branches.
+    const today = todayLocalIso()
+    const lifetimeXirrPct =
+      viewMode === "pnl"
+        ? computeLifetimeXirrPct(transactions, rates, currentValueUsd, today)
+        : null
 
     // ── 1D: intraday (hourly) view ───────────────────────────────────
     // Built from the rolling-24h intraday totals (time-of-day axis) plus the
@@ -249,6 +281,7 @@ export function useDashboardHero({
         benchmarkEnd: 0,
         gapPts: 0,
         approximate: false,
+        lifetimeXirrPct,
         loading: pnlLoading,
       }
     }
@@ -302,7 +335,6 @@ export function useDashboardHero({
     }
 
     // Append the live "now" point so the chart always anchors on today.
-    const today = todayLocalIso()
     const investedNow = computeCurrentInvestedUsd(transactions, rates)
     const nowRatio =
       currentValueUsd > 0 ? currentValueTry / currentValueUsd : usdTry
@@ -404,14 +436,18 @@ export function useDashboardHero({
       }
     })
 
-    // Benchmark overlay (P&L mode, when series loaded): fill benchmarkPct
-    // as cumulative % return from chartData[0].date. The benchmark is
+    // Benchmark overlay (P&L mode / TWR measure, when series loaded): fill
+    // benchmarkPct as cumulative % return from chartData[0].date. Under the MWR
+    // measure this raw rebase is replaced by the what-if index below — the fair
+    // opponent for a money-weighted portfolio line is the same flows placed into
+    // the index, not the index's own buy-and-hold return.
+    // The benchmark is
     // anchored on the first point that has a usable close — earlier points
     // stay at 0% so ranges starting before the benchmark's listing date
     // still render cleanly. Yahoo's adjclose is USD-denominated; we expose
     // the same value to both currency display modes (currency-adjusted
     // benchmark return is a separate, future feature).
-    if (benchmarkActive && chartData.length > 0) {
+    if (benchmarkActive && measure === "twr" && chartData.length > 0) {
       const dates = chartData.map((p) => p.date)
       const closes = closesAtOrBefore(benchmarkSeries, dates)
       let base: number | null = null
@@ -430,9 +466,9 @@ export function useDashboardHero({
       }
     }
 
-    // Portfolio TWR series, same window as the chart, extended to live "now".
-    // computeTWRSeries only reads snapshot_date + total_usd, so a minimal "now"
-    // snapshot suffices (mirrors the fakeSnapshots cast used above).
+    // Portfolio lead series (the active measure), same window as the chart,
+    // extended to live "now". Both engines only read snapshot_date + total_usd,
+    // so a minimal "now" snapshot suffices (mirrors the fakeSnapshots cast).
     let twrEnd = 0
     let approximate = false
     if (viewMode === "pnl") {
@@ -444,16 +480,27 @@ export function useDashboardHero({
           total_usd: currentValueUsd,
         } as unknown as Snapshot,
       ]
-      const twr = computeTWRSeries(nowSnaps, transactions, rates)
-      twrEnd = twr.endPct
-      approximate = twr.approximate
-      const twrByDate = new Map<string, number>()
-      for (const p of twr.points) twrByDate.set(p.date, p.cumulativePct)
-      let lastTwr = 0
-      for (const point of chartData) {
-        const v = twrByDate.get(point.date)
-        if (v !== undefined) lastTwr = v
-        point.twrPct = v ?? lastTwr
+      if (measure === "mwr") {
+        // Money-weighted: deposit timing counts, by design. MWR needs no
+        // intermediate valuations, so weekly-sampled history is exact — the
+        // "approximate" marker stays off.
+        const mwr = computeMWRSeries(nowSnaps, transactions, rates)
+        twrEnd = mwr.endPct
+        approximate = false
+        applyPctSeries(chartData, mwr.points, "twrPct")
+        // Fair opponent: the same flows, same dates, into the index.
+        const whatIf = computeWhatIfIndexMWRSeries(
+          nowSnaps,
+          transactions,
+          rates,
+          benchmarkSeries,
+        )
+        applyPctSeries(chartData, whatIf.points, "benchmarkPct")
+      } else {
+        const twr = computeTWRSeries(nowSnaps, transactions, rates)
+        twrEnd = twr.endPct
+        approximate = twr.approximate
+        applyPctSeries(chartData, twr.points, "twrPct")
       }
     }
 
@@ -539,6 +586,7 @@ export function useDashboardHero({
       benchmarkEnd: end?.benchmarkPct ?? 0,
       gapPts: twrEnd - (end?.benchmarkPct ?? 0),
       approximate,
+      lifetimeXirrPct,
       loading: pnlLoading,
     }
   }, [
@@ -550,6 +598,7 @@ export function useDashboardHero({
     currentValueTry,
     viewMode,
     timeRange,
+    measure,
     usdTry,
     currentPnlUsd,
     currentPnlTry,
