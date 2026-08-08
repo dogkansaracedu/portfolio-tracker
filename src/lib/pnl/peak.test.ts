@@ -5,8 +5,7 @@ import { buy, sell, cashCredit } from "./test-fixtures"
 /**
  * Peak net invested = running max of the (pairing-aware) net-invested ledger.
  * It is the denominator for the all-time Total P&L %, so withdrawing your own
- * money never changes the % (see docs/pnl-test-cases.md and the design spec
- * 2026-06-06-pnl-behaviour-corrections).
+ * money never changes the % (see docs/pnl-test-cases.md).
  */
 describe("computePeakInvestedUsd", () => {
   it("equals the deployed amount for a pure hold", () => {

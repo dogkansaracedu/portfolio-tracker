@@ -58,9 +58,9 @@
   1 this year` (`thisYearStartISO`) behind a `useRef` once-guard so picking "All Time"
   doesn't bounce back. The default is applied **synchronously in the `filters` memo on
   the first render** (not only via the URL-seeding effect), so the first and only server
-  fetch already carries `dateFrom` — seeding through the effect alone fired an
-  unfiltered full-history fetch first, then refetched once the param landed (two
-  requests, plus a duplicate child-row fetch, per visit). Sends date/asset/platform to
+  fetch already carries `dateFrom`. Seeding through the effect alone would fire an
+  unfiltered full-history fetch first and refetch once the param landed (two requests,
+  plus a duplicate child-row fetch, per visit). Sends date/asset/platform to
   the **server** query
   (`useTransactions(serverFilters)`); applies the **type** filter client-side; builds
   the `summary` (count + buy/sell volume) by `normalizeToUsd`-ing each row's total.
@@ -92,14 +92,14 @@
 
 ## Notes & gotchas
 
-- **Why two contexts (the request-flood fix).** `TransactionDataContext` shares the
-  fetched rows through a provider so consumers don't each refetch. Originally one
-  combined hook both fetched the full table *and* exposed a row's delete action;
-  rendering N rows mounted N copies and fired N identical full-table fetches.
-  The fix: `useTransactionMutations()` exposes actions with **no** fetch, so
+- **Why two contexts, and why mutations don't fetch.** `TransactionDataContext` shares
+  the fetched rows through a provider so consumers don't each refetch, and
+  `useTransactionMutations()` exposes actions with **no** fetch, so
   `TransactionRowShared`'s per-row delete button (and the modal/sheet) take an action
   without triggering a load. Only `useTransactionLog` (one instance) fetches a slice.
-  Don't reintroduce a fetch into the mutations hook or into row components.
+  A single combined fetch-and-mutate hook would mount N copies for N rendered rows and
+  fire N identical full-table fetches — don't reintroduce a fetch into the mutations
+  hook or into row components.
 - **Two refresh signals, both load-bearing.** After a mutation: `refresh()` refetches
   the global SoT (so P&L / summary / dashboard update), `bumpTxVersion()` nudges the
   server-filtered slices (`useTransactions`, `useHoldings`). They serve orthogonal
@@ -131,14 +131,13 @@
   still recalcs the cash-asset balance.
 - **Summary is USD-normalized.** Buy/sell volume sum `normalizeToUsd(total, ...)` per
   row using dated rates from the global SoT, so mixed-currency activity is comparable;
-  it then renders in the display currency. Only 3 stats exist (count, buy, sell) —
-  the old spec's "net realized / net deposit" cards were never built.
+  it then renders in the display currency. Only 3 stats exist: count, buy volume,
+  sell volume.
 - **Linked-child subtitle is fetched separately.** `TransactionsPage` runs
   `fetchLinkedChildrenForParents(parentIds)` for the currently-visible parents and
   passes `childMap` down; `TransactionAssetLabel` reads the child's `amount` /
   `price_currency` / `platforms.name` for the subtitle — it is not recomputed from the
   parent. A buy with no child renders the `external cash` hint.
-- **Colors here predate the canonical palette.** The realized line / amount sign use
-  `text-green-600` / `text-red-600` directly (not `gainLossClass` /
-  `formatSignedCurrency`). NOTED, not fixed — flagged for a later pass to align with
-  the app-wide gain/loss helpers per the project convention.
+- **Known deviation from the canonical palette.** The realized line / amount sign use
+  `text-green-600` / `text-red-600` directly instead of the app-wide `gainLossClass` /
+  `formatSignedCurrency` helpers.

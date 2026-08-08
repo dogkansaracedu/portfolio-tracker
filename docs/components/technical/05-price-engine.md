@@ -35,32 +35,28 @@
 
 ## Data layer — edge functions, price cache, rates tables
 
-**Sources (current reality — drift from older docs):**
+**Sources:**
 
+- **One function, not one per source.** All live fetching runs through the single
+  `fetch-prices` orchestrator plus the `_shared/` modules (`yahoo.ts`,
+  `tefas.ts`, `currency.ts`); there are no per-source edge functions.
+  `PRICE_SOURCES` (`src/lib/constants/assets.ts`) is `yahoo` / `tcmb` / `tefas` /
+  `manual`.
 - **TCMB** = central-bank FX. `fetch-prices` pulls `today.xml`, regex-parses
   USD/TRY + EUR/TRY (ForexBuying), derives `eur_usd`, and upserts both
   `exchange_rates` (the dated history) and the `USD`/`EUR`/`TRY` rows of
-  `price_cache`. Gram-gold: TCMB dropped its `XAU` line, so it now falls back to
-  Yahoo `GC=F` (USD/oz ÷ `TROY_OZ_GRAMS`) and writes the `XAU_GRAM` row.
+  `price_cache`. Gram-gold: the XML's `XAU` line is tried first (no-cost path)
+  and falls back to Yahoo `GC=F` (USD/oz ÷ `TROY_OZ_GRAMS`); either way the
+  `XAU_GRAM` row is written, with `source` set to whichever path produced it.
 - **Yahoo Finance** = the engine for **stocks (BIST + US), crypto, AND
   tokenized gold** (`BTC-USD`, `ETH-USD`, `PAXG-USD`, `XAUT-USD`). All assets
   with `price_source = 'yahoo'` flow through one loop (`refreshYahooPrices`).
-- **CoinGecko is no longer called** by any edge function. `price_source =
-  'coingecko'` remains a valid value and stablecoins (`tether`, `usd-coin`)
-  still nominally map to it, but the crypto-pricing migration moved BTC/ETH/
-  PAXG/XAUT to Yahoo (see
-  `docs/superpowers/specs/2026-05-30-asset-price-id-and-yahoo-design.md`). There
-  is no longer a `fetch-coingecko` / `fetch-tcmb` / `fetch-yahoo` function — they
-  were consolidated into `fetch-prices` + `_shared/`. **The component `README.md`
-  index and tech-stack lines still list the old split functions + CoinGecko —
-  stale.**
 - **TEFAS** = Turkish mutual / money-market funds ("PPF") — **live**. Turkish
   funds (e.g. a *Para Piyasası Fonu* / money-market fund
   such as `TP2` — TERA PORTFÖY PARA PİYASASI (TL) FONU) are not on Yahoo. Their
   daily **NAV** (net asset value = the fund's per-unit price, quoted in **TRY**)
   comes from **TEFAS** (`tefas.gov.tr`), the official Turkish fund platform.
-  Verified working endpoint (the legacy `BindHistoryInfo` API was retired in 2026
-  and returns `"Method not found or disabled!"`):
+  Endpoint:
   ```
   POST https://www.tefas.gov.tr/api/funds/fonFiyatBilgiGetir
   Content-Type: application/json
@@ -82,8 +78,8 @@
 
 **Tables:**
 
-- `price_cache` — **key column is literally named `ticker` but now holds
-  `price_id` values** (re-keyed by migration, no schema change). Columns:
+- `price_cache` — **key column is literally named `ticker` but holds
+  `price_id` values**. Columns:
   `price_usd`, `price_try`, `source`, `updated_at`. UPSERT `onConflict: ticker`
   from edge functions; client does a plain `SELECT *`.
 - `exchange_rates` — UPSERT `onConflict: date,source`. Columns: `date`,
@@ -94,11 +90,27 @@ map are keyed by `price_id ?? ticker`. `derivePriceId` only auto-fills the
 mechanical Yahoo cases (BIST → append `.IS`; US stock → ticker as-is); crypto/
 gold/fiat keys are set explicitly and otherwise left untouched.
 
-**Currency from the source.** `fetchYahooQuote` returns `meta.currency`;
-`splitPrice` keeps the native column raw and derives the other from `usdTry` /
-`eurUsd`. Unsupported currency → upsert skipped + error pushed (never mislabeled
-USD). When the FX step is skipped/failed, `ensureConversionRates` loads the last
-`usd_try`/`eur_usd` from `exchange_rates` so conversions still resolve.
+**Currency from the source (`_shared/currency.ts`).** The currency a quote is
+denominated in comes from the source, never from a ticker-suffix guess:
+`fetchYahooQuote` reports Yahoo's `meta.currency`, `fetchTefasQuote` reports
+`TRY` (NAVs are always TRY), and the TCMB step writes its FX/gold rows directly.
+Every quote then goes through `splitPrice(price, currency, { usdTry, eurUsd })`,
+which fills the `price_usd` / `price_try` columns and keeps the **native** side
+raw:
+
+| Source currency | `price_usd` | `price_try` |
+|---|---|---|
+| `USD` | `p` (raw) | `p × usdTry` |
+| `TRY` | `p ÷ usdTry` | `p` (raw) |
+| `EUR` | `p × eurUsd` | `p × eurUsd × usdTry` |
+
+Any other currency (e.g. `GBp` = pence) returns `null` — the caller **skips the
+upsert and pushes an error** into the response rather than mislabeling a foreign
+price as USD. A missing rate yields `null` for only the column it can't compute.
+`categoryForQuote(currency)` in the same module classifies a quote as
+`stock_bist` (TRY) vs `stock_us` (anything else). When the FX step is
+skipped/failed, `ensureConversionRates` loads the last `usd_try`/`eur_usd` from
+`exchange_rates` so conversions still resolve.
 
 **Orchestrator throttling (the heart of "demand-driven, not a cron"):**
 
@@ -118,9 +130,9 @@ USD). When the FX step is skipped/failed, `ensureConversionRates` loads the last
   fire-and-forget helper. Public/frontend pings can **only** trigger a normal
   throttled refresh — they can't force or chain a snapshot.
 
-**Client polling loop (`PricesContext`):** `PricesProvider` hoists the old
-per-call `usePrices` hook into one shared instance. While a tab is **visible**
-and a user is signed in:
+**Client polling loop (`PricesContext`):** `PricesProvider` owns the single
+shared price store; `usePrices` is a thin consumer of it, never a per-call-site
+fetch. While a tab is **visible** and a user is signed in:
 
 - re-read `price_cache` every `PRICE_POLL.readMs` (`10s`, cheap SELECT) so
   figures stay current;
@@ -139,12 +151,12 @@ by `price_id` (internal-only list).
   cache, but most reads return value-identical rows. `loadPrices` compares the
   fresh data against current state (`priceMapsEqual` / `ratesEqual`, and a plain
   `===` on the newest `updated_at`) via functional updates and **keeps the old
-  reference when nothing changed**. Without this, every 10s tick replaced
+  reference when nothing changed**, so the store only emits a new reference when
+  a price/rate actually moved. Without the guard, every 10s tick would replace
   `prices`/`rates` with fresh object references, cascading new identities through
   `usePnL` → `usePortfolio`'s memo chain → a full `PortfolioTable` re-render
-  (and re-running `SnapshotsContext`'s effect) on every tick — the visible
-  "portfolio refreshes itself" flicker. The store now only emits a new reference
-  when a price/rate actually moved.
+  (and re-running `SnapshotsContext`'s effect) on every tick — a visible
+  "portfolio refreshes itself" flicker.
 
 **Historical-rate backfill.** `ensureHistoricalRate` (single non-USD tx) and
 `ensureHistoricalRatesForDates` (bulk import) invoke `fetch-historical-rate`
@@ -174,10 +186,10 @@ best-effort; failures leave the nearest-prior-rate fallback
 - **Staleness thresholds live in two places**: client `isStale`/`getStalenessLevel`
   (30min / 2h, UI dots) vs. orchestrator cadences (20s/30s/60s/15min, fetch
   gating). They answer different questions — don't unify them.
-- **Manual entry**: `price_source = 'manual'` is honored by routing (only
-  `yahoo`/TCMB rows are auto-fetched), but there is currently **no**
-  `ManualPriceEntry` component under `src/components/prices/` (only `PriceDisplay`
-  + `PriceRefreshButton`); manual price values are set via the asset form path.
+- **Manual entry has no dedicated component.** `price_source = 'manual'` is
+  honored by routing (only `yahoo` / `tcmb` / `tefas` rows are auto-fetched), but
+  `src/components/prices/` holds only `PriceDisplay` + `PriceRefreshButton`;
+  manual price values are set via the asset form path.
 - **Two `HOME_TIMEZONE` definitions** (edge `_shared/constants.ts` and
   `src/lib/config.ts`) — separate runtimes, must be kept in sync.
 - **Currency toggle (USD/TRY)** is a separate concern in `DisplayContext`, not in

@@ -88,9 +88,8 @@ and portfolio views exactly.
   a per-asset basis, reached from elsewhere in the app) an "edit this asset's
   transactions" surface. The import experience itself is specified in Component 4.
 - **No per-row refetching.** Rendering the log must not cause each row to re-request
-  the data. Scrolling/paginating the log reads already-loaded data. (This is a hard
-  rule — a naive per-row data dependency previously caused a request flood; see the
-  [technical doc](technical/09-transactions-page.md).)
+  the data. Scrolling/paginating the log reads already-loaded data. This is a hard
+  rule: a per-row data dependency floods the backend with requests.
 
 ## Contract (I/O)
 

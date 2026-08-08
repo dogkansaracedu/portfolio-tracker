@@ -5,7 +5,7 @@ import { resolveHeroPctDenom } from "@/lib/dashboard/heroPercent"
  * The Dashboard hero's % denominator. Peak net invested in P&L mode and in the
  * value-mode lifetime fallback (ALL window / ~$0 start), so it shares the same
  * base as the headline Total P&L %. The normal value window divides by the
- * period's starting value. See the 2026-06-06 design spec.
+ * period's starting value. See docs/pnl-methodology.md.
  */
 describe("resolveHeroPctDenom", () => {
   it("uses peak invested in P&L mode", () => {

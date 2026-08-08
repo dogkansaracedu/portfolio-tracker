@@ -37,18 +37,16 @@
 
 ## Notes & gotchas
 
-- **Doc/README drift fixed.** The old doc/README said this component was
-  "Partial (no CSV import/export, no pg_cron)" and specced `ExportData`/
-  `ImportData`/`DisplayPreferences`/`PriceSettings`/`DataManagement` components,
-  a `lib/export.ts`/`lib/import.ts`, `papaparse`, a locale select, a danger zone,
-  and a `00009` pg_cron migration. **None of that exists.** Current reality:
-  scheduled snapshots **do** exist (Component 10), **import** exists (Component 4),
-  and **export is still not built**. `SettingsPage` is just 3 tabs.
-- **Theme is NOT next-themes.** The brief mentioned next-themes; the code is a
-  bespoke context (`ThemeContext.tsx`) writing `localStorage["theme"]` and toggling
-  the `.dark` class itself. `next-themes` is present but only the toast
-  (`ui/sonner.tsx`) consumes it — it is not the app theme system.
-  Initial read happens in `useState(readInitial)` so there's no theme flash.
+- **Scope check.** `SettingsPage` is just 3 tabs (Assets / Platforms / Snapshots).
+  There is no `ExportData`/`ImportData`/`DisplayPreferences`/`PriceSettings`/
+  `DataManagement` component, no `lib/export.ts` or `lib/import.ts`, no locale
+  select, and no danger zone. **Export is not built at all**; **import** lives in
+  Component 4 and **scheduled snapshots** in Component 10.
+- **Theme is NOT next-themes.** The theme is a bespoke context
+  (`ThemeContext.tsx`) writing `localStorage["theme"]` and toggling the `.dark`
+  class itself. `next-themes` is installed but only the toast (`ui/sonner.tsx`)
+  consumes it — it is not the app theme system. Initial read happens in
+  `useState(readInitial)` so there's no theme flash.
 - **Two different storage key conventions.** Theme uses the bare key `"theme"`;
   display currency/obfuscation use `"portfolio-"`-prefixed keys. All writes are
   `try/catch`-guarded against storage being unavailable.
