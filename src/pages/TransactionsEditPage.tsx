@@ -64,6 +64,7 @@ export default function TransactionsEditPage() {
                 <MidasPdfImportButton
                   assets={assets}
                   platforms={platforms}
+                  gridRows={controls.rows}
                   onAppend={controls.appendRows}
                 />
               )}
