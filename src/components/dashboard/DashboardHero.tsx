@@ -22,6 +22,7 @@ import {
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import {
   useDashboardHero,
+  type HeroMeasure,
   type HeroPoint,
   type HeroViewMode,
 } from "@/hooks/useDashboardHero"
@@ -72,6 +73,38 @@ const VIEW_MODES: { id: HeroViewMode; label: string }[] = [
   { id: "value", label: "Value" },
   { id: "pnl", label: "Performance" },
 ]
+
+/** Return measure for the Performance percent race. `hint` is the button's
+ *  title attribute — the switch is compact, so the "why" lives there. */
+const MEASURES: { id: HeroMeasure; label: string; hint: string }[] = [
+  {
+    id: "twr",
+    label: "TWR",
+    hint: "Time-weighted return — deposits and withdrawals removed. Scores the strategy against the index.",
+  },
+  {
+    id: "mwr",
+    label: "MWR",
+    hint: "Money-weighted return (XIRR) — deposit timing counts. Scores your actual dollars against the same flows placed into the index.",
+  },
+]
+
+/** Headline sub-label under the big percent, per measure. */
+const MEASURE_SUBLABELS: Record<HeroMeasure, string> = {
+  twr: "Growth vs market — time-weighted, deposits/withdrawals removed",
+  mwr: "Your money's growth — money-weighted, deposit timing included",
+}
+
+/** Appended to the benchmark's label under MWR: the line is the what-if index
+ *  (same flows, same dates), not the index's own buy-and-hold return. */
+const WHAT_IF_LABEL_SUFFIX = " (same flows)"
+
+/** Lifetime XIRR chip: label, unit suffix (an annualized rate, not a total),
+ *  and the hover explainer. */
+const XIRR_LABEL = "XIRR"
+const XIRR_PER_YEAR_SUFFIX = "/yr"
+const XIRR_HINT =
+  "Lifetime money-weighted annual return (XIRR) across every deposit and withdrawal."
 
 const RANGE_LABELS: Record<TimeRange, string> = {
   "1D": "past day",
@@ -173,12 +206,29 @@ export default function DashboardHero({
     "dashboardHero.benchmark",
     DEFAULT_BENCHMARK_ID,
   )
+  const [measure, setMeasure] = usePersistedState<HeroMeasure>(
+    "dashboardHero.measure",
+    "twr",
+  )
+
+  // The measure switch only applies to the Performance percent race outside 1D
+  // (intraday is always the simple intraday change).
+  const showMeasureSwitch = viewMode === "pnl" && timeRange !== "1D"
+  // The hook ignores `measure` wherever the switch is hidden; mirror that here
+  // so a persisted "mwr" can't mislabel the intraday / value views.
+  const effectiveMeasure: HeroMeasure = showMeasureSwitch ? measure : "twr"
+  const activeMeasure =
+    MEASURES.find((m) => m.id === effectiveMeasure) ?? MEASURES[0]
 
   // Benchmark is always picked (default = SPY). Only fetch in P&L view —
   // the Value view doesn't render a benchmark line.
   const activeBenchmark = findBenchmark(benchmarkId)
   const benchmarkFetchKey = viewMode === "pnl" ? activeBenchmark.id : null
   const { series: benchmarkSeries } = useBenchmark(benchmarkFetchKey)
+  // Under MWR the grey line is the what-if index — say so wherever it's named.
+  const benchmarkLabel =
+    activeBenchmark.label +
+    (effectiveMeasure === "mwr" ? WHAT_IF_LABEL_SUFFIX : "")
 
   const {
     chartData,
@@ -191,6 +241,7 @@ export default function DashboardHero({
     benchmarkEnd,
     gapPts,
     approximate,
+    lifetimeXirrPct,
   } = useDashboardHero({
     snapshots,
     intradaySnapshots,
@@ -198,6 +249,7 @@ export default function DashboardHero({
     currentValueTry,
     viewMode,
     timeRange,
+    measure: effectiveMeasure,
     usdTry,
     currentPnlUsd: totalPnlUsd,
     currentPnlTry: totalPnlTry,
@@ -234,12 +286,18 @@ export default function DashboardHero({
       ? "text-muted-foreground"
       : gainLossClass(totalPnlUsdNow > 0)
 
-  // P&L headline is the TWR %: green/red by direction, muted at exactly flat.
+  // P&L headline is the active measure's return %: green/red by direction,
+  // muted at exactly flat.
   const twrColor =
     twrEnd === 0 ? "text-muted-foreground" : gainLossClass(twrEnd > 0)
-  // Gap (TWR − index) chip: green when ahead of the market, red when behind.
+  // Gap (you − index) chip: green when ahead of the market, red when behind.
   const gapColor =
     gapPts === 0 ? "text-muted-foreground" : gainLossClass(gapPts > 0)
+  // Lifetime XIRR chip (percent — visible under obfuscation).
+  const xirrColor =
+    lifetimeXirrPct == null || lifetimeXirrPct === 0
+      ? "text-muted-foreground"
+      : gainLossClass(lifetimeXirrPct > 0)
 
   // For the P&L chart we want the area to start at 0 (range start = baseline)
   // and climb/fall to the period delta. Subtract rangeStart from each point.
@@ -359,11 +417,13 @@ export default function DashboardHero({
       >
         <p className="mb-1.5 font-medium text-muted-foreground">{dateLabel}</p>
         <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
-          <span className="text-muted-foreground">You (TWR)</span>
+          <span className="text-muted-foreground">
+            You ({activeMeasure.label})
+          </span>
           <span className="text-right font-medium">
             {formatSignedPercent(point.twrPct, 2)}
           </span>
-          <span className="text-muted-foreground">{activeBenchmark.label}</span>
+          <span className="text-muted-foreground">{benchmarkLabel}</span>
           <span className="text-right font-medium">
             {formatSignedPercent(point.benchmarkPct, 2)}
           </span>
@@ -375,9 +435,10 @@ export default function DashboardHero({
   // Color the chart by the period's direction (Robinhood-style):
   // green when up, red when down — independent of theme primary.
   // Key off whatever the lead line actually plots, so the line always agrees
-  // with the headline: TWR in P&L mode, period ΔValue in value mode. (A large
-  // mid-window deposit can flip their signs apart — money-weighted delta up
-  // while the time-weighted return is down.)
+  // with the headline: the active measure's return in P&L mode (twrEnd carries
+  // TWR or MWR), period ΔValue in value mode. (A large mid-window deposit can
+  // flip their signs apart — money-weighted delta up while the time-weighted
+  // return is down.)
   const isLoss = viewMode === "pnl" ? twrEnd < 0 : delta.usd < 0
   const strokeColor = isLoss ? "rgb(239, 68, 68)" : "rgb(16, 185, 129)"
   const fillColor = isLoss ? "rgb(239 68 68 / 0.18)" : "rgb(16 185 129 / 0.18)"
@@ -407,6 +468,29 @@ export default function DashboardHero({
               </button>
             ))}
           </div>
+
+          {/* Measure switch — which return the percent race plots. Performance
+              mode only, and never in 1D (intraday is the simple change). */}
+          {showMeasureSwitch && (
+            <div className="inline-flex rounded-lg bg-muted p-0.5">
+              {MEASURES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setMeasure(m.id)}
+                  title={m.hint}
+                  className={cn(
+                    "rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                    measure === m.id
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Big number + delta */}
@@ -428,7 +512,7 @@ export default function DashboardHero({
           </p>
           {viewMode === "pnl" && (
             <p className="text-xs text-muted-foreground">
-              Growth vs market — time-weighted, deposits/withdrawals removed
+              {MEASURE_SUBLABELS[effectiveMeasure]}
               {approximate && (
                 <span
                   className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase"
@@ -489,6 +573,24 @@ export default function DashboardHero({
                 </span>{" "}
                 ({totalPnlPctNow == null ? "—" : formatSignedPercent(totalPnlPctNow, 2)})
               </span>
+              {/* Lifetime annualized XIRR — absent (never 0) when the history is
+                  under a year or the solver found no rate. A percent, so it
+                  stays visible under the privacy toggle. */}
+              {lifetimeXirrPct != null && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <span
+                    className="text-muted-foreground"
+                    title={XIRR_HINT}
+                  >
+                    {XIRR_LABEL}{" "}
+                    <span className={cn("font-medium", xirrColor)}>
+                      {formatSignedPercent(lifetimeXirrPct, 1)}
+                      {XIRR_PER_YEAR_SUFFIX}
+                    </span>
+                  </span>
+                </>
+              )}
               {timeRange !== "1D" && (
                 <>
                   <span className="text-muted-foreground">·</span>
@@ -497,7 +599,7 @@ export default function DashboardHero({
                       className="inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-foreground"
                     >
                       <span>
-                        {activeBenchmark.label}{" "}
+                        {benchmarkLabel}{" "}
                         <span className="font-medium text-foreground">
                           {formatSignedPercent(benchmarkEnd, 2)}
                         </span>{" "}
