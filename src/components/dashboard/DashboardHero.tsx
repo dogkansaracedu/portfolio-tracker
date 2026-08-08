@@ -70,7 +70,7 @@ const TIME_RANGES: { id: TimeRange; label: string }[] = [
 
 const VIEW_MODES: { id: HeroViewMode; label: string }[] = [
   { id: "value", label: "Value" },
-  { id: "pnl", label: "P&L" },
+  { id: "pnl", label: "Performance" },
 ]
 
 const RANGE_LABELS: Record<TimeRange, string> = {
@@ -374,7 +374,11 @@ export default function DashboardHero({
 
   // Color the chart by the period's direction (Robinhood-style):
   // green when up, red when down — independent of theme primary.
-  const isLoss = delta.usd < 0
+  // Key off whatever the lead line actually plots, so the line always agrees
+  // with the headline: TWR in P&L mode, period ΔValue in value mode. (A large
+  // mid-window deposit can flip their signs apart — money-weighted delta up
+  // while the time-weighted return is down.)
+  const isLoss = viewMode === "pnl" ? twrEnd < 0 : delta.usd < 0
   const strokeColor = isLoss ? "rgb(239, 68, 68)" : "rgb(16, 185, 129)"
   const fillColor = isLoss ? "rgb(239 68 68 / 0.18)" : "rgb(16 185 129 / 0.18)"
 
@@ -410,7 +414,7 @@ export default function DashboardHero({
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {viewMode === "value"
               ? "Total Value"
-              : `P&L · ${RANGE_LABELS[timeRange]}`}
+              : `Performance · ${RANGE_LABELS[timeRange]}`}
           </p>
           <p
             className={cn(
@@ -447,7 +451,7 @@ export default function DashboardHero({
                   back to lifetime return (pnl/invested). Mixing the two on
                   one line reads as if you earned 3% on a $22k gain, which
                   isn't what's happening — the same % already lives in the
-                  P&L tab's "Total" subtitle. Hide it here. */}
+                  Performance tab's "Total" subtitle. Hide it here. */}
               {timeRange !== "ALL" && (
                 <span className={cn("font-medium", periodColor)}>
                   {formatSignedPercent(delta.pct, 2)}

@@ -83,10 +83,10 @@
 - `latest = snapshots[len-1]`. Totals from `latest.total_usd`/`total_try`;
   `byPlatform` is `Object.entries(breakdown.by_platform)` mapped to
   `{ …, valueUsd, valueTry, percentage, color }` and **sorted by `valueUsd` desc**.
-  (`by_tag` is still written to the snapshot but the dashboard no longer reads it
-  — the Tags card was removed.) No holdings × prices recompute here — the
-  snapshot is the single source of truth (prevented the dashboard-vs-portfolio P&L
-  drift, commit 3a3cc45).
+  (`by_tag` is written to the snapshot but the dashboard does not read it — there
+  is no Tags card.) No holdings × prices recompute here — the snapshot is the
+  single source of truth, which is what keeps the dashboard and the Portfolio page
+  from drifting apart on P&L.
 - `byAllocation = deriveAllocationSlices(breakdown.by_asset, assets, totalValueUsd)`
   (`@/lib/dashboard/allocation`): the donut slices are re-derived from `by_asset`,
   **not** read from `breakdown.by_category`. Cash, `fund` (PPF), and stablecoins
@@ -96,7 +96,7 @@
   `crypto` total. Every other asset stays its own category node; an unknown ticker
   becomes a top-level node keyed by the ticker. Plain `number` math (render-only
   aggregation), same ticker→asset join as `deriveByCurrency`. `breakdown.by_category`
-  is now unused by the dashboard (still written to the snapshot).
+  is unused by the dashboard (it is still written to the snapshot).
 - `deriveTopMovers(breakdown.by_asset, assets, transactions, txRates)`: aggregates
   `value_usd` per ticker across platforms, **skips `category === "fiat"`**, then
   pairs with FIFO cost basis (`computeFIFOLots` from `@/lib/pnl/fifo`) →
@@ -149,7 +149,8 @@
   series are **rebased to 0% at the visible window start** (TWR by construction;
   benchmark by anchoring on its first usable close).
 - `xTicks`: one tick per unique formatted label (avoids the same month string
-  repeating for dense daily snapshots); last label forced to `"Şimdi"`.
+  repeating for dense daily snapshots); last label forced to the literal `"Şimdi"`
+  (Turkish for "Now" — the UI string in `DashboardHero`/`intraday.ts`).
 - **1D intraday branch:** `DashboardHero` passes `intradaySnapshots` (from
   `useSnapshots` via `useDashboard`) into the hook; when `timeRange === "1D"` the
   series is built from those hourly totals by the pure `buildIntradaySeries`
@@ -159,7 +160,7 @@
 
 ### `useForeignIncomeYtd.ts` specifics
 
-- Wires the Plan-1 pure helpers `foreignDeclarableAssetIds(assets)` +
+- Wires the pure helpers `foreignDeclarableAssetIds(assets)` +
   `computeForeignIncomeTry(transactions, rates, year, declarable)` (from
   `@/lib/pnl/foreign-income`) to live data via `useAssets` + `useTransactionData`;
   `loading` is the OR of both. No money math here — it just `.toNumber()`s the
@@ -175,17 +176,27 @@
 ### Hero rendering specifics (`DashboardHero.tsx`)
 
 - View mode / time range / benchmark id persisted via `usePersistedState`
-  (**`dashboardHero.viewMode.v2` default `"pnl"`** — the key was bumped from
-  `dashboardHero.viewMode` (default `"value"`) when the vs-market view became the
-  default, so existing users land on the new default rather than a stale persisted
-  `"value"`; `.timeRange` default `"1M"`, `.benchmark` default `SPY`) — survives the
-  re-mounts an auth-token refresh on tab focus triggers. `TIME_RANGES` includes **2Y**.
+  (**`dashboardHero.viewMode.v2` default `"pnl"`**, `.timeRange` default `"1M"`,
+  `.benchmark` default `SPY`) — survives the re-mounts an auth-token refresh on tab
+  focus triggers. The `.v2` suffix on the view-mode key is load-bearing: changing
+  the default again requires a new suffix, otherwise browsers with a stale
+  persisted value keep overriding it. `TIME_RANGES` includes **2Y**.
+- **Label vs id:** `VIEW_MODES` renders the `pnl` mode with the visible label
+  **"Performance"** (and the headline eyebrow reads `Performance · <range>`) — the
+  chart is a TWR percent race, not dollar P&L. The internal id, persisted value, and
+  `viewMode === "pnl"` checks all keep the `pnl` name; "P&L mode" below refers to that id.
 - **P&L mode is a TWR-vs-index percent race:** the chart plots **two `<Area>`s on
   the right (%) axis** — `dataKey="twrPct"` (the portfolio's time-weighted return,
   the lead line, green/red by `twrEnd` sign) and `dataKey="benchmarkPct"` (the
   index, thin, low opacity) — both already rebased to 0% at the window start by the
   hook. A `ReferenceLine y={0}` marks the shared baseline. (Value mode keeps the
   single value `<Area>` with a cost-basis reference line.)
+- **Stroke/fill color follows the plotted series:** `isLoss` is
+  `viewMode === "pnl" ? twrEnd < 0 : delta.usd < 0`, so the lead line's green/red
+  always matches its own headline. Don't key it off `delta.usd` in both modes — a
+  large mid-window deposit can make the money-weighted `delta.usd` positive while
+  `twrEnd` is negative, which painted a green line under a red headline. Exactly
+  zero counts as non-loss (green tint) in both modes.
 - **1D hides the index:** the benchmark `<Area>` and the subtitle's "vs index"
   chip are gated behind `timeRange !== "1D"` (a single daily index close can't draw
   an intraday line); the 1D series comes from `buildIntradaySeries` (see the
@@ -215,9 +226,8 @@
 
 - **Render formatting / colors:** `gainLossClass`, `formatSignedCurrency`,
   `formatSignedPercent`, `formatCurrency` from `@/lib/prices` — canonical
-  emerald-600 / red-500, ASCII minus, no sign at zero. Don't hand-roll. (TopMovers'
-  inline `text-emerald-600`/`text-red-500` predates the helper; a noted edge, not
-  fixed in this pass.)
+  emerald-600 / red-500, ASCII minus, no sign at zero. Don't hand-roll. (Known
+  deviation: `TopMovers` still uses inline `text-emerald-600`/`text-red-500`.)
 - **Obfuscation hides amounts only:** every currency string is wrapped in
   `obfuscate(v, obfuscated)` (some components alias `const o = (v) => obfuscate(v,
   obfuscated)`). **Percentages are deliberately never wrapped** — allocation %,
@@ -247,8 +257,7 @@
   snapshot's `by_platform[].color`) all live locally. The two `CURRENCY_COLORS`
   maps intentionally differ: the allocation donut uses a green→teal→cyan ramp so
   the fiat currencies read as one cash block, while the Currencies card uses
-  distinct hues. A noted edge (not fixed) — consolidate
-  into `@/lib/constants` if they grow.
+  distinct hues. Consolidate into `@/lib/constants` if they grow.
 - **Top movers ≠ 24h movers:** the label says "Top Movers" but the figure is
   lifetime unrealized P&L (no intraday price history exists). Movers are
   **USD-only** even under the TRY toggle.

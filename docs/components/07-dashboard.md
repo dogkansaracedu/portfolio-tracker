@@ -2,10 +2,6 @@
 
 > Layer: behavioral (tech-agnostic). Implementation → [technical/07-dashboard.md](technical/07-dashboard.md)
 
-> ⏳ The taxes-paid behavior referenced below is **spec'd but not yet implemented**
-> ([tax-payments design](../superpowers/specs/2026-06-12-tax-payments-design.md));
-> remove this marker when it ships.
-
 ## Purpose
 
 The primary landing view after login — a one-glance summary of the whole
@@ -100,10 +96,11 @@ ticker/icon, the gain/loss amount, and its percent. Current value is the snapsho
 per-asset value (aggregated across platforms); cost basis is the asset's
 FIFO cost basis. Sorted by absolute gain/loss, capped to the top few.
 
-**Hero — vs-market (P&L) or value over a range.** A large card with two view
-modes and a selectable time range. **The vs-market (P&L) view is the default.**
+**Hero — vs-market (Performance) or value over a range.** A large card with two
+view modes and a selectable time range. **The vs-market (Performance) view is the
+default.**
 
-- **P&L mode (default) — a vs-market percent race:** the chart draws **two
+- **Performance mode (default) — a vs-market percent race:** the chart draws **two
   percent lines from 0% at the window's left edge** — the portfolio's
   [time-weighted return](GLOSSARY.md#time-weighted-return-twr) and the index's
   cumulative return over the same window — so the reader sees who is ahead at a
@@ -123,17 +120,13 @@ modes and a selectable time range. **The vs-market (P&L) view is the default.**
   range; period delta = ΔValue (end − start) with its percent; a secondary
   reference line for cost basis.
 
-**Lifetime total stays gross of estimates — but is net of taxes actually paid.**
-The subtitle's lifetime total P&L and its percent (over
+**Lifetime total stays gross of the tax accrual.** The subtitle's lifetime total
+P&L and its percent (over
 [peak net invested](GLOSSARY.md#peak-net-invested-capital)) carry no
-[at-source](GLOSSARY.md#at-source-tax) *accrual* adjustment — the
-[after-tax](GLOSSARY.md#after-tax-pl) (estimated, net) view is deliberately
-confined to taxed asset rows on the [Portfolio page](08-portfolio-page.md), and no
-estimated-tax figure renders here. Recorded
-[tax payments](GLOSSARY.md#tax-payment), by contrast, are inside the
-money-weighted [Total P&L](GLOSSARY.md#total-pl) **by definition** — real money
-that left the book — so the lifetime figures reflect them without any tax
-annotation on this page.
+[at-source](GLOSSARY.md#at-source-tax) accrual adjustment — the
+[after-tax](GLOSSARY.md#after-tax-pl) (net) view is deliberately confined to taxed
+asset rows on the [Portfolio page](08-portfolio-page.md), and no tax figure renders
+here.
 
 **Headline = the portfolio's time-weighted return; the dollar total stays in the
 subtitle.** In the default vs-market view the headline is the portfolio's
@@ -157,7 +150,7 @@ is hidden in the 1-day range.
 
 **Percent denominator rules** (so a percent is never misleading):
 - Value mode, normal window → ΔValue ÷ starting value of the period.
-- P&L mode, and any window whose start value is ~0 (e.g. ALL's synthetic zero
+- Performance mode, and any window whose start value is ~0 (e.g. ALL's synthetic zero
   anchor, or a period beginning before any priceable holdings) → divide by
   [peak net invested](GLOSSARY.md#peak-net-invested-capital) — the same base as the
   headline [Total P&L](GLOSSARY.md#total-pl) %, so the figure is stable across
@@ -206,7 +199,7 @@ by-asset breakdowns; the allocation donut is derived from by-asset) and the
 snapshot history; the live
 money-weighted total value and total P&L (USD + TRY + %); the latest FX rate; the
 asset set and transaction history (for top-movers cost basis and for netting
-period-deployed capital); a chosen benchmark series for the P&L overlay; the
+period-deployed capital); a chosen benchmark series for the Performance overlay; the
 display currency and the amount-obfuscation flag.
 
 **Outputs (rendered):** net worth (primary + secondary currency); the allocation
@@ -244,17 +237,19 @@ display state.
   → red once crossed); a one-shot notification on the first crossing of the tax year.
 - **Top movers:** compact rows — asset icon + ticker, gain/loss amount, gain/loss
   percent; gain/loss colored; empty-state copy when none.
-- **Hero:** view-mode switch (P&L | Value), **defaulting to P&L**; headline = the
-  portfolio's time-weighted return % in P&L mode, or current total value in value
-  mode. In **P&L mode** the chart is a **two-line percent race** — the portfolio's
+- **Hero:** view-mode switch (Performance | Value), **defaulting to Performance**;
+  headline = the portfolio's time-weighted return % in Performance mode, or current
+  total value in value mode. In **Performance mode** the chart is a **two-line percent race** — the portfolio's
   TWR and the index's return, both from 0% at the left edge — with a subtitle
   showing the index return, the gap in **points** (TWR − index), the dollar
   lifetime Total P&L (+ %), the period delta %, and an **"approximate"** marker when
   weekly-sampled history holds a flow. In **value mode** the chart is the value
   area with a cost-basis reference line and a ΔValue delta (amount + percent). A row
   of time-range buttons including **2Y**; the portfolio line is colored green when
-  up / red when down for the period; a "not enough data" placeholder when the range
-  has < 2 points.
+  up / red when down for the period, keyed to whatever that line plots — the
+  time-weighted return in Performance mode, the period ΔValue in value mode — so
+  the line always agrees with the headline; a "not enough data" placeholder when
+  the range has < 2 points.
 - **Privacy toggle:** hides currency amounts everywhere on the page while leaving
   **all percentages visible** (allocation %, period %, total %, benchmark %).
 - **Currency toggle:** flips every currency figure between USD and TRY.
@@ -286,7 +281,7 @@ display state.
 - [ ] Top movers lists the largest-absolute unrealized gain/loss assets (fiat
       excluded), gain/loss colored, amount + percent.
 - [ ] The hero offers time ranges 1D / 1W / 1M / 3M / YTD / 1Y / **2Y** / ALL.
-- [ ] The hero **defaults to the vs-market (P&L) view**.
+- [ ] The hero **defaults to the vs-market (Performance) view**.
 - [ ] In the vs-market view the chart shows **two percent lines starting at 0%** at
       the window's left edge — the portfolio's **time-weighted return** and the
       index's return — the **headline is the portfolio's TWR %**, and the subtitle
@@ -295,9 +290,8 @@ display state.
 - [ ] When older history is weekly-sampled **and** a deposit/withdrawal lands inside
       one of those multi-day periods, an **"approximate"** marker appears.
 - [ ] In the vs-market view, the subtitle's dollar lifetime **Total** P&L is
-      money-weighted with no estimated-tax annotation (recorded tax payments are
-      already inside it by definition); its percent is over peak net invested.
-      After-tax (estimated) detail appears only on the Portfolio page's taxed rows.
+      money-weighted with no tax annotation; its percent is over peak net invested.
+      After-tax detail appears only on the Portfolio page's taxed rows.
 - [ ] Toggling privacy **hides amounts but keeps percentages visible** (allocation
       %, period %, total %, benchmark %).
 - [ ] With < 2 points in the chosen range the hero shows a "not enough data"
