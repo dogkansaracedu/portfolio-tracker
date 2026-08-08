@@ -207,10 +207,13 @@ If `usePnL` ever `console.warn`s `[usePnL] P&L reconciliation mismatch`, a case 
 
 These mirror `src/lib/twr.test.ts` (`computeTWRSeries` in `src/lib/performance.ts`).
 TWR measures **holdings performance only**: each snapshot-to-snapshot period's
-money-weighted return is taken with that period's **external cash flow removed**,
-then the periods are **geometrically chained** and rebased to 0% at the window
-start. Value-weighting across holdings is automatic — each period reads the
-snapshot **total**. See [GLOSSARY → Time-Weighted Return](components/GLOSSARY.md#time-weighted-return-twr).
+**money-weighted return is solved as an XIRR over that period alone** (opening
+value in at the period start, each external flow at its own date, closing value as
+the terminal amount, then de-annualized back over the period), and the periods are
+**geometrically chained** and rebased to 0% at the window start — the chaining is
+what removes the flows from the result. Value-weighting across holdings is
+automatic — each period reads the snapshot **total**. See
+[GLOSSARY → Time-Weighted Return](components/GLOSSARY.md#time-weighted-return-twr).
 
 ### TWR-1 — Chaining flow-free periods: +20% then −10% = +8%
 **Inputs:** snapshots 100 → 120 → 108, no transactions.
@@ -244,9 +247,37 @@ weighted off the new (smaller) base.
 ### TWR-5 — "approximate" flag (daily vs weekly with a flow)
 **Inputs:** (a) weekly snapshots 100 → 160 with a deposit **inside** the 7-day
 period; (b) daily snapshots 100 → 160 with a deposit on the closing day.
-**Expected:** (a) `approximate === true` — a flow inside a >1-day period is a
-Modified-Dietz approximation; (b) `approximate === false` — daily periods are
-exact. (`endPct` value isn't asserted here; the flag is the point.)
+**Expected:** (a) `approximate === true` — with no valuation on the day the money
+landed, the period absorbs some of the flow's own timing; (b) `approximate ===
+false` — daily periods are exact. (`endPct` value isn't asserted here; the flag is
+the point.) Note this is a **data** caveat: the period's XIRR is exact for the
+flows it is given.
+
+### TWR-6 — Mid-period flow: XIRR, not a linear Dietz weight = +69.72%
+**Inputs:** one 10-day period — $1,000 on 2026-01-01 → $3,000 on 2026-01-11, with
+a **$1,000 buy on 2026-01-06** (day 5 of 10).
+**Expected:** **+69.722436%** (`endPct`), and the same figure as the period's
+`returnPct` from `computeMonthlyReturns`; `returnUsd = 3,000 − 1,000 − 1,000 =
+$1,000`.
+
+This is the case that pins which engine ships. With `d` the daily discount factor
+`(1+r)^(−1/365.25)` and `z = d⁵`, the period's XIRR equation is
+`1,000 + 1,000·z − 3,000·z² = 0` ⇒ `3z² − z − 1 = 0` ⇒ `z = (1 + √13) / 6`, and the
+period return is the terminal multiple `z⁻² − 1 = 36 / (14 + 2√13) − 1 =`
+**+69.722436%**.
+
+The **retired** Modified Dietz formula gave `1,000 ÷ (1,000 + 1,000 × 0.5) =`
+**+66.667%** — it credits the late $1,000 with half the period's exposure,
+inflating the capital base, where discounting it at day 5 of 10 charges it only
+the growth it actually rode. Every other case in this section agrees between the
+two (each is flow-free, or its gain is exactly zero); this one does not.
+
+### TWR-7 — A losing day survives annualization
+**Inputs:** daily snapshots 100 → 90, no transactions.
+**Expected:** **−10%** exactly. Worth its own case because a −10% day annualizes to
+`r = −1 + 1.9e-17`: reconstructing the period return via `1 + r` rounds that to a
+total wipeout (−100%). The engine de-annualizes in log space (`expm1(s · years)`
+from `solveXirrLog1p`) and lands on −10%.
 
 ## How to verify on prod (manual)
 

@@ -124,9 +124,47 @@ to 0% at the window's start** so the portfolio and the index begin from the same
 line. This is the basis **indices quote their returns on** ("the S&P is +25%"),
 which is why it is the fair head-to-head against a benchmark. Contrast with
 [money-weighted](#money-weighted) [Total P&L](#total-pl) (credits *your* cash-flow
-timing) and Simple ROI (gain ÷ money in, ignoring time). It is most accurate when
-each period is one day; over longer (e.g. weekly) periods that contain a flow it
-is an approximation. See the [formula](#time-weighted-return-formula).
+timing) and Simple ROI (gain ÷ money in, ignoring time). Each period's own return
+is the [money-weighted](#money-weighted-return-mwr--xirr) one — chaining them is
+precisely what cancels the flows out — so the two measures share one underlying
+calculation and differ only in how it is applied. It is most accurate when each
+period is one day; over longer (e.g. weekly) periods that contain a flow it is an
+approximation, because there is no valuation on the day the money landed. See the
+[formula](#time-weighted-return-formula).
+
+### Money-Weighted Return (MWR / XIRR)
+The **investor's own** return: the single compound rate that reconciles every
+external cash flow (each at its real date) with the portfolio's ending value —
+so each dollar is weighted by **how much and how long** it was actually at work.
+Deposit timing matters by design: putting big money in just before a good run
+raises it; missing that run with most of your capital lowers it. XIRR is the
+real-dated computation of this rate (Excel's name for it, industry-standard), and
+it is the **only** money-weighted formula the app uses — the same solve produces
+the per-period returns that [TWR](#time-weighted-return-formula) chains. Over a
+**window**, the window's starting value counts as an
+opening inflow and the ending value as the terminal amount, and the result is
+shown **cumulative for that window** (rebased to 0% at the window start); over
+the whole history it is shown **annualized** ("%/yr"), only once the history
+spans at least a year (shorter spans annualize into noise). Unlike
+[TWR](#time-weighted-return-twr) it needs no intermediate valuations — only
+endpoint values and dated flows — so a windowed MWR is exact even over
+weekly-sampled history. Contrast: TWR answers "how good is the strategy, per
+dollar"; MWR answers "what did *my* dollars earn"; the peak-based
+[Total P&L %](#total-pl-1) is a simpler lifetime score with no time dimension.
+See the [formula](#money-weighted-return-xirr-formula).
+
+### What-if index (same-flows benchmark)
+The value the user's money would have had if **every external cash flow had gone
+into the benchmark index instead** — each inflow buys index exposure at that
+date's level, each outflow sells the equivalent amount. Its
+[money-weighted return](#money-weighted-return-mwr--xirr) is the fair benchmark
+for the portfolio's MWR: both sides then share the same flows and the same
+timing, so the comparison isolates *what you bought* ("would I have more if I'd
+just bought the index with the same money on the same days?"). Comparing a
+portfolio MWR against the index's plain (time-weighted) return would mix
+frames — the index number would carry no deposit-timing effect while the
+portfolio number does. Flows dated before the index has any usable level
+participate at its first available level.
 
 ### FIFO lots and cost basis
 Buys stack as **lots**; a sell consumes the **oldest lots first** (FIFO) and books
@@ -218,19 +256,65 @@ Equals Δ(value − invested) over the period — the [Total P&L](#total-pl) app
 it, so fiat FX is included automatically.
 
 ### Time-Weighted Return formula
-For each period *i* between two consecutive snapshots, take its money-weighted
-(Modified-Dietz) return with the period's **external cash flow removed**:
+For each period *i* between two consecutive snapshots, take its **money-weighted
+return, solved as an [XIRR](#money-weighted-return-xirr-formula) over that period
+alone**. The opening value `V_start` enters as an inflow dated at the period
+start, each external cash flow enters at its own date, and `V_end` is the
+terminal amount:
 ```
-r_i  = (V_end − V_start − C) / (V_start + Σ C_j · w_j),   w_j = (T − t_j) / T
+V_start · (1+r_i)^(T) + Σ C_j · (1+r_i)^(T − t_j) = V_end
 ```
-where `C` is the net external cash flow in the period, `t_j` the day each flow
-landed, and `T` the period length. Then **geometrically chain** the periods and
-rebase to 0% at the window start:
+where `t_j` is when each flow landed and `T` the period length, both in years.
+The solver returns an annual rate, which is de-annualized back over the period to
+the fraction actually earned:
+```
+r_i = (1 + rate)^T − 1
+```
+Then **geometrically chain** the periods and rebase to 0% at the window start:
 ```
 cumulativeTWR(n) = [ Π (1 + r_i)  for i = 1..n ] − 1
 ```
-Value-weighting across holdings is automatic — `V_start`/`V_end` are the
-**whole-portfolio totals**. A period with `V_start ≤ 0` contributes a neutral
-factor (skipped). A window is flagged **approximate** when any period that
-contained a flow spanned more than one day (weekly-sampled history). See
-[Time-Weighted Return](#time-weighted-return-twr).
+Chaining is what makes the result time-weighted: each period's own deposits are
+neutralized inside its solve, so the size and timing of cash flows cannot reach
+the product. Value-weighting across holdings is automatic — `V_start`/`V_end` are
+the **whole-portfolio totals**. A period the solver cannot resolve (no capital at
+work, or a move beyond the solver's bracket) contributes a neutral factor
+(skipped).
+
+A window is flagged **approximate** when any period that contained a flow spanned
+more than one day (weekly-sampled history). This is a **data** caveat, not a
+formula one — the period's XIRR is exact for the flows it is given, but without a
+valuation on the flow's own date we cannot see what the portfolio was worth when
+the money landed, so the period's return absorbs some of that flow's own timing.
+See [Time-Weighted Return](#time-weighted-return-twr).
+
+> Historical note: this per-period return was computed with the **Modified Dietz**
+> formula (a linear time weight on each flow, `w_j = (T − t_j) / T`) until it was
+> retired in favour of the XIRR solver, so that the app has exactly one
+> money-weighted mathematical core. The two agree whenever a period is flow-free
+> or its gain is exactly zero, and diverge as flow size, flow timing and the
+> period's return grow.
+
+### Money-Weighted Return (XIRR) formula
+The annual rate `r` that discounts every dated external cash flow and the
+terminal value to zero:
+```
+V_start · (1+r)^(Y) + Σ C_i · (1+r)^(Y − y_i) = V_end        (windowed)
+Σ C_i · (1+r)^(Y − y_i) = V_end                              (lifetime: V_start = 0)
+```
+where `C_i` is each external flow (positive = into the portfolio), `y_i` its
+time in years from the window start, and `Y` the window's span in years.
+Windowed display is **cumulative**: `(1+r)^Y − 1`, rebased to 0% at the window
+start. Lifetime display is the annualized `r` itself, shown only when the
+history spans ≥ 1 year. Solved numerically on a bracketed interval; **no
+solution / degenerate inputs render as "—"** (never a fabricated number). Flows
+use the same external-flow definition as TWR — internal asset↔cash swaps are
+not flows.
+
+This is the app's **single money-weighted core**: the same solve, over a single
+snapshot-to-snapshot period, produces each `r_i` that the
+[TWR formula](#time-weighted-return-formula) chains. The bracket is stated as a
+range of terminal multiples over the solve's own span rather than a range of
+annual rates, so one bracket serves a one-day period and a multi-year window
+alike — a −10% day annualizes to roughly −100%/yr and would fall outside any
+fixed annual-rate bracket. See [MWR / XIRR](#money-weighted-return-mwr--xirr).
