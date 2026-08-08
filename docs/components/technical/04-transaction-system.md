@@ -121,6 +121,10 @@ Beyond the shared `transactions` / `holdings` / `assets` schema (Component 2):
   an asset resets `price_currency` to `assetNativeCurrency(...)` (or to USD when a
   cached USD price prefilled the unit price); the currency control is editable but
   always re-seeded from the asset — there is no asset-independent currency picker.
+  **Exception: unresolved `new:` sentinels.** They resolve to no asset, so
+  `currencyForAssetId` would answer `DEFAULT_CURRENCY` (USD) and relabel e.g. a TRY
+  BIST buy as USD. The grid's `appendRows` therefore skips the re-seed for sentinel
+  rows and keeps the parsed currency until `resolveAssetSentinel` supplies a real one.
 - **Only `buy`/`sell` carry a linked cash child** (`TYPES_WITH_LINKED_CHILD`). Sells
   always; buys only when a funding platform is chosen. In the bulk path, **bulk buys
   debit cash on their own platform** (funding = the buy's platform) so totals don't
