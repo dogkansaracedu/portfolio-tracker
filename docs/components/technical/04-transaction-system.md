@@ -31,7 +31,14 @@
 - `ImportPopover.tsx` — paste-from-spreadsheet + upload-CSV tabs; parses, shows a
   summary (rows / unknown tickers / unknown platforms), appends parsed rows to the grid.
 - `MidasPdfImportButton.tsx` — file picker + parse-progress + summary for the Midas PDF
-  importer; appends parsed rows.
+  importer; appends parsed rows. After parsing it fetches existing Midas-platform
+  transactions for the statement's date range (`fetchTransactions`) and drops
+  duplicates via `dedupeImportedRows` (unsaved grid rows passed in as `gridRows`
+  count as existing; saved ones don't — they'd double-count with the DB fetch);
+  a failed lookup aborts the import instead of skipping the check.
+- `dedupeImportedRows.ts` — pure count-based duplicate filter keyed on
+  date|asset|type|amount|unitPrice|currency (`bn()`-normalized numbers, sentinel
+  assets never match). Vitest: `dedupeImportedRows.test.ts`.
 - `ResolveAssetsStepper.tsx` — modal stepper that walks each unresolved `new:TICKER`
   one at a time (category / ticker / display name / tags / price source), creates the
   asset, and reports its id + native currency back; defaults the fetch id to the ticker.
