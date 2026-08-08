@@ -26,8 +26,8 @@
   the bottom. Owns the skeleton + no-assets empty state; wraps the lazy
   hero/allocation in `<Suspense>`.
 - `src/components/dashboard/DashboardHero.tsx` — the hero card: Value|P&L tabs,
-  time-range buttons, benchmark `DropdownMenu`, the Recharts `AreaChart`, and the
-  headline/delta/subtitle. Owns axis-tick math (`niceStep`/`niceTicks`,
+  the TWR|MWR measure switch, time-range buttons, benchmark `DropdownMenu`, the
+  Recharts `AreaChart`, and the headline/delta/subtitle. Owns axis-tick math (`niceStep`/`niceTicks`,
   `compactCurrency`) and the dual-axis calibration.
 - `src/components/dashboard/NetWorthCard.tsx` — net worth: primary + secondary
   currency. (Defined and exported; **not currently mounted** by the page — the
@@ -112,9 +112,10 @@
 
 ### `useDashboardHero.ts` specifics
 
-- Args: `{ snapshots, currentValueUsd, currentValueTry, viewMode, timeRange,
-  usdTry, currentPnlUsd?, currentPnlTry?, benchmarkTicker?, benchmarkSeries? }`.
-  Reads `transactions`/`rates` from `useTransactionData`.
+- Args: `{ snapshots, intradaySnapshots, currentValueUsd, currentValueTry,
+  viewMode, timeRange, measure?, usdTry, currentPnlUsd?, currentPnlTry?,
+  benchmarkTicker?, benchmarkSeries? }` (`measure` defaults to `"twr"`; see the
+  MWR section). Reads `transactions`/`rates` from `useTransactionData`.
 - Always computes `computePnLTimeSeries(snapshots, transactions, rates)` (from
   `@/lib/performance`) — value mode uses `investedUsd` per snapshot for the
   cost-basis secondary line; P&L mode uses `pnlUsd` as the primary series.
@@ -135,19 +136,35 @@
   off a ~$0 base), so the figure equals the headline Total P&L % exactly.
 - `pnlDenom` = portfolio value at the visible start; the hero uses it to calibrate
   the left (currency) axis to the right (%) axis.
-- Benchmark overlay (P&L mode): `closesAtOrBefore` two-pointer walk fills
-  per-point `benchmarkPct` as cumulative % from the first usable close.
-- **Portfolio TWR overlay (P&L mode):** `computeTWRSeries(nowSnaps, transactions,
-  rates)` (`@/lib/performance`) over `filterByTimeRange(snapshots, timeRange)`
-  plus a minimal live "now" snapshot (`computeTWRSeries` only reads `snapshot_date` +
-  `total_usd`, so the same `Snapshot`-shaped cast used for `fakeSnapshots`
-  suffices). Its `points[].cumulativePct` are mapped onto each chart point's
-  `twrPct` (carried forward for points the series doesn't cover); `endPct` →
-  `twrEnd`, `approximate` → `approximate`. Top-level fields exposed: `twrEnd`
-  (portfolio TWR % at "now"), `benchmarkEnd` (`= last point's benchmarkPct`),
-  `gapPts` (`twrEnd − benchmarkEnd`, percentage points), and `approximate`. Both
-  series are **rebased to 0% at the visible window start** (TWR by construction;
-  benchmark by anchoring on its first usable close).
+- Benchmark overlay (P&L mode, **`measure === "twr"` only**): `closesAtOrBefore`
+  (imported from `@/lib/mwr` — the hook's private twin was deleted) two-pointer
+  walk fills per-point `benchmarkPct` as cumulative % from the first usable
+  close. Under `"mwr"` this raw rebase is skipped and `benchmarkPct` comes from
+  the what-if index instead (below).
+- **Portfolio lead overlay (P&L mode):** over `filterByTimeRange(snapshots,
+  timeRange)` plus a minimal live "now" snapshot (both engines only read
+  `snapshot_date` + `total_usd`, so the same `Snapshot`-shaped cast used for
+  `fakeSnapshots` suffices):
+  - `measure === "twr"` → `computeTWRSeries(nowSnaps, transactions, rates)`
+    (`@/lib/performance`); `approximate` passes through.
+  - `measure === "mwr"` → `computeMWRSeries(nowSnaps, transactions, rates)` for
+    the lead line **and** `computeWhatIfIndexMWRSeries(nowSnaps, transactions,
+    rates, benchmarkSeries)` for `benchmarkPct`; `approximate` is forced `false`.
+  Either engine's `points[].cumulativePct` are written onto the chart points by
+  the local `applyPctSeries(chartData, points, field)` helper (carry-forward for
+  points the series doesn't cover — one mapping shared by all three series);
+  `endPct` → `twrEnd`. Top-level fields exposed: `twrEnd` (the portfolio's return
+  % at "now" **in the active measure**), `benchmarkEnd` (= the last point's
+  `benchmarkPct`), `gapPts` (`twrEnd − benchmarkEnd`, percentage points),
+  `approximate`, and `lifetimeXirrPct`. The `twrPct`/`twrEnd`/`benchmarkPct`/
+  `benchmarkEnd` **names are kept from the TWR-only build but carry the active
+  measure** — no rename was made (a rename would also have to touch
+  `lib/dashboard/intraday.ts`, which has its own `twrPct`/`twrEnd`). Both series
+  are **rebased to 0% at the visible window start** (TWR/MWR by construction;
+  the raw benchmark by anchoring on its first usable close).
+- `lifetimeXirrPct = computeLifetimeXirrPct(transactions, rates,
+  currentValueUsd, today)` in P&L mode (null in value mode). Range-independent,
+  so it is computed once above the 1D branch and returned by both branches.
 - `xTicks`: one tick per unique formatted label (avoids the same month string
   repeating for dense daily snapshots); last label forced to the literal `"Şimdi"`
   (Turkish for "Now" — the UI string in `DashboardHero`/`intraday.ts`).
@@ -175,25 +192,39 @@
 
 ### Hero rendering specifics (`DashboardHero.tsx`)
 
-- View mode / time range / benchmark id persisted via `usePersistedState`
-  (**`dashboardHero.viewMode.v2` default `"pnl"`**, `.timeRange` default `"1M"`,
-  `.benchmark` default `SPY`) — survives the re-mounts an auth-token refresh on tab
-  focus triggers. The `.v2` suffix on the view-mode key is load-bearing: changing
+- View mode / time range / benchmark id / measure persisted via
+  `usePersistedState` (**`dashboardHero.viewMode.v2` default `"pnl"`**,
+  `.timeRange` default `"1M"`, `.benchmark` default `SPY`, **`.measure` default
+  `"twr"`**) — survives the re-mounts an auth-token refresh on tab focus
+  triggers. The `.v2` suffix on the view-mode key is load-bearing: changing
   the default again requires a new suffix, otherwise browsers with a stale
   persisted value keep overriding it. `TIME_RANGES` includes **2Y**.
+- **Measure switch (TWR | MWR):** a second, smaller segmented control from the
+  `MEASURES` constant (`{ id, label, hint }`; `hint` → the button `title`), same
+  visual language as the `VIEW_MODES` tabs at `p-0.5 / px-2 py-1 text-xs`. It sits
+  in the **header row, right of the Value|Performance tabs** (that row is
+  `justify-between`, so it lands flush right), and renders only when
+  `showMeasureSwitch = viewMode === "pnl" && timeRange !== "1D"`.
+  `effectiveMeasure = showMeasureSwitch ? measure : "twr"` is what the labels and
+  the hook arg use — it mirrors the hook ignoring `measure` in 1D/value mode, so a
+  persisted `"mwr"` can never mislabel the intraday view.
 - **Label vs id:** `VIEW_MODES` renders the `pnl` mode with the visible label
   **"Performance"** (and the headline eyebrow reads `Performance · <range>`) — the
   chart is a TWR percent race, not dollar P&L. The internal id, persisted value, and
   `viewMode === "pnl"` checks all keep the `pnl` name; "P&L mode" below refers to that id.
-- **P&L mode is a TWR-vs-index percent race:** the chart plots **two `<Area>`s on
-  the right (%) axis** — `dataKey="twrPct"` (the portfolio's time-weighted return,
-  the lead line, green/red by `twrEnd` sign) and `dataKey="benchmarkPct"` (the
-  index, thin, low opacity) — both already rebased to 0% at the window start by the
-  hook. A `ReferenceLine y={0}` marks the shared baseline. (Value mode keeps the
-  single value `<Area>` with a cost-basis reference line.)
+- **P&L mode is a you-vs-index percent race:** the chart plots **two `<Area>`s on
+  the right (%) axis** — `dataKey="twrPct"` (the portfolio's return in the active
+  measure, the lead line, green/red by `twrEnd` sign) and `dataKey="benchmarkPct"`
+  (the index, thin, low opacity) — both already rebased to 0% at the window start
+  by the hook, and both switched to their money-weighted counterparts by the
+  measure switch (the dataKeys don't change). A `ReferenceLine y={0}` marks the
+  shared baseline. (Value mode keeps the single value `<Area>` with a cost-basis
+  reference line.)
 - **Stroke/fill color follows the plotted series:** `isLoss` is
   `viewMode === "pnl" ? twrEnd < 0 : delta.usd < 0`, so the lead line's green/red
-  always matches its own headline. Don't key it off `delta.usd` in both modes — a
+  always matches its own headline — measure-correct without a second branch,
+  because `twrEnd` carries whichever measure is active. Don't key it off
+  `delta.usd` in both modes — a
   large mid-window deposit can make the money-weighted `delta.usd` positive while
   `twrEnd` is negative, which painted a green line under a red headline. Exactly
   zero counts as non-loss (green tint) in both modes.
@@ -207,20 +238,145 @@
   denom` purely so the left USD/TRY axis stays aligned with the right (%) axis the
   lines actually plot on. The axis pad floor is `denom × 1%` for multi-range views
   but `denom × 0.1%` for `1D`, so a sub-1% intraday day fills the chart instead of
-  collapsing into a sliver. Tooltip rows show **You (TWR)** and the index, each via
-  `formatSignedPercent`.
+  collapsing into a sliver. Tooltip rows show **You (TWR)** / **You (MWR)**
+  (`You ({activeMeasure.label})` — the label comes from `MEASURES`, not a second
+  string map) and the index (`benchmarkLabel`), each via `formatSignedPercent`.
 - **Headline (P&L mode)** = `formatSignedPercent(twrEnd, 2)`, colored by `twrColor`
-  (`gainLossClass(twrEnd > 0)`, muted when exactly flat). The subtitle row shows the
-  period delta %, the dollar lifetime **Total** P&L (+ %), and the benchmark
-  dropdown label with `formatSignedPercent(benchmarkEnd, 2)` and the gap
+  (`gainLossClass(twrEnd > 0)`, muted when exactly flat). Its sub-label comes from
+  `MEASURE_SUBLABELS[effectiveMeasure]` — TWR: "Growth vs market — time-weighted,
+  deposits/withdrawals removed"; MWR: "Your money's growth — money-weighted,
+  deposit timing included". The subtitle row shows the
+  dollar lifetime **Total** P&L (+ %), the lifetime XIRR chip (below), and the
+  benchmark dropdown label (`benchmarkLabel` = `activeBenchmark.label` +
+  `WHAT_IF_LABEL_SUFFIX` `" (same flows)"` under MWR, so the user can tell the grey
+  line changed meaning) with `formatSignedPercent(benchmarkEnd, 2)` and the gap
   `({formatSignedPercent(gapPts, 1)} pts)` colored by `gapColor`
   (`gainLossClass(gapPts > 0)` — green when ahead of the market). An
-  **"approximate"** badge renders next to the headline when `approximate` is true.
+  **"approximate"** badge renders next to the headline when `approximate` is true —
+  which the hook never sets under MWR, so no extra gate is needed here. The row
+  closes with the **Invested** amount.
+- **Lifetime XIRR chip (P&L mode):** rendered in the subtitle right after the
+  Total figure as `· XIRR {formatSignedPercent(lifetimeXirrPct, 1)}{"/yr"}`
+  (`XIRR_LABEL` + `XIRR_PER_YEAR_SUFFIX`), colored by `xirrColor`
+  (`gainLossClass(lifetimeXirrPct > 0)`, muted at 0). Rendered **only when
+  `lifetimeXirrPct != null`** — no "—" placeholder, no fabricated 0. It is a
+  percent, so it is deliberately **not** wrapped in `obfuscate`.
 - **"Total" subtitle (P&L mode):** the dollar figure is rendered from the gross
   `totalPnlUsd`/`Try` props (usePnLSummary); colour/sign use
   `gainLossClass(totalPnlUsdNow > 0)`; percent = `totalPnlPct` (over peak net
   invested). No after-tax figures are rendered or plumbed here — the engine's tax
   accrual surfaces only on the Portfolio page's taxed rows (component 8).
+
+### MWR / XIRR measure (implementation contract)
+
+The Performance mode's TWR | MWR measure switch (behavioral spec: measure toggle +
+lifetime XIRR chip) is built on a dedicated engine module:
+
+- **`src/lib/xirr.ts`** — the **solver leaf module**, and the app's single
+  money-weighted mathematical core. Imports nothing from `lib/performance.ts` or
+  `lib/mwr.ts`, so both can depend on it without a cycle (the dependency graph is
+  `config → xirr → performance → mwr`). Time convention: **ACT/365.25**, dates as
+  `YYYY-MM-DD` at UTC midnight. Money is assembled as BigNumber; `.toNumber()`
+  only at the iterative-search and result boundaries (the search needs
+  `exp`/`pow`, which BigNumber can't express — same tradeoff `computeCAGR`
+  makes). Exports `MS_PER_DAY`, `DAYS_PER_YEAR`, `yearsBetween`, the `XirrFlow`
+  type, and:
+  - `solveXirrLog1p(flows, terminalValueUsd, terminalDate): number | null` — the
+    solver's **native** output, `s = ln(1+r)`, for the annual rate solving
+    `Σ C_i·(1+r)^(−y_i) − V_end·(1+r)^(−Y) = 0` over real-dated USD flows
+    (`XirrFlow = { date, amountUsd }`, positive = into the portfolio, matching
+    `externalCashFlowUsd`). Time origin = the first non-zero flow (free: scaling
+    every term by a constant power of (1+r) doesn't move the root).
+    **Bracketed bisection in log space**, with the bracket **scaled by the solve's
+    own horizon**: `s ∈ ±ln(EXTREME_TERMINAL_MULTIPLE) / horizonYears` where
+    `EXTREME_TERMINAL_MULTIPLE = 1e4` and `horizonYears` is the furthest any term
+    is discounted. Both halves matter. The log transform is what lets one bracket
+    span every window length (an ordinary +50% day annualizes to `r ≈ 2e64`, past
+    any linear bracket on `r`); scaling by the horizon is what lets the same
+    solver serve a one-day snapshot pair and a five-year window — a **−10% day
+    annualizes to `s ≈ −38.5`**, far below the fixed `ln(0.0001)` floor this
+    module used before `subPeriodReturn` started calling it, while a fixed floor
+    wide enough for the day would overflow `exp` on the five-year case. Two
+    consequences fall out: every exponent evaluated is bounded by
+    `ln(1e4)` so nothing overflows, and the representable range is the same
+    *cumulative* range on every window. Returns `null` — never a fabricated 0 —
+    when inputs are degenerate (no non-zero flows, span ≤ 0, every signed amount
+    pointing the same way, e.g. a total loss) or the bracket holds no sign change
+    / roots only on an edge. Inherits the standard XIRR caveat: sign-alternating
+    flows can admit multiple roots; bisection returns the bracketed one.
+  - `deannualizeLog1p(logGrowth, years): BigNumber` — `expm1(s · years)`, the
+    cumulative fraction over a span. **Takes `s`, not `r`, on purpose**: a −10%
+    day is `r = −1 + 1.9e-17`, which `1 + r` rounds straight back to 0 and prints
+    −100% for the period. Always de-annualize from `solveXirrLog1p`; never from
+    `solveXirr`'s annual rate.
+  - `solveXirr(flows, terminalValueUsd, terminalDate): BigNumber | null` — thin
+    wrapper returning `expm1(s)`, i.e. `r` itself. Use only where an **annualized**
+    figure is the answer (the lifetime "%/yr" chip). Callers render "—" on null.
+- **`src/lib/mwr.ts`** (pure, no React; Vitest-covered in `src/lib/mwr.test.ts`
+  like `lib/performance.ts`). Holds the windowed/lifetime/what-if series builders
+  over the solver above, and **re-exports `solveXirr` + the `XirrFlow` type** so
+  existing callers and tests keep importing them from here.
+  - `computeMWRSeries(snapshots, transactions, rates): MWRSeries` — same call
+    shape and window semantics as `computeTWRSeries` (caller passes the window's
+    snapshots plus the live "now" pseudo-snapshot; only `snapshot_date` +
+    `total_usd` are read, defensively sorted ascending). Point *i* solves the
+    XIRR of [window start → snapshot *i*] with the start snapshot's `total_usd`
+    as an opening inflow at the start date and flows filtered by the same
+    `(periodStart, periodEnd]` boundary convention as `subPeriodReturn` (a flow
+    dated on the window-start date belongs to the opening value; one dated on
+    the point counts); `cumulativePct` is the de-annualized cumulative
+    `(1+r)^years − 1`, 0 at the first point. A point whose solve returns `null`
+    **carries the previous point's `cumulativePct`** (neutral, like TWR's
+    skipped periods). Returns `MWRSeries = { points: { date, cumulativePct }[],
+    endPct, annualizedEndPct }`; `annualizedEndPct` is null for windows spanning
+    < 1 year *and* when the last point had no solution.
+  - `computeLifetimeXirrPct(transactions, rates, currentValueUsd, todayIso):
+    number | null` — lifetime annualized XIRR from all external flows (V_start
+    = 0) to the live value at `todayIso`; null when the first-flow→today span is
+    < 1 year, there are no external flows, or there is no solution.
+  - `computeWhatIfIndexMWRSeries(snapshots, transactions, rates,
+    benchmarkSeries: BenchmarkPrice[]): MWRSeries` — simulates the same external
+    flows into the benchmark: each flow buys/sells index units at the
+    close-at-or-before its date (flows before the first available close use the
+    first close), units accumulate through each snapshot date **inclusive**
+    (mirroring a snapshot, which already contains that day's deposit), and the
+    synthetic value = units × close-at-or-before; that series then runs through
+    the same windowed MWR mechanics with the same flows. Only the snapshots'
+    **dates** are read — their totals belong to the portfolio side. An
+    empty/absent `benchmarkSeries` yields a zero series (points present, all 0)
+    so the caller can draw a flat line or hide it. This is the MWR mode's
+    benchmark line.
+  - `closesAtOrBefore(series, targets)` is exported here too (the ascending
+    two-pointer close lookup) so the hero overlay can drop its private twin
+    instead of keeping two copies of the convention.
+  - Shared machinery is **reused, not duplicated**, in both directions:
+    `lib/performance.ts` exports `externalCashFlowUsd`, `collectPairedParentIds`
+    and `sortSnapshotsAsc` for this module, and both modules solve through the
+    same `lib/xirr.ts` leaf — `subPeriodReturn` uses it for each snapshot-pair
+    period (which `computeTWRSeries` then chains), `mwrSeriesFromValues` for each
+    window. There is no second money-weighted formula in the codebase; the
+    Modified Dietz linear approximation `subPeriodReturn` used to run was retired
+    in favour of this solver.
+- **`useDashboardHero`** takes a `measure?: HeroMeasure` (`"twr" | "mwr"`, default
+  `"twr"`; exported from the hook module) — meaningful only in pnl view, the 1D
+  branch ignores it. Under `mwr` the hook fills `twrPct`/`twrEnd` from
+  `computeMWRSeries` and `benchmarkPct`/`benchmarkEnd` from
+  `computeWhatIfIndexMWRSeries` over the same `windowSnaps + now` snapshots the
+  TWR path builds (the raw-index rebase is skipped), and forces
+  `approximate = false`. **Field names were not renamed** — `twrPct`/`twrEnd`/
+  `benchmarkPct`/`benchmarkEnd` carry whichever measure is active (doc-comments say
+  so); a `leadPct` rename would also have to reach `lib/dashboard/intraday.ts`.
+  The hook also returns `lifetimeXirrPct: number | null` from
+  `computeLifetimeXirrPct`, and imports `closesAtOrBefore` from `@/lib/mwr`
+  (its private copy is gone).
+- **`DashboardHero.tsx`**: measure switch persisted as
+  `dashboardHero.measure` (default `"twr"`), a small `MEASURES`-driven segmented
+  control in the header row right of the Value|Performance tabs, rendered only
+  when `viewMode === "pnl" && timeRange !== "1D"`; headline sub-label from
+  `MEASURE_SUBLABELS`; tooltip lead row label follows the measure ("You (TWR)" /
+  "You (MWR)") and the benchmark label gains `" (same flows)"` under MWR; the
+  Total subtitle appends the lifetime XIRR chip ("+X.X%/yr") when
+  `lifetimeXirrPct` is non-null (percent — stays visible under obfuscation).
 
 ## Notes & gotchas
 

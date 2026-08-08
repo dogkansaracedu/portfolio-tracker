@@ -116,6 +116,30 @@ default.**
   weekly-sampled **and** a deposit or withdrawal lands inside one of those
   multi-day periods, the return is an approximation and an **"approximate"**
   marker is shown.
+- **Measure toggle (TWR | MWR), inside Performance mode:** a small secondary
+  switch selects which return measure the percent race plots. **TWR is the
+  default** (the fair strategy-vs-index frame above). Switching to **MWR** re-draws
+  the same window as a
+  [money-weighted](GLOSSARY.md#money-weighted-return-mwr--xirr) race: the
+  portfolio line becomes the **cumulative money-weighted (XIRR) return from the
+  window start** — deposit/withdrawal timing now *counts, by design* — and the
+  index line becomes the [what-if index](GLOSSARY.md#what-if-index-same-flows-benchmark):
+  the same external flows placed into the index on the same dates, measured the
+  same way. The headline is the portfolio's window MWR %, and the gap-in-points
+  chip compares it against the what-if index ("would the same money, moved on the
+  same days, have done better in the index?"). The two measures answer different
+  questions — TWR scores the strategy, MWR scores the investor's actual dollars —
+  and the visible gap between them is the cost (or benefit) of the user's own
+  flow timing. MWR needs no intermediate valuations, so it carries **no
+  "approximate" marker**. The toggle is hidden in the 1-day range (intraday is
+  always the simple intraday change) and in value mode. The selected measure
+  persists like the view mode.
+- **Lifetime XIRR chip:** the Performance-mode subtitle's lifetime Total P&L also
+  carries the **lifetime annualized [XIRR](GLOSSARY.md#money-weighted-return-mwr--xirr)**
+  ("+X.X%/yr") once the transaction history spans at least a year — the rigorous
+  "what did each of my dollars earn per year" companion to the peak-based
+  percent. Hidden (not zeroed) when the history is shorter or the solver has no
+  solution.
 - **Value mode:** headline = current total value; an area line of value over the
   range; period delta = ΔValue (end − start) with its percent; a secondary
   reference line for cost basis.
@@ -243,13 +267,18 @@ display state.
   TWR and the index's return, both from 0% at the left edge — with a subtitle
   showing the index return, the gap in **points** (TWR − index), the dollar
   lifetime Total P&L (+ %), the period delta %, and an **"approximate"** marker when
-  weekly-sampled history holds a flow. In **value mode** the chart is the value
+  weekly-sampled history holds a flow. A **TWR | MWR measure switch** (default TWR,
+  hidden in 1D and in value mode, persisted) re-draws the race money-weighted: the
+  portfolio's cumulative window XIRR vs the same-flows what-if index, headline and
+  gap following the selected measure, with no "approximate" marker in MWR. The
+  subtitle also shows the **lifetime annualized XIRR** ("+X.X%/yr") when the
+  history spans ≥ 1 year. In **value mode** the chart is the value
   area with a cost-basis reference line and a ΔValue delta (amount + percent). A row
   of time-range buttons including **2Y**; the portfolio line is colored green when
   up / red when down for the period, keyed to whatever that line plots — the
-  time-weighted return in Performance mode, the period ΔValue in value mode — so
-  the line always agrees with the headline; a "not enough data" placeholder when
-  the range has < 2 points.
+  selected return measure (TWR or MWR) in Performance mode, the period ΔValue in
+  value mode — so the line always agrees with the headline; a "not enough data"
+  placeholder when the range has < 2 points.
 - **Privacy toggle:** hides currency amounts everywhere on the page while leaving
   **all percentages visible** (allocation %, period %, total %, benchmark %).
 - **Currency toggle:** flips every currency figure between USD and TRY.
@@ -289,6 +318,14 @@ display state.
       withdrawals are removed, so they do not count as gains.
 - [ ] When older history is weekly-sampled **and** a deposit/withdrawal lands inside
       one of those multi-day periods, an **"approximate"** marker appears.
+- [ ] Performance mode offers a **TWR | MWR** measure switch (default TWR; hidden in
+      the 1-day range and in value mode; persisted). Under MWR the portfolio line is
+      the **cumulative window money-weighted (XIRR) return**, the index line is the
+      **same-flows what-if index**, the headline and gap-in-points follow the selected
+      measure, and **no "approximate" marker** is shown.
+- [ ] The Performance-mode subtitle shows the **lifetime annualized XIRR** ("+X.X%/yr")
+      only when the transaction history spans ≥ 1 year and the solver has a solution;
+      otherwise the chip is absent (never a fabricated 0).
 - [ ] In the vs-market view, the subtitle's dollar lifetime **Total** P&L is
       money-weighted with no tax annotation; its percent is over peak net invested.
       After-tax detail appears only on the Portfolio page's taxed rows.
