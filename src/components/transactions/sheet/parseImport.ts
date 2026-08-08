@@ -15,6 +15,10 @@ export interface ParsedRow {
   priceCurrency: string
   fee: string
   notes: string
+  /** Security this row refers to without sitting on it — a cash dividend sits
+   *  on the fiat asset and points at the paying security. Carried metadata,
+   *  not an editable grid column. */
+  relatedAssetId?: string | null
 }
 
 export interface ParseSummary {
@@ -25,8 +29,12 @@ export interface ParseSummary {
   errors: string[]
 }
 
+/** Fields a pasted/CSV sheet can carry a column for — everything except the
+ *  metadata the broker-PDF parser derives on its own. */
+type ParsedRowColumn = Exclude<keyof ParsedRow, "relatedAssetId">
+
 /** Header aliases — case-insensitive. First match wins. */
-const HEADER_ALIASES: Record<keyof ParsedRow, string[]> = {
+const HEADER_ALIASES: Record<ParsedRowColumn, string[]> = {
   date: ["date", "tarih", "trade date", "transaction date"],
   assetId: ["asset", "ticker", "symbol", "sembol", "name"],
   platformId: ["platform", "account", "exchange", "broker", "hesap"],
@@ -64,10 +72,10 @@ const TYPE_ALIASES: Record<string, TransactionType> = {
   fee: "fee",
 }
 
-function indexHeaders(headers: string[]): Partial<Record<keyof ParsedRow, number>> {
-  const map: Partial<Record<keyof ParsedRow, number>> = {}
+function indexHeaders(headers: string[]): Partial<Record<ParsedRowColumn, number>> {
+  const map: Partial<Record<ParsedRowColumn, number>> = {}
   const lower = headers.map((h) => h.trim().toLowerCase())
-  for (const [field, aliases] of Object.entries(HEADER_ALIASES) as [keyof ParsedRow, string[]][]) {
+  for (const [field, aliases] of Object.entries(HEADER_ALIASES) as [ParsedRowColumn, string[]][]) {
     for (const alias of aliases) {
       const idx = lower.indexOf(alias)
       if (idx !== -1) {
@@ -203,7 +211,7 @@ export function parseClipboard(
   }
 
   const all = result.data as string[][]
-  let headerMap: Partial<Record<keyof ParsedRow, number>> = {}
+  let headerMap: Partial<Record<ParsedRowColumn, number>> = {}
   let dataStart = 0
 
   if (all.length > 0 && looksLikeHeader(all[0])) {
@@ -242,7 +250,7 @@ export function parseClipboard(
 
   for (let i = dataStart; i < all.length; i++) {
     const cells = all[i]
-    const get = (field: keyof ParsedRow): string => {
+    const get = (field: ParsedRowColumn): string => {
       const idx = headerMap[field]
       if (idx === undefined) return ""
       return (cells[idx] ?? "").trim()
