@@ -5,7 +5,7 @@ import { bn } from "@/lib/config"
 /**
  * Total P&L $ is value − current net invested (unchanged). The % is taken over
  * PEAK net invested, so withdrawals don't distort it. Renders "—" (null) only
- * when nothing was ever deployed. See the 2026-06-06 design spec.
+ * when nothing was ever deployed. See docs/pnl-test-cases.md Cases 6, 11–13.
  */
 describe("summarizePnLTotals — % over peak invested", () => {
   it("takes the % over peak, not the shrunken current balance (C6)", () => {

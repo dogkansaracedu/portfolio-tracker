@@ -52,7 +52,6 @@ Define the persistent data model and the authentication boundary the whole app s
 - Account creation is **gated by an allowlist**. Sign-up succeeds only if the submitted email is on the allowlist; a non-allowlisted email **cannot** create an account, and no account row is created for it.
 - The check is **case-insensitive** on the email and is enforced at the data layer, so it holds no matter how the signup is attempted (it cannot be bypassed by calling the identity provider directly or from a different client).
 - The allowlist is **operator-managed**: the operator adds, removes, and lists permitted emails out-of-band. Removing an email blocks *future* signups for it but does **not** delete an already-existing account.
-- **Grandfathering (historical):** when the gate was first introduced, every account that already existed was added to the allowlist so live users were not locked out. New accounts since then require an explicit allowlist entry.
 - **Rejection UX caveat:** a blocked signup surfaces as a generic account-creation failure, not a precise "you are not on the allowlist" message. Acceptable for a small private tracker.
 
 ### New-user seeding

@@ -8,7 +8,7 @@
 - **UI:** React 19 + React DOM 19.
 - **Language:** TypeScript 5.9, strict, bundler module resolution, `verbatimModuleSyntax`, `erasableSyntaxOnly`.
 - **Styling:** Tailwind 4 via the `@tailwindcss/vite` plugin — **no `postcss.config.js`, no `tailwind.config.js`** (Tailwind 4 is configured in CSS, not JS). `tw-animate-css` for animations.
-- **Components:** shadcn/ui, built on **Base UI** (`@base-ui/react`) primitives in this build. Config in `components.json`: `style: "base-nova"`, `baseColor: "neutral"`, `cssVariables: true`, `iconLibrary: "lucide"`, `rsc: false`. (Note: this is **not** the New York / Zinc combo some older docs mention — trust `components.json`.)
+- **Components:** shadcn/ui, built on **Base UI** (`@base-ui/react`) primitives in this build. Config in `components.json`: `style: "base-nova"`, `baseColor: "neutral"`, `cssVariables: true`, `iconLibrary: "lucide"`, `rsc: false`. `components.json` is the authority on this — it is **not** the New York / Zinc shadcn default.
 - **Icons:** `lucide-react`.
 - **Routing:** React Router 7 (`react-router`), `<BrowserRouter>` + `<Routes>` (component-based, not `createBrowserRouter`).
 - **Theme:** custom `ThemeContext` + a blocking inline script in `index.html` (see Notes). `next-themes` is installed but **not** the active theme mechanism.

@@ -1,6 +1,6 @@
 # P&L Engine — Case-by-Case Test Cases & Handover
 
-Date: 2026-06-06 · Companion to `docs/pnl-methodology.md` (definitions, return-% methodology, and known issues).
+Companion to `docs/pnl-methodology.md` (definitions, return-% methodology, and known issues).
 
 Purpose: a verifiable, case-by-case description of how the P&L engine **must** behave. Each case lists concrete inputs and the exact expected outputs. Use it to (a) hand the engine off to anyone (or future-you), (b) manually verify on prod, and (c) drive the automated tests. These cases are now wired as **Vitest** tests against the real engine (`computePortfolioPnL`): `src/lib/pnl/cases.test.ts`, `peak.test.ts`, `totals.test.ts`, and `src/lib/portfolio/daily.test.ts`. The time-weighted-return cases at the end run against `computeTWRSeries` in `src/lib/twr.test.ts`. Run `npm test`.
 
@@ -45,7 +45,7 @@ Total value − net invested  ==  unrealized + realized + income      (within $0
 
 `usePnL` has a dev assert that `console.warn`s `[usePnL] P&L reconciliation mismatch` if this identity ever breaks. **A silent console = the engine is internally consistent.**
 
-**Income rule (the recent change).** A dividend/interest is *income*: a gain equal to the amount received, **neutral to net invested**. It can arrive two ways, both giving the same P&L:
+**Income rule.** A dividend/interest is *income*: a gain equal to the amount received, **neutral to net invested**. It can arrive two ways, both giving the same P&L:
 - **Units** (staking / reinvested dividend) → adds a lot at market cost; the gain shows up as `income`, the units' own unrealized starts at 0.
 - **Cash** → credits a cash balance; the gain shows up as `income`.
 
@@ -99,7 +99,7 @@ Format per case: **Inputs** → **Expected** (net invested, value, unrealized / 
 - Net invested = **$100**. Balance 1.05. Value = 1.05 × 120 = **$126**. Open-lot cost = $105.
 - unrealized **+$21** (126 − 105), realized $0, **income +$5**.
 - **Total P&L = +$26 = +26%** (26 / 100).
-- Reconcile: 21 + 0 + 5 = 26 = 126 − 100. ✓ (This is the QQQ-style real case. Before the fix it wrongly showed +$10.56 from one $5.28 dividend.)
+- Reconcile: 21 + 0 + 5 = 26 = 126 − 100. ✓ (The QQQ-style real case: a reinvested dividend is counted once, as income — never also as unrealized.)
 
 ### Case 6 — Sell (realized) — and the % denominator
 **Inputs:** Buy 2 units @ $100 ($200). Sell 1 unit @ $150 (no fee). Current price $150.
@@ -108,7 +108,7 @@ Format per case: **Inputs** → **Expected** (net invested, value, unrealized / 
 - unrealized **+$50** (150 − 100), realized **+$50** (150 − 100), income $0.
 - **Total P&L = +$100** (150 − 50). **% = 100 / 200 = +50%** (peak invested = $200, the high-water mark before the sell).
 - Reconcile: 50 + 50 + 0 = 100 = 150 − 50. ✓
-- **Note:** the % is over *peak* net invested ($200), so it reads the intuitive +50% regardless of whether the $150 was withdrawn or left on the platform as cash. (Under the old `|current net invested|` denominator this showed +200%.)
+- **Note:** the % is over *peak* net invested ($200), so it reads the intuitive +50% regardless of whether the $150 was withdrawn or left on the platform as cash.
 
 ### Case 7 — Fiat FX is real P&L
 **Inputs:** Hold €100 cash (`transfer_in` €100) when EUR/USD = 1.10. Later EUR/USD = 1.20. No income.
@@ -119,7 +119,7 @@ Format per case: **Inputs** → **Expected** (net invested, value, unrealized / 
 - Reconcile: 10 + 0 + 0 = 10 = 120 − 110. ✓ (EUR appreciating vs USD is a genuine gain — the money-weighted anchor captures it.)
 
 ### Case 8 — Interest on a foreign-currency balance (the subtle one — no double-count)
-This validates the net-invested vs fiat-cost-basis split (spec §4.4). The interest must show as **income**, not as a phantom FX gain.
+This validates the net-invested vs fiat-cost-basis split. The interest must show as **income**, not as a phantom FX gain.
 
 **Inputs:** Hold €100 (`transfer_in` €100) at EUR/USD = 1.10. Receive **€5 interest** (cash) while EUR/USD = 1.10. Later EUR/USD = 1.20.
 **Expected:**
@@ -136,7 +136,7 @@ This validates the net-invested vs fiat-cost-basis split (spec §4.4). The inter
 - Net invested = 100 − 130 = **−$30** (you took out more than you put in). Value = **$0**.
 - unrealized $0, realized **+$30** (130 − 100), income $0.
 - **Total P&L = +$30** (0 − (−30)). **% = 30 / 100 = +30%** (peak invested = $100).
-- Reconcile: 0 + 30 + 0 = 30 = 0 − (−30). ✓ (% uses peak net invested, so "turned $100 into $130" reads as +30% even though current net invested is −$30. Realized from sold-out positions is included in the headline total. Under the old denominator this showed +100%.)
+- Reconcile: 0 + 30 + 0 = 30 = 0 − (−30). ✓ (% uses peak net invested, so "turned $100 into $130" reads as +30% even though current net invested is −$30. Realized from sold-out positions is included in the headline total.)
 
 ### Case 11 — Peak invariance: withdraw vs hold proceeds (the headline demo)
 **Inputs:** Buy 2 @ $100 ($200). Sell 1 @ $150 — once with proceeds **withdrawn**, once **kept as cash** (paired `cash_credit`).
@@ -144,7 +144,7 @@ This validates the net-invested vs fiat-cost-basis split (spec §4.4). The inter
 
 ### Case 12 — Withdraw the full principal, keep the gains
 **Inputs:** Buy 1 @ $100; price → $200; sell 0.5 @ $200 (proceeds withdrawn). Remaining 0.5 unit @ $200.
-**Expected:** Net invested **$0**, value **$100**, peak **$100**, Total P&L **+$100 = +100%**. (Old `|current invested|` denominator → ÷0 → 0%, wrong.)
+**Expected:** Net invested **$0**, value **$100**, peak **$100**, Total P&L **+$100 = +100%**. (Peak keeps the % well-defined even though current net invested is $0.)
 - Reconcile: unrealized 50 + realized 50 + 0 = 100. ✓
 
 ### Case 13 — Loss then withdrawal
@@ -262,7 +262,7 @@ exact. (`endPct` value isn't asserted here; the flag is the point.)
 - **Income is neutral to net invested** and recognized once, as the `income` term (Cases 2–5, 8).
 - **At-source tax is an additive overlay** (Case 22): an asset with an `at_source_tax_rate` (e.g. PPF 17.5%) reports `taxAccrualUsd` = rate × positive native gain (held + realized); gross figures and the reconciliation invariant are untouched, and after-tax Total P&L = gross − `totalTaxAccrualUsd`. Realized accrual covers held positions only (a sold-out position is not accrued).
 - **Foreign-declarable income** (non-TRY, non-withheld dividend + interest summed in TRY by year, the 22,000 TL threshold) is a reporting figure computed in `src/lib/pnl/foreign-income.ts`, separate from the money-weighted total.
-- **Out of scope / not yet addressed** (see `docs/pnl-methodology.md` §6): standalone `fee` double-counts (#2 — captured as known-failing Case 21, zero occurrences); category attribution omits fully-sold positions (#3). **Now fixed:** daily baseline is date-based + home-local (was #4's cadence/timezone concern); the all-time % uses peak invested.
+- **Out of scope / not yet addressed** (see "Known issues / out of scope" in `docs/pnl-methodology.md`): standalone `fee` double-counts (captured as known-failing Case 21, zero occurrences); category attribution omits fully-sold positions.
 
 ## Engine reference
 | Concern | Function | File |

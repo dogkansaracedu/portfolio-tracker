@@ -18,7 +18,7 @@
 - `src/pages/PortfolioPage.tsx` — page shell. Pulls everything from
   `usePortfolio`, renders summary bar → filters → table; threads `returnMode` +
   `dailyReturnAvailable` to the table and `returnMode`/`onReturnModeChange` to the
-  filters. (Note: no `AssetDetailSheet` — it was deferred and never built.)
+  filters.
 - `src/components/portfolio/PortfolioTable.tsx` — desktop `Table` + mobile card
   list; renders group sections; swaps the return column header label
   (`RETURN_COLUMN_LABEL_TOTAL` "P&L" ↔ `RETURN_COLUMN_LABEL_DAILY` "Today");
@@ -45,7 +45,7 @@
   **Total | Daily** `ToggleGroup`, the group-by `ToggleGroup` (Tag/Platform/
   Category — `GroupBy = "platform" | "category" | "tag"`, no `currency` axis), and
   the sort `Select` (`SORT_LABELS` inlined here).
-- **Cash-equivalents-nested-under-fiat** (replaces the deleted `CurrencyHoldings.tsx` card):
+- **Cash-equivalents-nested-under-fiat** (there is no separate currency-holdings card):
   - `nestCashEquivalentsUnderFiat(assets)` in `src/lib/portfolio/grouping.ts` lifts
     every nestable cash-equivalent — `isFiatNestable(a)` = `category === "fund"`
     OR `isStablecoin(a)` (a USD-pegged stablecoin USDT/USDC, from
@@ -76,7 +76,7 @@
   daily: "Daily" }`), `RETURN_COLUMN_LABEL_TOTAL = "P&L"`,
   `RETURN_COLUMN_LABEL_DAILY = "Today"`.
 - `src/lib/pnl/daily.ts` — pure `computeDailyReturn(input)` + `dailyReturnPct(return,
-  denom)` guard; the only new math, kept in the shared P&L layer.
+  denom)` guard; the daily-return math lives in the shared P&L layer, not on the page.
 
 ### `usePortfolio.ts` specifics
 
@@ -153,14 +153,11 @@ Used at both asset and (asset, platform) granularity; group rollups reuse
 - **Held filter:** rows are filtered to `totalBalance > 0`, and platform holdings
   to `balance > 0`, matching snapshot semantics so the platform view never renders
   empty positions and rollups match the dashboard.
-- **NOTED EDGE (not fixed): sold-out-today positions.** A position fully exited
-  during the period has no row (`totalBalance > 0` filter), so the visible
-  daily-return rows can sum to slightly less than the dashboard hero's 1D delta on
-  an exit day. Consistent with how lifetime return already omits sold-out
-  positions; left as-is per "note, don't fix."
+- **Known limitation: sold-out-today positions.** A position fully exited during
+  the period has no row (`totalBalance > 0` filter), so the visible daily-return
+  rows can sum to slightly less than the dashboard hero's 1D delta on an exit day.
+  Consistent with how lifetime return also omits sold-out positions.
 - **Daily figures are USD-only** (the return column is USD even when the display
-  toggle is TRY) — matches the existing P&L column; not wired to the currency
-  toggle in this pass.
-- **`AssetDetailSheet` was deferred and never built** — there is no sheet/detail
-  drill-down; the asset cell links to the transactions edit route instead. (The
-  old spec listed it as optional; it does not exist.)
+  toggle is TRY) — matches the P&L column; neither is wired to the currency toggle.
+- **There is no asset detail sheet** — no drill-down panel exists; the asset cell
+  links to the transactions edit route instead.

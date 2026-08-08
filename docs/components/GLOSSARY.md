@@ -23,9 +23,9 @@ curated by the [Admin](#admin)** (no platform on the asset itself — balances l
 [Holdings](#holding)). Non-admin users read the catalog read-only. Fields: `ticker`
 (display symbol), `name`, `category` (free-form text — `fiat`, `crypto`, `gold`,
 `stock_us`, `stock_bist`, `vehicle`, …), `tags[]` (cross-cutting allocation labels,
-e.g. `["crypto","usd"]`), `price_source` (which feed prices it — live values are `yahoo`, `tcmb`, and
-`manual`; `coingecko` is a legacy value, now dormant — crypto is priced through
-the equities feed), `price_id` (the identifier that feed uses, e.g. `BTC-USD`,
+e.g. `["crypto","usd"]`), `price_source` (which feed prices it — `yahoo` for
+equities, crypto and tokenized gold, `tcmb` for fiat FX and gram gold, `tefas`
+for Turkish funds, `manual` for hand-entered prices), `price_id` (the identifier that feed uses, e.g. `BTC-USD`,
 `THYAO.IS`; falls back to `ticker` when absent), `icon_url` (optional
 logo override), `is_currency` (true for fiat/cash — these carry
 [Fiat FX P&L](#fiat-fx-pl), not FIFO P&L), `is_active`.
@@ -38,14 +38,12 @@ The balance of one [Asset](#asset) on one [Platform](#platform), in the asset's
 
 ### Transaction
 A dated event affecting a holding. `type` is one of: **buy, sell, transfer_in,
-transfer_out, dividend, interest, fee, cash_credit, cash_debit, tax**. Fields: `amount`
+transfer_out, dividend, interest, fee, cash_credit, cash_debit**. Fields: `amount`
 (quantity in native units), `unit_price`, `price_currency` (**derived from the
 asset — asset-native; defaulted and editable, never a free picker**), `total_cost`,
 `fee`/`fee_currency`, `date`, `related_asset_id`, `linked_tx_id`, `notes`.
 - **Balance effect:** buy / transfer_in / dividend / interest / cash_credit *add*
-  to the holding; sell / transfer_out / fee / cash_debit *subtract*; a
-  [tax payment](#tax-payment) *subtracts* when funded from tracked cash and touches
-  **no balance** when external.
+  to the holding; sell / transfer_out / fee / cash_debit *subtract*.
 - **Linked legs:** `linked_tx_id` pairs a trade with its cash movement (only `buy`
   and `sell` carry a linked cash child) and pairs the two sides of a transfer. The
   cash legs (`cash_credit`/`cash_debit`) are created automatically, not user-picked.
@@ -128,8 +126,7 @@ which is why it is the fair head-to-head against a benchmark. Contrast with
 [money-weighted](#money-weighted) [Total P&L](#total-pl) (credits *your* cash-flow
 timing) and Simple ROI (gain ÷ money in, ignoring time). It is most accurate when
 each period is one day; over longer (e.g. weekly) periods that contain a flow it
-is an approximation. See the [formula](#time-weighted-return-formula); engine fn
-`computeTWRSeries`.
+is an approximation. See the [formula](#time-weighted-return-formula).
 
 ### FIFO lots and cost basis
 Buys stack as **lots**; a sell consumes the **oldest lots first** (FIFO) and books
@@ -152,31 +149,11 @@ modeled per-asset as `at_source_tax_rate`. Drives the [tax accrual](#after-tax-p
 that produces [after-tax P&L](#after-tax-pl).
 
 ### After-tax P&L
-Gross P&L minus the at-source **tax accrual** (rate × the positive **unrealized**
-native gain — estimates cover open positions only; realized gains are covered by
-recorded [tax payments](#tax-payment), so an estimate and an actual never
-double-count the same gain). An **additive overlay**: it leaves the gross
-decomposition and its invariant (`unrealized + realized + income`) intact —
-after-tax Total P&L = gross − total tax accrual.
-
-### Tax payment
-A recorded **actual** tax cost — the `tax` [transaction](#transaction) type. The
-amount is always user-entered (from a broker statement or tax receipt); the app
-never computes what a tax should be. Two funding kinds:
-- **Tracked** — sits on a cash/fiat holding and subtracts from its balance (e.g.
-  at-source withholding intercepted at a fund redemption; the sell is recorded at
-  gross, the withheld amount debits the platform's cash). `related_asset_id`
-  attributes it to the taxed asset.
-- **External** — paid from untracked money (e.g. the annual declaration); touches
-  no balance, carries only date / amount / currency / note, converts to USD at its
-  transaction-date rate, and subtracts directly in [Total P&L](#total-pl).
-
-Either way it is a **cost, not a withdrawal**: it never changes
-[net invested capital](#net-invested-capital) or its
-[peak](#peak-net-invested-capital), never consumes FIFO lots, and carries no cash
-leg. Recognized on the **payment date** (cash basis) — a declaration paid in March
-belongs to that March, not to the year whose gains it taxes.
-*(Spec'd 2026-06-12 — [tax-payments design](../superpowers/specs/2026-06-12-tax-payments-design.md); ships with its implementation.)*
+Gross P&L minus the at-source **tax accrual** (rate × the positive native gain on
+the held position — its unrealized gain plus the realized gains booked on it). An
+**additive overlay**: it leaves the gross decomposition and its invariant
+(`unrealized + realized + income`) intact — after-tax Total P&L = gross − total
+tax accrual.
 
 ### Foreign-declarable income
 Dividend / interest from a non-TRY asset with no [at-source tax](#at-source-tax);
@@ -216,12 +193,10 @@ State-only here; the rationale lives in [P&L Methodology](../pnl-methodology.md)
 
 ### Total P&L
 ```
-Total P&L (USD) = current value − net invested capital − external taxes paid
+Total P&L (USD) = current value − net invested capital
 ```
 Money-weighted, USD-anchored. `realized` and `unrealized` are sub-views; fiat
-carries its FX gain as unrealized. Tracked [tax payments](#tax-payment) already
-flow through current value (the cash left a holding); the explicit term covers
-**external** payments only — each paid tax reduces the total exactly once.
+carries its FX gain as unrealized.
 → [P&L Methodology](../pnl-methodology.md).
 
 ### Total P&L %
@@ -258,5 +233,4 @@ Value-weighting across holdings is automatic — `V_start`/`V_end` are the
 **whole-portfolio totals**. A period with `V_start ≤ 0` contributes a neutral
 factor (skipped). A window is flagged **approximate** when any period that
 contained a flow spanned more than one day (weekly-sampled history). See
-[Time-Weighted Return](#time-weighted-return-twr); engine fn `computeTWRSeries`
-(per-period `subPeriodReturn`).
+[Time-Weighted Return](#time-weighted-return-twr).

@@ -41,7 +41,7 @@
   investedUsd, pnlUsd}` points (`snapshot.total_usd − cumulative invested`); the
   series the chart draws and the "now" anchor must reconcile with.
 - Also houses `computeMonthlyReturns` (Modified Dietz), `subPeriodReturn` (the
-  per-snapshot Modified-Dietz period return, extracted so it can be reused), and
+  per-snapshot Modified-Dietz period return, shared by both consumers below), and
   `computeTWRSeries` (geometrically links `subPeriodReturn` over a window → the
   portfolio **time-weighted return** series; rebased to 0% at the window start,
   external cash flows removed per period, value-weighting automatic from the
@@ -82,9 +82,9 @@ worked numeric cases live in `docs/pnl-test-cases.md` (`npm test`).
   (`usePnLSummary`, the chart series). Don't introduce float math mid-pipeline.
 - **This is the SINGLE P&L engine.** The headline must stay `value − net invested`
   (`summarizePnLTotals`). Do **not** reintroduce a FIFO `unrealized + realized`
-  total — that historical bug made the live "now" point disagree with the
-  snapshot-derived chart line whenever fiat FX was non-trivial (~$915 gap on
-  2026-06-03). See [P&L Methodology](../pnl-methodology.md).
+  total — it makes the live "now" point disagree with the snapshot-derived chart
+  line whenever fiat FX is non-trivial. See
+  [P&L Methodology](../pnl-methodology.md).
 - **Fiat skips FIFO lots but still carries FX P&L** via the cash-flow invested
   path (`computeCurrentInvestedUsd` over the holding's own txs in `usePnL`'s fiat
   branch). `fifo.ts` itself ignores `cash_credit`/`cash_debit`.

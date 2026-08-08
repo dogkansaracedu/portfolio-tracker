@@ -321,7 +321,7 @@ describe("P&L cases — invariant & known gaps", () => {
   // balance.ts drops value by the fee AND performance.ts adds it to net
   // invested, so a $5 fee cuts total P&L by $10 and breaks reconciliation.
   // Zero occurrences today; documented here with the CORRECT expected numbers.
-  // See docs/pnl-test-cases.md §5.8 / the 2026-06-06 design spec.
+  // See docs/pnl-test-cases.md Case 21.
   it.fails("standalone fee should be a single −fee hit and reconcile", () => {
     const pnl = run(
       [transferIn(100, 1), tx({ type: "fee", amount: 5, unit_price: 1 })],

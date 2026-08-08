@@ -296,7 +296,7 @@ export interface TWRSeries {
  * are daily): geometrically link the per-snapshot money-weighted returns,
  * removing external cash flows at each boundary. Value-weighting across holdings
  * is automatic because each period reads the snapshot TOTAL. Rebased to 0% at
- * the window's first snapshot. See docs/return-metrics.md.
+ * the window's first snapshot. See docs/pnl-methodology.md.
  */
 export function computeTWRSeries(
   snapshots: Snapshot[],
