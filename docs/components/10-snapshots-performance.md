@@ -53,6 +53,7 @@ Overwrite option: when on, the **entire date range** from the earliest transacti
 ### Correctness guards (all writers)
 
 - **Unpriceable holding → skip the date.** If any held asset has no usable price (missing, non-positive, or [stale](GLOSSARY.md#staleness)) for the target date, the writer skips that date with a logged reason rather than freezing a total that silently omits the holding. A manual write surfaces the skip to the user; the automatic writer logs and moves on; the backfill logs **and** reports every skipped date (with the holdings it couldn't price) in its run summary — a skip is never silent.
+- **Hand-entered historical prices can fill source gaps.** When the price source simply has no history for a date (typical for freshly listed instruments whose first trading days predate the source's coverage), a hand-entered close for that instrument+date lets the rebuild price it. A manual price only fills a hole — wherever the source provides a close, the source wins.
 - **Empty portfolio → write a $0 snapshot.** When every position is closed, the date is written with total = 0 so charts draw a flat $0 line through the closed period instead of interpolating a fictional value.
 
 ### Computed performance values

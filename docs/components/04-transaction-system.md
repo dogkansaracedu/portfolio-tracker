@@ -41,7 +41,7 @@ correct. Sell rows surface their realized profit/loss inline.
 
 ### Transaction types and balance effect
 
-A transaction is one of seven user-recordable types, plus two cash legs the system
+A transaction is one of eight user-recordable types, plus two cash legs the system
 creates on its own. Each type either **adds** to or **subtracts** from the
 [Holding](GLOSSARY.md#holding) it sits on:
 
@@ -54,6 +54,7 @@ creates on its own. Each type either **adds** to or **subtracts** from the
 | `dividend` | yes | add |
 | `interest` | yes | add |
 | `fee` | yes | subtract |
+| `tax` | yes | subtract (from the fiat holding it's charged to) |
 | `cash_credit` | auto (paired to a sell) | add (to the fiat holding) |
 | `cash_debit` | auto (paired to a funded buy) | subtract (from the fiat holding) |
 
@@ -89,6 +90,7 @@ pairing is recorded with `linked_tx_id` and the cash leg sits on the fiat
 | `transfer_in` / `transfer_out` | no | — | — | — |
 | `dividend` / `interest` | no | — | — | — |
 | `fee` (standalone) | no | — | — | — |
+| `tax` | no | — | — | — |
 
 Only `buy` and `sell` ever carry a cash leg. A fee in a different currency than the
 price currency stays informational (the cash leg carries `total_cost` unmodified). A
@@ -210,10 +212,13 @@ inline errors. Rows can be added blank, or **imported** three ways:
      that fills partly and is sold later would otherwise leave that sell with no
      cost basis.)
    - **Cash operations** → deposits and withdrawals as transfers on the **cash
-     balance** for the row's currency, and credited interest on idle cash as an
-     interest entry on that same cash balance. The statement's own description text
-     is kept as the row's note. Rows in any other state, or of a kind the importer
-     doesn't recognise, are skipped and counted.
+     balance** for the row's currency, credited interest on idle cash as an
+     interest entry on that same cash balance, and the broker's monthly
+     withholding-tax lump (charged to the cash account, printed as a negative
+     amount) as a **tax** entry at its magnitude on that same cash balance. The
+     statement's own description text is kept as the row's note. Rows in any
+     other state, or of a kind the importer doesn't recognise, are skipped and
+     counted.
    - **Dividends** → a cash dividend recorded on the **cash balance** for its payout
      currency, at the **net** amount actually credited (gross and withholding are
      preserved in the note), **referencing the paying security** so P&L attributes

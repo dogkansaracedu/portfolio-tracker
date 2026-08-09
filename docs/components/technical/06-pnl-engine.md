@@ -31,7 +31,9 @@
 ### `src/lib/performance.ts` — cash-flow + time series
 
 - `computeCurrentInvestedUsd(txs, rates)` → **net invested capital** (the
-  `applyTxToInvested` convention: buy/fee +, sell/dividend/interest −, transfers
+  `applyTxToInvested` convention: buy/fee +, sell/dividend/interest −, tax 0
+  (a cost, never capital movement — and `externalCashFlowUsd` returns 0 for it,
+  so XIRR/TWR absorb the charge as performance), transfers
   cancel, `cash_credit`/`cash_debit` cancel their paired trade). The subtrahend in
   Total P&L $ (`value − this`) and each fiat holding's cost basis.
 - `computePeakInvestedUsd(txs, rates)` → **peak net invested** = running max of that

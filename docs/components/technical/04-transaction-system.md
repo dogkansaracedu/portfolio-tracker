@@ -96,7 +96,10 @@
   (Alış/Satış → buy/sell),
   `MIDAS_ACCOUNT_TYPE_MAP` (Para Yatırma/Çekme → transfer_in/out),
   `MIDAS_OTHER_INCOME_TYPE` + `MIDAS_INTEREST_DESCRIPTION_TOKEN` (Diğer Gelir whose
-  description mentions *Nema* → `interest`), `MIDAS_SECURITY_TICKER_SEPARATOR`, and
+  description mentions *Nema* → `interest`),
+  `MIDAS_OTHER_EXPENSE_TYPE` + `MIDAS_STOPAJ_DESCRIPTION_TOKEN` (Diğer Gider whose
+  description mentions *Stopaj* → `tax`; the statement prints the lump negative,
+  the parser stores the magnitude), `MIDAS_SECURITY_TICKER_SEPARATOR`, and
   `midasDividendNote(ticker, gross, withholding)`.
 - `src/lib/queries/transactions.ts` — fetch (parents-only by default; children when an
   asset is filtered), `fetchLinkedChild(ren)`, single CRUD, and `bulkInsertTransactions`

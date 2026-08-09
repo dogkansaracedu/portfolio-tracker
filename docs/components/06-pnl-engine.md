@@ -100,7 +100,10 @@ actually deployed: buys + fees add; sells + dividends/interest subtract;
 transfers cancel (out + in net to zero, a lone transfer_in adds its cost basis);
 **cash legs net out the trade they pair with** — a sell's proceeds leave
 "invested" via the sell, and its paired `cash_credit` adds them back, so a sale
-that lands cash on-platform nets to **zero** invested change. Total-return % is
+that lands cash on-platform nets to **zero** invested change. A **tax** charge
+is neutral to net invested and is never an external flow: the cash it removes
+surfaces entirely as P&L loss (and as cost drag in the return measures), because
+money taken by the tax office is a cost, not a withdrawal. Total-return % is
 over [peak net invested capital](GLOSSARY.md#peak-net-invested-capital) (the running
 max), **not** the current balance — so withdrawing your own money never changes the %,
 and it can't explode as the current balance shrinks toward zero.

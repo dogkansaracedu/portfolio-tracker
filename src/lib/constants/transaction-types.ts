@@ -8,6 +8,7 @@ export const TRANSACTION_TYPES = {
   DIVIDEND: "dividend",
   INTEREST: "interest",
   FEE: "fee",
+  TAX: "tax",
   CASH_CREDIT: "cash_credit",
   CASH_DEBIT: "cash_debit",
 } as const satisfies Record<string, TransactionType>
@@ -26,6 +27,7 @@ export const SUBTRACT_TYPES = new Set<TransactionType>([
   TRANSACTION_TYPES.SELL,
   TRANSACTION_TYPES.TRANSFER_OUT,
   TRANSACTION_TYPES.FEE,
+  TRANSACTION_TYPES.TAX,
   TRANSACTION_TYPES.CASH_DEBIT,
 ])
 
@@ -53,6 +55,7 @@ export const USER_PICKABLE_TYPES: TransactionType[] = [
   TRANSACTION_TYPES.DIVIDEND,
   TRANSACTION_TYPES.INTEREST,
   TRANSACTION_TYPES.FEE,
+  TRANSACTION_TYPES.TAX,
 ]
 
 /** Per-type display label and Tailwind color classes — single source for
@@ -68,6 +71,7 @@ export const TRANSACTION_TYPE_DISPLAY: Record<
   dividend: { label: "Dividend", color: "text-purple-700", bg: "bg-purple-100 border-purple-300" },
   interest: { label: "Interest", color: "text-teal-700", bg: "bg-teal-100 border-teal-300" },
   fee: { label: "Fee", color: "text-gray-700", bg: "bg-gray-100 border-gray-300" },
+  tax: { label: "Tax", color: "text-rose-700", bg: "bg-rose-100 border-rose-300" },
   cash_credit: { label: "Cash credit", color: "text-green-700", bg: "bg-green-100 border-green-300" },
   cash_debit: { label: "Cash debit", color: "text-red-700", bg: "bg-red-100 border-red-300" },
 }
