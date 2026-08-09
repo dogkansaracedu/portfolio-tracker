@@ -228,7 +228,9 @@ export function externalCashFlowUsd(
     case "transfer_out":
       return totalUsd.negated()
     default:
-      // dividend / interest / fee / cash_credit / cash_debit → internal
+      // dividend / interest / fee / tax / cash_credit / cash_debit → internal
+      // (a tax charge is cost drag, not capital crossing the boundary — the
+      // return engines absorb it as performance, exactly like fees)
       return BN_ZERO
   }
 }
@@ -650,6 +652,11 @@ export function computePerformanceMetrics(
  *   dividend       -> 0  (income: neutral to net invested; +total only under
  *   interest       -> 0   treatIncomeAsCapital, for a fiat holding's cost basis)
  *   fee            -> +fee || +total (standalone fee — pure cost)
+ *   tax            -> 0              (tax charged to cash — a cost, never
+ *                                     capital in/out; the balance drop
+ *                                     surfaces as P&L loss, and the fiat
+ *                                     cost basis keeps the pre-tax figure
+ *                                     so the loss lands on the cash holding)
  *   cash_credit    -> +total         (auto-paired sell-side cash; cancels
  *                                     the parent sell's "-total" so the
  *                                     proceeds are correctly counted as
@@ -715,6 +722,10 @@ function applyTxToInvested(
       return opts.treatIncomeAsCapital ? cum.plus(totalUsd) : cum
     case "fee":
       return cum.plus(feeUsd.isZero() ? totalUsd : feeUsd)
+    case "tax":
+      // A tax charge (e.g. monthly fund stopaj) is a cost, not capital moving
+      // in or out — net invested stays put so the charge surfaces as P&L loss.
+      return cum
     case "cash_credit":
       return cum.plus(totalUsd)
     case "cash_debit":

@@ -8,6 +8,7 @@ export type TransactionType =
   | "dividend"
   | "interest"
   | "fee"
+  | "tax"
   | "cash_credit"
   | "cash_debit";
 

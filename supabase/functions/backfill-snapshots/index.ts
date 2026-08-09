@@ -36,6 +36,7 @@ interface TransactionRow {
     | "dividend"
     | "interest"
     | "fee"
+    | "tax"
     | "cash_credit"
     | "cash_debit"
   date: string
@@ -162,6 +163,7 @@ function balanceSign(type: TransactionRow["type"]): number {
     case "sell":
     case "transfer_out":
     case "fee":
+    case "tax":
     case "cash_debit":
       return -1
     default:
@@ -416,6 +418,28 @@ async function handle(
     eurTryMap = (await fetchYahooHistory("EURTRY=X", fromTs, toTs)).closes
   } catch (e) {
     errors.push(`Yahoo EURTRY=X: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
+  // Manual gap-filler closes (`manual_prices` table) — e.g. fresh BIST IPOs
+  // whose first days predate Yahoo's history window. A manual row only fills
+  // a (price_id, date) hole the primary source left; fetched closes win.
+  {
+    const { data: manualRows, error: manualErr } = await supabase
+      .from("manual_prices")
+      .select("price_id, price_date, close, currency")
+      .in("price_id", [...heldPriceIds])
+    if (manualErr) errors.push(`manual_prices: ${manualErr.message}`)
+    for (const row of manualRows ?? []) {
+      let map = priceMaps.get(row.price_id)
+      if (!map) {
+        map = new Map()
+        priceMaps.set(row.price_id, map)
+      }
+      if (!map.has(row.price_date)) map.set(row.price_date, Number(row.close))
+      if (!currencyByPriceId.has(row.price_id)) {
+        currencyByPriceId.set(row.price_id, row.currency)
+      }
+    }
   }
 
   // ── Group transactions by user ─────────────────────────────────

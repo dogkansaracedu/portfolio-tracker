@@ -11,6 +11,8 @@ import {
   MIDAS_ACCOUNT_TYPE_MAP,
   MIDAS_OTHER_INCOME_TYPE,
   MIDAS_INTEREST_DESCRIPTION_TOKEN,
+  MIDAS_OTHER_EXPENSE_TYPE,
+  MIDAS_STOPAJ_DESCRIPTION_TOKEN,
   MIDAS_SECURITY_TICKER_SEPARATOR,
   midasDividendNote,
   type MidasHeaderField,
@@ -349,12 +351,26 @@ export function accountCellsToRow(
   ) {
     type = TRANSACTION_TYPES.INTEREST
   }
+  if (
+    !type &&
+    typeRaw === MIDAS_OTHER_EXPENSE_TYPE &&
+    description.includes(MIDAS_STOPAJ_DESCRIPTION_TOKEN)
+  ) {
+    type = TRANSACTION_TYPES.TAX
+  }
   if (!type) {
     stats.skippedNonTrade++
     return null
   }
 
-  const { amount, currency } = splitAmountCurrency(cells.TUTAR_YP ?? "")
+  const parsed = splitAmountCurrency(cells.TUTAR_YP ?? "")
+  const currency = parsed.currency
+  // The statement prints the stopaj lump negative; the tax type already
+  // subtracts, so store the magnitude.
+  const amount =
+    type === TRANSACTION_TYPES.TAX
+      ? parsed.amount.replace(/^-/, "")
+      : parsed.amount
   if (!amount || !currency) {
     stats.skippedNonTrade++
     return null

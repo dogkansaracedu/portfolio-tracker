@@ -10,6 +10,7 @@ import {
   sell,
   transferIn,
   transferOut,
+  taxCash,
   interestCash,
   dividendCash,
   dividendUnits,
@@ -246,6 +247,29 @@ describe("P&L cases — fees", () => {
     expect(pnl.totalInvestedUsd.toNumber()).toBe(-47)
     expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(100)
     expect(pct(pnl)).toBe(47)
+    expectReconciles(pnl)
+  })
+})
+
+describe("P&L cases — taxes", () => {
+  it("C23 — tax charged to cash: pure loss, never a flow", () => {
+    const pnl = run(
+      [
+        transferIn(1000, 1, { date: "2026-01-01" }),
+        taxCash(50, { date: "2026-01-31" }),
+      ],
+      [holding({ balance: 950, ticker: "USD", isCurrency: true })],
+      prices({ USD: 1 }),
+    )
+    // Net invested untouched by the tax — the charge is a cost, not a
+    // withdrawal — so the 50 lost surfaces entirely as P&L.
+    expect(pnl.totalInvestedUsd.toNumber()).toBe(1000)
+    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(1000)
+    expect(pnl.totalCurrentValueUsd.toNumber()).toBe(950)
+    expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(-50)
+    expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(0)
+    expect(pnl.totalIncomeUsd.toNumber()).toBe(0)
+    expect(pct(pnl)).toBe(-5)
     expectReconciles(pnl)
   })
 })

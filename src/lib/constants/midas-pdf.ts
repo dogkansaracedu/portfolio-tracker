@@ -61,6 +61,13 @@ export const MIDAS_ACCOUNT_TYPE_MAP: Record<string, TransactionType> = {
 export const MIDAS_OTHER_INCOME_TYPE = "Diğer Gelir"
 export const MIDAS_INTEREST_DESCRIPTION_TOKEN = "Nema"
 
+/** "Diğer Gider" likewise; only the *Stopaj* line (the month's withholding tax
+ *  on fund gains, charged to the cash account in one lump) becomes a tax row.
+ *  The statement prints it negative — the parser strips the sign because the
+ *  `tax` type already subtracts. */
+export const MIDAS_OTHER_EXPENSE_TYPE = "Diğer Gider"
+export const MIDAS_STOPAJ_DESCRIPTION_TOKEN = "Stopaj"
+
 /** Separator between ticker and long name in the dividend table's
  *  "Sermaya Piyasası Aracı" cell, e.g. `SPYM - SPDR Portfolio S&P 500…`. */
 export const MIDAS_SECURITY_TICKER_SEPARATOR = " - "
