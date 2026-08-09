@@ -150,6 +150,44 @@ describe("accountCellsToRow", () => {
     expect(row?.notes).toBe("Nema Geliri")
   })
 
+  it("maps Diğer Gider / Stopaj to tax with the sign stripped", () => {
+    const { ctx, stats } = setup()
+    const row = accountCellsToRow(
+      {
+        TALEP_TARIHI: "31/07/26 00:00:00",
+        ISLEM_TARIHI: "31/07/26 00:00:00",
+        ISLEM_TIPI: "Diğer Gider",
+        ISLEM_ACIKLAMASI: "Stopaj",
+        ISLEM_DURUMU: "Gerçekleşti",
+        TUTAR_YP: "-2.491,35 TRY",
+      },
+      ctx,
+      stats,
+    )
+    expect(row?.type).toBe("tax")
+    // Magnitude only — the tax type already subtracts from the balance.
+    expect(row?.amount).toBe("2491.35")
+    expect(row?.priceCurrency).toBe("TRY")
+    expect(row?.notes).toBe("Stopaj")
+  })
+
+  it("skips Diğer Gider whose description isn't stopaj", () => {
+    const { ctx, stats } = setup()
+    const row = accountCellsToRow(
+      {
+        ISLEM_TARIHI: "01/07/26 00:00:00",
+        ISLEM_TIPI: "Diğer Gider",
+        ISLEM_ACIKLAMASI: "Hesap İşletim Ücreti",
+        ISLEM_DURUMU: "Gerçekleşti",
+        TUTAR_YP: "-10,00 TRY",
+      },
+      ctx,
+      stats,
+    )
+    expect(row).toBeNull()
+    expect(stats.skippedNonTrade).toBe(1)
+  })
+
   it("skips Diğer Gelir whose description isn't nema", () => {
     const { ctx, stats } = setup()
     const row = accountCellsToRow(

@@ -93,6 +93,10 @@ export const interestCash = (amount: number, opts: Partial<Transaction> = {}) =>
 export const dividendCash = (amount: number, opts: Partial<Transaction> = {}) =>
   tx({ type: "dividend", amount, unit_price: 1, ...opts })
 
+/** tax charged to a fiat balance (e.g. monthly fund stopaj), unit_price 1. */
+export const taxCash = (amount: number, opts: Partial<Transaction> = {}) =>
+  tx({ type: "tax", amount, unit_price: 1, ...opts })
+
 /**
  * A holding row (post-balance.ts). `balance` is the net units held; tests pass
  * what the transactions imply. asset_id/platform_id default to the tx fixtures'

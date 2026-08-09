@@ -194,6 +194,14 @@ Validates the additive after-tax overlay: gross figures untouched, the accrual r
 - Gross figures unchanged; the overlay is additive, so the reconciliation invariant still holds (40 + 0 + 0 = 80 − 40). ✓
 - (See `src/lib/pnl/after-tax.test.ts`.)
 
+### Case 23 — Tax charged to cash (stopaj)
+The `tax` type: money the tax office took from a cash balance (e.g. Midas' monthly fund stopaj, one lump per month).
+**Inputs:** transfer_in $1,000 to USD cash; `tax` of $50 on the same cash holding. Price USD = 1.
+**Expected:**
+- Balance 950 → value **$950**. Net invested **$1,000** (tax is a cost, never a flow — it must not shrink invested the way a `transfer_out` would, and it is not an external flow for XIRR/TWR either, so the return engines absorb it as performance).
+- Total P&L **−$50**, surfaced as the cash holding's unrealized (the fiat cost basis keeps the pre-tax figure).
+- % over peak: −50/1,000 = **−5%**. Reconciles: 950 − 1,000 = −50 + 0 + 0. ✓
+
 ### Case 10 — Reconciliation invariant (master check)
 For **any** mix of the above, the engine must hold:
 ```
