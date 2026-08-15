@@ -18,6 +18,7 @@ import {
 } from "@/lib/portfolio/assetHistory"
 import { computeIncomeUsd } from "@/lib/pnl/income"
 import { computeAssetCostsUsd } from "@/lib/pnl/assetCosts"
+import { computeAssetReturnRates } from "@/lib/pnl/assetReturns"
 import type { Asset, Transaction } from "@/types/database"
 import type { AssetPnL } from "@/lib/pnl/types"
 import type { HoldingWithDetails } from "@/lib/queries/holdings"
@@ -47,6 +48,17 @@ interface UseAssetDetailReturn {
   /** False for a sold-out (zero-balance) position. */
   held: boolean
   realizedPnlUsd: number
+  /** Realized P&L ÷ the FIFO cost basis of the lots actually sold — null when
+   *  nothing was realized (or the consumed basis is 0). */
+  realizedPnlPct: number | null
+  /** Lifetime money-weighted total for the asset: value − net invested. */
+  totalReturnUsd: number
+  /** Total % over the asset's peak net invested — null when peak ≤ 0. */
+  totalReturnPct: number | null
+  /** Cumulative money-weighted (XIRR) % over the asset's lifespan; any age. */
+  mwrCumulativePct: number | null
+  /** Annualized %/yr of the same solve; null under 1 year of history. */
+  mwrAnnualizedPct: number | null
   incomeUsd: number
   taxesUsd: number
   feesUsd: number
@@ -150,6 +162,27 @@ export function useAssetDetail(assetId: string | undefined): UseAssetDetailRetur
     return sum.toNumber()
   }, [assetPnL, assetTxs, realizedByTx])
 
+  // Realized % = realized ÷ the consumed lots' cost basis ("on what I exited").
+  const realizedPnlPct = useMemo(() => {
+    let soldCost = bn(0)
+    for (const tx of assetTxs) {
+      const entry = realizedByTx.get(tx.id)
+      if (entry) soldCost = soldCost.plus(entry.costBasisUsd)
+    }
+    if (soldCost.lte(0)) return null
+    return bn(realizedPnlUsd).div(soldCost).times(100).toNumber()
+  }, [assetTxs, realizedByTx, realizedPnlUsd])
+
+  const returnRates = useMemo(() => {
+    if (!enriched) return null
+    return computeAssetReturnRates(
+      assetTxs,
+      txRates,
+      bn(enriched.currentValueUsd),
+      homeDayIso(),
+    )
+  }, [enriched, assetTxs, txRates])
+
   const incomeUsd = useMemo(
     () => computeIncomeUsd(assetTxs, txRates).toNumber(),
     [assetTxs, txRates],
@@ -227,6 +260,11 @@ export function useAssetDetail(assetId: string | undefined): UseAssetDetailRetur
     enriched,
     held,
     realizedPnlUsd,
+    realizedPnlPct,
+    totalReturnUsd: returnRates?.totalPnlUsd.toNumber() ?? 0,
+    totalReturnPct: returnRates?.totalPnlPct?.toNumber() ?? null,
+    mwrCumulativePct: returnRates?.mwrCumulativePct?.toNumber() ?? null,
+    mwrAnnualizedPct: returnRates?.mwrAnnualizedPct?.toNumber() ?? null,
     incomeUsd,
     taxesUsd,
     feesUsd,

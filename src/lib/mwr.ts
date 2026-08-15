@@ -42,7 +42,7 @@ export type { XirrFlow } from "@/lib/xirr"
 // ─── Conventions ────────────────────────────────────────────────────
 
 /** Windows shorter than this never annualize (a 2-month rate × 6 is noise). */
-const MIN_ANNUALIZATION_YEARS = 1
+export const MIN_ANNUALIZATION_YEARS = 1
 
 type Money = ReturnType<typeof bn>
 

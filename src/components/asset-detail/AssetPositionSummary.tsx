@@ -14,6 +14,11 @@ interface Props {
   enriched: EnrichedAsset
   held: boolean
   realizedPnlUsd: number
+  realizedPnlPct: number | null
+  totalReturnUsd: number
+  totalReturnPct: number | null
+  mwrCumulativePct: number | null
+  mwrAnnualizedPct: number | null
   dailyReturnAvailable: boolean
 }
 
@@ -28,14 +33,70 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
   )
 }
 
+/** The lifetime money-weighted headline + the "how hard did my dollars work"
+ *  chip. Total % is over peak net invested (portfolio convention, asset-scoped);
+ *  the MWR line is cumulative at any age, with %/yr appended only past 1 year. */
+function TotalReturnStat({
+  totalReturnUsd,
+  totalReturnPct,
+  mwrCumulativePct,
+  mwrAnnualizedPct,
+  o,
+}: {
+  totalReturnUsd: number
+  totalReturnPct: number | null
+  mwrCumulativePct: number | null
+  mwrAnnualizedPct: number | null
+  o: (v: string) => string
+}) {
+  return (
+    <Stat label="Total return">
+      <span className={gainLossClass(totalReturnUsd >= 0)}>
+        {o(formatSignedCurrency(totalReturnUsd, "USD"))}
+        {totalReturnPct !== null && (
+          <span className="ml-1 text-xs">
+            ({formatSignedPercent(totalReturnPct)})
+          </span>
+        )}
+      </span>
+      {mwrCumulativePct !== null && (
+        <p className="mt-0.5 text-xs font-normal text-muted-foreground">
+          {formatSignedPercent(mwrCumulativePct)} money-weighted
+          {mwrAnnualizedPct !== null && (
+            <> · ≈{formatSignedPercent(mwrAnnualizedPct)}/yr</>
+          )}
+        </p>
+      )}
+    </Stat>
+  )
+}
+
 export function AssetPositionSummary({
   enriched,
   held,
   realizedPnlUsd,
+  realizedPnlPct,
+  totalReturnUsd,
+  totalReturnPct,
+  mwrCumulativePct,
+  mwrAnnualizedPct,
   dailyReturnAvailable,
 }: Props) {
   const { currency, obfuscated } = useDisplayCurrency()
   const o = (v: string) => obfuscate(v, obfuscated)
+
+  const realizedStat = (
+    <Stat label={held ? "Realized P&L" : "Realized P&L (lifetime)"}>
+      <span className={gainLossClass(realizedPnlUsd >= 0)}>
+        {o(formatSignedCurrency(realizedPnlUsd, "USD"))}
+        {realizedPnlPct !== null && (
+          <span className="ml-1 text-xs">
+            ({formatSignedPercent(realizedPnlPct)})
+          </span>
+        )}
+      </span>
+    </Stat>
+  )
 
   if (!held) {
     return (
@@ -48,11 +109,14 @@ export function AssetPositionSummary({
             </p>
           </CardContent>
         </Card>
-        <Stat label="Realized P&L (lifetime)">
-          <span className={gainLossClass(realizedPnlUsd >= 0)}>
-            {o(formatSignedCurrency(realizedPnlUsd, "USD"))}
-          </span>
-        </Stat>
+        <TotalReturnStat
+          totalReturnUsd={totalReturnUsd}
+          totalReturnPct={totalReturnPct}
+          mwrCumulativePct={mwrCumulativePct}
+          mwrAnnualizedPct={mwrAnnualizedPct}
+          o={o}
+        />
+        {realizedStat}
       </div>
     )
   }
@@ -105,6 +169,14 @@ export function AssetPositionSummary({
 
       <Stat label="Allocation">{enriched.allocationPct.toFixed(1)}%</Stat>
 
+      <TotalReturnStat
+        totalReturnUsd={totalReturnUsd}
+        totalReturnPct={totalReturnPct}
+        mwrCumulativePct={mwrCumulativePct}
+        mwrAnnualizedPct={mwrAnnualizedPct}
+        o={o}
+      />
+
       <Stat label="Unrealized P&L">
         <span className={gainLossClass(netUsd >= 0)}>
           {o(formatSignedCurrency(netUsd, "USD"))}
@@ -120,11 +192,7 @@ export function AssetPositionSummary({
         )}
       </Stat>
 
-      <Stat label="Realized P&L">
-        <span className={gainLossClass(realizedPnlUsd >= 0)}>
-          {o(formatSignedCurrency(realizedPnlUsd, "USD"))}
-        </span>
-      </Stat>
+      {realizedStat}
 
       <Stat label="Today">
         {dailyReturnAvailable ? (
@@ -139,10 +207,6 @@ export function AssetPositionSummary({
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
-      </Stat>
-
-      <Stat label="Cost basis">
-        {o(formatCurrency(enriched.costBasisUsd, "USD"))}
       </Stat>
     </div>
   )
