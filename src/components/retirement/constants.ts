@@ -151,6 +151,17 @@ export const GLOSSARY_HINTS = {
 } as const
 
 /**
+ * The safe withdrawal rate only sets the target under capital preservation;
+ * under capital depletion the target is the spending annuity to the depletion
+ * age, so the field is inert and says so (mirror of DEPLETION_AGE_HINTS).
+ */
+export const SAFE_WITHDRAWAL_RATE_HINTS: Record<WithdrawalStrategy, string> = {
+  capital_preservation: GLOSSARY_HINTS.safeWithdrawalRate,
+  capital_depletion:
+    "Not used under capital depletion — the target comes from spending until the depletion age.",
+}
+
+/**
  * Categorical series colours for the Compare view, assigned in fixed order and
  * never cycled (dataviz: colour follows the entity, not its rank). Light and
  * dark are the same hues re-stepped for each surface.
@@ -167,3 +178,7 @@ export const COAST_CURVE_COLOR = { light: "#eb6834", dark: "#d95926" } as const
 export const CHART_MAX_POINTS = 240
 
 export const DEFAULT_SCENARIO_NAME = "My plan"
+
+/** The scenario picker: prompt when nothing is loaded, and the default marker. */
+export const SCENARIO_PICKER_PLACEHOLDER = "Select a scenario"
+export const DEFAULT_SCENARIO_SUFFIX = " (default)"

@@ -64,12 +64,22 @@ interface NumberFieldProps {
   min?: number
   disabled?: boolean
   placeholder?: string
+  /**
+   * Presentation string for a disabled (read-only) field — typically money put
+   * through the app's money edge. Ignored while the field is editable.
+   */
+  displayValue?: string
 }
 
 /**
  * Keeps a raw string buffer so intermediate states ("", "-", "3.") survive
  * typing; the parsed number is pushed up only when it is a real number.
  * Remounted (keyed) when the scenario changes, which re-seeds the buffer.
+ *
+ * A disabled field is presentation only, so it renders as text rather than a
+ * native number input: a number input paints its value through the *browser's*
+ * locale (55597.51 shows as "55597,51" on a tr-TR browser), which is never this
+ * app's number/money convention.
  */
 export function NumberField({
   id,
@@ -82,6 +92,7 @@ export function NumberField({
   min,
   disabled,
   placeholder,
+  displayValue,
 }: NumberFieldProps) {
   const [raw, setRaw] = useState(String(value))
 
@@ -93,14 +104,14 @@ export function NumberField({
       <div className="relative">
         <Input
           id={id}
-          type="number"
+          type={disabled ? "text" : "number"}
           inputMode="decimal"
-          step={step}
-          min={min}
+          step={disabled ? undefined : step}
+          min={disabled ? undefined : min}
           disabled={disabled}
           placeholder={placeholder}
           className={cn("tabular-nums", suffix && "pr-8")}
-          value={disabled ? String(value) : raw}
+          value={disabled ? (displayValue ?? String(value)) : raw}
           onChange={(e) => {
             setRaw(e.target.value)
             const next = Number(e.target.value)
