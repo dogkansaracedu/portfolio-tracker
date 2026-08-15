@@ -1,5 +1,5 @@
 import BigNumber from "bignumber.js"
-import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
+import { bn, BN_ZERO, BN_HUNDRED, DECIMALS } from "@/lib/config"
 import {
   DEFAULT_PROJECTION_BAND,
   MONTHS_PER_YEAR,
@@ -196,7 +196,18 @@ export function projectGrowth(params: ProjectionParams): Projection {
           params.contributionEnhancer(t, baseContributionUsd),
         )
       : baseContributionUsd
-    valueUsd = valueUsd.times(growthFactor).plus(contributionUsd)
+    // Rounded to DECIMALS.projection every month, and the drawdown below does
+    // the same. `times` is exact, so an unrounded running value gains the
+    // growth factor's full decimal expansion each month (19,197 decimal places
+    // by the 1,200-month horizon `solveMonthsToTarget` scans) and the cost of a
+    // projection turns quadratic in its horizon — measured 45x slower over one
+    // Plan-tab edit's worth of solving. At 10 decimal places the accumulated
+    // rounding error over 1,200 months is bounded far below a cent, i.e. below
+    // anything this component displays or compares.
+    valueUsd = valueUsd
+      .times(growthFactor)
+      .plus(contributionUsd)
+      .decimalPlaces(DECIMALS.projection)
     totalContributionsUsd = totalContributionsUsd.plus(contributionUsd)
     months.push({
       monthIndex: t,
@@ -214,7 +225,10 @@ export function projectGrowth(params: ProjectionParams): Projection {
     const withdrawalUsd = firstWithdrawalUsd.times(
       spendingStep.exponentiatedBy(Math.floor(k / MONTHS_PER_YEAR)),
     )
-    valueUsd = valueUsd.times(growthFactor).minus(withdrawalUsd)
+    valueUsd = valueUsd
+      .times(growthFactor)
+      .minus(withdrawalUsd)
+      .decimalPlaces(DECIMALS.projection)
     months.push({
       monthIndex: accumulationMonths + k,
       phase: PROJECTION_PHASE.retirement,
