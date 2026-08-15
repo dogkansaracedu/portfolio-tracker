@@ -4,6 +4,7 @@ import {
   Briefcase,
   ArrowLeftRight,
   TrendingUp,
+  PiggyBank,
   Settings,
 } from "lucide-react"
 import Logo from "@/components/common/Logo"
@@ -14,6 +15,7 @@ const navItems = [
   { to: "/portfolio", label: "Portfolio", icon: Briefcase },
   { to: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { to: "/performance", label: "Performance", icon: TrendingUp },
+  { to: "/retirement", label: "Retirement", icon: PiggyBank },
   { to: "/settings", label: "Settings", icon: Settings },
 ]
 

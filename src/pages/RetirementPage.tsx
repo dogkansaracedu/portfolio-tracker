@@ -1,0 +1,115 @@
+import { useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useRetirementPlanner } from "@/hooks/useRetirementPlanner"
+import { CoastFireTab } from "@/components/retirement/CoastFireTab"
+import { CompareTab } from "@/components/retirement/CompareTab"
+import { PlanTab } from "@/components/retirement/PlanTab"
+import { RetirementSkeleton } from "@/components/retirement/RetirementSkeleton"
+import { ScenarioPanel } from "@/components/retirement/ScenarioPanel"
+import { SegmentedControl } from "@/components/retirement/RetirementControls"
+import {
+  GLOSSARY_HINTS,
+  RETIREMENT_TAB,
+  RETIREMENT_TAB_LABELS,
+  TODAYS_PURCHASING_POWER,
+  VALUE_VIEW,
+  VALUE_VIEW_LABELS,
+  type RetirementTab,
+  type ValueView,
+} from "@/components/retirement/constants"
+import { useRetirementDisplay } from "@/components/retirement/display"
+import { Hint } from "@/components/retirement/RetirementControls"
+
+/**
+ * Component 13 — Retirement Planning. The scenario panel is shared by all three
+ * tabs, and so is the nominal/real toggle: it re-derives what is displayed and
+ * never touches a stored input.
+ */
+
+const VALUE_VIEW_OPTIONS: { id: ValueView; label: string }[] = [
+  { id: VALUE_VIEW.nominal, label: VALUE_VIEW_LABELS[VALUE_VIEW.nominal] },
+  { id: VALUE_VIEW.real, label: VALUE_VIEW_LABELS[VALUE_VIEW.real] },
+]
+
+export default function RetirementPage() {
+  const planner = useRetirementPlanner()
+  const [tab, setTab] = useState<RetirementTab>(RETIREMENT_TAB.plan)
+  const [valueView, setValueView] = useState<ValueView>(VALUE_VIEW.nominal)
+  const display = useRetirementDisplay(planner.inputs.usdInflationPct, valueView)
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Retirement</h1>
+          <p className="text-muted-foreground">
+            Project your contribution plan, compare the options, and find your
+            Coast FIRE number.
+          </p>
+        </div>
+        <div className="flex flex-col items-start gap-1 sm:items-end">
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            Value view
+            <Hint text={GLOSSARY_HINTS.nominalAndReal} label="nominal and real" />
+          </span>
+          <SegmentedControl
+            size="sm"
+            value={valueView}
+            options={VALUE_VIEW_OPTIONS}
+            onChange={setValueView}
+          />
+          {display.isReal && (
+            <span className="text-xs text-muted-foreground">
+              {TODAYS_PURCHASING_POWER}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {planner.loading ? (
+        <RetirementSkeleton />
+      ) : (
+        <>
+          <ScenarioPanel planner={planner} />
+
+          <Tabs
+            value={tab}
+            onValueChange={(value) => setTab(value as RetirementTab)}
+          >
+            <TabsList>
+              {Object.values(RETIREMENT_TAB).map((id) => (
+                <TabsTrigger key={id} value={id}>
+                  {RETIREMENT_TAB_LABELS[id]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value={RETIREMENT_TAB.plan}>
+              <PlanTab
+                inputs={planner.inputs}
+                startingAmountUsd={planner.startingAmountUsd}
+                display={display}
+              />
+            </TabsContent>
+
+            <TabsContent value={RETIREMENT_TAB.compare}>
+              <CompareTab
+                inputs={planner.inputs}
+                startingAmountUsd={planner.startingAmountUsd}
+                display={display}
+              />
+            </TabsContent>
+
+            <TabsContent value={RETIREMENT_TAB.coastFire}>
+              <CoastFireTab
+                inputs={planner.inputs}
+                startingAmountUsd={planner.startingAmountUsd}
+                display={display}
+              />
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
+    </div>
+  )
+}
