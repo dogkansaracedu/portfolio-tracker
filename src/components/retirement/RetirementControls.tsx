@@ -101,7 +101,13 @@ export function NumberField({
       <HintLabel htmlFor={id} hint={hint}>
         {label}
       </HintLabel>
-      <div className="relative">
+      {/*
+        `flex` (not a plain block) so the input is a flex item rather than an
+        inline-block: an inline-block input leaves baseline descender space
+        under it, which makes this wrapper taller than the input and drags the
+        `inset-y-0` suffix below the input's own vertical centre.
+      */}
+      <div className="relative flex items-center">
         <Input
           id={id}
           type={disabled ? "text" : "number"}
