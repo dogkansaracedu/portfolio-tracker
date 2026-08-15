@@ -39,6 +39,7 @@ Build in order — each builds on the previous.
 | 10 | Snapshots & Performance | [spec](10-snapshots-performance.md) | [tech](technical/10-snapshots-performance.md) | Done |
 | 11 | Settings & Data Portability | [spec](11-settings-data-portability.md) | [tech](technical/11-settings-data-portability.md) | Partial — import done (see Component 4), data **export** not built |
 | 12 | Asset Detail | [spec](12-asset-detail.md) | [tech](technical/12-asset-detail.md) | Done |
+| 13 | Retirement Planning | [spec](13-retirement-planning.md) | [tech](technical/13-retirement-planning.md) | Done |
 
 ## Dependency graph
 
@@ -55,6 +56,7 @@ Build in order — each builds on the previous.
 10 Snapshots & Perf.    → 5, 6
 11 Settings & Portability→ 3, 4, 10
 12 Asset Detail          → 3, 4, 5, 6, 10
+13 Retirement Planning   → 2, 5, 6         (forward-looking; reads current value, never writes P&L)
 ```
 
 (6 and 10 are mutually referential at runtime: snapshots store the values the P&L
