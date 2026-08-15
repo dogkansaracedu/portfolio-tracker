@@ -13,12 +13,10 @@ import {
 export interface AssetReturnRates {
   /** Money-weighted lifetime total for the asset: value − net invested. */
   totalPnlUsd: BigNumber
-  /** Total % over PEAK net invested in this asset (the portfolio headline's
-   *  denominator convention, scoped down) — null when peak ≤ 0. */
-  totalPnlPct: BigNumber | null
   /** Cumulative money-weighted (XIRR) return over the asset's own lifespan —
-   *  exact at any age, so it is NOT gated on history length. Null when the
-   *  solver has no answer (degenerate flows). */
+   *  "what each dollar earned for the time it was in". Exact at any age, so
+   *  it is NOT gated on history length; this is the asset's headline %.
+   *  Null when the solver has no answer (degenerate flows). */
   mwrCumulativePct: BigNumber | null
   /** The annualized "%/yr" reading of the same solve — null under
    *  MIN_ANNUALIZATION_YEARS of history (annualizing a short book is noise;
@@ -29,15 +27,18 @@ export interface AssetReturnRates {
 /**
  * Per-asset return rates, from one asset's transactions and its live value.
  *
- * The flows feeding both the peak denominator and the XIRR are the per-tx
- * deltas of `applyTxToInvested` — the canonical net-invested rule — evaluated
- * over the ASSET boundary. Note the boundary is deliberately different from
- * the portfolio MWR's (`externalCashFlowUsd`): there, a buy's paired cash leg
- * cancels it (money never left the portfolio); here the buy IS money entering
- * the asset. Dividends/interest stay neutral (income, not capital), so
- * reinvested income surfaces as return, exactly as in the engine's
- * decomposition. Sold-out assets work naturally: terminal value 0 against the
- * historical flows.
+ * The flows feeding the XIRR are the per-tx deltas of `applyTxToInvested` —
+ * the canonical net-invested rule — evaluated over the ASSET boundary. Note
+ * the boundary is deliberately different from the portfolio MWR's
+ * (`externalCashFlowUsd`): there, a buy's paired cash leg cancels it (money
+ * never left the portfolio); here the buy IS money entering the asset.
+ * Dividends/interest stay neutral (income, not capital), so reinvested income
+ * surfaces as return, exactly as in the engine's decomposition. Sold-out
+ * assets work naturally: terminal value 0 against the historical flows.
+ *
+ * No peak-based % here: at the asset level the user reads the % as "what did
+ * my dollars earn", which is the money-weighted question — the peak-invested
+ * denominator stays a portfolio-headline convention (lib/pnl/totals.ts).
  */
 export function computeAssetReturnRates(
   transactions: Transaction[],
@@ -50,7 +51,6 @@ export function computeAssetReturnRates(
   )
 
   let cum = BN_ZERO
-  let peak = BN_ZERO
   const flows: XirrFlow[] = []
   for (const tx of sorted) {
     const next = applyTxToInvested(tx, rates, cum)
@@ -59,13 +59,9 @@ export function computeAssetReturnRates(
       flows.push({ date: tx.date.slice(0, 10), amountUsd: delta })
     }
     cum = next
-    if (cum.gt(peak)) peak = cum
   }
 
   const totalPnlUsd = currentValueUsd.minus(cum)
-  const totalPnlPct = peak.gt(0)
-    ? totalPnlUsd.div(peak).times(BN_HUNDRED)
-    : null
 
   let mwrCumulativePct: BigNumber | null = null
   let mwrAnnualizedPct: BigNumber | null = null
@@ -82,5 +78,5 @@ export function computeAssetReturnRates(
     }
   }
 
-  return { totalPnlUsd, totalPnlPct, mwrCumulativePct, mwrAnnualizedPct }
+  return { totalPnlUsd, mwrCumulativePct, mwrAnnualizedPct }
 }

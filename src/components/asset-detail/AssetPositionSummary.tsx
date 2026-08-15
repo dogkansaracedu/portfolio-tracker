@@ -16,7 +16,6 @@ interface Props {
   realizedPnlUsd: number
   realizedPnlPct: number | null
   totalReturnUsd: number
-  totalReturnPct: number | null
   mwrCumulativePct: number | null
   mwrAnnualizedPct: number | null
   dailyReturnAvailable: boolean
@@ -33,18 +32,16 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
   )
 }
 
-/** The lifetime money-weighted headline + the "how hard did my dollars work"
- *  chip. Total % is over peak net invested (portfolio convention, asset-scoped);
- *  the MWR line is cumulative at any age, with %/yr appended only past 1 year. */
+/** The lifetime money-weighted headline. The % is the cumulative XIRR — what
+ *  each dollar earned for the time it was in — exact at any age; the muted
+ *  %/yr reading appears only past 1 year of history. */
 function TotalReturnStat({
   totalReturnUsd,
-  totalReturnPct,
   mwrCumulativePct,
   mwrAnnualizedPct,
   o,
 }: {
   totalReturnUsd: number
-  totalReturnPct: number | null
   mwrCumulativePct: number | null
   mwrAnnualizedPct: number | null
   o: (v: string) => string
@@ -53,18 +50,15 @@ function TotalReturnStat({
     <Stat label="Total return">
       <span className={gainLossClass(totalReturnUsd >= 0)}>
         {o(formatSignedCurrency(totalReturnUsd, "USD"))}
-        {totalReturnPct !== null && (
+        {mwrCumulativePct !== null && (
           <span className="ml-1 text-xs">
-            ({formatSignedPercent(totalReturnPct)})
+            ({formatSignedPercent(mwrCumulativePct)})
           </span>
         )}
       </span>
-      {mwrCumulativePct !== null && (
+      {mwrAnnualizedPct !== null && (
         <p className="mt-0.5 text-xs font-normal text-muted-foreground">
-          {formatSignedPercent(mwrCumulativePct)} money-weighted
-          {mwrAnnualizedPct !== null && (
-            <> · ≈{formatSignedPercent(mwrAnnualizedPct)}/yr</>
-          )}
+          ≈{formatSignedPercent(mwrAnnualizedPct)}/yr
         </p>
       )}
     </Stat>
@@ -77,7 +71,6 @@ export function AssetPositionSummary({
   realizedPnlUsd,
   realizedPnlPct,
   totalReturnUsd,
-  totalReturnPct,
   mwrCumulativePct,
   mwrAnnualizedPct,
   dailyReturnAvailable,
@@ -111,7 +104,6 @@ export function AssetPositionSummary({
         </Card>
         <TotalReturnStat
           totalReturnUsd={totalReturnUsd}
-          totalReturnPct={totalReturnPct}
           mwrCumulativePct={mwrCumulativePct}
           mwrAnnualizedPct={mwrAnnualizedPct}
           o={o}
@@ -171,7 +163,6 @@ export function AssetPositionSummary({
 
       <TotalReturnStat
         totalReturnUsd={totalReturnUsd}
-        totalReturnPct={totalReturnPct}
         mwrCumulativePct={mwrCumulativePct}
         mwrAnnualizedPct={mwrAnnualizedPct}
         o={o}

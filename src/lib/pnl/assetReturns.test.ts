@@ -28,7 +28,7 @@ const tx = (
 })
 
 describe("computeAssetReturnRates", () => {
-  it("buy-and-hold: total % over invested, MWR cumulative ≈ total, annualized past 1y", () => {
+  it("buy-and-hold: MWR cumulative equals the plain total %, annualized past 1y", () => {
     // $1,000 in on 2024-01-01, worth $1,200 two years later.
     const r = computeAssetReturnRates(
       [tx("t1", "buy", "2024-01-01", 1000)],
@@ -37,16 +37,15 @@ describe("computeAssetReturnRates", () => {
       "2026-01-01",
     )
     expect(r.totalPnlUsd.toNumber()).toBe(200)
-    expect(r.totalPnlPct?.toNumber()).toBe(20)
     // Single flow → cumulative MWR equals the plain 20% total.
     expect(r.mwrCumulativePct?.toNumber()).toBeCloseTo(20, 5)
     // (1.2)^(1/2) − 1 ≈ 9.54%/yr, shown because the span exceeds a year.
     expect(r.mwrAnnualizedPct?.toNumber()).toBeCloseTo(9.54, 1)
   })
 
-  it("partial exit: peak keeps the % stable; MWR credits dollar-time", () => {
+  it("partial exit: MWR credits dollar-time", () => {
     // In 1,000 (2024) — out 600 (2025) — worth 720 today (2026).
-    // Net invested 400, P&L 320, peak 1,000 → +32%.
+    // Net invested 400 → P&L 320.
     // XIRR: 1000x² − 600x − 720 = 0 → x = 1.2 → 20%/yr, cumulative ≈ +44%.
     const r = computeAssetReturnRates(
       [tx("t1", "buy", "2024-01-01", 1000), tx("t2", "sell", "2025-01-01", 600)],
@@ -55,7 +54,6 @@ describe("computeAssetReturnRates", () => {
       "2026-01-01",
     )
     expect(r.totalPnlUsd.toNumber()).toBe(320)
-    expect(r.totalPnlPct?.toNumber()).toBe(32)
     expect(r.mwrAnnualizedPct?.toNumber()).toBeCloseTo(20, 0)
     expect(r.mwrCumulativePct?.toNumber()).toBeCloseTo(44, 0)
   })
@@ -78,9 +76,8 @@ describe("computeAssetReturnRates", () => {
       bn(0),
       "2026-01-01",
     )
-    // 0 − (1000 − 1200) = +200 over peak 1000.
+    // 0 − (1000 − 1200) = +200.
     expect(r.totalPnlUsd.toNumber()).toBe(200)
-    expect(r.totalPnlPct?.toNumber()).toBe(20)
     expect(r.mwrCumulativePct).not.toBeNull()
   })
 
@@ -92,12 +89,10 @@ describe("computeAssetReturnRates", () => {
       "2026-01-01",
     )
     expect(r.totalPnlUsd.toNumber()).toBe(0)
-    expect(r.totalPnlPct?.toNumber()).toBe(0)
   })
 
   it("nothing ever deployed → null percentages, never fabricated numbers", () => {
     const r = computeAssetReturnRates([], [], bn(0), "2026-01-01")
-    expect(r.totalPnlPct).toBeNull()
     expect(r.mwrCumulativePct).toBeNull()
     expect(r.mwrAnnualizedPct).toBeNull()
   })

@@ -66,26 +66,23 @@ realized return to date (amount + %), the
 guards as the Portfolio page), and [allocation](GLOSSARY.md#allocation).
 Value = snapshot price × live quantity, identical to the Portfolio row.
 
-**Total return — the asset-scoped headline.** The portfolio's canonical
-[Total P&L](GLOSSARY.md#total-pl) formula scoped to one asset: amount =
-current value − net invested into the asset; **% over the asset's peak net
-invested** (the most capital ever at work in it at once — see
-[peak net invested](GLOSSARY.md#peak-net-invested-capital)), so taking profits
-never inflates the %. Captures unrealized + realized + income + FX in one
-figure, and is "—" when peak ≤ 0. The flows use the canonical per-transaction
-net-invested rule over the **asset boundary** — deliberately different from
-the portfolio MWR's external-flow rule: there a buy's paired cash leg cancels
-it (money never left the portfolio); here the buy *is* money entering the
-asset. Dividends/interest stay neutral (income, not capital).
-
-**Money-weighted chip.** Beside the total return, the asset's
-[money-weighted (XIRR)](GLOSSARY.md#money-weighted-return-mwr--xirr) return
-over the same asset-boundary flows: shown **cumulative at any age** (exact
-regardless of history length — "what each dollar earned for the time it was
-in"), with the **annualized %/yr appended only once the asset has ≥ 1 year of
-history** (the same gate as the portfolio's lifetime chip; annualizing a
-short book is noise). No solution / degenerate flows render "—", never a
-fabricated number.
+**Total return — the asset-scoped headline.** Amount = current value − net
+invested into the asset (the canonical [Total P&L](GLOSSARY.md#total-pl)
+scoped down): unrealized + realized + income + FX in one figure. Its **%** is
+the asset's [money-weighted (XIRR)](GLOSSARY.md#money-weighted-return-mwr--xirr)
+return, shown **cumulative at any age** — "what each dollar earned for the
+time it was in", exact regardless of history length — with the **annualized
+%/yr shown beneath only once the asset has ≥ 1 year of history** (the same
+gate as the portfolio's lifetime chip; annualizing a short book is noise).
+The peak-net-invested % convention is deliberately **not** used here — it
+stays a portfolio-headline convention; at the asset level the user reads the
+% as "what did my dollars earn", which is the money-weighted question. The
+flows use the canonical per-transaction net-invested rule over the **asset
+boundary** — deliberately different from the portfolio MWR's external-flow
+rule: there a buy's paired cash leg cancels it (money never left the
+portfolio); here the buy *is* money entering the asset. Dividends/interest
+stay neutral (income, not capital). No solution / degenerate flows render
+"—", never a fabricated number.
 
 **Realized return %.** The realized amount is annotated with realized P&L ÷
 the [FIFO](GLOSSARY.md#fifo-lots-and-cost-basis) cost basis of the lots
@@ -183,10 +180,11 @@ session: selected time range, price-series visibility (neither persisted).
   current price (native + USD), and actions: "record transaction" (pre-filled
   with this asset) and a link to the transaction editor.
 - **Position summary:** a compact stat strip/cards — quantity, value, avg cost,
-  allocation, total return (amount + % with the money-weighted chip beneath),
-  unrealized return (net headline + gross/tax annotation when taxed), realized
-  (amount + %), daily return. Sold-out: a muted "no current position" line with
-  the lifetime total return and realized P&L.
+  allocation, total return (amount + money-weighted %, the muted ≈%/yr line
+  beneath when available), unrealized return (net headline + gross/tax
+  annotation when taxed), realized (amount + %), daily return. Sold-out: a
+  muted "no current position" line with the lifetime total return and realized
+  P&L.
 - **Per-platform table:** platform (color dot + name), quantity, cost basis,
   value, return — rendered only when there is at least one nonzero slice.
 - **Chart:** area for value, step line for cost basis on the same axis, line
@@ -218,10 +216,10 @@ session: selected time range, price-series visibility (neither persisted).
       offers 1M/3M/6M/YTD/1Y/ALL ranges with the pre-range anchor for ≥1M.
 - [ ] Dates without snapshot coverage draw no point (no fabricated values);
       fewer than 2 in-range points shows the "not enough history" hint.
-- [ ] The total return card shows value − net invested with the % over the
-      asset's **peak** net invested ("—" when peak ≤ 0); the money-weighted
-      chip shows the cumulative XIRR at **any** age and appends %/yr only past
-      1 year of history; degenerate flows render "—".
+- [ ] The total return card shows value − net invested with the cumulative
+      money-weighted (XIRR) % at **any** age; the ≈%/yr line appears only past
+      1 year of history; degenerate flows render "—" (no peak-based % on this
+      page).
 - [ ] The realized amount carries a % over the sold lots' FIFO cost basis,
       omitted when nothing was realized.
 - [ ] Income (dividends+interest), taxes, and fees show lifetime USD totals;
