@@ -1,5 +1,6 @@
-import { bn, BN_ZERO } from "@/lib/config"
-import type { Snapshot } from "@/types/database"
+import { bn, BN_ZERO, homeDayIso } from "@/lib/config"
+import { computeFIFOLots } from "@/lib/pnl/fifo"
+import type { ExchangeRate, Snapshot, Transaction } from "@/types/database"
 import type { TimeRange } from "@/lib/performance"
 
 /** One charted point of an asset's history, read from a snapshot's per-asset
@@ -11,6 +12,13 @@ export interface AssetHistoryPoint {
   valueTry: number
   priceUsd: number
   amount: number
+  /** The snapshot's own frozen USD/TRY rate — used to render USD-anchored
+   *  overlays (cost basis) on the TRY value axis without retro-converting
+   *  history at today's rate. */
+  usdTry: number
+  /** FIFO cost basis of the lots still held on this date, USD. Attached by
+   *  {@link attachCostBasis}; absent until then. */
+  costBasisUsd?: number
 }
 
 /**
@@ -42,9 +50,50 @@ export function buildAssetHistory(
       valueTry: valueTry.toNumber(),
       priceUsd: entries[0].price_usd,
       amount: amount.toNumber(),
+      usdTry: s.breakdown?.rates?.usd_try ?? 0,
     })
   }
   return points.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+}
+
+/**
+ * Attach the FIFO cost basis held on each point's date: the asset's
+ * transactions up to that home-local day are replayed through the engine's
+ * `computeFIFOLots` — per (asset, platform), the same composite key the P&L
+ * engine uses, so transfers carry basis across platforms identically — and the
+ * remaining lots' USD cost is summed. No new P&L math, just the engine
+ * evaluated at historical cutoffs.
+ */
+export function attachCostBasis(
+  points: AssetHistoryPoint[],
+  transactions: Transaction[],
+  rates: ExchangeRate[],
+): AssetHistoryPoint[] {
+  if (points.length === 0) return points
+  // FIFO consumes lots in date order — sort once, bucket by home-local day so
+  // a tx and a snapshot land on the same calendar day (same rule as the daily
+  // return lookups).
+  const sorted = [...transactions]
+    .map((tx) => ({ tx, day: homeDayIso(new Date(tx.date)) }))
+    .sort((a, b) => (a.tx.date < b.tx.date ? -1 : a.tx.date > b.tx.date ? 1 : 0))
+
+  return points.map((p) => {
+    const byPlatform = new Map<string, Transaction[]>()
+    for (const { tx, day } of sorted) {
+      if (day > p.date) continue
+      const list = byPlatform.get(tx.platform_id) ?? []
+      list.push(tx)
+      byPlatform.set(tx.platform_id, list)
+    }
+    let cost = BN_ZERO
+    for (const txs of byPlatform.values()) {
+      const { lots } = computeFIFOLots(txs, rates)
+      for (const lot of lots) {
+        cost = cost.plus(lot.amount.times(lot.unitPriceUsd))
+      }
+    }
+    return { ...p, costBasisUsd: cost.toNumber() }
+  })
 }
 
 function pad2(n: number): string {

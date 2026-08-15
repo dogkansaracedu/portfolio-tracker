@@ -11,7 +11,11 @@ import {
   buildDailyReturnLookups,
   enrichAsset,
 } from "@/lib/portfolio/grouping"
-import { buildAssetHistory, type AssetHistoryPoint } from "@/lib/portfolio/assetHistory"
+import {
+  attachCostBasis,
+  buildAssetHistory,
+  type AssetHistoryPoint,
+} from "@/lib/portfolio/assetHistory"
 import { computeIncomeUsd } from "@/lib/pnl/income"
 import { computeAssetCostsUsd } from "@/lib/pnl/assetCosts"
 import type { Asset, Transaction } from "@/types/database"
@@ -158,11 +162,16 @@ export function useAssetDetail(assetId: string | undefined): UseAssetDetailRetur
 
   const held = (enriched?.totalBalance ?? 0) > 0
 
-  // Frozen snapshot history + a live "now" point (held positions only — a
-  // sold-out position's history simply ends at its exit).
+  // Frozen snapshot history (with the per-date FIFO cost basis attached) + a
+  // live "now" point (held positions only — a sold-out position's history
+  // simply ends at its exit).
   const history = useMemo(() => {
     if (!asset) return []
-    const points = buildAssetHistory(snapshots, asset.ticker)
+    const points = attachCostBasis(
+      buildAssetHistory(snapshots, asset.ticker),
+      assetTxs,
+      txRates,
+    )
     if (!enriched || enriched.totalBalance <= 0) return points
     const today = homeDayIso()
     const nowPoint = {
@@ -171,11 +180,13 @@ export function useAssetDetail(assetId: string | undefined): UseAssetDetailRetur
       valueTry: enriched.currentValueTry,
       priceUsd: enriched.currentPriceUsd,
       amount: enriched.totalBalance,
+      usdTry: snapshotLookups.fallbackUsdTry,
+      costBasisUsd: enriched.costBasisUsd,
     }
     const last = points[points.length - 1]
     if (last && last.date === today) return [...points.slice(0, -1), nowPoint]
     return [...points, nowPoint]
-  }, [asset, snapshots, enriched])
+  }, [asset, snapshots, enriched, assetTxs, txRates, snapshotLookups])
 
   const platformSlices = useMemo(() => {
     if (!asset) return []
