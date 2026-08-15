@@ -223,6 +223,12 @@ are always recomputed from inputs.
   touched; impossible solves (e.g. target unreachable at any horizon under the
   pessimistic rate) render an explicit "not reachable under these assumptions"
   message, never a fabricated number ("—" convention).
+- Editing an input never blocks the edit: the field accepts typing at full
+  speed, and the projections, tables and insights re-derive behind it — the
+  figures may lag the keystroke by a moment, but the input itself never does.
+  Only the figures actually on screen are computed (the tab you are on, the
+  Plan mode you selected); intermediate values typed through are never worth
+  solving for.
 
 ## Acceptance
 
