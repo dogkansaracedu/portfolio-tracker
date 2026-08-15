@@ -28,13 +28,17 @@ import {
   type WithdrawalStrategy,
 } from "@/lib/retirement"
 import type { RetirementPlanner } from "@/hooks/useRetirementPlanner"
+import type { RetirementScenario } from "@/types/database"
 import { cn } from "@/lib/utils"
 import {
   CONTRIBUTION_END_AGE_LABEL,
   DEFAULT_SCENARIO_NAME,
+  DEFAULT_SCENARIO_SUFFIX,
   DEPLETION_AGE_HINTS,
   DEPLETION_AGE_LABELS,
   GLOSSARY_HINTS,
+  SAFE_WITHDRAWAL_RATE_HINTS,
+  SCENARIO_PICKER_PLACEHOLDER,
   WITHDRAWAL_STRATEGY_LABELS,
 } from "./constants"
 import {
@@ -50,6 +54,11 @@ import { ScenarioNameDialog } from "./ScenarioNameDialog"
  * behind "Assumptions" so casual use isn't buried in knobs. Edits are local
  * until Save writes them through.
  */
+
+/** What the picker shows for a scenario, in the trigger and in the list alike. */
+function scenarioLabel(scenario: RetirementScenario): string {
+  return `${scenario.name}${scenario.is_default ? DEFAULT_SCENARIO_SUFFIX : ""}`
+}
 
 const STRATEGY_OPTIONS: { id: WithdrawalStrategy; label: string }[] = [
   {
@@ -86,6 +95,12 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const usesLiveValue = inputs.startingAmountUsd === null
+  // One formatted string for the live value: the read-only field and the
+  // caption under it show the same money, through the same money edge.
+  const liveValueLabel = obfuscate(
+    formatCurrency(liveValueUsd.toNumber(), "USD"),
+    obfuscated,
+  )
   // Fields are remounted (so their typing buffers re-seed) when the loaded
   // scenario changes.
   const fieldKey = activeScenario?.id ?? "unsaved"
@@ -113,13 +128,23 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
               onValueChange={(value) => value && selectScenario(String(value))}
             >
               <SelectTrigger size="sm" className="min-w-44">
-                <SelectValue placeholder="Select a scenario" />
+                {/*
+                  The trigger renders the *value* — the row id — unless given a
+                  formatter, so the label is looked up here.
+                */}
+                <SelectValue>
+                  {(value: string) => {
+                    const scenario = scenarios.find((s) => s.id === value)
+                    return scenario
+                      ? scenarioLabel(scenario)
+                      : SCENARIO_PICKER_PLACEHOLDER
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {scenarios.map((scenario) => (
                   <SelectItem key={scenario.id} value={scenario.id}>
-                    {scenario.name}
-                    {scenario.is_default ? " (default)" : ""}
+                    {scenarioLabel(scenario)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -194,11 +219,12 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
                   ? Number(liveValueUsd.toFixed(2))
                   : (inputs.startingAmountUsd ?? 0)
               }
+              displayValue={usesLiveValue ? liveValueLabel : undefined}
               onChange={(next) => patch({ startingAmountUsd: next })}
             />
             <button
               type="button"
-              className="justify-self-start text-xs text-primary underline-offset-4 hover:underline"
+              className="text-left text-xs text-primary underline-offset-4 hover:underline"
               onClick={() =>
                 patch({
                   startingAmountUsd: usesLiveValue
@@ -208,10 +234,7 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
               }
             >
               {usesLiveValue
-                ? `Using live portfolio value (${obfuscate(
-                    formatCurrency(liveValueUsd.toNumber(), "USD"),
-                    obfuscated,
-                  )}) — enter my own`
+                ? `Using live portfolio value (${liveValueLabel}) — enter my own`
                 : "Use live portfolio value"}
             </button>
           </div>
@@ -277,9 +300,14 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
             key={`${fieldKey}-swr`}
             id="safe-withdrawal-rate"
             label="Safe withdrawal rate"
-            hint={GLOSSARY_HINTS.safeWithdrawalRate}
+            hint={SAFE_WITHDRAWAL_RATE_HINTS[inputs.withdrawalStrategy]}
             suffix="%"
             step={0.1}
+            // Inert under depletion — the target is the spending annuity, not a
+            // withdrawal rate. Disabled, so the stored value is left as it is.
+            disabled={
+              inputs.withdrawalStrategy === WITHDRAWAL_STRATEGY.depletion
+            }
             value={inputs.safeWithdrawalRatePct}
             onChange={(next) => patch({ safeWithdrawalRatePct: next })}
           />
