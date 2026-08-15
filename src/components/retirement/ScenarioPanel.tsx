@@ -31,6 +31,8 @@ import type { RetirementPlanner } from "@/hooks/useRetirementPlanner"
 import { cn } from "@/lib/utils"
 import {
   DEFAULT_SCENARIO_NAME,
+  DEPLETION_AGE_HINTS,
+  DEPLETION_AGE_LABELS,
   GLOSSARY_HINTS,
   WITHDRAWAL_STRATEGY_LABELS,
 } from "./constants"
@@ -83,8 +85,6 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const usesLiveValue = inputs.startingAmountUsd === null
-  const isDepleting =
-    inputs.withdrawalStrategy === WITHDRAWAL_STRATEGY.depletion
   // Fields are remounted (so their typing buffers re-seed) when the loaded
   // scenario changes.
   const fieldKey = activeScenario?.id ?? "unsaved"
@@ -259,9 +259,8 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
           <NumberField
             key={`${fieldKey}-depletion-age`}
             id="depletion-age"
-            label="Depletion age"
-            hint={GLOSSARY_HINTS.withdrawalStrategy}
-            disabled={!isDepleting}
+            label={DEPLETION_AGE_LABELS[inputs.withdrawalStrategy]}
+            hint={DEPLETION_AGE_HINTS[inputs.withdrawalStrategy]}
             value={inputs.depletionAge}
             onChange={(next) => patch({ depletionAge: next })}
           />

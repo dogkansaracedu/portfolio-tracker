@@ -57,6 +57,23 @@ export const WITHDRAWAL_STRATEGY_LABELS: Record<WithdrawalStrategy, string> = {
   capital_depletion: "Capital depletion",
 }
 
+/**
+ * The depletion-age field means two things: the age a depleting plan is spent
+ * to zero by, and — under preservation — how far past retirement the chart is
+ * drawn. Label and hint follow the loaded strategy.
+ */
+export const DEPLETION_AGE_LABELS: Record<WithdrawalStrategy, string> = {
+  capital_preservation: "Show until age",
+  capital_depletion: "Depletion age",
+}
+
+export const DEPLETION_AGE_HINTS: Record<WithdrawalStrategy, string> = {
+  capital_preservation:
+    "How far past retirement the projection is drawn — a chart horizon only; it does not change the retirement target.",
+  capital_depletion:
+    "The age the portfolio is deliberately spent to zero by, which also sets the retirement target.",
+}
+
 /** The "—" convention: a solve with no answer never renders a fabricated number. */
 export const EMPTY_FIGURE = "—"
 export const NOT_REACHABLE = "Not reachable under these assumptions"

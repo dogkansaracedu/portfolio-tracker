@@ -49,7 +49,11 @@ export interface RetirementScenarioInputs {
   contributionGrowthPct: number;
   currentAge: number;
   retirementAge: number;
-  /** Only meaningful when withdrawalStrategy = "capital_depletion". */
+  /**
+   * Under "capital_depletion" the age the portfolio is spent to zero by; under
+   * "capital_preservation" it only sets how far past retirement the projection
+   * is drawn.
+   */
   depletionAge: number;
   /** Desired retirement spending, today's USD per month. */
   monthlySpendingUsd: number;
