@@ -13,6 +13,7 @@ rest from the portfolio transactions it already has.
 [Invested (monthly)](GLOSSARY.md#invested-monthly),
 [Spent (residual)](GLOSSARY.md#spent-residual),
 [Savings rate](GLOSSARY.md#savings-rate),
+[Salary schedule](GLOSSARY.md#salary-schedule),
 [Net invested capital](GLOSSARY.md#net-invested-capital).
 
 ## The residual model
@@ -53,12 +54,17 @@ A top-level page alongside Dashboard / Portfolio / Retirement:
 
 - **Monthly table**, most recent first (last 12 months by default, expandable to
   the full history): month · income · invested · spent · savings rate. The
-  income cell is editable inline.
-- **Trend chart**: monthly income / invested / spent, with the savings rate as
-  a line.
-- **Salary schedule editor** and a **currency toggle** — TRY by default (income
-  is earned in TRY), USD as the alternative. Derived figures are normalized
-  using each transaction's own date rate.
+  income cell is editable inline: a month with no entry gets one recorded on
+  its first day; a month with exactly one entry has that entry's amount updated
+  (clearing the cell removes it, falling back to the salary default); a month
+  with several entries is read-only here — its entries are edited individually.
+- **Trend chart**: grouped monthly bars for income / invested / spent. The
+  savings rate stays in the table — it is a different measure and never shares
+  the chart's axis.
+- **Salary schedule editor**: default income rows (amount, currency,
+  effective-from month), appendable and deletable.
+- The page follows the **app-wide display currency** (USD/TRY); derived figures
+  are normalized using each transaction's or entry's own date rate.
 - Spending is not a loss: the page uses a neutral palette, not the gain/loss
   colors.
 
