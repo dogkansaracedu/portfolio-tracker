@@ -29,6 +29,7 @@ interface Props {
 export function AssetHistoryChart({ history, currency }: Props) {
   const [range, setRange] = useState<TimeRange>("ALL")
   const [showPrice, setShowPrice] = useState(true)
+  const [showCost, setShowCost] = useState(true)
 
   const data = useMemo(
     () =>
@@ -40,6 +41,14 @@ export function AssetHistoryChart({ history, currency }: Props) {
         }),
         value: currency === "USD" ? p.valueUsd : p.valueTry,
         price: p.priceUsd,
+        // Cost basis is USD-anchored; render it on the TRY axis via the
+        // snapshot's own frozen rate, never today's.
+        cost:
+          p.costBasisUsd == null
+            ? null
+            : currency === "USD"
+              ? p.costBasisUsd
+              : p.costBasisUsd * p.usdTry,
       })),
     [history, range, currency],
   )
@@ -50,6 +59,17 @@ export function AssetHistoryChart({ history, currency }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-sm font-medium">Position Value</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowCost((v) => !v)}
+              aria-pressed={showCost}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                showCost
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              Cost
+            </button>
             <button
               onClick={() => setShowPrice((v) => !v)}
               aria-pressed={showPrice}
@@ -114,6 +134,17 @@ export function AssetHistoryChart({ history, currency }: Props) {
                 fill="color-mix(in oklch, var(--primary) 12%, transparent)"
                 strokeWidth={2}
               />
+              {showCost && (
+                <Line
+                  yAxisId="value"
+                  type="stepAfter"
+                  dataKey="cost"
+                  name="Cost basis"
+                  stroke="var(--chart-4)"
+                  strokeWidth={1.5}
+                  dot={false}
+                />
+              )}
               {showPrice && (
                 <Line
                   yAxisId="price"

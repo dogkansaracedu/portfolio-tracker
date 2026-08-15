@@ -225,6 +225,96 @@ price × live balance) used as the baseline for [daily return](#daily-return).
 How old a [Price](#price) is (`updated_at`). Surfaced as an indicator so the user
 knows when a value is not fresh.
 
+### Contribution plan
+The saved intent to invest: a starting amount, a monthly contribution, an annual
+contribution growth %, and the ages that frame it (current age → retirement age).
+The shared input of every retirement calculation.
+
+### Projection
+A deterministic month-by-month compound-growth forecast of a
+[contribution plan](#contribution-plan) at a stated [expected
+return](#expected-return). Forward-looking and assumption-driven — always
+presented as a projection under stated assumptions, never a prediction. Every
+retirement figure (comparisons, [Coast FIRE](#coast-fire-number), [sensitivity
+insights](#sensitivity-insight)) is derived from this **one** projection core, so
+no two numbers on a retirement view can disagree. See the
+[formula](#projection-formula).
+
+### Retirement scenario
+A named, saved set of retirement inputs: the [contribution
+plan](#contribution-plan), retirement spending (today's USD per month),
+[SWR](#safe-withdrawal-rate-swr), [withdrawal strategy](#withdrawal-strategy),
+depletion age (when depleting), and the **assumption set** — per-option
+[expected returns](#expected-return), USD inflation, TRY inflation, and TRY
+depreciation. Each expected return is a triple (**pessimistic / base /
+optimistic**), so every projection renders as a band, not a single line.
+Scenarios persist per user; one is the default.
+
+### Expected return
+An assumed annual compound growth rate, always quoted **per year**; monthly
+compounding uses `(1+r)^(1/12) − 1`, never `r ÷ 12`. Entered in the option's
+natural currency: USD options directly; a TRY-linked option (BES, TRY deposit)
+takes a TRY nominal return that converts to its USD growth rate through the
+scenario's TRY-depreciation assumption: `(1 + r_TRY) ÷ (1 + dep) − 1`. The
+[USD anchor](#usd-anchor) applies to retirement planning exactly as to P&L.
+
+### Nominal and real
+**Nominal** = amounts as they will read at that future date. **Real** = deflated
+to today's purchasing power by the scenario's USD-inflation assumption:
+`real = nominal ÷ (1+i)^years`. One global toggle per retirement view, default
+nominal; real views are labeled "today's purchasing power".
+
+### Safe withdrawal rate (SWR)
+The percentage of the retirement-date portfolio withdrawn in the first year of
+retirement (inflation-adjusted thereafter) under
+[capital preservation](#withdrawal-strategy). Default 4%.
+
+### Withdrawal strategy
+How the portfolio is consumed after retirement — exactly one of two:
+- **Capital preservation** — withdraw at the [SWR](#safe-withdrawal-rate-swr);
+  the principal is intended to survive indefinitely.
+- **Capital depletion** — the portfolio is deliberately spent to zero by a
+  chosen **depletion age** (e.g. retire at 55, deplete by 80). Produces a
+  smaller [retirement target](#retirement-target) than preservation.
+
+### Retirement target
+The portfolio value required **at retirement age**, in nominal USD of that
+date (spending entered in today's USD is inflated to retirement first). Per
+[strategy](#withdrawal-strategy): preservation = inflated annual spending ÷
+SWR; depletion = present value at retirement of the inflation-growing spending
+stream until the depletion age. See the [formula](#retirement-target-formula).
+
+### Coast FIRE number
+The portfolio value needed **today** such that expected growth alone — with no
+further contributions — reaches the [retirement target](#retirement-target) by
+retirement age: `target ÷ (1+r)^years`. It **rises** toward the target as
+retirement approaches (less time left to compound). This is the app's single
+term for the concept — never "coast number", "coasting money", or variants.
+See the [formula](#coast-fire-number-formula).
+
+### Coast FIRE gap
+`Coast FIRE number − current portfolio value`. Positive = still short; zero or
+negative = **coasting** (growth alone is expected to carry you to the target).
+The **coast date** is the first month the projected portfolio (with planned
+contributions) meets the then-current Coast FIRE number; "years to Coast FIRE"
+is the distance to that date.
+
+### Sensitivity insight
+An automatically generated statement quantifying how one input change moves one
+output — "at $1,500/month instead of $1,000 you reach your target 5 years
+2 months earlier". Each insight is a solver run over the same
+[projection](#projection) core, so insights can never disagree with the charts.
+
+### Retirement tax estimate
+The estimated Turkish tax due at exit for a comparison option, computed by that
+option's **tax rule** from the scenario's assumptions (a TRY-taxed option's
+taxable gain depends on the TRY-inflation and TRY-depreciation assumptions, so
+tax is computed, not a flat percentage). Always labeled an **estimate under
+current law** — never presented as a fact about the future. Rates, thresholds,
+and brackets live in one sourced reference
+([retirement-tax-rules](../retirement-tax-rules.md)) with legal citations;
+they are data, not code.
+
 ## Canonical formulas
 
 State-only here; the rationale lives in [P&L Methodology](../pnl-methodology.md).
@@ -318,3 +408,38 @@ range of terminal multiples over the solve's own span rather than a range of
 annual rates, so one bracket serves a one-day period and a multi-year window
 alike — a −10% day annualizes to roughly −100%/yr and would fall outside any
 fixed annual-rate bracket. See [MWR / XIRR](#money-weighted-return-mwr--xirr).
+
+### Projection formula
+Monthly recurrence at annual [expected return](#expected-return) `r`:
+```
+r_m       = (1 + r)^(1/12) − 1
+V_(t+1)   = V_t × (1 + r_m) + c_t        (accumulation months)
+V_(t+1)   = V_t × (1 + r_m) − w_t        (retirement months)
+```
+`c_t` = monthly contribution, stepped up once a year by the contribution
+growth %. `w_t` = monthly spending, stepped up once a year by the inflation
+assumption. Inverse problems (required contribution for a target; months to
+reach a target) are solved numerically against this same recurrence — there is
+no separate closed-form path that could drift from it.
+
+### Retirement target formula
+With `n` = years to retirement, `i` = USD inflation, monthly rates
+`r_m`/`g_m` derived per the [projection formula](#projection-formula):
+```
+P_year = annual spending (today's USD) × (1 + i)^n     (nominal at retirement)
+
+capital preservation:  target = P_year ÷ SWR
+capital depletion:     target = P × [1 − ((1+g_m)/(1+r_m))^m] ÷ (r_m − g_m)
+                       (growing annuity; target = P × m when r_m = g_m)
+```
+`P` = first retirement month's nominal spending, `g_m` = monthly inflation,
+`m` = months from retirement age to depletion age.
+
+### Coast FIRE number formula
+```
+Coast FIRE number(t) = target ÷ (1 + r)^(years from t to retirement)
+```
+`r` is the base-case nominal [expected return](#expected-return) of the user's
+chosen growth assumption. Evaluated at every future month it forms a curve
+rising toward the target; the [coast date](#coast-fire-gap) is the first month
+the projected portfolio value meets the curve.
