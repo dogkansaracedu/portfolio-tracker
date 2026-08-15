@@ -1,5 +1,6 @@
 import type {
   ProjectionBand,
+  ProjectionPhase,
   ReturnCurrency,
   WithdrawalStrategy,
 } from "@/lib/retirement/types"
@@ -24,9 +25,10 @@ export const RETURN_CURRENCY = {
 } as const satisfies Record<string, ReturnCurrency>
 
 export const PROJECTION_PHASE = {
-  accumulation: "accumulation",
+  contributing: "contributing",
+  coasting: "coasting",
   retirement: "retirement",
-} as const
+} as const satisfies Record<string, ProjectionPhase>
 
 export const PROJECTION_BAND = {
   pessimistic: "pessimistic",
@@ -36,6 +38,9 @@ export const PROJECTION_BAND = {
 
 /** Single-line outputs (tables, insights, solvers) use the base case. */
 export const DEFAULT_PROJECTION_BAND: ProjectionBand = PROJECTION_BAND.base
+
+/** Plan milestones step every five years from retirement to the chart horizon. */
+export const MILESTONE_STEP_YEARS = 5
 
 export const SENSITIVITY_KIND = {
   contributionStep: "contribution_step",

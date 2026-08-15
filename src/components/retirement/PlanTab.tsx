@@ -8,6 +8,7 @@ import {
   computeRetirementTarget,
   computeSensitivityInsights,
   monthsToRetirement as monthsToRetirementOf,
+  planMilestones,
   PROJECTION_BAND,
   projectScenario,
   solveMonthsToTarget,
@@ -26,13 +27,15 @@ import {
   type PlanMode,
 } from "./constants"
 import { formatMonthsDuration, type RetirementDisplay } from "./display"
+import { PlanMilestones } from "./PlanMilestones"
 import { SegmentedControl, StatTile } from "./RetirementControls"
 import { SensitivityInsights } from "./SensitivityInsights"
 
 /**
  * Plan — the three directions of the same problem (final value, required
  * contribution, time to target), all solved against the one projection core,
- * plus the band chart and the sensitivity insights that quantify the knobs.
+ * plus the band chart, the milestones table that reads it age by age, and the
+ * sensitivity insights that quantify the knobs.
  */
 
 const MODE_OPTIONS: { id: PlanMode; label: string }[] = [
@@ -90,6 +93,8 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
       }),
     [inputs, targetUsd, startingAmountUsd],
   )
+
+  const milestones = useMemo(() => planMilestones(inputs), [inputs])
 
   const insights = useMemo(
     () => computeSensitivityInsights(inputs, { startingAmountUsd }),
@@ -182,12 +187,20 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
           projections={projections}
           currentAge={inputs.currentAge}
           retirementAge={inputs.retirementAge}
+          contributionEndAge={inputs.contributionEndAge}
           startingAmountUsd={startingAmountUsd}
           targetUsd={targetUsd}
           monthsToRetirement={monthsToRetirement}
           display={display}
         />
       </Suspense>
+
+      <PlanMilestones
+        milestones={milestones}
+        projections={projections}
+        startingAmountUsd={startingAmountUsd}
+        display={display}
+      />
 
       <SensitivityInsights insights={insights} display={display} />
     </div>

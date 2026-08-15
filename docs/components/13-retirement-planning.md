@@ -36,6 +36,7 @@ All new retirement terms are defined in the glossary, once, and used verbatim in
 UI, docs, and code identifiers — no synonyms:
 
 - [Contribution plan](GLOSSARY.md#contribution-plan) /
+  [Contribution end age](GLOSSARY.md#contribution-end-age) /
   [Projection](GLOSSARY.md#projection) ([formula](GLOSSARY.md#projection-formula))
 - [Retirement scenario](GLOSSARY.md#retirement-scenario) — the saved input set
 - [Expected return](GLOSSARY.md#expected-return) — annual, compounded monthly,
@@ -64,12 +65,26 @@ the "single P&L engine" rule).
 **Scenario inputs.** A [retirement scenario](GLOSSARY.md#retirement-scenario)
 holds: starting amount (pre-filled from the live portfolio's current total
 value, overridable), monthly contribution + annual contribution growth %,
-current / retirement / depletion ages, monthly retirement spending (today's
+current / [contribution end](GLOSSARY.md#contribution-end-age) / retirement /
+depletion ages, monthly retirement spending (today's
 USD), SWR, withdrawal strategy, and the assumption set: the **primary expected
 return** triple (the user's own growth assumption — it drives the Plan and
 Coast FIRE views), per-option expected-return triples (they drive Compare),
 USD inflation, TRY inflation, TRY depreciation. Scenarios are
 named, persist per user across devices, and one is the default loaded on entry.
+
+**Three phases.** Every projection runs contributing → coasting → retirement.
+Contributions stop at the [contribution end
+age](GLOSSARY.md#contribution-end-age); from there to retirement the plan
+**coasts** on growth alone, with no contributions and no withdrawals. The field
+defaults to the retirement age, which makes the coasting phase empty — the
+behaviour of a plan that contributes right up to retirement. A scenario saved
+before the field existed loads at that default, so no saved plan changes meaning.
+
+**Filling in inputs saved scenarios lack.** Inputs added after a scenario was
+saved are filled in when it is loaded, always with the behaviour that scenario
+was saved under, and clamped to stay consistent with the ages around them. No
+view or calculation ever sees a half-populated scenario.
 
 **Bands, not lines.** Every projection runs three times — pessimistic / base /
 optimistic expected returns — and renders as a base line inside a shaded band.
@@ -85,13 +100,25 @@ re-derives displayed values only — stored inputs are unchanged.
   final value (given contribution + horizon), required monthly contribution
   (given target + horizon), time to target (given contribution + target).
 - Chart: projected portfolio value over time (band), with the retirement age
-  and target marked. Both withdrawal strategies continue past retirement,
+  and target marked — and, when the plan coasts, the age contributions stop.
+  Both withdrawal strategies continue past retirement,
   showing the same drawdown — retirement spending, stepped up annually with
   inflation — up to the age entered alongside the retirement age. That age
   reads two ways: under capital depletion it is the depletion age the portfolio
   is spent to zero by; under capital preservation it only says how far past
   retirement to draw the chart, and the line typically keeps rising there
   because the withdrawal stays inside the safe withdrawal rate.
+- **Milestones table** under the chart, answering "how much do I have at age X?"
+  without hovering the line. One row per milestone age, ascending and deduped:
+  the [contribution end age](GLOSSARY.md#contribution-end-age) when it is short
+  of retirement, the retirement age, then every five years out to the chart's
+  own horizon (the depletion age when depleting, the show-until age when
+  preserving) with that horizon age always included. Each row names the age, the
+  phase it falls in (Contributing / Coasting / Retirement — the phase of the
+  month ending at that age), and the projected value under each of the three
+  bands, with the base case emphasised. Values are read from the same three
+  projections the chart draws, so table and line can never disagree, and they
+  follow the nominal/real toggle like everything else.
 - Shows [sensitivity insights](GLOSSARY.md#sensitivity-insight): at least
   contribution steps (+25% / +50% → time saved) and retirement-age shifts
   (±5 years → required contribution). Insights are solver outputs, phrased in
@@ -215,6 +242,18 @@ are always recomputed from inputs.
       core as the Plan tab; already-coasting renders its explicit state.
 - [ ] Capital preservation vs. capital depletion produce different targets and
       Coast FIRE numbers per the glossary formulas (worked cases in tests).
+- [ ] A plan whose contributions stop before retirement coasts: the months
+      between carry no contribution and no withdrawal, and the phase boundaries
+      (contributing → coasting → retirement) land on the entered ages.
+- [ ] Every derived figure respects the contribution end age — solvers,
+      sensitivity insights, comparison rows and the tax estimate alike; an
+      unreachable target under a coasting window renders "not reachable under
+      these assumptions" rather than a fabricated contribution.
+- [ ] A scenario saved before the contribution end age existed loads with it at
+      the retirement age, and its projections are unchanged.
+- [ ] The Plan milestones table lists the contribution end age (when short of
+      retirement), the retirement age, five-year steps and the horizon age, and
+      its values equal the chart's at those ages under both nominal and real.
 - [ ] Sensitivity insights are solver outputs and match the charts exactly.
 - [ ] Nominal/real toggle re-derives all displayed values; real views are
       labeled "today's purchasing power".

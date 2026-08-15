@@ -98,12 +98,16 @@ export const RETIREMENT_OPTION_PRESETS: readonly ComparisonOption[] = [
  * before any input is touched. `startingAmountUsd: null` seeds from the live
  * portfolio's current total value.
  */
+const DEFAULT_RETIREMENT_AGE = 60
+
 export const DEFAULT_RETIREMENT_SCENARIO_INPUTS: RetirementScenarioInputs = {
   startingAmountUsd: null,
   monthlyContributionUsd: 1000,
   contributionGrowthPct: 0,
   currentAge: 35,
-  retirementAge: 60,
+  retirementAge: DEFAULT_RETIREMENT_AGE,
+  /** Contribute right up to retirement — no coasting window by default. */
+  contributionEndAge: DEFAULT_RETIREMENT_AGE,
   depletionAge: 90,
   monthlySpendingUsd: 3000,
   /** The Trinity-study 4% rule, the field's default starting point. */

@@ -1,4 +1,8 @@
-import type { ProjectionBand, WithdrawalStrategy } from "@/lib/retirement"
+import type {
+  ProjectionBand,
+  ProjectionPhase,
+  WithdrawalStrategy,
+} from "@/lib/retirement"
 
 /**
  * Every string, id and colour the Retirement views render. Labels are the
@@ -51,6 +55,27 @@ export const BAND_LABELS: Record<ProjectionBand, string> = {
   base: "Base",
   optimistic: "Optimistic",
 }
+
+export const PROJECTION_PHASE_LABELS: Record<ProjectionPhase, string> = {
+  contributing: "Contributing",
+  coasting: "Coasting",
+  retirement: "Retirement",
+}
+
+/** The age contributions stop — the plan coasts from there to retirement. */
+export const CONTRIBUTION_END_AGE_LABEL = "Contribution end age"
+
+/** Marks the coasting window's start on the Plan chart. */
+export const CONTRIBUTIONS_STOP_LABEL = "Contributions stop"
+
+/** The milestones table under the Plan chart. */
+export const MILESTONES_TITLE = "How much will I have at each age"
+export const MILESTONES_CAPTION =
+  "Projected portfolio value at the ages that frame the plan, then every five years to the chart horizon."
+export const MILESTONE_COLUMN_LABELS = {
+  age: "Age",
+  phase: "Phase",
+} as const
 
 export const WITHDRAWAL_STRATEGY_LABELS: Record<WithdrawalStrategy, string> = {
   capital_preservation: "Capital preservation",
@@ -117,6 +142,8 @@ export const GLOSSARY_HINTS = {
     "Where the projection starts. Defaults to the live portfolio's current total value.",
   contributionGrowth:
     "Annual step-up of the monthly contribution, applied once every twelve months.",
+  contributionEndAge:
+    "When monthly contributions stop. Growth alone carries the plan from here to retirement (coasting). Defaults to your retirement age.",
   usdInflation:
     "Deflates nominal figures to today's purchasing power and inflates retirement spending to the retirement date.",
   tryAssumptions:

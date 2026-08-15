@@ -102,6 +102,20 @@ describe("besPrincipalSplitUsd", () => {
     expect(split.participantUsd.toNumber()).toBeCloseTo(12000, 6)
     expect(split.stateUsd.toNumber()).toBeCloseTo(2400, 6)
   })
+
+  it("pays nothing in over the coasting months", () => {
+    // Contributions stop at 36, so only the first 12 of the 24 months pay in —
+    // the same schedule the projection ran.
+    const inputs = scenario({
+      monthlyContributionUsd: 500,
+      contributionEndAge: 36,
+      tryDepreciationPct: 0,
+      tryInflationPct: 0,
+    })
+    const split = besPrincipalSplitUsd(inputs, 24)
+    expect(split.participantUsd.toNumber()).toBeCloseTo(6000, 6)
+    expect(split.stateUsd.toNumber()).toBeCloseTo(1200, 6)
+  })
 })
 
 describe("besVestedPct", () => {

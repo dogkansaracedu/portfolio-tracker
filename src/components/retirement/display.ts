@@ -46,6 +46,11 @@ export function formatMonthsDuration(months: number): string {
   return parts.join(" ")
 }
 
+/** Ages are plain numbers but need not be whole ("62.5" stays "62.5"). */
+export function formatAge(age: number): string {
+  return Number.isInteger(age) ? String(age) : String(Number(age.toFixed(1)))
+}
+
 export function formatYearsFromMonths(months: number | null): string {
   if (months === null) return EMPTY_FIGURE
   return formatMonthsDuration(months)

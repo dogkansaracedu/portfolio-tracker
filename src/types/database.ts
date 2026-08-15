@@ -1,4 +1,4 @@
-import type { RetirementScenarioInputs } from "@/lib/retirement/types";
+import type { StoredRetirementScenarioInputs } from "@/lib/retirement/scenario";
 
 // ─── Enum Union Types ───────────────────────────────────────────────
 
@@ -128,13 +128,15 @@ export interface BenchmarkPrice {
 
 /** A named, per-user retirement planning input set (Component 13). The planner
  *  stores inputs only — every projection is recomputed from them. At most one
- *  row per user has `is_default` (enforced by a partial unique index). */
+ *  row per user has `is_default` (enforced by a partial unique index).
+ *  A stored row can predate an input, so `inputs` is the STORED shape: pass it
+ *  through `normalizeScenarioInputs` before the engine or the UI reads it. */
 export interface RetirementScenario {
   id: string;
   user_id: string;
   name: string;
   is_default: boolean;
-  inputs: RetirementScenarioInputs;
+  inputs: StoredRetirementScenarioInputs;
   created_at: string;
   updated_at: string;
 }

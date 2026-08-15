@@ -77,6 +77,40 @@ describe("computeSensitivityInsights", () => {
     expect(shifts[0].changedValue.toNumber()).toBe(60)
   })
 
+  it("pulls the contribution end age back with an earlier retirement age", () => {
+    // Contributions run to 55; the −5 shift retires at 50, so they cannot keep
+    // running past it — the solved contribution matches a plan that ends there.
+    const shifted = scenario({ retirementAge: 50 })
+    const expected = solveRequiredContribution(
+      computeRetirementTarget(shifted),
+      shifted,
+    )
+    const effect = computeSensitivityInsights(scenario()).find(
+      (i) =>
+        i.kind === SENSITIVITY_KIND.retirementAgeShift &&
+        i.changedValue.toNumber() === 50,
+    )!.effect
+    if (effect.metric !== SENSITIVITY_METRIC.requiredMonthlyContributionUsd) {
+      throw new Error("age shifts must report required contribution")
+    }
+    expect(effect.changedUsd!.toNumber()).toBe(expected!.toNumber())
+  })
+
+  it("respects a coasting window: retiring later costs less, but not nothing", () => {
+    const coasting = scenario({ contributionEndAge: 45 })
+    const shifts = computeSensitivityInsights(coasting).filter(
+      (i) => i.kind === SENSITIVITY_KIND.retirementAgeShift,
+    )
+    const later = shifts.find((i) => i.changedValue.toNumber() === 60)!.effect
+    if (later.metric !== SENSITIVITY_METRIC.requiredMonthlyContributionUsd) {
+      throw new Error("age shifts must report required contribution")
+    }
+    // The extra five years are coasting years — growth still helps, so the
+    // required contribution falls, but every contribution still lands by 45.
+    expect(later.changedUsd!.isLessThan(later.baseUsd!)).toBe(true)
+    expect(later.baseUsd!.isGreaterThan(0)).toBe(true)
+  })
+
   it("carries nulls through when a step cannot reach the target", () => {
     const unreachable = computeSensitivityInsights(
       scenario({ monthlyContributionUsd: 0, startingAmountUsd: 0 }),

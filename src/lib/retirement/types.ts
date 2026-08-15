@@ -50,6 +50,14 @@ export interface RetirementScenarioInputs {
   currentAge: number;
   retirementAge: number;
   /**
+   * The age monthly contributions stop. Between it and the retirement age the
+   * plan COASTS — growth only, no contributions, no withdrawals. Always between
+   * `currentAge` and `retirementAge`; defaults to `retirementAge` (contribute
+   * right up to retirement), which is what scenarios saved before this field
+   * normalize to on read (`normalizeScenarioInputs`).
+   */
+  contributionEndAge: number;
+  /**
    * Under "capital_depletion" the age the portfolio is spent to zero by; under
    * "capital_preservation" it only sets how far past retirement the projection
    * is drawn.
@@ -68,13 +76,20 @@ export interface RetirementScenarioInputs {
   options: ComparisonOption[];
 }
 
+/**
+ * The three phases of a plan, in order: contributions land (contributing),
+ * growth alone carries the plan to retirement (coasting), the drawdown runs
+ * (retirement). A coasting month has neither a contribution nor a withdrawal.
+ */
+export type ProjectionPhase = "contributing" | "coasting" | "retirement";
+
 export interface ProjectionMonth {
   /** 0 = the first month from now. */
   monthIndex: number;
-  phase: "accumulation" | "retirement";
-  /** Contribution added this month (0 in retirement). */
+  phase: ProjectionPhase;
+  /** Contribution added this month (0 while coasting and in retirement). */
   contributionUsd: BigNumber;
-  /** Withdrawal taken this month (0 in accumulation). */
+  /** Withdrawal taken this month (0 before retirement). */
   withdrawalUsd: BigNumber;
   /** End-of-month portfolio value. */
   valueUsd: BigNumber;

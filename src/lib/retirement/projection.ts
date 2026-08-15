@@ -46,15 +46,21 @@ export function compoundFactor(annualPct: number, years: number): BigNumber {
 
 /**
  * The contribution landing at the end of month `monthIndex`: the first month's
- * amount stepped up once every 12 months by `contributionGrowthPct`. Shared so
- * that anything needing the schedule outside the recurrence (the BES state
- * contribution, principal splits) reads the same one.
+ * amount stepped up once every 12 months by `contributionGrowthPct`, and zero
+ * once the plan starts coasting (`contributingMonths` months in). Shared so that
+ * anything needing the schedule outside the recurrence (the BES state
+ * contribution, principal splits) reads the same one — including the coasting
+ * window, which no caller has to re-derive.
  */
 export function contributionForMonth(
   monthlyContributionUsd: BigNumber,
   contributionGrowthPct: number,
   monthIndex: number,
+  contributingMonths?: number,
 ): BigNumber {
+  if (contributingMonths !== undefined && monthIndex >= contributingMonths) {
+    return BN_ZERO
+  }
   const step = BN_ONE.plus(bn(contributionGrowthPct).dividedBy(BN_HUNDRED))
   return monthlyContributionUsd.times(
     step.exponentiatedBy(Math.floor(monthIndex / MONTHS_PER_YEAR)),
@@ -73,6 +79,20 @@ export function expectedReturnForBand(
 /** Whole months from now to retirement age; 0 once retirement age is reached. */
 export function monthsToRetirement(inputs: RetirementScenarioInputs): number {
   return wholeMonths(inputs.retirementAge - inputs.currentAge)
+}
+
+/**
+ * Whole months contributions run for: now → contribution end age, never past
+ * retirement. The months between this and `monthsToRetirement` are the coasting
+ * window (growth only, no flows).
+ */
+export function monthsToContributionEnd(
+  inputs: RetirementScenarioInputs,
+): number {
+  return Math.min(
+    wholeMonths(inputs.contributionEndAge - inputs.currentAge),
+    monthsToRetirement(inputs),
+  )
 }
 
 /** Whole months the drawdown spans (retirement age → depletion age). */
@@ -117,7 +137,13 @@ export interface ProjectionParams {
   monthlyContributionUsd: BigNumber
   contributionGrowthPct: number
   annualRatePct: number
+  /** Pre-retirement months: the contributing months plus the coasting ones. */
   accumulationMonths: number
+  /**
+   * How many of the pre-retirement months carry a contribution; the rest coast
+   * (growth only). Defaults to `accumulationMonths` — contribute to retirement.
+   */
+  contributingMonths?: number
   /** Drawdown months appended after accumulation. 0 = accumulation only. */
   retirementMonths?: number
   /** First retirement month's spending, NOMINAL at the retirement date. */
@@ -129,13 +155,17 @@ export interface ProjectionParams {
 }
 
 /**
- * `V_(t+1) = V_t × (1 + r_m) + c_t` while accumulating,
+ * `V_(t+1) = V_t × (1 + r_m) + c_t` while contributing,
+ * `V_(t+1) = V_t × (1 + r_m)` while coasting,
  * `V_(t+1) = V_t × (1 + r_m) − w_t` while drawing down.
  *
  * Contributions and withdrawals land at month end (ordinary annuity), stepped
  * up once every 12 months — contributions by `contributionGrowthPct`,
- * withdrawals by `usdInflationPct`. The drawdown is not floored at zero: a plan
- * that overspends ends negative rather than silently solvent.
+ * withdrawals by `usdInflationPct`. Coasting months carry neither: `c_t` is zero
+ * from `contributingMonths` on, which is the whole of the coasting phase — no
+ * separate loop, so nothing can diverge between the two pre-retirement phases.
+ * The drawdown is not floored at zero: a plan that overspends ends negative
+ * rather than silently solvent.
  */
 export function projectGrowth(params: ProjectionParams): Projection {
   const growthFactor = BN_ONE.plus(monthlyRateFromAnnualPct(params.annualRatePct))
@@ -143,6 +173,10 @@ export function projectGrowth(params: ProjectionParams): Projection {
     bn(params.usdInflationPct ?? 0).dividedBy(BN_HUNDRED),
   )
   const accumulationMonths = Math.max(0, Math.floor(params.accumulationMonths))
+  const contributingMonths = Math.min(
+    accumulationMonths,
+    Math.max(0, Math.floor(params.contributingMonths ?? accumulationMonths)),
+  )
   const retirementMonths = Math.max(0, Math.floor(params.retirementMonths ?? 0))
   const firstWithdrawalUsd = params.retirementSpendingUsd ?? BN_ZERO
 
@@ -155,6 +189,7 @@ export function projectGrowth(params: ProjectionParams): Projection {
       params.monthlyContributionUsd,
       params.contributionGrowthPct,
       t,
+      contributingMonths,
     )
     const contributionUsd = params.contributionEnhancer
       ? baseContributionUsd.plus(
@@ -165,7 +200,10 @@ export function projectGrowth(params: ProjectionParams): Projection {
     totalContributionsUsd = totalContributionsUsd.plus(contributionUsd)
     months.push({
       monthIndex: t,
-      phase: PROJECTION_PHASE.accumulation,
+      phase:
+        t < contributingMonths
+          ? PROJECTION_PHASE.contributing
+          : PROJECTION_PHASE.coasting,
       contributionUsd,
       withdrawalUsd: BN_ZERO,
       valueUsd,
@@ -209,8 +247,9 @@ export interface ScenarioProjectionOptions {
 
 /**
  * `projectGrowth` fed from a saved scenario: horizon from the ages, rate from
- * the primary expected return's chosen band, and — when asked for — the
- * post-retirement drawdown, running to the depletion age.
+ * the primary expected return's chosen band, contributions stopping at the
+ * contribution end age (the plan coasts from there to retirement), and — when
+ * asked for — the post-retirement drawdown, running to the depletion age.
  *
  * The drawdown is the same withdrawal stream under both withdrawal strategies;
  * only the retirement target differs between them. Under capital preservation
@@ -221,6 +260,8 @@ export function projectScenario(
   options: ScenarioProjectionOptions = {},
 ): Projection {
   const drawdown = options.includeRetirementDrawdown === true
+  const accumulationMonths =
+    options.accumulationMonths ?? monthsToRetirement(inputs)
 
   return projectGrowth({
     startingAmountUsd: resolveStartingAmountUsd(inputs, options.startingAmountUsd),
@@ -230,7 +271,13 @@ export function projectScenario(
     annualRatePct:
       options.annualRatePct ??
       expectedReturnForBand(inputs.primaryExpectedReturn, options.band),
-    accumulationMonths: options.accumulationMonths ?? monthsToRetirement(inputs),
+    accumulationMonths,
+    // The contribution end age binds regardless of the horizon override: a
+    // solver looking a century ahead still stops contributing when the plan does.
+    contributingMonths: Math.min(
+      monthsToContributionEnd(inputs),
+      accumulationMonths,
+    ),
     retirementMonths: drawdown ? monthsInRetirement(inputs) : 0,
     retirementSpendingUsd: drawdown
       ? nominalMonthlySpendingAtRetirement(inputs)

@@ -14,13 +14,19 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Projection, ProjectionBand } from "@/lib/retirement"
 import { buildBandPoints } from "./chartSeries"
-import { BAND_CAPTION, TODAYS_PURCHASING_POWER } from "./constants"
+import {
+  BAND_CAPTION,
+  CONTRIBUTIONS_STOP_LABEL,
+  TODAYS_PURCHASING_POWER,
+} from "./constants"
 import type { RetirementDisplay } from "./display"
 
 interface Props {
   projections: Record<ProjectionBand, Projection>
   currentAge: number
   retirementAge: number
+  /** Marked only when it is short of retirement — i.e. the plan coasts. */
+  contributionEndAge: number
   startingAmountUsd: BigNumber
   targetUsd: BigNumber
   monthsToRetirement: number
@@ -29,15 +35,17 @@ interface Props {
 
 /**
  * The plan projection: base line inside the pessimistic–optimistic band, with
- * the retirement age and the retirement target marked. Both withdrawal
- * strategies run past retirement — the line carries on through the drawdown,
- * down to zero at the depletion age when depleting, typically still rising
- * when the SWR sustains it under preservation.
+ * the retirement age, the retirement target and — when the plan coasts — the
+ * age contributions stop all marked. Both withdrawal strategies run past
+ * retirement: the line carries on through the drawdown, down to zero at the
+ * depletion age when depleting, typically still rising when the SWR sustains it
+ * under preservation.
  */
 export function PlanChart({
   projections,
   currentAge,
   retirementAge,
+  contributionEndAge,
   startingAmountUsd,
   targetUsd,
   monthsToRetirement,
@@ -134,6 +142,19 @@ export function PlanChart({
                 fill: "var(--muted-foreground)",
               }}
             />
+            {contributionEndAge < retirementAge && (
+              <ReferenceLine
+                x={contributionEndAge}
+                stroke="var(--muted-foreground)"
+                strokeDasharray="2 4"
+                label={{
+                  value: CONTRIBUTIONS_STOP_LABEL,
+                  position: "insideBottomLeft",
+                  fontSize: 11,
+                  fill: "var(--muted-foreground)",
+                }}
+              />
+            )}
             <ReferenceLine
               x={retirementAge}
               stroke="var(--muted-foreground)"

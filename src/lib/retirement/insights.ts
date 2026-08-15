@@ -8,6 +8,7 @@ import {
   WITHDRAWAL_STRATEGY,
 } from "@/lib/retirement/constants"
 import type { ScenarioProjectionOptions } from "@/lib/retirement/projection"
+import { normalizeScenarioInputs } from "@/lib/retirement/scenario"
 import {
   solveMonthsToTarget,
   solveRequiredContribution,
@@ -129,7 +130,9 @@ export function computeSensitivityInsights(
     ) {
       continue
     }
-    const shifted: RetirementScenarioInputs = { ...inputs, retirementAge }
+    // Normalized, so a shift that lands before the contribution end age pulls
+    // that age back with it instead of contributing past retirement.
+    const shifted = normalizeScenarioInputs({ ...inputs, retirementAge })
     const shiftedTarget = computeRetirementTarget(shifted, { band: options.band })
     const changedUsd = solveRequiredContribution(shiftedTarget, shifted, options)
     insights.push({
