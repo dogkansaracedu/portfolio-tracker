@@ -244,10 +244,12 @@ no two numbers on a retirement view can disagree. See the
 A named, saved set of retirement inputs: the [contribution
 plan](#contribution-plan), retirement spending (today's USD per month),
 [SWR](#safe-withdrawal-rate-swr), [withdrawal strategy](#withdrawal-strategy),
-depletion age (when depleting), and the **assumption set** — per-option
-[expected returns](#expected-return), USD inflation, TRY inflation, and TRY
-depreciation. Each expected return is a triple (**pessimistic / base /
-optimistic**), so every projection renders as a band, not a single line.
+depletion age (when depleting), and the **assumption set** — the **primary
+expected return** (the user's own growth assumption, driving the Plan and
+Coast FIRE views), per-option [expected returns](#expected-return) (driving
+Compare), USD inflation, TRY inflation, and TRY depreciation. Each expected
+return is a triple (**pessimistic / base / optimistic**), so every projection
+renders as a band, not a single line.
 Scenarios persist per user; one is the default.
 
 ### Expected return
@@ -435,11 +437,18 @@ capital depletion:     target = P × [1 − ((1+g_m)/(1+r_m))^m] ÷ (r_m − g_m
 `P` = first retirement month's nominal spending, `g_m` = monthly inflation,
 `m` = months from retirement age to depletion age.
 
+The annuity closed form assumes spending grows every month, while the
+[projection formula](#projection-formula) steps spending up **once a year** —
+so a depletion target funds the projected drawdown with a small surplus
+(≈ +5% at 7% return / 2% inflation / 25 years), never a shortfall. This
+conservatism is deliberate and pinned by a test; the target is
+sufficient-by-construction.
+
 ### Coast FIRE number formula
 ```
 Coast FIRE number(t) = target ÷ (1 + r)^(years from t to retirement)
 ```
-`r` is the base-case nominal [expected return](#expected-return) of the user's
-chosen growth assumption. Evaluated at every future month it forms a curve
+`r` is the base-case nominal **primary expected return** from the
+[retirement scenario](#retirement-scenario). Evaluated at every future month it forms a curve
 rising toward the target; the [coast date](#coast-fire-gap) is the first month
 the projected portfolio value meets the curve.
