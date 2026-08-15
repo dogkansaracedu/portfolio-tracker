@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest"
-import { buildAssetHistory, filterHistoryByRange } from "./assetHistory"
-import type { Snapshot } from "@/types/database"
+import {
+  attachCostBasis,
+  buildAssetHistory,
+  filterHistoryByRange,
+} from "./assetHistory"
+import type { Snapshot, Transaction, TransactionType } from "@/types/database"
 
 function snap(
   date: string,
@@ -47,6 +51,7 @@ describe("buildAssetHistory", () => {
       valueTry: 4800,
       priceUsd: 8,
       amount: 15,
+      usdTry: 40,
     })
   })
 
@@ -79,6 +84,7 @@ describe("filterHistoryByRange", () => {
     valueTry: 40,
     priceUsd: 1,
     amount: 1,
+    usdTry: 40,
   })
 
   it("returns everything for ALL", () => {
@@ -101,5 +107,67 @@ describe("filterHistoryByRange", () => {
     const points = [point(day(30)), point(day(0))]
     const filtered = filterHistoryByRange(points, "1W")
     expect(filtered.map((p) => p.date)).toEqual([day(0)])
+  })
+})
+
+describe("attachCostBasis", () => {
+  const tx = (
+    id: string,
+    type: TransactionType,
+    date: string,
+    amount: number,
+    unitPrice: number,
+    platformId = "p1",
+  ): Transaction => ({
+    id,
+    user_id: "u",
+    asset_id: "a1",
+    platform_id: platformId,
+    type,
+    date: `${date}T12:00:00Z`,
+    amount,
+    unit_price: unitPrice,
+    price_currency: "USD",
+    total_cost: amount * unitPrice,
+    fee: 0,
+    fee_currency: null,
+    related_asset_id: null,
+    linked_tx_id: null,
+    notes: null,
+    created_at: date,
+  })
+  const point = (date: string) => ({
+    date,
+    valueUsd: 0,
+    valueTry: 0,
+    priceUsd: 0,
+    amount: 0,
+    usdTry: 40,
+  })
+
+  it("replays FIFO up to each point's date", () => {
+    const txs = [
+      tx("t1", "buy", "2026-08-01", 10, 10),
+      tx("t2", "sell", "2026-08-03", 5, 20),
+    ]
+    const points = attachCostBasis(
+      [point("2026-08-01"), point("2026-08-02"), point("2026-08-04")],
+      txs,
+      [],
+    )
+    // Buy 10 @ $10 → basis 100; the sell consumes 5 FIFO units → basis 50.
+    expect(points.map((p) => p.costBasisUsd)).toEqual([100, 100, 50])
+  })
+
+  it("runs FIFO per platform, matching the engine's composite key", () => {
+    const txs = [
+      tx("t1", "buy", "2026-08-01", 10, 10, "p1"),
+      tx("t2", "buy", "2026-08-01", 10, 30, "p2"),
+      // Sells p2's own (expensive) lot — asset-level FIFO would wrongly
+      // consume p1's cheaper lot first.
+      tx("t3", "sell", "2026-08-02", 10, 30, "p2"),
+    ]
+    const points = attachCostBasis([point("2026-08-02")], txs, [])
+    expect(points[0].costBasisUsd).toEqual(100)
   })
 })

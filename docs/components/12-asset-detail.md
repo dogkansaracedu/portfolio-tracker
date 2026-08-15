@@ -83,7 +83,7 @@ unrealized return — each slice from that platform's own
 smeared across platforms. Slices with zero balance are omitted. The slices sum
 to the position summary's figures.
 
-**History chart.** One chart with two series over a selectable time range:
+**History chart.** One chart with three series over a selectable time range:
 
 - **Position value** (primary): the asset's frozen value from each
   [snapshot](GLOSSARY.md#snapshot)'s per-asset breakdown, summed across
@@ -91,6 +91,14 @@ to the position summary's figures.
   live current value ("now" point), so the chart ends at the figure the header
   shows; a sold-out position's history simply ends at its exit (no "now" point
   is fabricated).
+- **Cost basis** (same axis as value): the
+  [FIFO](GLOSSARY.md#fifo-lots-and-cost-basis) cost of the lots still held on
+  each date, replayed from the asset's transactions — per platform, exactly as
+  the P&L engine books it. Drawn as a step line, since basis changes only on
+  transactions. The vertical gap between the value series and this line *is*
+  the unrealized return at that date. USD-anchored; when the display currency
+  is the home fiat it is converted at **each date's own frozen rate**, never
+  today's. This series can be toggled off.
 - **Unit price** (secondary axis, USD): the frozen per-unit price recorded in
   each snapshot's per-asset entry; the "now" point (held positions) is the live
   price. This series can be toggled off.
@@ -152,9 +160,10 @@ session: selected time range, price-series visibility (neither persisted).
   lifetime realized P&L.
 - **Per-platform table:** platform (color dot + name), quantity, cost basis,
   value, return — rendered only when there is at least one nonzero slice.
-- **Chart:** area for value, line for unit price on a secondary axis, tooltip
-  showing date, value, and price; range selector above; a legend/toggle for the
-  price series. Responsive; on small screens the chart stacks above the tables.
+- **Chart:** area for value, step line for cost basis on the same axis, line
+  for unit price on a secondary axis; tooltip showing date, value, cost basis,
+  and price; range selector above; toggles for the cost-basis and price series.
+  Responsive; on small screens the chart stacks above the tables.
 - **Income & costs:** small labeled cards (income / taxes / fees), only the
   nonzero ones.
 - **Transactions:** the shared transaction table/cards, newest first.
@@ -173,10 +182,11 @@ session: selected time range, price-series visibility (neither persisted).
       way.
 - [ ] Per-platform rows use each platform's own FIFO slice and sum to the
       position totals.
-- [ ] The chart plots the snapshot-frozen per-asset value (display currency) and
-      unit price (USD), ends at the live "now" point for held positions (at the
-      exit for sold-out ones), and offers 1M/3M/6M/YTD/1Y/ALL ranges with the
-      pre-range anchor for ≥1M.
+- [ ] The chart plots the snapshot-frozen per-asset value (display currency),
+      the replayed FIFO cost basis (step line, converted at each date's own
+      frozen rate in home-fiat display), and unit price (USD), ends at the live
+      "now" point for held positions (at the exit for sold-out ones), and
+      offers 1M/3M/6M/YTD/1Y/ALL ranges with the pre-range anchor for ≥1M.
 - [ ] Dates without snapshot coverage draw no point (no fabricated values);
       fewer than 2 in-range points shows the "not enough history" hint.
 - [ ] Income (dividends+interest), taxes, and fees show lifetime USD totals;
