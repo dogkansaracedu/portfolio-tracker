@@ -6,7 +6,6 @@ import { RetirementPlanChart } from "@/components/charts/LazyChart"
 import RouteSkeleton from "@/components/layout/RouteSkeleton"
 import {
   computeRetirementTarget,
-  computeSensitivityInsights,
   monthsToRetirement as monthsToRetirementOf,
   planMilestones,
   PROJECTION_BAND,
@@ -36,6 +35,14 @@ import { SensitivityInsights } from "./SensitivityInsights"
  * contribution, time to target), all solved against the one projection core,
  * plus the band chart, the milestones table that reads it age by age, and the
  * sensitivity insights that quantify the knobs.
+ *
+ * `inputs` here is the planner's DEFERRED draft (see `useRetirementPlanner`):
+ * every derivation below re-runs whenever it changes, so only the mode actually
+ * on screen is solved — a required contribution is a bisection over dozens of
+ * full projections, and time-to-target projects a century of months. The
+ * insights carry the same cost again and are computed inside
+ * `SensitivityInsights`, behind its own component boundary, so React can leave
+ * them for after the headline and the chart have painted.
  */
 
 const MODE_OPTIONS: { id: PlanMode; label: string }[] = [
@@ -52,6 +59,23 @@ interface Props {
   startingAmountUsd: BigNumber
   display: RetirementDisplay
 }
+
+/** The active mode's solved figure — the other two modes are never solved. */
+type SolvedMode =
+  | {
+      mode: typeof PLAN_MODE.finalValue
+      valueAtRetirementUsd: BigNumber
+    }
+  | {
+      mode: typeof PLAN_MODE.requiredContribution
+      /** null = not reachable under these assumptions. */
+      requiredContributionUsd: BigNumber | null
+    }
+  | {
+      mode: typeof PLAN_MODE.timeToTarget
+      /** null = not reachable under these assumptions. */
+      monthsToTarget: number | null
+    }
 
 export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
   const [mode, setMode] = useState<PlanMode>(PLAN_MODE.finalValue)
@@ -72,47 +96,52 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
     }
   }, [inputs, startingAmountUsd])
 
-  // Accumulation only: the headline "final value" is the value AT retirement,
-  // before any drawdown, so it is comparable with the retirement target.
-  const valueAtRetirementUsd = useMemo(
-    () => projectScenario(inputs, { startingAmountUsd }).finalValueUsd,
-    [inputs, startingAmountUsd],
-  )
-
   const targetUsd = useMemo(() => computeRetirementTarget(inputs), [inputs])
 
-  const requiredContributionUsd = useMemo(
-    () => solveRequiredContribution(targetUsd, inputs, { startingAmountUsd }),
-    [targetUsd, inputs, startingAmountUsd],
-  )
-
-  const monthsToTarget = useMemo(
-    () =>
-      solveMonthsToTarget(bn(inputs.monthlyContributionUsd), targetUsd, inputs, {
-        startingAmountUsd,
-      }),
-    [inputs, targetUsd, startingAmountUsd],
-  )
+  // Solved for the mode on screen only: switching mode is a deliberate click,
+  // while every keystroke re-runs whichever solve is mounted.
+  const solved = useMemo<SolvedMode>(() => {
+    switch (mode) {
+      case PLAN_MODE.requiredContribution:
+        return {
+          mode,
+          requiredContributionUsd: solveRequiredContribution(targetUsd, inputs, {
+            startingAmountUsd,
+          }),
+        }
+      case PLAN_MODE.timeToTarget:
+        return {
+          mode,
+          monthsToTarget: solveMonthsToTarget(
+            bn(inputs.monthlyContributionUsd),
+            targetUsd,
+            inputs,
+            { startingAmountUsd },
+          ),
+        }
+      default:
+        // Accumulation only: the headline "final value" is the value AT
+        // retirement, before any drawdown, so it is comparable with the target.
+        return {
+          mode: PLAN_MODE.finalValue,
+          valueAtRetirementUsd: projectScenario(inputs, { startingAmountUsd })
+            .finalValueUsd,
+        }
+    }
+  }, [mode, targetUsd, inputs, startingAmountUsd])
 
   const milestones = useMemo(() => planMilestones(inputs), [inputs])
 
-  const insights = useMemo(
-    () => computeSensitivityInsights(inputs, { startingAmountUsd }),
-    [inputs, startingAmountUsd],
-  )
-
-  const surplusUsd = valueAtRetirementUsd.minus(targetUsd)
-
   const headline = (() => {
-    switch (mode) {
+    switch (solved.mode) {
       case PLAN_MODE.requiredContribution:
         return {
           label: "Required monthly contribution",
           hint: GLOSSARY_HINTS.retirementTarget,
           value:
-            requiredContributionUsd === null
+            solved.requiredContributionUsd === null
               ? NOT_REACHABLE
-              : `${display.money(requiredContributionUsd)} / month`,
+              : `${display.money(solved.requiredContributionUsd)} / month`,
           caption: `to reach the retirement target of ${display.money(
             targetUsd,
             monthsToRetirement,
@@ -123,9 +152,9 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
           label: "Time to the retirement target",
           hint: GLOSSARY_HINTS.retirementTarget,
           value:
-            monthsToTarget === null
+            solved.monthsToTarget === null
               ? NOT_REACHABLE
-              : formatMonthsDuration(monthsToTarget),
+              : formatMonthsDuration(solved.monthsToTarget),
           caption: `at ${display.money(
             bn(inputs.monthlyContributionUsd),
           )} / month, against a retirement target of ${display.money(
@@ -133,11 +162,12 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
             monthsToRetirement,
           )}.`,
         }
-      default:
+      default: {
+        const surplusUsd = solved.valueAtRetirementUsd.minus(targetUsd)
         return {
           label: `Projected value at age ${inputs.retirementAge}`,
           hint: GLOSSARY_HINTS.projection,
-          value: display.money(valueAtRetirementUsd, monthsToRetirement),
+          value: display.money(solved.valueAtRetirementUsd, monthsToRetirement),
           caption: (
             <>
               {surplusUsd.isNegative() ? "Short of" : "Above"} the retirement
@@ -149,6 +179,7 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
             </>
           ),
         }
+      }
     }
   })()
 
@@ -202,7 +233,11 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
         display={display}
       />
 
-      <SensitivityInsights insights={insights} display={display} />
+      <SensitivityInsights
+        inputs={inputs}
+        startingAmountUsd={startingAmountUsd}
+        display={display}
+      />
     </div>
   )
 }

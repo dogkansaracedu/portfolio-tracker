@@ -65,8 +65,8 @@ Pure modules; `index.ts` re-exports them all. Beyond the long-standing
 
 | File | Role |
 | --- | --- |
-| `src/pages/RetirementPage.tsx` | Shell: header + the global Nominal/Real toggle, the shared `ScenarioPanel`, and the `Plan / Compare / Coast FIRE` tabs. Holds `tab` and `valueView`; builds the `RetirementDisplay` from the scenario's USD-inflation assumption. Renders `RetirementSkeleton` while scenarios load. |
-| `src/hooks/useRetirementPlanner.ts` | The scenario state machine: shared scenarios (`useRetirementScenarios` → `RetirementScenarioContext`), the loaded default, the locally edited `inputs` draft, `dirty` (JSON compare against the saved row), and the persistence actions (`save`, `createScenario`, `renameActive`, `deleteActive`, `makeActiveDefault`, `discardEdits`). Resolves `startingAmountUsd`: the scenario's own value, or `usePnL(useHoldings().holdings, usePrices().prices).totalCurrentValueUsd` when it is `null`. A `pendingSelectionRef` holds the adoption effect back until a just-created row lands in the refreshed list, so a create can't drag the draft onto another scenario. **Normalize-on-read:** `RetirementScenario.inputs` is typed `StoredRetirementScenarioInputs` (today's inputs minus anything added after the row was written), so every path that adopts a row — the load effect, `selectScenario`, `discardEdits` — must pass it through `normalizeScenarioInputs`, and the `dirty` comparison normalizes the saved side too so an old scenario doesn't load looking edited. |
+| `src/pages/RetirementPage.tsx` | Shell: header + the global Nominal/Real toggle, the shared `ScenarioPanel`, and the `Plan / Compare / Coast FIRE` tabs. Holds `tab` and `valueView`; builds the `RetirementDisplay` from the scenario's USD-inflation assumption. Renders `RetirementSkeleton` while scenarios load. The panel gets `planner.inputs`; the tabs and the display edge get `planner.engineInputs` / `engineStartingAmountUsd` (see the recompute path below). |
+| `src/hooks/useRetirementPlanner.ts` | The scenario state machine: shared scenarios (`useRetirementScenarios` → `RetirementScenarioContext`), the loaded default, the locally edited `inputs` draft, `dirty` (JSON compare against the saved row), and the persistence actions (`save`, `createScenario`, `renameActive`, `deleteActive`, `makeActiveDefault`, `discardEdits`). Resolves `startingAmountUsd`: the scenario's own value, or `usePnL(useHoldings().holdings, usePrices().prices).totalCurrentValueUsd` when it is `null`. A `pendingSelectionRef` holds the adoption effect back until a just-created row lands in the refreshed list, so a create can't drag the draft onto another scenario. **Normalize-on-read:** `RetirementScenario.inputs` is typed `StoredRetirementScenarioInputs` (today's inputs minus anything added after the row was written), so every path that adopts a row — the load effect, `selectScenario`, `discardEdits` — must pass it through `normalizeScenarioInputs`, and the `dirty` comparison normalizes the saved side too so an old scenario doesn't load looking edited. Also exposes `engineInputs` / `engineStartingAmountUsd`: the same draft through one `useDeferredValue` over the `{ inputs, startingAmountUsd }` pair (deferred together, so a projection can never pair new inputs with a stale starting amount). |
 
 ### Components (`src/components/retirement/`)
 
@@ -78,15 +78,43 @@ Pure modules; `index.ts` re-exports them all. Beyond the long-standing
 | `ScenarioPanel.tsx` | Scenario picker (`Select`) + create / rename / set-default / delete / save / discard, the core inputs (including the **Contribution end age** field, which sits with the other ages and carries the coasting explainer), and the collapsible **Assumptions** section (primary expected-return triple, USD/TRY inflation, TRY depreciation, per-option expected returns and any flat effective tax rate). The `depletionAge` field is editable under both strategies, its label/hint switching via `DEPLETION_AGE_LABELS` / `DEPLETION_AGE_HINTS` ("Depletion age" vs. "Show until age"). Fields are keyed by scenario id so their typing buffers re-seed on switch. |
 | `ScenarioNameDialog.tsx` | Name prompt for create / rename. |
 | `RetirementControls.tsx` | `Hint` / `HintLabel` (the glossary explainer every advanced term carries), `NumberField` (string buffer so half-typed input survives), `SegmentedControl`, `StatTile`. |
-| `PlanTab.tsx` | Mode switch (final value / required contribution / time to target), the solved headline with its "—"/not-reachable convention, the band chart, `PlanMilestones`, and `SensitivityInsights`. It computes the three band projections once and hands the same objects to both the chart and the table. |
+| `PlanTab.tsx` | Mode switch (final value / required contribution / time to target), the solved headline with its "—"/not-reachable convention, the band chart, `PlanMilestones`, and `SensitivityInsights`. It computes the three band projections once and hands the same objects to both the chart and the table. The headline is one memo returning the `SolvedMode` union — **only the mode on screen is solved**, so a required-contribution bisection or a century-long time-to-target run never happens for a mode nobody is looking at. |
 | `PlanMilestones.tsx` | The milestones table (desktop) / cards (mobile), same pattern as `CompareTab`: age, phase, and the pessimistic / **base** (headline weight) / optimistic value per row. Rows come from `planMilestones(inputs)`; values from `valueAtMonthsFromNow` over `PlanTab`'s projections — it never projects anything itself, and every figure goes through the `RetirementDisplay` edge. |
 | `PlanChart.tsx` | `ComposedChart`: range `Area` (pessimistic–optimistic, `--primary` at 12%) + base `Line` (`var(--primary)`), `ReferenceLine`s for the retirement age, the retirement target, and — only when `contributionEndAge < retirementAge` — the age contributions stop. `PlanTab` asks `projectScenario` for `includeRetirementDrawdown` under **both** withdrawal strategies, so the line always carries on past retirement to `depletionAge` — down to zero when depleting, typically still rising under preservation. |
-| `SensitivityInsights.tsx` | Phrases the engine's structured effects as full sentences (contribution steps → time saved; retirement-age shifts → required contribution), with the not-reachable wording for null solves. |
+| `SensitivityInsights.tsx` | Calls `computeSensitivityInsights` itself (from `PlanTab`'s inputs) and phrases the engine's structured effects as full sentences (contribution steps → time saved; retirement-age shifts → required contribution), with the not-reachable wording for null solves. The solves live here, not in `PlanTab`, so they sit behind their own component boundary — see the recompute path below. |
 | `CompareTab.tsx` | `runComparison` → table (desktop) / cards (mobile): gross, retirement tax estimate (its `note` as a tooltip), **after-tax** (headline weight), after-tax in today's purchasing power. Caption: estimates under current law. |
 | `CompareChart.tsx` | One `Line` per option, base case only — five shaded bands would not stay legible — with a legend, a colour swatch shared with the table rows, and a fixed categorical palette (never cycled). |
 | `CoastFireTab.tsx` | Tiles: Coast FIRE number vs. current value; Coast FIRE gap + coast date; retirement target + its gap and years-to-target. Gap ≤ 0 renders the explicit already-coasting state instead of a negative number. |
 | `CoastFireChart.tsx` | The rising Coast FIRE curve (dashed, slot-2 hue) over the projected portfolio band, with the coast date as a `ReferenceDot`. |
 | `RetirementSkeleton.tsx` | Loading placeholder for the panel + first chart. |
+
+## Recompute path (why typing stays responsive)
+
+Nothing here is cached or persisted: every figure is re-derived from the inputs,
+and a single keystroke in the scenario panel invalidates all of it. That is
+expensive — on the default scenario one edit is ~180 month-by-month projection
+runs (~3 s measured in Node), because the solvers are numeric: a required
+contribution is a bisection of ~45 projections and each sensitivity insight is
+another solve (~133 projections, the largest single cost by far).
+
+Three things keep that off the keystroke:
+
+1. **Deferred engine inputs** — `useRetirementPlanner` exposes the draft twice.
+   `ScenarioPanel`'s fields render from `inputs` (urgent), everything that runs
+   the engine renders from `engineInputs` (`useDeferredValue`), so React commits
+   the typed character before starting the recompute and abandons intermediate
+   values when the next keystroke lands first.
+2. **Only the mounted tab computes** — Base UI's `Tabs.Panel` defaults to
+   `keepMounted={false}`, so the hidden tabs are unmounted and `runComparison`
+   / the Coast FIRE solves do not run while the Plan tab is open. Do not add
+   `keepMounted` here. Within the Plan tab the same rule applies to the mode
+   switch (`SolvedMode`).
+3. **Chunked so React can interrupt** — React only yields between components, so
+   a memo is all-or-nothing once entered. The insight solves therefore live in
+   `SensitivityInsights` rather than in `PlanTab`: the Plan tab's own render is
+   ~170 ms (three band projections + the final-value headline + milestones) and
+   the ~2 s insight pass is a separate unit of work React can drop when another
+   keystroke arrives.
 
 ## Tax layer (`src/lib/retirement/tax/`)
 
@@ -144,3 +172,13 @@ less tax" intuition.
   touched.
 - Custom comparison options (user-defined name + return triple + flat rate) are
   editable when present in a scenario but cannot yet be added from the UI.
+- **The projection recurrence carries unbounded precision.** `valueUsd` is
+  multiplied by a growth factor whose exact decimal expansion is dozens of
+  digits, and BigNumber's `times` is exact, so the running value gains digits
+  every month: 4,797 decimal places after 300 months, 19,197 after the 1,200
+  months `solveMonthsToTarget` scans. Cost is quadratic in the horizon (measured
+  1.8 / 11.6 / 44.4 / 175.2 ms for 100 / 300 / 600 / 1200 months) and it is what
+  makes the recompute path above expensive at all. Rounding the running value to
+  a fixed scale each month measured **~45× faster** (2,992 ms → 66 ms for one
+  edit's worth of work) — but it perturbs every figure below that scale, so it
+  is a deliberate engine-math decision, not a free optimisation. Not taken yet.

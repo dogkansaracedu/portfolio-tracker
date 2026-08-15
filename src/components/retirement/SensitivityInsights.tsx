@@ -1,6 +1,10 @@
+import { useMemo } from "react"
+import type BigNumber from "bignumber.js"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
+  computeSensitivityInsights,
   SENSITIVITY_METRIC,
+  type RetirementScenarioInputs,
   type SensitivityInsight,
 } from "@/lib/retirement"
 import { GLOSSARY_HINTS, NOT_REACHABLE } from "./constants"
@@ -11,6 +15,12 @@ import { Hint } from "./RetirementControls"
  * Sensitivity insights, phrased. The engine hands over structured effects only
  * (changed input, moved output); the sentence — and the "—"/not-reachable
  * convention for a solve with no answer — is written here.
+ *
+ * The solves run in THIS component rather than in `PlanTab`, because they are
+ * the page's heaviest work by a wide margin (each insight is a solver run over
+ * the projection core). Behind their own component boundary React can render
+ * and commit the headline, chart and milestones first, and abandon the insight
+ * pass entirely when the next keystroke arrives mid-flight.
  */
 
 function phrase(insight: SensitivityInsight, display: RetirementDisplay): string {
@@ -55,11 +65,22 @@ function phrase(insight: SensitivityInsight, display: RetirementDisplay): string
 }
 
 interface Props {
-  insights: SensitivityInsight[]
+  /** The planner's deferred draft — same object every other Plan figure runs on. */
+  inputs: RetirementScenarioInputs
+  startingAmountUsd: BigNumber
   display: RetirementDisplay
 }
 
-export function SensitivityInsights({ insights, display }: Props) {
+export function SensitivityInsights({
+  inputs,
+  startingAmountUsd,
+  display,
+}: Props) {
+  const insights = useMemo(
+    () => computeSensitivityInsights(inputs, { startingAmountUsd }),
+    [inputs, startingAmountUsd],
+  )
+
   if (insights.length === 0) return null
 
   return (
