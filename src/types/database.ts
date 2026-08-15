@@ -1,3 +1,5 @@
+import type { RetirementScenarioInputs } from "@/lib/retirement/types";
+
 // ─── Enum Union Types ───────────────────────────────────────────────
 
 export type TransactionType =
@@ -124,6 +126,19 @@ export interface BenchmarkPrice {
   updated_at: string;
 }
 
+/** A named, per-user retirement planning input set (Component 13). The planner
+ *  stores inputs only — every projection is recomputed from them. At most one
+ *  row per user has `is_default` (enforced by a partial unique index). */
+export interface RetirementScenario {
+  id: string;
+  user_id: string;
+  name: string;
+  is_default: boolean;
+  inputs: RetirementScenarioInputs;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─── Snapshot Breakdown Shape ───────────────────────────────────────
 //
 // The snapshot's `breakdown` is the authoritative aggregation of a portfolio's
@@ -190,3 +205,15 @@ export type SnapshotInsert = Omit<Snapshot, "id" | "total_usd" | "total_try" | "
   total_usd: number | string | null;
   total_try: number | string | null;
 };
+
+// is_default is optional on insert: the column defaults to false, and the
+// "exactly one default" invariant is moved by setDefaultRetirementScenario.
+export type RetirementScenarioInsert = Omit<
+  RetirementScenario,
+  "id" | "is_default" | "created_at" | "updated_at"
+> & {
+  is_default?: boolean;
+};
+export type RetirementScenarioUpdate = Partial<
+  Omit<RetirementScenario, "id" | "user_id" | "created_at" | "updated_at">
+>;
