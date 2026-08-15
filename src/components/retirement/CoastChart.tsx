@@ -21,9 +21,14 @@ import type {
   ProjectionBand,
 } from "@/lib/retirement"
 import { ageAt, buildBandPoints } from "./chartSeries"
+import { coastMarkerLines } from "./coastMarkers"
 import {
+  AGE_LABEL,
   BAND_CAPTION,
   COAST_CURVE_COLOR,
+  COAST_CHART_TITLE,
+  COAST_DATE_MARKER_LABEL,
+  COAST_STRIP_LABELS,
   TODAYS_PURCHASING_POWER,
 } from "./constants"
 import type { RetirementDisplay } from "./display"
@@ -33,6 +38,8 @@ interface Props {
   curve: CoastFirePoint[]
   coastDate: CoastDate | null
   currentAge: number
+  /** The contribution end age — the plan's own answer, marked beside the earliest. */
+  plannedCoastAge: number
   startingAmountUsd: BigNumber
   display: RetirementDisplay
 }
@@ -40,13 +47,15 @@ interface Props {
 /**
  * The Coast FIRE number rising toward the retirement target as compounding time
  * runs out, with the projected portfolio band overlaid. Where the projection
- * meets the curve is the coast date.
+ * meets the curve is the coast date — marked as a dot, and as a line beside the
+ * age the plan actually stops contributing at.
  */
-export function CoastFireChart({
+export function CoastChart({
   projections,
   curve,
   coastDate,
   currentAge,
+  plannedCoastAge,
   startingAmountUsd,
   display,
 }: Props) {
@@ -76,7 +85,7 @@ export function CoastFireChart({
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">
-          Coast FIRE number vs. projected portfolio
+          {COAST_CHART_TITLE}
         </CardTitle>
         <p className="text-xs text-muted-foreground">
           {BAND_CAPTION}
@@ -120,7 +129,9 @@ export function CoastFireChart({
                     ]
                   : [display.moneyFromChartValue(Number(value)), String(name)]
               }
-              labelFormatter={(label) => `Age ${Math.round(Number(label))}`}
+              labelFormatter={(label) =>
+                `${AGE_LABEL} ${Math.round(Number(label))}`
+              }
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Area
@@ -143,13 +154,21 @@ export function CoastFireChart({
             <Line
               type="monotone"
               dataKey="coastFireNumber"
-              name="Coast FIRE number"
+              name={COAST_STRIP_LABELS.coastFireNumber}
               stroke={coastColor}
               strokeWidth={2}
               strokeDasharray="5 3"
               dot={false}
               isAnimationActive={false}
             />
+            {coastMarkerLines({
+              plannedCoastAge,
+              earliestCoastAge:
+                coastDate === null
+                  ? null
+                  : ageAt(currentAge, coastDate.monthsFromNow),
+              earliestColor: coastColor,
+            })}
             {coastDate && (
               <ReferenceDot
                 x={ageAt(currentAge, coastDate.monthsFromNow)}
@@ -162,7 +181,7 @@ export function CoastFireChart({
                 stroke="var(--background)"
                 strokeWidth={2}
                 label={{
-                  value: "Coast date",
+                  value: COAST_DATE_MARKER_LABEL,
                   position: "top",
                   fontSize: 11,
                   fill: "var(--muted-foreground)",
@@ -171,7 +190,9 @@ export function CoastFireChart({
             )}
           </ComposedChart>
         </ResponsiveContainer>
-        <p className="mt-1 text-center text-xs text-muted-foreground">Age</p>
+        <p className="mt-1 text-center text-xs text-muted-foreground">
+          {AGE_LABEL}
+        </p>
       </CardContent>
     </Card>
   )

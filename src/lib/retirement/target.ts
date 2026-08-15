@@ -2,10 +2,12 @@ import BigNumber from "bignumber.js"
 import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
 import { MONTHS_PER_YEAR, WITHDRAWAL_STRATEGY } from "@/lib/retirement/constants"
 import {
+  compoundFactor,
   expectedReturnForBand,
   monthlyRateFromAnnualPct,
   monthsInRetirement,
   nominalMonthlySpendingAtRetirement,
+  yearsToRetirement,
 } from "@/lib/retirement/projection"
 import type {
   ProjectionBand,
@@ -65,4 +67,65 @@ export function computeRetirementTarget(
   return firstMonthSpendingUsd
     .times(BN_ONE.minus(ratio.exponentiatedBy(months)))
     .dividedBy(monthlyRate.minus(monthlyInflation))
+}
+
+/**
+ * The inverse of `computeRetirementTarget`: the monthly spending, in TODAY's
+ * USD, that a portfolio of `valueAtRetirementUsd` at retirement age supports
+ * under the scenario's withdrawal strategy. Lives beside the target formulas
+ * rather than in `solvers.ts` because it is that formula read backwards — the
+ * two must never drift, and a round-trip test pins them together.
+ *
+ * Both directions are closed forms of the same expressions:
+ *   preservation: `spending = value × SWR ÷ 12`, de-inflated to today;
+ *   depletion:    the growing annuity solved for its first payment `P`
+ *                 (`P = value × (r_m − g_m) ÷ (1 − q^m)`, `P = value ÷ m` when
+ *                 `r_m = g_m`), then de-inflated to today.
+ *
+ * Degenerate inputs return zero, exactly as `computeRetirementTarget` does for
+ * the same scenario: a non-positive SWR withdraws nothing, a depletion age at
+ * or before retirement funds nothing, and a portfolio at or below zero supports
+ * no spending at all.
+ */
+export function solveSupportedSpending(
+  inputs: RetirementScenarioInputs,
+  valueAtRetirementUsd: BigNumber,
+  options: RetirementTargetOptions = {},
+): BigNumber {
+  if (!valueAtRetirementUsd.isGreaterThan(0)) return BN_ZERO
+
+  const firstMonthSpendingUsd = (() => {
+    if (inputs.withdrawalStrategy === WITHDRAWAL_STRATEGY.preservation) {
+      const swr = bn(inputs.safeWithdrawalRatePct).dividedBy(BN_HUNDRED)
+      if (!swr.isGreaterThan(0)) return BN_ZERO
+      return valueAtRetirementUsd.times(swr).dividedBy(MONTHS_PER_YEAR)
+    }
+
+    const months = monthsInRetirement(inputs)
+    if (months <= 0) return BN_ZERO
+
+    const monthlyRate = monthlyRateFromAnnualPct(
+      expectedReturnForBand(inputs.primaryExpectedReturn, options.band),
+    )
+    const monthlyInflation = monthlyRateFromAnnualPct(inputs.usdInflationPct)
+    if (monthlyRate.isEqualTo(monthlyInflation)) {
+      return valueAtRetirementUsd.dividedBy(months)
+    }
+
+    const ratio = BN_ONE.plus(monthlyInflation).dividedBy(BN_ONE.plus(monthlyRate))
+    const annuityFactor = BN_ONE.minus(ratio.exponentiatedBy(months))
+    if (annuityFactor.isZero()) return BN_ZERO
+    return valueAtRetirementUsd
+      .times(monthlyRate.minus(monthlyInflation))
+      .dividedBy(annuityFactor)
+  })()
+
+  // The spending input is entered in today's USD and inflated to retirement by
+  // `nominalMonthlySpendingAtRetirement`; coming back, deflate by the same factor.
+  const inflationFactor = compoundFactor(
+    inputs.usdInflationPct,
+    yearsToRetirement(inputs),
+  )
+  if (!inflationFactor.isGreaterThan(0)) return BN_ZERO
+  return firstMonthSpendingUsd.dividedBy(inflationFactor)
 }

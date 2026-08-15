@@ -10,11 +10,11 @@ import {
 } from "@/components/ui/table"
 import {
   PROJECTION_BAND,
+  valueAtMonthsFromNow,
   type PlanMilestone,
   type Projection,
   type ProjectionBand,
 } from "@/lib/retirement"
-import { valueAtMonthsFromNow } from "./chartSeries"
 import {
   BAND_LABELS,
   BAND_CAPTION,

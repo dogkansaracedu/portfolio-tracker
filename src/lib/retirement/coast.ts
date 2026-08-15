@@ -1,7 +1,19 @@
 import type BigNumber from "bignumber.js"
 import { MONTHS_PER_YEAR } from "@/lib/retirement/constants"
-import { compoundFactor } from "@/lib/retirement/projection"
-import type { Projection } from "@/lib/retirement/types"
+import {
+  compoundFactor,
+  expectedReturnForBand,
+  monthsToRetirement,
+  projectScenario,
+  resolveStartingAmountUsd,
+  yearsToRetirement,
+  type ScenarioProjectionOptions,
+} from "@/lib/retirement/projection"
+import { computeRetirementTarget } from "@/lib/retirement/target"
+import type {
+  Projection,
+  RetirementScenarioInputs,
+} from "@/lib/retirement/types"
 
 /**
  * Coast FIRE — the portfolio value that lets expected growth alone, with no
@@ -95,4 +107,70 @@ export function findCoastDate(
     }
   }
   return null
+}
+
+/**
+ * Everything the "when can I stop contributing?" question needs, in one pass:
+ * the retirement target, today's Coast FIRE number and gap, the rising curve,
+ * the projection that runs into it, and the coast date it crosses at — as a
+ * month AND as the age the UI puts in front of the user.
+ *
+ * Assembled here rather than in the views so the coast date behind a headline,
+ * a chart marker and a suggested-contribution row is always the same solve.
+ * Accumulation only: the crossing is a pre-retirement event.
+ */
+export interface CoastOutlook {
+  targetUsd: BigNumber
+  coastFireNumberUsd: BigNumber
+  /** Coast FIRE number − starting value. Positive = still short. */
+  coastFireGapUsd: BigNumber
+  /** Gap ≤ 0: growth alone already reaches the target, contributions or not. */
+  coasting: boolean
+  curve: CoastFirePoint[]
+  projection: Projection
+  coastDate: CoastDate | null
+  /** The coast date as an age; null when the plan never crosses the curve. */
+  coastAge: number | null
+}
+
+export function computeCoastOutlook(
+  inputs: RetirementScenarioInputs,
+  options: ScenarioProjectionOptions = {},
+): CoastOutlook {
+  const startingAmountUsd = resolveStartingAmountUsd(
+    inputs,
+    options.startingAmountUsd,
+  )
+  const annualRatePct =
+    options.annualRatePct ??
+    expectedReturnForBand(inputs.primaryExpectedReturn, options.band)
+
+  const targetUsd = computeRetirementTarget(inputs, { band: options.band })
+  const coastFireNumberUsd = computeCoastFireNumber(
+    targetUsd,
+    annualRatePct,
+    yearsToRetirement(inputs),
+  )
+  const coastFireGapUsd = computeCoastFireGap(coastFireNumberUsd, startingAmountUsd)
+  const curve = coastFireCurve(targetUsd, annualRatePct, monthsToRetirement(inputs))
+  const projection = projectScenario(inputs, {
+    ...options,
+    startingAmountUsd,
+    includeRetirementDrawdown: false,
+  })
+  const coastDate = findCoastDate(projection, curve)
+
+  return {
+    targetUsd,
+    coastFireNumberUsd,
+    coastFireGapUsd,
+    coasting: !coastFireGapUsd.isGreaterThan(0),
+    curve,
+    projection,
+    coastDate,
+    coastAge:
+      coastDate === null
+        ? null
+        : inputs.currentAge + coastDate.monthsFromNow / MONTHS_PER_YEAR,
+  }
 }

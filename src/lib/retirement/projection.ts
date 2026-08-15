@@ -241,6 +241,22 @@ export function projectGrowth(params: ProjectionParams): Projection {
   return { months, finalValueUsd: valueUsd, totalContributionsUsd }
 }
 
+/**
+ * A projection month's value is its END-of-month value, so month index `t` is
+ * `t + 1` months from now and `monthsFromNow = 0` is the starting amount
+ * itself. Encoded once, here, so charts, tables and solvers all read a
+ * projection the same way.
+ */
+export function valueAtMonthsFromNow(
+  projection: Projection,
+  monthsFromNow: number,
+  startingAmountUsd: BigNumber,
+): BigNumber {
+  if (monthsFromNow <= 0) return startingAmountUsd
+  const month = projection.months[monthsFromNow - 1]
+  return month ? month.valueUsd : projection.finalValueUsd
+}
+
 // ─── Scenario adapter ───────────────────────────────────────────────
 
 export interface ScenarioProjectionOptions {

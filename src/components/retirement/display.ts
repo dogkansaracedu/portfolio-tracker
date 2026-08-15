@@ -9,7 +9,7 @@ import {
   formatSignedCurrency,
   obfuscate,
 } from "@/lib/prices"
-import { EMPTY_FIGURE, VALUE_VIEW, type ValueView } from "./constants"
+import { AGE_LABEL, EMPTY_FIGURE, VALUE_VIEW, type ValueView } from "./constants"
 
 /**
  * The display edge of the retirement views: BigNumber USD in, formatted string
@@ -49,6 +49,11 @@ export function formatMonthsDuration(months: number): string {
 /** Ages are plain numbers but need not be whole ("62.5" stays "62.5"). */
 export function formatAge(age: number): string {
   return Number.isInteger(age) ? String(age) : String(Number(age.toFixed(1)))
+}
+
+/** "Age 52" — an age read as a label (headline answers, chart markers, tooltips). */
+export function formatAgeLabel(age: number): string {
+  return `${AGE_LABEL} ${formatAge(age)}`
 }
 
 export function formatYearsFromMonths(months: number | null): string {
