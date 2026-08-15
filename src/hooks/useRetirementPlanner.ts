@@ -7,6 +7,7 @@ import { usePrices } from "@/hooks/usePrices"
 import { useRetirementScenarios } from "@/hooks/useRetirementScenarios"
 import {
   DEFAULT_RETIREMENT_SCENARIO_INPUTS,
+  normalizeScenarioInputs,
   type RetirementScenarioInputs,
 } from "@/lib/retirement"
 import { DEFAULT_SCENARIO_NAME } from "@/components/retirement/constants"
@@ -17,6 +18,10 @@ import type { RetirementScenario } from "@/types/database"
  * locally edited draft on top of the active one, and the live portfolio value
  * that seeds a scenario whose starting amount is left on "use live portfolio
  * value". Edits stay local until Save writes them through.
+ *
+ * Every saved row is read through `normalizeScenarioInputs` — scenarios written
+ * before an input existed come back missing it, and nothing downstream (engine
+ * or view) should have to defend against that.
  */
 
 export interface RetirementPlanner {
@@ -78,19 +83,28 @@ export function useRetirementPlanner(): RetirementPlanner {
       pendingSelectionRef.current = null
       if (pending.id === activeId) return
       setActiveId(pending.id)
-      setInputs(pending.inputs)
+      setInputs(normalizeScenarioInputs(pending.inputs))
       return
     }
     const wanted =
       scenarios.find((s) => s.id === activeId) ?? defaultScenario ?? null
     if ((wanted?.id ?? null) === activeId) return
     setActiveId(wanted?.id ?? null)
-    setInputs(wanted?.inputs ?? DEFAULT_RETIREMENT_SCENARIO_INPUTS)
+    setInputs(
+      wanted
+        ? normalizeScenarioInputs(wanted.inputs)
+        : DEFAULT_RETIREMENT_SCENARIO_INPUTS,
+    )
   }, [loading, scenarios, defaultScenario, activeId])
 
+  // Compared normalized on both sides: a scenario saved before an input existed
+  // loads with that input filled in, which is not an edit the user made.
   const dirty = useMemo(() => {
     if (!activeScenario) return true
-    return JSON.stringify(activeScenario.inputs) !== JSON.stringify(inputs)
+    return (
+      JSON.stringify(normalizeScenarioInputs(activeScenario.inputs)) !==
+      JSON.stringify(inputs)
+    )
   }, [activeScenario, inputs])
 
   const startingAmountUsd = useMemo(
@@ -110,7 +124,7 @@ export function useRetirementPlanner(): RetirementPlanner {
       const next = scenarios.find((s) => s.id === id)
       if (!next) return
       setActiveId(next.id)
-      setInputs(next.inputs)
+      setInputs(normalizeScenarioInputs(next.inputs))
       setError(null)
     },
     [scenarios],
@@ -181,7 +195,11 @@ export function useRetirementPlanner(): RetirementPlanner {
   )
 
   const discardEdits = useCallback(() => {
-    setInputs(activeScenario?.inputs ?? DEFAULT_RETIREMENT_SCENARIO_INPUTS)
+    setInputs(
+      activeScenario
+        ? normalizeScenarioInputs(activeScenario.inputs)
+        : DEFAULT_RETIREMENT_SCENARIO_INPUTS,
+    )
   }, [activeScenario])
 
   return {

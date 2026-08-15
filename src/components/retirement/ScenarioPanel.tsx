@@ -30,6 +30,7 @@ import {
 import type { RetirementPlanner } from "@/hooks/useRetirementPlanner"
 import { cn } from "@/lib/utils"
 import {
+  CONTRIBUTION_END_AGE_LABEL,
   DEFAULT_SCENARIO_NAME,
   DEPLETION_AGE_HINTS,
   DEPLETION_AGE_LABELS,
@@ -255,6 +256,14 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
             label="Retirement age"
             value={inputs.retirementAge}
             onChange={(next) => patch({ retirementAge: next })}
+          />
+          <NumberField
+            key={`${fieldKey}-contribution-end-age`}
+            id="contribution-end-age"
+            label={CONTRIBUTION_END_AGE_LABEL}
+            hint={GLOSSARY_HINTS.contributionEndAge}
+            value={inputs.contributionEndAge}
+            onChange={(next) => patch({ contributionEndAge: next })}
           />
           <NumberField
             key={`${fieldKey}-depletion-age`}

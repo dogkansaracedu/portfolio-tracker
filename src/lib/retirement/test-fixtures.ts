@@ -1,15 +1,24 @@
 import { WITHDRAWAL_STRATEGY } from "@/lib/retirement/constants"
+import {
+  normalizeScenarioInputs,
+  type StoredRetirementScenarioInputs,
+} from "@/lib/retirement/scenario"
 import type { RetirementScenarioInputs } from "@/lib/retirement/types"
 
 /**
  * A plain scenario the worked numeric cases build on: 35 → 55 (240 months),
  * $1,000/month flat, 7%/yr base, 2% USD inflation, $3,000/month spending at a
  * 4% SWR. Overrides isolate the one input a case is about.
+ *
+ * Built through `normalizeScenarioInputs`, so an override of `retirementAge`
+ * carries `contributionEndAge` with it unless the case sets one — a case about
+ * the coasting window says so explicitly, every other case contributes to
+ * retirement.
  */
 export function scenario(
-  overrides: Partial<RetirementScenarioInputs> = {},
+  overrides: Partial<StoredRetirementScenarioInputs> = {},
 ): RetirementScenarioInputs {
-  return {
+  return normalizeScenarioInputs({
     startingAmountUsd: 0,
     monthlyContributionUsd: 1000,
     contributionGrowthPct: 0,
@@ -25,5 +34,5 @@ export function scenario(
     tryDepreciationPct: 25,
     options: [],
     ...overrides,
-  }
+  })
 }

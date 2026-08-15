@@ -81,25 +81,27 @@ function impliedMonthlyGrowthFactor(months: ProjectionMonth[]): BigNumber {
 
 /**
  * Decompose a projection into its taxable exit position. The taxable event is
- * the end of accumulation — a drawdown that follows is spending, not a second
- * disposal, so retirement months are ignored here.
+ * the end of accumulation — every pre-retirement month, contributing and
+ * coasting alike, since a coasting month keeps compounding the same position —
+ * and a drawdown that follows is spending, not a second disposal, so retirement
+ * months are ignored here.
  */
 export function buildExitPosition(projection: Projection): ExitPosition {
-  const accumulation = projection.months.filter(
-    (month) => month.phase === PROJECTION_PHASE.accumulation,
+  const preRetirement = projection.months.filter(
+    (month) => month.phase !== PROJECTION_PHASE.retirement,
   )
-  const exitMonths = accumulation.length
-  const growthFactor = impliedMonthlyGrowthFactor(accumulation)
+  const exitMonths = preRetirement.length
+  const growthFactor = impliedMonthlyGrowthFactor(preRetirement)
 
-  const startingAmountUsd = resolveStartingAmount(accumulation, growthFactor)
+  const startingAmountUsd = resolveStartingAmount(preRetirement, growthFactor)
   const exitValueUsd =
-    exitMonths > 0 ? accumulation[exitMonths - 1].valueUsd : startingAmountUsd
+    exitMonths > 0 ? preRetirement[exitMonths - 1].valueUsd : startingAmountUsd
 
   const lots: TaxableLot[] = []
   if (startingAmountUsd.isGreaterThan(0)) {
     lots.push({ monthsFromNow: 0, costUsd: startingAmountUsd, exitValueUsd: BN_ZERO })
   }
-  for (const month of accumulation) {
+  for (const month of preRetirement) {
     if (!month.contributionUsd.isGreaterThan(0)) continue
     lots.push({
       monthsFromNow: month.monthIndex + 1,
@@ -119,12 +121,12 @@ export function buildExitPosition(projection: Projection): ExitPosition {
 
 /** `V_0 = start × g + c_0` inverted; a degenerate growth factor means no seed. */
 function resolveStartingAmount(
-  accumulation: ProjectionMonth[],
+  preRetirement: ProjectionMonth[],
   growthFactor: BigNumber,
 ): BigNumber {
-  if (accumulation.length === 0 || !growthFactor.isGreaterThan(0)) return BN_ZERO
-  const seeded = accumulation[0].valueUsd
-    .minus(accumulation[0].contributionUsd)
+  if (preRetirement.length === 0 || !growthFactor.isGreaterThan(0)) return BN_ZERO
+  const seeded = preRetirement[0].valueUsd
+    .minus(preRetirement[0].contributionUsd)
     .dividedBy(growthFactor)
   return seeded.isGreaterThan(0) ? seeded : BN_ZERO
 }
