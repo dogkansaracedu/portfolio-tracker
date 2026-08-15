@@ -4,6 +4,7 @@ import {
   coastFireCurve,
   computeCoastFireGap,
   computeCoastFireNumber,
+  computeCoastOutlook,
   findCoastDate,
 } from "@/lib/retirement/coast"
 import { projectScenario } from "@/lib/retirement/projection"
@@ -112,5 +113,50 @@ describe("findCoastDate", () => {
       scenario({ monthlyContributionUsd: 0, startingAmountUsd: 0 }),
     )
     expect(findCoastDate(projection, curve)).toBeNull()
+  })
+})
+
+describe("computeCoastOutlook", () => {
+  it("assembles the same figures the parts produce separately", () => {
+    const outlook = computeCoastOutlook(inputs)
+    expect(outlook.targetUsd.toNumber()).toBeCloseTo(target.toNumber(), 6)
+    expect(outlook.coastFireNumberUsd.toNumber()).toBeCloseTo(345597.339872, 2)
+    expect(outlook.curve).toHaveLength(241)
+    expect(outlook.coastFireGapUsd.toNumber()).toBeCloseTo(345597.339872, 2)
+    expect(outlook.coasting).toBe(false)
+  })
+
+  it("reports the coast date as an age, months from now", () => {
+    const outlook = computeCoastOutlook(
+      scenario({ startingAmountUsd: 200000, monthlyContributionUsd: 3000 }),
+    )
+    expect(outlook.coastDate).not.toBeNull()
+    expect(outlook.coastAge).toBeCloseTo(35 + outlook.coastDate!.monthsFromNow / 12, 10)
+    expect(outlook.coastAge!).toBeGreaterThan(35)
+    expect(outlook.coastAge!).toBeLessThan(55)
+  })
+
+  it("is already coasting when the starting value is past the Coast FIRE number", () => {
+    const outlook = computeCoastOutlook(scenario({ startingAmountUsd: 400000 }))
+    expect(outlook.coasting).toBe(true)
+    expect(outlook.coastFireGapUsd.isNegative()).toBe(true)
+  })
+
+  it("has no coast age when the plan never crosses the curve", () => {
+    const outlook = computeCoastOutlook(
+      scenario({ monthlyContributionUsd: 0, startingAmountUsd: 0 }),
+    )
+    expect(outlook.coastDate).toBeNull()
+    expect(outlook.coastAge).toBeNull()
+  })
+
+  it("runs the outlook on an overridden contribution (the suggestion table's use)", () => {
+    const base = computeCoastOutlook(
+      scenario({ startingAmountUsd: 200000, monthlyContributionUsd: 3000 }),
+    )
+    const richer = computeCoastOutlook(scenario({ startingAmountUsd: 200000 }), {
+      monthlyContributionUsd: bn(6000),
+    })
+    expect(richer.coastAge!).toBeLessThan(base.coastAge!)
   })
 })

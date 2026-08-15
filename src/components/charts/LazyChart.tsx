@@ -36,9 +36,9 @@ export const RetirementCompareChart = lazy(() =>
     default: m.CompareChart,
   })),
 )
-export const RetirementCoastFireChart = lazy(() =>
-  import("@/components/retirement/CoastFireChart").then((m) => ({
-    default: m.CoastFireChart,
+export const RetirementCoastChart = lazy(() =>
+  import("@/components/retirement/CoastChart").then((m) => ({
+    default: m.CoastChart,
   })),
 )
 

@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRetirementPlanner } from "@/hooks/useRetirementPlanner"
-import { CoastFireTab } from "@/components/retirement/CoastFireTab"
 import { CompareTab } from "@/components/retirement/CompareTab"
 import { PlanTab } from "@/components/retirement/PlanTab"
 import { RetirementSkeleton } from "@/components/retirement/RetirementSkeleton"
@@ -21,7 +20,7 @@ import { useRetirementDisplay } from "@/components/retirement/display"
 import { Hint } from "@/components/retirement/RetirementControls"
 
 /**
- * Component 13 — Retirement Planning. The scenario panel is shared by all three
+ * Component 13 — Retirement Planning. The scenario panel is shared by both
  * tabs, and so is the nominal/real toggle: it re-derives what is displayed and
  * never touches a stored input.
  *
@@ -52,8 +51,8 @@ export default function RetirementPage() {
         <div>
           <h1 className="text-2xl font-bold">Retirement</h1>
           <p className="text-muted-foreground">
-            Project your contribution plan, compare the options, and find your
-            Coast FIRE number.
+            Ask your plan when you can retire, when you can stop contributing,
+            how much to put in — and compare the options.
           </p>
         </div>
         <div className="flex flex-col items-start gap-1 sm:items-end">
@@ -103,14 +102,6 @@ export default function RetirementPage() {
 
             <TabsContent value={RETIREMENT_TAB.compare}>
               <CompareTab
-                inputs={planner.engineInputs}
-                startingAmountUsd={planner.engineStartingAmountUsd}
-                display={display}
-              />
-            </TabsContent>
-
-            <TabsContent value={RETIREMENT_TAB.coastFire}>
-              <CoastFireTab
                 inputs={planner.engineInputs}
                 startingAmountUsd={planner.engineStartingAmountUsd}
                 display={display}

@@ -2,6 +2,7 @@ import type BigNumber from "bignumber.js"
 import {
   MONTHS_PER_YEAR,
   PROJECTION_BAND,
+  valueAtMonthsFromNow,
   type Projection,
   type ProjectionBand,
 } from "@/lib/retirement"
@@ -27,20 +28,6 @@ export function sampleMonthsFromNow(
   const wanted = new Set<number>([0, totalMonths, ...keep.filter((m) => m >= 0 && m <= totalMonths)])
   for (let m = 0; m <= totalMonths; m += stride) wanted.add(m)
   return [...wanted].sort((a, b) => a - b)
-}
-
-/**
- * A projection month's value is its END-of-month value, so month index `t` is
- * `t + 1` months from now; month 0 from now is the starting amount itself.
- */
-export function valueAtMonthsFromNow(
-  projection: Projection,
-  monthsFromNow: number,
-  startingAmountUsd: BigNumber,
-): BigNumber {
-  if (monthsFromNow <= 0) return startingAmountUsd
-  const month = projection.months[monthsFromNow - 1]
-  return month ? month.valueUsd : projection.finalValueUsd
 }
 
 export function ageAt(currentAge: number, monthsFromNow: number): number {
