@@ -13,6 +13,7 @@ const TransactionsPage = lazy(() => import("@/pages/TransactionsPage"))
 const TransactionsEditPage = lazy(() => import("@/pages/TransactionsEditPage"))
 const PerformancePage = lazy(() => import("@/pages/PerformancePage"))
 const RetirementPage = lazy(() => import("@/pages/RetirementPage"))
+const BudgetPage = lazy(() => import("@/pages/BudgetPage"))
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
 
 function Lazy({ children }: { children: React.ReactNode }) {
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="transactions" element={<Lazy><TransactionsPage /></Lazy>} />
             <Route path="performance" element={<Lazy><PerformancePage /></Lazy>} />
             <Route path="retirement" element={<Lazy><RetirementPage /></Lazy>} />
+            <Route path="budget" element={<Lazy><BudgetPage /></Lazy>} />
             <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />
           </Route>
         </Route>

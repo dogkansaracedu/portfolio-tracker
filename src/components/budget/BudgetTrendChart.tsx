@@ -1,0 +1,95 @@
+import { useMemo } from "react"
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useTheme } from "@/contexts/ThemeContext"
+import { formatCurrency } from "@/lib/prices"
+import type { FiatCurrency } from "@/lib/constants/currencies"
+import type { MonthlyBudgetRow } from "@/lib/budget"
+import {
+  BUDGET_CHART_COLORS,
+  BUDGET_SERIES,
+  BUDGET_SERIES_LABELS,
+  type BudgetSeries,
+} from "@/components/budget/constants"
+import { legFor, monthLabel } from "@/components/budget/display"
+
+interface Props {
+  /** Ascending by month (oldest left). */
+  rows: MonthlyBudgetRow[]
+  currency: FiatCurrency
+}
+
+const SERIES_ORDER: BudgetSeries[] = [
+  BUDGET_SERIES.income,
+  BUDGET_SERIES.invested,
+  BUDGET_SERIES.spent,
+]
+
+/**
+ * Grouped monthly bars for income / invested / spent in the display currency.
+ * Unknown legs (months with no income data) are omitted from the chart rather
+ * than drawn as zero; the savings rate lives in the table — one axis only.
+ */
+export function BudgetTrendChart({ rows, currency }: Props) {
+  const { theme } = useTheme()
+  const colors = BUDGET_CHART_COLORS[theme]
+
+  const data = useMemo(
+    () =>
+      rows.map((row) => ({
+        label: monthLabel(row.month),
+        income: legFor(row, "income", currency)?.toNumber(),
+        invested: legFor(row, "invested", currency)?.toNumber(),
+        spent: legFor(row, "spent", currency)?.toNumber(),
+      })),
+    [rows, currency],
+  )
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">Monthly trend</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={data} barGap={2}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+            <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 11 }} />
+            <YAxis
+              className="text-xs"
+              tick={{ fontSize: 11 }}
+              tickFormatter={(v: number) => formatCurrency(v, currency)}
+              width={90}
+            />
+            <Tooltip
+              formatter={(value, name) => [
+                formatCurrency(Number(value), currency),
+                BUDGET_SERIES_LABELS[name as BudgetSeries],
+              ]}
+            />
+            <Legend
+              formatter={(value) => BUDGET_SERIES_LABELS[value as BudgetSeries]}
+            />
+            {SERIES_ORDER.map((series) => (
+              <Bar
+                key={series}
+                dataKey={series}
+                fill={colors[series]}
+                radius={[2, 2, 0, 0]}
+              />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  )
+}

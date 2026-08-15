@@ -45,21 +45,29 @@ conversion, month bucketing off `date.slice(0, 7)`.
 
 ## Data flow
 
-`BudgetContext` (`src/contexts/BudgetContext.tsx`) is the single fetch point
-for `cashflow_entries` + `income_defaults` (queries in
+`BudgetContext` (`src/contexts/BudgetContext.tsx`, mounted in `main.tsx`) is
+the single fetch point for `cashflow_entries` + `income_defaults` (queries in
 `src/lib/queries/budget.ts`, thin CRUD like `retirementScenarios.ts`) — per the
 app-wide rule: shared server data through context providers, no per-call-site
-fetch-on-mount. Transactions and rates come from the existing
-`TransactionDataContext` / rates queries; the page composes them into
-`computeMonthlyBudget` via a `useBudget` hook.
+fetch-on-mount. `useBudget` (`src/hooks/useBudget.ts`) composes it with
+`TransactionDataContext` (transactions + rates) into `computeMonthlyBudget`
+rows, newest first, windowed from the earliest data month through
+`homeDayIso()`'s month. The page reads the app-wide display currency from
+`DisplayContext` (`useDisplayCurrency`, incl. obfuscation) — no page-local
+toggle.
 
-## Route + navigation
+## Route + UI file map
 
 | File | Role |
 | --- | --- |
 | `src/App.tsx` | `<Route path="budget">` (lazy, inside `AppLayout`). |
-| `src/components/layout/Sidebar.tsx` | `/budget` nav item. |
-| `src/pages/BudgetPage.tsx` | Monthly table + trend chart + salary schedule editor + currency toggle. |
+| `src/components/layout/Sidebar.tsx` | `/budget` nav item (`navItems`, shared with `MobileNav`). |
+| `src/pages/BudgetPage.tsx` | Composition: chart (table's default window, oldest-left) + table + salary card. |
+| `src/components/budget/constants.ts` | Series order/labels, per-theme chart palette (validated light AND dark — dark is its own steps), placeholders, `DEFAULT_VISIBLE_MONTHS`, inline-entry default currency (TRY). |
+| `src/components/budget/display.ts` | `monthLabel("YYYY-MM")`, `legFor(row, field, currency)` — the USD/TRY leg picker. |
+| `src/components/budget/BudgetTrendChart.tsx` | Grouped Recharts bars, theme-aware colors; null legs omitted, not drawn as zero; one axis (no rate line). |
+| `src/components/budget/MonthlyBudgetTable.tsx` | The monthly table + inline income editing (0 entries → create on the 1st; 1 → update amount / clear deletes; >1 → read-only cell). |
+| `src/components/budget/SalaryScheduleCard.tsx` | `income_defaults` list + append/delete. |
 
 ## Reserved, not built
 

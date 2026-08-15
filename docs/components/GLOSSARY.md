@@ -351,6 +351,35 @@ and brackets live in one sourced reference
 ([retirement-tax-rules](../retirement-tax-rules.md)) with legal citations;
 they are data, not code.
 
+### Cash-flow entry
+A budgeting row recording money earned outside the portfolio — today always an
+**income** event (a salary payment, a bonus); an **expense** kind is reserved
+for a future expense ledger. Entirely separate from
+[transactions](#transaction): a cash-flow entry never touches holdings,
+balances, or P&L.
+
+### Invested (monthly)
+A calendar month's **net new external money into tracked platforms** — the
+month's change in [net invested capital](#net-invested-capital). Internal
+shuffles (a buy and its cash leg, platform-to-platform transfers) cancel; cash
+deposited but not yet deployed still counts (saved, not spent). Negative on a
+net-withdrawal month.
+
+### Spent (residual)
+`income − invested (monthly)` — spending is **derived, never recorded**. The
+residual absorbs every data gap: money kept outside tracked platforms reads as
+spent. Unknown when the month's income is unknown (shown as "—", never zero).
+
+### Savings rate
+`invested (monthly) ÷ income`, per month. Undefined when income is unknown or
+not positive; negative on a net-withdrawal month.
+
+### Salary schedule
+The list of default monthly incomes with **effective-from months**: a month
+with no explicit [cash-flow entry](#cash-flow-entry) falls back to the row
+with the latest effective-from at or before it. Raises are appended, never
+edited into history.
+
 ## Canonical formulas
 
 State-only here; the rationale lives in [P&L Methodology](../pnl-methodology.md).

@@ -141,6 +141,50 @@ export interface RetirementScenario {
   updated_at: string;
 }
 
+// ─── Budgeting (Component 14) ───────────────────────────────────────
+//
+// Budgeting rows never touch holdings, balances, or P&L — the page derives
+// "invested" from portfolio transactions and stores only income-side facts.
+
+/** `expense` is reserved for the future expense ledger; the DB CHECK only
+ *  accepts `income` today — widen both together. */
+export type CashflowEntryType = "income";
+
+/** One income event (a salary payment, a bonus). */
+export interface CashflowEntry {
+  id: string;
+  user_id: string;
+  date: string;
+  type: CashflowEntryType;
+  amount: number;
+  currency: string;
+  note: string | null;
+  created_at: string;
+}
+
+/** Salary schedule row: the latest `effective_from` ≤ a month supplies that
+ *  month's default income when it has no explicit entry. `effective_from` is
+ *  always the first of a month (DB CHECK). */
+export interface IncomeDefault {
+  id: string;
+  user_id: string;
+  amount: number;
+  currency: string;
+  effective_from: string;
+  created_at: string;
+}
+
+/** Plan-vs-actual target (storage shipped ahead of the feature; unread today). */
+export interface BudgetTarget {
+  id: string;
+  user_id: string;
+  monthly_invest_target: number;
+  spend_ceiling: number | null;
+  currency: string;
+  effective_from: string;
+  created_at: string;
+}
+
 // ─── Snapshot Breakdown Shape ───────────────────────────────────────
 //
 // The snapshot's `breakdown` is the authoritative aggregation of a portfolio's
@@ -218,4 +262,18 @@ export type RetirementScenarioInsert = Omit<
 };
 export type RetirementScenarioUpdate = Partial<
   Omit<RetirementScenario, "id" | "user_id" | "created_at" | "updated_at">
+>;
+
+export type CashflowEntryInsert = Omit<CashflowEntry, "id" | "created_at"> & {
+  amount: number | string;
+};
+export type CashflowEntryUpdate = Partial<
+  Omit<CashflowEntry, "id" | "user_id" | "created_at"> & { amount: number | string }
+>;
+
+export type IncomeDefaultInsert = Omit<IncomeDefault, "id" | "created_at"> & {
+  amount: number | string;
+};
+export type IncomeDefaultUpdate = Partial<
+  Omit<IncomeDefault, "id" | "user_id" | "created_at"> & { amount: number | string }
 >;
