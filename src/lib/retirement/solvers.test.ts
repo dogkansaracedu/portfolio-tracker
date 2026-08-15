@@ -54,6 +54,45 @@ describe("solveRequiredContribution", () => {
     const target = computeRetirementTarget(inputs)
     expect(solveRequiredContribution(target, inputs)).toBeNull()
   })
+
+  it("solves through a coasting window: retire at 50, stop contributing at 40", () => {
+    // 5 contributing years, then 10 coasting ones to retirement — the solved
+    // contribution has to fund the target through the coast, so it is larger
+    // than the same plan contributing all the way.
+    const inputs = scenario({
+      currentAge: 35,
+      retirementAge: 50,
+      contributionEndAge: 40,
+      depletionAge: 85,
+    })
+    const target = computeRetirementTarget(inputs)
+    const contributionUsd = solveRequiredContribution(target, inputs)!
+    const projection = projectScenario(inputs, {
+      monthlyContributionUsd: contributionUsd,
+    })
+    expect(projection.finalValueUsd.isGreaterThanOrEqualTo(target)).toBe(true)
+    expect(projection.finalValueUsd.toNumber()).toBeCloseTo(target.toNumber(), 2)
+    expect(projection.totalContributionsUsd.toNumber()).toBeCloseTo(
+      contributionUsd.times(60).toNumber(),
+      6,
+    )
+
+    const contributingToRetirement = solveRequiredContribution(
+      target,
+      scenario({ currentAge: 35, retirementAge: 50, depletionAge: 85 }),
+    )!
+    expect(
+      contributionUsd.isGreaterThan(contributingToRetirement),
+    ).toBe(true)
+  })
+
+  it("is null when the plan coasts from today — no contribution can move it", () => {
+    // Contributions stop at the current age: the projection is a lump sum
+    // compounding, so the target is not reachable at any contribution.
+    const inputs = scenario({ contributionEndAge: 35, startingAmountUsd: 1000 })
+    const target = computeRetirementTarget(inputs)
+    expect(solveRequiredContribution(target, inputs)).toBeNull()
+  })
 })
 
 describe("solveMonthsToTarget", () => {
@@ -77,6 +116,18 @@ describe("solveMonthsToTarget", () => {
   it("is null when nothing ever grows toward the target", () => {
     const inputs = scenario({ monthlyContributionUsd: 0 })
     expect(solveMonthsToTarget(bn(0), bn(100000), inputs)).toBeNull()
+  })
+
+  it("stops contributing at the contribution end age even past retirement", () => {
+    // The scan runs a century out, but the plan's contributions end at 45:
+    // beyond that only growth carries it, so the crossing lands later than the
+    // same plan contributing throughout.
+    const coasting = scenario({ contributionEndAge: 45 })
+    const contributing = scenario()
+    const target = bn(1000000)
+    const coastingMonths = solveMonthsToTarget(bn(1000), target, coasting)!
+    const contributingMonths = solveMonthsToTarget(bn(1000), target, contributing)!
+    expect(coastingMonths).toBeGreaterThan(contributingMonths)
   })
 
   it("looks past retirement age — time to target is not capped by the plan", () => {

@@ -227,8 +227,21 @@ knows when a value is not fresh.
 
 ### Contribution plan
 The saved intent to invest: a starting amount, a monthly contribution, an annual
-contribution growth %, and the ages that frame it (current age → retirement age).
-The shared input of every retirement calculation.
+contribution growth %, and the ages that frame it (current age →
+[contribution end age](#contribution-end-age) → retirement age). The shared
+input of every retirement calculation.
+
+### Contribution end age
+The age monthly contributions **stop**. Between it and the retirement age the
+plan **coasts**: growth alone, no contributions and no withdrawals. Defaults to
+the retirement age (contribute right up to retirement) and is always between the
+current age and the retirement age.
+
+Distinct from the **coast date** of the [Coast FIRE gap](#coast-fire-gap): the
+coast date is *derived* — the first month the portfolio is big enough that
+growth alone would reach the target — while the contribution end age is an
+*input*, the month the user decides to stop paying in whether or not the plan is
+there yet.
 
 ### Projection
 A deterministic month-by-month compound-growth forecast of a
@@ -242,7 +255,8 @@ no two numbers on a retirement view can disagree. See the
 
 ### Retirement scenario
 A named, saved set of retirement inputs: the [contribution
-plan](#contribution-plan), retirement spending (today's USD per month),
+plan](#contribution-plan) (including its [contribution end
+age](#contribution-end-age)), retirement spending (today's USD per month),
 [SWR](#safe-withdrawal-rate-swr), [withdrawal strategy](#withdrawal-strategy),
 depletion age (the age the portfolio is spent to zero by when depleting; the
 after-retirement chart horizon when preserving), and the **assumption set** — the **primary
@@ -251,7 +265,9 @@ Coast FIRE views), per-option [expected returns](#expected-return) (driving
 Compare), USD inflation, TRY inflation, and TRY depreciation. Each expected
 return is a triple (**pessimistic / base / optimistic**), so every projection
 renders as a band, not a single line.
-Scenarios persist per user; one is the default.
+Scenarios persist per user; one is the default. Inputs added after a scenario was
+saved are filled in on read with the behaviour that scenario was saved under (a
+missing contribution end age becomes the retirement age).
 
 ### Expected return
 An assumed annual compound growth rate, always quoted **per year**; monthly
@@ -413,17 +429,26 @@ alike — a −10% day annualizes to roughly −100%/yr and would fall outside a
 fixed annual-rate bracket. See [MWR / XIRR](#money-weighted-return-mwr--xirr).
 
 ### Projection formula
-Monthly recurrence at annual [expected return](#expected-return) `r`:
+Monthly recurrence at annual [expected return](#expected-return) `r`, over three
+phases in order — **contributing**, **coasting**, **retirement**:
 ```
 r_m       = (1 + r)^(1/12) − 1
-V_(t+1)   = V_t × (1 + r_m) + c_t        (accumulation months)
-V_(t+1)   = V_t × (1 + r_m) − w_t        (retirement months)
+V_(t+1)   = V_t × (1 + r_m) + c_t        (contributing months:
+                                          now → contribution end age)
+V_(t+1)   = V_t × (1 + r_m)              (coasting months:
+                                          contribution end age → retirement age)
+V_(t+1)   = V_t × (1 + r_m) − w_t        (retirement months:
+                                          retirement age → depletion age)
 ```
 `c_t` = monthly contribution, stepped up once a year by the contribution
-growth %. `w_t` = monthly spending, stepped up once a year by the inflation
-assumption. Inverse problems (required contribution for a target; months to
-reach a target) are solved numerically against this same recurrence — there is
-no separate closed-form path that could drift from it.
+growth %, and zero from the [contribution end age](#contribution-end-age) on —
+the coasting phase is the same recurrence with `c_t = 0`, not a second formula.
+`w_t` = monthly spending, stepped up once a year by the inflation assumption.
+With the contribution end age at its default (the retirement age) the coasting
+phase is empty and the plan contributes right up to retirement. Inverse problems
+(required contribution for a target; months to reach a target) are solved
+numerically against this same recurrence — there is no separate closed-form path
+that could drift from it.
 
 ### Retirement target formula
 With `n` = years to retirement, `i` = USD inflation, monthly rates

@@ -71,7 +71,7 @@ describe("projectGrowth", () => {
     expect(projection.finalValueUsd.toNumber()).toBe(1000)
     expect(projection.months[0]).toMatchObject({
       monthIndex: 0,
-      phase: PROJECTION_PHASE.accumulation,
+      phase: PROJECTION_PHASE.contributing,
     })
   })
 
@@ -119,6 +119,52 @@ describe("projectGrowth", () => {
     expect(first.withdrawalUsd.toNumber()).toBe(2000)
     expect(projection.months[24].withdrawalUsd.toNumber()).toBeCloseTo(2040, 10)
     // Contributions stop at retirement.
+    expect(projection.totalContributionsUsd.toNumber()).toBe(12000)
+  })
+
+  it("coasts after the contributing months: growth only, no flows", () => {
+    const projection = projectGrowth({
+      ...plainPlan,
+      accumulationMonths: 24,
+      contributingMonths: 12,
+    })
+    const coasting = projection.months.slice(12)
+    expect(projection.months[11].phase).toBe(PROJECTION_PHASE.contributing)
+    expect(coasting.every((m) => m.phase === PROJECTION_PHASE.coasting)).toBe(true)
+    expect(coasting.every((m) => m.contributionUsd.isZero())).toBe(true)
+    expect(coasting.every((m) => m.withdrawalUsd.isZero())).toBe(true)
+    expect(projection.totalContributionsUsd.toNumber()).toBe(12000)
+    // The year of contributions then compounds alone for a second year.
+    const contributingOnly = projectGrowth({
+      ...plainPlan,
+      accumulationMonths: 12,
+    })
+    expect(projection.finalValueUsd.toNumber()).toBeCloseTo(
+      contributingOnly.finalValueUsd.times(1.07).toNumber(),
+      6,
+    )
+  })
+
+  it("keeps stepping the contribution up over the contributing months only", () => {
+    const projection = projectGrowth({
+      ...plainPlan,
+      contributionGrowthPct: 10,
+      accumulationMonths: 36,
+      contributingMonths: 13,
+    })
+    expect(projection.months[12].contributionUsd.toNumber()).toBeCloseTo(1100, 10)
+    expect(projection.months[13].contributionUsd.toNumber()).toBe(0)
+  })
+
+  it("caps the contributing months at the horizon", () => {
+    const projection = projectGrowth({
+      ...plainPlan,
+      accumulationMonths: 12,
+      contributingMonths: 999,
+    })
+    expect(
+      projection.months.every((m) => m.phase === PROJECTION_PHASE.contributing),
+    ).toBe(true)
     expect(projection.totalContributionsUsd.toNumber()).toBe(12000)
   })
 
@@ -197,6 +243,40 @@ describe("projectScenario", () => {
     expect(
       projection.finalValueUsd.isGreaterThan(computeRetirementTarget(inputs)),
     ).toBe(true)
+  })
+
+  it("stops contributing at the contribution end age and coasts to retirement", () => {
+    // Retire at 55, stop contributing at 45: 120 contributing months, then 120
+    // coasting ones, then the drawdown.
+    const inputs = scenario({ contributionEndAge: 45 })
+    const projection = projectScenario(inputs, {
+      includeRetirementDrawdown: true,
+    })
+    const phases = projection.months.map((m) => m.phase)
+    expect(phases[119]).toBe(PROJECTION_PHASE.contributing)
+    expect(phases[120]).toBe(PROJECTION_PHASE.coasting)
+    expect(phases[239]).toBe(PROJECTION_PHASE.coasting)
+    expect(phases[240]).toBe(PROJECTION_PHASE.retirement)
+    expect(projection.totalContributionsUsd.toNumber()).toBe(120000)
+    expect(
+      projection.months
+        .slice(120, 240)
+        .every((m) => m.contributionUsd.isZero() && m.withdrawalUsd.isZero()),
+    ).toBe(true)
+    // Ten contributing years compounding alone for another ten.
+    const contributingOnly = projectScenario(scenario({ retirementAge: 45 }))
+    expect(projection.months[239].valueUsd.toNumber()).toBeCloseTo(
+      contributingOnly.finalValueUsd.times(Math.pow(1.07, 10)).toNumber(),
+      4,
+    )
+  })
+
+  it("contributes to retirement when the contribution end age is not brought forward", () => {
+    const projection = projectScenario(scenario())
+    expect(
+      projection.months.every((m) => m.phase === PROJECTION_PHASE.contributing),
+    ).toBe(true)
+    expect(projection.totalContributionsUsd.toNumber()).toBe(240000)
   })
 
   it("appends the depletion drawdown when asked, opening at inflated spending", () => {

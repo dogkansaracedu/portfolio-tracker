@@ -9,7 +9,9 @@
 
 export * from "@/lib/retirement/types"
 export * from "@/lib/retirement/constants"
+export * from "@/lib/retirement/scenario"
 export * from "@/lib/retirement/projection"
+export * from "@/lib/retirement/milestones"
 export * from "@/lib/retirement/target"
 export * from "@/lib/retirement/coast"
 export * from "@/lib/retirement/solvers"

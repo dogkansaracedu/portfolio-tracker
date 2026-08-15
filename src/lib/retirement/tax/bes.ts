@@ -1,7 +1,11 @@
 import BigNumber from "bignumber.js"
 import { bn, BN_ZERO, BN_HUNDRED } from "@/lib/config"
 import { MONTHS_PER_YEAR } from "@/lib/retirement/constants"
-import { compoundFactor, contributionForMonth } from "@/lib/retirement/projection"
+import {
+  compoundFactor,
+  contributionForMonth,
+  monthsToContributionEnd,
+} from "@/lib/retirement/projection"
 import type {
   ContributionEnhancer,
   RetirementScenarioInputs,
@@ -97,7 +101,8 @@ export interface BesPrincipalSplit {
 /**
  * The principal paid in over `accumulationMonths`, split by who paid it —
  * replaying the same contribution schedule and the same enhancer the projection
- * ran, so the split can never drift from the projected balance.
+ * ran, coasting window included (`contributionForMonth` returns zero there), so
+ * the split can never drift from the projected balance.
  *
  * SIMPLIFICATION: it replays the scenario's own monthly contribution. A
  * projection run with an overridden contribution (a solver, an insight) would
@@ -108,6 +113,10 @@ export function besPrincipalSplitUsd(
   accumulationMonths: number,
 ): BesPrincipalSplit {
   const meter = besContributionEnhancer(inputs)
+  const contributingMonths = Math.min(
+    monthsToContributionEnd(inputs),
+    accumulationMonths,
+  )
   let participantUsd = BN_ZERO
   let stateUsd = BN_ZERO
 
@@ -116,6 +125,7 @@ export function besPrincipalSplitUsd(
       bn(inputs.monthlyContributionUsd),
       inputs.contributionGrowthPct,
       monthIndex,
+      contributingMonths,
     )
     participantUsd = participantUsd.plus(baseUsd)
     stateUsd = stateUsd.plus(meter(monthIndex, baseUsd))

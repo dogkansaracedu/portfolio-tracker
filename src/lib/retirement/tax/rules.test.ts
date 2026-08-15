@@ -46,6 +46,17 @@ describe("buildExitPosition", () => {
     expect(position.costUsd.toNumber()).toBeCloseTo(62000, 6)
   })
 
+  it("exits at retirement through a coasting window, with no lot for a coasting month", () => {
+    // Retire at 37 (24 pre-retirement months), stop contributing at 36: the
+    // taxable exit is still the end of accumulation, 12 lots + the seed.
+    const inputs = scenario({ retirementAge: 37, contributionEndAge: 36 })
+    const position = buildExitPosition(project(inputs, bn(50000)))
+    expect(position.exitMonths).toBe(24)
+    expect(position.lots).toHaveLength(13)
+    expect(position.costUsd.toNumber()).toBeCloseTo(62000, 6)
+    expect(position.lots.every((lot) => lot.monthsFromNow <= 12)).toBe(true)
+  })
+
   it("splits the exit value across the lots without losing a cent", () => {
     const inputs = scenario({ retirementAge: 40 })
     const projection = project(inputs, bn(10000))
