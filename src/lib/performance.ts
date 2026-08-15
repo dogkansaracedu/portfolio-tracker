@@ -689,7 +689,7 @@ interface InvestedOptions {
   treatIncomeAsCapital?: boolean
 }
 
-function applyTxToInvested(
+export function applyTxToInvested(
   tx: Transaction,
   rates: ExchangeRate[],
   cum: ReturnType<typeof bn>,
