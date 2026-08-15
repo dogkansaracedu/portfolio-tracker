@@ -51,7 +51,7 @@ Pure modules; `index.ts` re-exports them all. Beyond the long-standing
 | --- | --- |
 | `scenario.ts` | `StoredRetirementScenarioInputs` (the shape a persisted row can actually have) + `normalizeScenarioInputs` — the one read edge for saved scenarios: fills `contributionEndAge` with `retirementAge` when the row predates the field, and clamps it between `currentAge` and `retirementAge`. Add a field to `RetirementScenarioInputs` ⇒ give it a default here in the same change. |
 | `milestones.ts` | `planMilestones(inputs)` → the Plan table's `{ age, monthsFromNow, phase }` rows (contribution end age when short of retirement, retirement age, `MILESTONE_STEP_YEARS` steps, the horizon age; deduped, ascending) and `phaseAtMonthIndex`, which reproduces the core's own phase boundaries. Pure age arithmetic — no projection runs here. |
-| `projection.ts` | Also carries `monthsToContributionEnd(inputs)` (capped at `monthsToRetirement`) and the `contributingMonths` parameter of `projectGrowth`/`contributionForMonth` that the coasting phase rides on. |
+| `projection.ts` | Also carries `monthsToContributionEnd(inputs)` (capped at `monthsToRetirement`) and the `contributingMonths` parameter of `projectGrowth`/`contributionForMonth` that the coasting phase rides on. The recurrence rounds its running value to `DECIMALS.projection` each month (see the recompute path below) — the app's only mid-calculation rounding, and it belongs to `projectGrowth`, not to callers. |
 
 ### Route + navigation
 
@@ -91,13 +91,27 @@ Pure modules; `index.ts` re-exports them all. Beyond the long-standing
 ## Recompute path (why typing stays responsive)
 
 Nothing here is cached or persisted: every figure is re-derived from the inputs,
-and a single keystroke in the scenario panel invalidates all of it. That is
-expensive — on the default scenario one edit is ~180 month-by-month projection
-runs (~3 s measured in Node), because the solvers are numeric: a required
-contribution is a bisection of ~45 projections and each sensitivity insight is
-another solve (~133 projections, the largest single cost by far).
+and a single keystroke in the scenario panel invalidates all of it. On the
+default scenario one edit is ~137 month-by-month projection runs, because the
+solvers are numeric: a required contribution is a bisection of ~45 projections
+and each sensitivity insight is another solve (~133 projections, still the
+largest single cost). Measured in Node that is ~50 ms of work per settled edit
+(~7 ms Plan tab + ~43 ms insights).
 
-Three things keep that off the keystroke:
+**The projection recurrence is rounded to `DECIMALS.projection` (10 dp) every
+month** — `projectGrowth` in `projection.ts`, both the accumulation and the
+drawdown step. BigNumber's `times` is exact, so an unrounded running value gains
+the growth factor's whole decimal expansion every month (4,797 decimal places by
+month 300, 19,197 by the 1,200-month horizon `solveMonthsToTarget` scans) and a
+projection's cost turns quadratic in its horizon. The cap makes one settled edit
+**~43x cheaper** (2,142 ms → 50 ms; the 1,200-month scan alone went 185 ms →
+0.9 ms). It is a real change to the numbers and deliberately bounded: measured
+against the unrounded recurrence across targets, band projections, solver
+outputs, insights and every comparison row, the largest drift was **6e-8 USD**
+on a $52M 60-year figure — ~1e-15 relative, below double precision and far below
+the cent everything here displays and compares at. No test expectation moved.
+
+Three things then keep that work off the keystroke:
 
 1. **Deferred engine inputs** — `useRetirementPlanner` exposes the draft twice.
    `ScenarioPanel`'s fields render from `inputs` (urgent), everything that runs
@@ -111,10 +125,11 @@ Three things keep that off the keystroke:
    switch (`SolvedMode`).
 3. **Chunked so React can interrupt** — React only yields between components, so
    a memo is all-or-nothing once entered. The insight solves therefore live in
-   `SensitivityInsights` rather than in `PlanTab`: the Plan tab's own render is
-   ~170 ms (three band projections + the final-value headline + milestones) and
-   the ~2 s insight pass is a separate unit of work React can drop when another
-   keystroke arrives.
+   `SensitivityInsights` rather than in `PlanTab`: the Plan tab's own render
+   (three band projections + the final-value headline + milestones) is the
+   cheaper half, and the insight pass — still ~6x the rest of the tab — is a
+   separate unit of work React can drop when another keystroke arrives. Keep it
+   that way if the insight set grows.
 
 ## Tax layer (`src/lib/retirement/tax/`)
 
@@ -172,13 +187,7 @@ less tax" intuition.
   touched.
 - Custom comparison options (user-defined name + return triple + flat rate) are
   editable when present in a scenario but cannot yet be added from the UI.
-- **The projection recurrence carries unbounded precision.** `valueUsd` is
-  multiplied by a growth factor whose exact decimal expansion is dozens of
-  digits, and BigNumber's `times` is exact, so the running value gains digits
-  every month: 4,797 decimal places after 300 months, 19,197 after the 1,200
-  months `solveMonthsToTarget` scans. Cost is quadratic in the horizon (measured
-  1.8 / 11.6 / 44.4 / 175.2 ms for 100 / 300 / 600 / 1200 months) and it is what
-  makes the recompute path above expensive at all. Rounding the running value to
-  a fixed scale each month measured **~45× faster** (2,992 ms → 66 ms for one
-  edit's worth of work) — but it perturbs every figure below that scale, so it
-  is a deliberate engine-math decision, not a free optimisation. Not taken yet.
+- The projection recurrence is the one place in the app that rounds mid-
+  calculation (`DECIMALS.projection`, see the recompute path above). It is a
+  horizon-cost decision, not a display one: raise the scale and the quadratic
+  precision growth comes back, lower it and the drift stops being invisible.

@@ -29,6 +29,12 @@ export const DECIMALS = {
   exchangeRate: 4,
   /** P&L display: +$1,234.56 */
   pnl: 2,
+  /**
+   * Scale the retirement projection carries its running value at — not a
+   * display figure: it bounds the recurrence's internal precision (see
+   * `projectGrowth` in `src/lib/retirement/projection.ts`).
+   */
+  projection: 10,
 } as const
 
 // ─── Asset Category → Amount Decimals ───────────────────────────────
