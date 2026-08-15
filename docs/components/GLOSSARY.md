@@ -244,7 +244,8 @@ no two numbers on a retirement view can disagree. See the
 A named, saved set of retirement inputs: the [contribution
 plan](#contribution-plan), retirement spending (today's USD per month),
 [SWR](#safe-withdrawal-rate-swr), [withdrawal strategy](#withdrawal-strategy),
-depletion age (when depleting), and the **assumption set** — the **primary
+depletion age (the age the portfolio is spent to zero by when depleting; the
+after-retirement chart horizon when preserving), and the **assumption set** — the **primary
 expected return** (the user's own growth assumption, driving the Plan and
 Coast FIRE views), per-option [expected returns](#expected-return) (driving
 Compare), USD inflation, TRY inflation, and TRY depreciation. Each expected

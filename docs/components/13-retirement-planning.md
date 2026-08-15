@@ -85,8 +85,13 @@ re-derives displayed values only — stored inputs are unchanged.
   final value (given contribution + horizon), required monthly contribution
   (given target + horizon), time to target (given contribution + target).
 - Chart: projected portfolio value over time (band), with the retirement age
-  and target marked. A depletion-strategy plan continues past retirement,
-  showing the drawdown to zero at the depletion age.
+  and target marked. Both withdrawal strategies continue past retirement,
+  showing the same drawdown — retirement spending, stepped up annually with
+  inflation — up to the age entered alongside the retirement age. That age
+  reads two ways: under capital depletion it is the depletion age the portfolio
+  is spent to zero by; under capital preservation it only says how far past
+  retirement to draw the chart, and the line typically keeps rising there
+  because the withdrawal stays inside the safe withdrawal rate.
 - Shows [sensitivity insights](GLOSSARY.md#sensitivity-insight): at least
   contribution steps (+25% / +50% → time saved) and retirement-age shifts
   (±5 years → required contribution). Insights are solver outputs, phrased in
