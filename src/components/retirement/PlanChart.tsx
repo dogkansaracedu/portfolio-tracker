@@ -29,8 +29,10 @@ interface Props {
 
 /**
  * The plan projection: base line inside the pessimistic–optimistic band, with
- * the retirement age and the retirement target marked. A capital-depletion plan
- * runs past retirement, so the line carries on down to zero at the depletion age.
+ * the retirement age and the retirement target marked. Both withdrawal
+ * strategies run past retirement — the line carries on through the drawdown,
+ * down to zero at the depletion age when depleting, typically still rising
+ * when the SWR sustains it under preservation.
  */
 export function PlanChart({
   projections,

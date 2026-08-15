@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { bn, BN_ZERO } from "@/lib/config"
 import { PROJECTION_PHASE, WITHDRAWAL_STRATEGY } from "@/lib/retirement/constants"
+import { computeRetirementTarget } from "@/lib/retirement/target"
 import {
   monthlyRateFromAnnualPct,
   nominalMonthlySpendingAtRetirement,
@@ -150,12 +151,52 @@ describe("projectScenario", () => {
     ).toBeCloseTo(50000 * Math.pow(1.07, 20), 2)
   })
 
-  it("never draws down under capital preservation", () => {
-    const projection = projectScenario(scenario(), {
-      includeRetirementDrawdown: true,
-    })
+  it("stops at retirement when the drawdown is not asked for", () => {
+    const projection = projectScenario(scenario())
     expect(projection.months).toHaveLength(240)
     expect(projection.months.every((m) => m.withdrawalUsd.isZero())).toBe(true)
+  })
+
+  it("draws the same withdrawal stream under capital preservation", () => {
+    const preserving = projectScenario(scenario(), {
+      includeRetirementDrawdown: true,
+    })
+    const depleting = projectScenario(
+      scenario({ withdrawalStrategy: WITHDRAWAL_STRATEGY.depletion }),
+      { includeRetirementDrawdown: true },
+    )
+    // Strategy changes the retirement target, never the projected drawdown.
+    expect(preserving.months).toHaveLength(240 + 300)
+    expect(
+      preserving.months.map((m) => m.withdrawalUsd.toNumber()),
+    ).toEqual(depleting.months.map((m) => m.withdrawalUsd.toNumber()))
+  })
+
+  it("keeps growing under preservation when the return outruns the withdrawals", () => {
+    // $3,000/month for 20 years reaches ~$1.56M by 55, so the $4,458/month
+    // opening withdrawal is ~3.4%/yr — well inside the 7% base return.
+    const projection = projectScenario(scenario({ monthlyContributionUsd: 3000 }), {
+      includeRetirementDrawdown: true,
+    })
+    const atRetirement = projection.months[239].valueUsd
+    expect(projection.finalValueUsd.isGreaterThan(atRetirement)).toBe(true)
+    expect(
+      projection.months.every((m) => m.valueUsd.isGreaterThan(0)),
+    ).toBe(true)
+  })
+
+  it("does not collapse to zero over an SWR-consistent preservation horizon", () => {
+    // Funded exactly at the preservation target (annual spending ÷ SWR), the
+    // 4% withdrawal against a 7% return leaves the principal intact.
+    const inputs = scenario({ currentAge: 55, monthlyContributionUsd: 0 })
+    const projection = projectScenario(inputs, {
+      startingAmountUsd: computeRetirementTarget(inputs),
+      includeRetirementDrawdown: true,
+    })
+    expect(projection.months).toHaveLength(300)
+    expect(
+      projection.finalValueUsd.isGreaterThan(computeRetirementTarget(inputs)),
+    ).toBe(true)
   })
 
   it("appends the depletion drawdown when asked, opening at inflated spending", () => {

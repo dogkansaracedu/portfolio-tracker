@@ -4,7 +4,6 @@ import {
   DEFAULT_PROJECTION_BAND,
   MONTHS_PER_YEAR,
   PROJECTION_PHASE,
-  WITHDRAWAL_STRATEGY,
 } from "@/lib/retirement/constants"
 import type {
   ContributionEnhancer,
@@ -76,7 +75,7 @@ export function monthsToRetirement(inputs: RetirementScenarioInputs): number {
   return wholeMonths(inputs.retirementAge - inputs.currentAge)
 }
 
-/** Whole months the depletion drawdown spans (retirement age → depletion age). */
+/** Whole months the drawdown spans (retirement age → depletion age). */
 export function monthsInRetirement(inputs: RetirementScenarioInputs): number {
   return wholeMonths(inputs.depletionAge - inputs.retirementAge)
 }
@@ -203,24 +202,25 @@ export interface ScenarioProjectionOptions {
   accumulationMonths?: number
   /** Overrides the primary expected return (Compare options bring their own). */
   annualRatePct?: number
-  /** Continue past retirement with the drawdown — capital depletion only. */
+  /** Continue past retirement with the drawdown, under either strategy. */
   includeRetirementDrawdown?: boolean
   contributionEnhancer?: ContributionEnhancer
 }
 
 /**
  * `projectGrowth` fed from a saved scenario: horizon from the ages, rate from
- * the primary expected return's chosen band, and — for a capital-depletion plan
- * that asks for it — the post-retirement drawdown to the depletion age.
- * Capital preservation never draws down (the principal is meant to survive).
+ * the primary expected return's chosen band, and — when asked for — the
+ * post-retirement drawdown, running to the depletion age.
+ *
+ * The drawdown is the same withdrawal stream under both withdrawal strategies;
+ * only the retirement target differs between them. Under capital preservation
+ * the depletion age is a horizon to draw to, not a prediction of running out.
  */
 export function projectScenario(
   inputs: RetirementScenarioInputs,
   options: ScenarioProjectionOptions = {},
 ): Projection {
-  const drawdown =
-    options.includeRetirementDrawdown === true &&
-    inputs.withdrawalStrategy === WITHDRAWAL_STRATEGY.depletion
+  const drawdown = options.includeRetirementDrawdown === true
 
   return projectGrowth({
     startingAmountUsd: resolveStartingAmountUsd(inputs, options.startingAmountUsd),
