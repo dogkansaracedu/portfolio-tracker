@@ -24,6 +24,12 @@ import { Hint } from "@/components/retirement/RetirementControls"
  * Component 13 — Retirement Planning. The scenario panel is shared by all three
  * tabs, and so is the nominal/real toggle: it re-derives what is displayed and
  * never touches a stored input.
+ *
+ * The panel renders from the planner's live `inputs`; everything that runs the
+ * engine (the tabs and the display edge that formats their figures) renders
+ * from `engineInputs`, the deferred copy — so typing paints immediately and the
+ * projections catch up behind it. Only the active tab is mounted, so only its
+ * projections run.
  */
 
 const VALUE_VIEW_OPTIONS: { id: ValueView; label: string }[] = [
@@ -35,7 +41,10 @@ export default function RetirementPage() {
   const planner = useRetirementPlanner()
   const [tab, setTab] = useState<RetirementTab>(RETIREMENT_TAB.plan)
   const [valueView, setValueView] = useState<ValueView>(VALUE_VIEW.nominal)
-  const display = useRetirementDisplay(planner.inputs.usdInflationPct, valueView)
+  const display = useRetirementDisplay(
+    planner.engineInputs.usdInflationPct,
+    valueView,
+  )
 
   return (
     <div className="space-y-6">
@@ -86,24 +95,24 @@ export default function RetirementPage() {
 
             <TabsContent value={RETIREMENT_TAB.plan}>
               <PlanTab
-                inputs={planner.inputs}
-                startingAmountUsd={planner.startingAmountUsd}
+                inputs={planner.engineInputs}
+                startingAmountUsd={planner.engineStartingAmountUsd}
                 display={display}
               />
             </TabsContent>
 
             <TabsContent value={RETIREMENT_TAB.compare}>
               <CompareTab
-                inputs={planner.inputs}
-                startingAmountUsd={planner.startingAmountUsd}
+                inputs={planner.engineInputs}
+                startingAmountUsd={planner.engineStartingAmountUsd}
                 display={display}
               />
             </TabsContent>
 
             <TabsContent value={RETIREMENT_TAB.coastFire}>
               <CoastFireTab
-                inputs={planner.inputs}
-                startingAmountUsd={planner.startingAmountUsd}
+                inputs={planner.engineInputs}
+                startingAmountUsd={planner.engineStartingAmountUsd}
                 display={display}
               />
             </TabsContent>

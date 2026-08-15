@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import type BigNumber from "bignumber.js"
 import { bn } from "@/lib/config"
 import { useHoldings } from "@/hooks/useHoldings"
@@ -22,6 +29,12 @@ import type { RetirementScenario } from "@/types/database"
  * Every saved row is read through `normalizeScenarioInputs` — scenarios written
  * before an input existed come back missing it, and nothing downstream (engine
  * or view) should have to defend against that.
+ *
+ * The draft is exposed twice: `inputs` (the fields' own value, updated on the
+ * keystroke) and `engineInputs` (the same draft, allowed to fall behind). One
+ * edit costs the projection engine a few hundred month-by-month runs, so
+ * rendering the fields and the projections from the same value would make every
+ * keystroke wait for the whole recompute.
  */
 
 export interface RetirementPlanner {
@@ -30,13 +43,17 @@ export interface RetirementPlanner {
   loading: boolean
   saving: boolean
   error: string | null
-  /** The edited inputs every view computes from. */
+  /** The edited inputs, current as of the last keystroke — what the fields render. */
   inputs: RetirementScenarioInputs
   dirty: boolean
   /** Live portfolio total — the default starting amount. */
   liveValueUsd: BigNumber
   /** The starting amount the projections actually run from. */
   startingAmountUsd: BigNumber
+  /** `inputs`, deferred: what every projection, solver and chart computes from. */
+  engineInputs: RetirementScenarioInputs
+  /** `startingAmountUsd` deferred alongside `engineInputs`, never out of step with it. */
+  engineStartingAmountUsd: BigNumber
   patch: (partial: Partial<RetirementScenarioInputs>) => void
   selectScenario: (id: string) => void
   save: () => Promise<void>
@@ -114,6 +131,18 @@ export function useRetirementPlanner(): RetirementPlanner {
         : bn(inputs.startingAmountUsd),
     [inputs.startingAmountUsd, totalCurrentValueUsd],
   )
+
+  /**
+   * The engine's view of the draft, deferred as one pair so a projection can
+   * never pair new inputs with the previous starting amount. React renders the
+   * edited field first and re-runs the engine afterwards, dropping intermediate
+   * values whenever the next keystroke lands before the recompute finishes.
+   */
+  const engine = useMemo(
+    () => ({ inputs, startingAmountUsd }),
+    [inputs, startingAmountUsd],
+  )
+  const deferredEngine = useDeferredValue(engine)
 
   const patch = useCallback((partial: Partial<RetirementScenarioInputs>) => {
     setInputs((prev) => ({ ...prev, ...partial }))
@@ -212,6 +241,8 @@ export function useRetirementPlanner(): RetirementPlanner {
     dirty,
     liveValueUsd: totalCurrentValueUsd,
     startingAmountUsd,
+    engineInputs: deferredEngine.inputs,
+    engineStartingAmountUsd: deferredEngine.startingAmountUsd,
     patch,
     selectScenario,
     save,
