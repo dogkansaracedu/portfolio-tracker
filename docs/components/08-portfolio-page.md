@@ -171,7 +171,8 @@ the return mode (none persisted across reloads). The toggle's choice and the
 (group name, optional color dot, asset count, value subtotal, return subtotal)
 followed by its asset rows.
 
-**Columns:** Asset (icon + ticker, links to that asset's transactions) ·
+**Columns:** Asset (icon + ticker, links to that asset's detail screen —
+Component 12) ·
 Platform (per-platform dots/names; hidden meaning when grouped by platform) ·
 Quantity (decimals per category) · Bought (cost per unit, asset-native with USD in
 parens where applicable) · Price (current unit price) · Value (bold) · **Return**
