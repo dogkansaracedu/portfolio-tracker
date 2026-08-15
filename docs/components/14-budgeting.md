@@ -1,0 +1,80 @@
+# Component 14 — Budgeting
+
+A monthly **earned / invested / spent** view of the user's money flow, built to
+need almost no data entry: the user records only income, and the app derives the
+rest from the portfolio transactions it already has.
+
+**Depends on:**
+- **Transaction system** (Component 4) — the source of every derived "invested"
+  figure.
+- **Price engine** (Component 5) — exchange rates for currency normalization.
+
+**Glossary:** [Cash-flow entry](GLOSSARY.md#cash-flow-entry),
+[Invested (monthly)](GLOSSARY.md#invested-monthly),
+[Spent (residual)](GLOSSARY.md#spent-residual),
+[Savings rate](GLOSSARY.md#savings-rate),
+[Net invested capital](GLOSSARY.md#net-invested-capital).
+
+## The residual model
+
+Only **income** is entered. Everything else is derived per calendar month:
+
+- **Invested** — the net new external money that entered tracked platforms that
+  month: the month's change in [net invested capital](GLOSSARY.md#net-invested-capital).
+  Internal shuffles (a buy and the cash it consumes, platform-to-platform
+  transfers) cancel; only genuine external inflows/outflows count. Cash
+  deposited onto a tracked platform but not yet deployed still counts as
+  invested-side — it was saved, not spent.
+- **Spent** — income − invested. A residual: no expense is ever recorded.
+- **Savings rate** — invested ÷ income.
+
+**Accepted trade-off:** the residual absorbs every data gap. Money kept outside
+tracked platforms, or a deposit that was never recorded, reads as "spent".
+
+**Reserved for later (expense ledger):** cash-flow entries have a type. Only
+`income` is accepted today; `expense` is reserved so a future expense ledger can
+categorize *part of* the spent residual (remainder shown as "other") without
+changing this model or migrating data.
+
+## Income entry and the salary schedule
+
+- A month's income is the sum of that month's explicit income entries.
+- If a month has no explicit entry, it falls back to the **salary schedule**: a
+  list of (amount, currency, effective-from month) rows; the row with the latest
+  effective-from at or before the month applies. Raises are appended, never
+  edited into history. Auto-filled months are visually marked as defaults until
+  overridden.
+- Income entries never touch holdings, balances, or P&L — budgeting is
+  read-only over portfolio data.
+
+## The Budget page
+
+A top-level page alongside Dashboard / Portfolio / Retirement:
+
+- **Monthly table**, most recent first (last 12 months by default, expandable to
+  the full history): month · income · invested · spent · savings rate. The
+  income cell is editable inline.
+- **Trend chart**: monthly income / invested / spent, with the savings rate as
+  a line.
+- **Salary schedule editor** and a **currency toggle** — TRY by default (income
+  is earned in TRY), USD as the alternative. Derived figures are normalized
+  using each transaction's own date rate.
+- Spending is not a loss: the page uses a neutral palette, not the gain/loss
+  colors.
+
+## Edge cases
+
+- A month with a net withdrawal shows **negative invested**; spent then exceeds
+  income. Rendered honestly with signed formatting.
+- A month with no income data (no entry, no applicable salary default) shows
+  invested only; spent and savings rate render as "—", never a fake zero.
+- Months before both the first transaction and the first income entry are not
+  listed. The current month appears but is marked as in-progress.
+
+## Future work (not yet built)
+
+- **Plan vs. actual**: monthly invest target and spend ceiling with
+  effective-from semantics, per-month adherence, and a cross-link from the
+  retirement planner's contribution assumption to the actual trailing average.
+  (Its storage already exists, unused.)
+- Expense entries with categories; inflation-adjusted trend; month locking.
