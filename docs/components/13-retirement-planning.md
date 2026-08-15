@@ -5,15 +5,17 @@
 ## Purpose
 
 The forward-looking counterpart to the P&L engine. Where every other component
-answers "what happened to my money?", this one answers three planning questions:
+answers "what happened to my money?", this one answers the planning questions:
 
-1. **Plan** — if I invest a given amount monthly, what does it grow to — and the
-   inverses: what monthly amount reaches my target, and how long until I get there?
+1. **Plan** — four questions about one plan, each asked in the user's own words:
+   *when can I retire?*, *when can I stop contributing?*, *how much should I
+   contribute?*, *what will I have?* Each is answered with the answer itself,
+   and — wherever the retirement age is something the user entered rather than
+   the thing being solved for — with an explicit verdict: does this plan work,
+   yes or no.
 2. **Compare** — the same contribution plan run through different investment
    options (US equities, gold, BES, TRY deposits, or any custom growth rate),
    side by side, **after Turkish tax**.
-3. **Coast FIRE** — the portfolio value that lets growth alone finish the job,
-   how far I am from it, and when I cross it.
 
 Advanced in substance, plain in presentation: every concept carries a one-line
 explainer, one term per concept app-wide, and every number on the screen derives
@@ -50,6 +52,10 @@ UI, docs, and code identifiers — no synonyms:
 - [Coast FIRE number](GLOSSARY.md#coast-fire-number)
   ([formula](GLOSSARY.md#coast-fire-number-formula)) /
   [Coast FIRE gap](GLOSSARY.md#coast-fire-gap)
+- [Earliest retirement age](GLOSSARY.md#earliest-retirement-age) — the answer to
+  "when can I retire?"
+- [Supported spending](GLOSSARY.md#supported-spending) — the "spend less" escape
+  route of a falling-short verdict
 - [Sensitivity insight](GLOSSARY.md#sensitivity-insight)
 - [Retirement tax estimate](GLOSSARY.md#retirement-tax-estimate)
 - [USD anchor](GLOSSARY.md#usd-anchor) — planning is USD-anchored like P&L
@@ -96,11 +102,61 @@ re-derives displayed values only — stored inputs are unchanged.
 
 ### Plan tab
 
-- Solves all three directions of the same problem, each a first-class mode:
-  final value (given contribution + horizon), required monthly contribution
-  (given target + horizon), time to target (given contribution + target).
+**Question-first.** The tab is a switch between four questions, and the switch's
+own labels ARE the questions. Under the chosen question sits its answer, as
+large as any headline figure on the app: an age, a monthly amount, a value. A
+question whose answer does not exist under the assumptions says so in words and
+never shows a number.
+
+1. **"When can I retire?"** — given the plan's contribution and spending, the
+   earliest age whose projected value reaches the [retirement
+   target](GLOSSARY.md#retirement-target) *for that age*. The target moves with
+   the age asked about — retiring later inflates the spending it has to fund,
+   and under capital depletion shortens the drawdown it has to buy — so it is
+   re-derived for every candidate age; comparing every age against the target of
+   the age in the plan would answer a different question. A candidate's
+   [contribution end age](GLOSSARY.md#contribution-end-age) is the earlier of
+   the saved one and the candidate itself, so a plan that contributes right up
+   to retirement goes on doing that at every age asked about, and a plan that
+   stops early goes on stopping there. The answer is also marked on the chart.
+2. **"When can I stop contributing?"** — the [coast
+   date](GLOSSARY.md#coast-fire-gap) expressed as an age: the first age at which
+   growth alone is projected to finish the job. A plan already past its [Coast
+   FIRE number](GLOSSARY.md#coast-fire-number) answers "now" and is celebrated
+   explicitly rather than shown as a negative number to decode. This question
+   carries the Coast FIRE figures with it: the Coast FIRE number against the
+   current portfolio value, the [Coast FIRE gap](GLOSSARY.md#coast-fire-gap)
+   with the time to the coast date, and the retirement target with its own gap
+   and time-to-target at the planned contribution. Like every Coast FIRE figure
+   it respects the withdrawal strategy: depletion targets are smaller, so coast
+   numbers and dates move with them.
+3. **"How much should I contribute?"** — the monthly contribution that reaches
+   the target by the retirement age, plus a short menu of **round-number
+   alternatives** around it. Each suggested amount carries what it buys: the
+   earliest retirement age it allows, the age it could stop contributing at, and
+   whether it clears the target at the retirement age in the plan. The menu's
+   figures come from the same solves as the headline answers, so a row and a
+   headline can never disagree.
+4. **"What will I have?"** — the projected value at the retirement age, against
+   the target, with the milestones table underneath.
+
+**Verdict.** Every question except the first fixes the retirement age as an
+input, so every one of them can be answered yes or no, and is — in a sentence,
+in the canonical gain/loss colours. A plan that works says by how much it works
+(the surplus, and how many years earlier it could have retired). A plan that
+falls short says by how much, then offers the three ways out of the same
+shortfall: **retire later** (the earliest age that does work), **contribute
+more** (the required monthly amount), or **spend less** (the monthly spending,
+in today's money, the plan's projected value actually supports). A route whose
+solve has no answer is left out rather than fabricated; when none of them has an
+answer, the verdict says the target is not reachable under these assumptions.
+
 - Chart: projected portfolio value over time (band), with the retirement age
-  and target marked — and, when the plan coasts, the age contributions stop.
+  and target marked — and, when the plan coasts, BOTH the age contributions are
+  planned to stop and the earliest age they could stop, each labelled with its
+  own age. The "when can I stop contributing?" question shows that pairing over
+  the rising Coast FIRE curve, with the crossing marked as the coast date;
+  the other questions show it over the plan projection.
   Both withdrawal strategies continue past retirement,
   showing the same drawdown — retirement spending, stepped up annually with
   inflation — up to the age entered alongside the retirement age. That age
@@ -108,7 +164,8 @@ re-derives displayed values only — stored inputs are unchanged.
   is spent to zero by; under capital preservation it only says how far past
   retirement to draw the chart, and the line typically keeps rising there
   because the withdrawal stays inside the safe withdrawal rate.
-- **Milestones table** under the chart, answering "how much do I have at age X?"
+- **Milestones table** under the chart of "what will I have?", answering "how
+  much do I have at age X?"
   without hovering the line. One row per milestone age, ascending and deduped:
   the [contribution end age](GLOSSARY.md#contribution-end-age) when it is short
   of retirement, the retirement age, then every five years out to the chart's
@@ -165,21 +222,6 @@ re-derives displayed values only — stored inputs are unchanged.
 - **Honesty rule:** all tax outputs are labeled estimates under current law;
   the UI never presents a 20-year tax projection as a fact.
 
-### Coast FIRE tab
-
-- Headline tiles: the [Coast FIRE number](GLOSSARY.md#coast-fire-number) vs.
-  the live current portfolio value; the [Coast FIRE
-  gap](GLOSSARY.md#coast-fire-gap) and years to the coast date; the
-  [retirement target](GLOSSARY.md#retirement-target) with its own gap and
-  years-to-target at the planned contribution rate.
-- Already-coasting state (gap ≤ 0) is celebrated explicitly, not shown as a
-  negative number to decode.
-- Chart: the Coast FIRE number as a curve **rising** toward the target as
-  retirement approaches, with the projected portfolio (band) overlaid; the
-  crossing point is marked as the coast date.
-- Respects the withdrawal strategy — depletion targets are smaller, so coast
-  numbers and dates move accordingly.
-
 ### Consistency rules
 
 - Display-currency toggle and amount obfuscation apply as elsewhere; signed
@@ -197,9 +239,11 @@ re-derives displayed values only — stored inputs are unchanged.
 **Inputs:** the current portfolio total value (from the P&L engine); the user's
 saved scenarios (or defaults on first use); the sourced tax-rule data.
 
-**Outputs (rendered):** plan projection (band chart + solved figure for the
-active mode); comparison table + chart (gross, tax estimate, after-tax, real
-after-tax per option); Coast FIRE tiles + crossing chart; sensitivity insights.
+**Outputs (rendered):** the answer to the active Plan question and its verdict;
+the plan projection (band chart) or the Coast FIRE crossing chart, per question;
+the suggested-contribution menu and the milestones table, each under the
+question it belongs to; the comparison table + chart (gross, tax estimate,
+after-tax, real after-tax per option); sensitivity insights.
 All monetary outputs available in nominal and real, USD-anchored, in the display
 currency.
 
@@ -210,7 +254,9 @@ are always recomputed from inputs.
 ## UI contract
 
 - A dedicated top-level destination ("Retirement") alongside the existing
-  pages, with three tabs: **Plan / Compare / Coast FIRE**.
+  pages, with two tabs: **Plan / Compare**. The Coast FIRE figures are not a
+  destination of their own — they are the answer to a Plan question, and live
+  inside it.
 - A persistent scenario panel: scenario picker (create / rename / save /
   delete / set default), the input fields above, and the assumption set behind
   a collapsible "Assumptions" section so casual use isn't buried in knobs.
@@ -237,8 +283,25 @@ are always recomputed from inputs.
 
 ## Acceptance
 
-- [ ] All three Plan modes solve correctly and agree with each other (solving
-      for the contribution then projecting it reproduces the target).
+- [ ] All four Plan questions solve correctly and agree with each other:
+      solving for the contribution then projecting it reproduces the target;
+      projecting at the earliest retirement age reaches that age's own target
+      while the year before it falls short.
+- [ ] The earliest retirement age re-derives the target for every candidate age
+      (a test pins that a frozen target answers earlier), keeps a contribution
+      end age that is short of the candidate, and renders "not reachable under
+      these assumptions" rather than an age past the depletion age.
+- [ ] The spending a projected value supports inverts the retirement-target
+      formulas exactly, under both withdrawal strategies (round-trip tests), and
+      is reported in today's money like the spending input it answers.
+- [ ] The verdict is explicit on every question that fixes the retirement age:
+      works (with the surplus and the years it could be brought forward) or
+      falls short (with the shortfall and the three escape routes), in the
+      canonical gain/loss palette. A route with no solve is omitted, never
+      fabricated.
+- [ ] The suggested-contribution menu's figures come from the same solvers as
+      the headline answers, and its "reaches the target" column agrees with the
+      verdict at the plan's own contribution.
 - [ ] Projection uses monthly compounding derived as `(1+r)^(1/12) − 1`; a
       worked numeric case in the test suite pins this.
 - [ ] Compare runs identical flows through every option; after-tax is the
@@ -249,8 +312,12 @@ are always recomputed from inputs.
 - [ ] A TRY-taxed option's tax estimate responds to the TRY-inflation and
       TRY-depreciation assumptions (test: same USD gain, different
       depreciation ⇒ different tax).
-- [ ] Coast FIRE tiles, curve, and coast date derive from the same projection
-      core as the Plan tab; already-coasting renders its explicit state.
+- [ ] The Coast FIRE figures, curve and coast date derive from the same
+      projection core as every other Plan figure; already-coasting renders its
+      explicit celebratory state as that question's verdict.
+- [ ] A plan that coasts marks BOTH coast ages on its chart — the planned one
+      and the earliest possible one — each labelled with its own age, and the
+      two collapse to one marker when they are the same month.
 - [ ] Capital preservation vs. capital depletion produce different targets and
       Coast FIRE numbers per the glossary formulas (worked cases in tests).
 - [ ] A plan whose contributions stop before retirement coasts: the months
@@ -262,7 +329,7 @@ are always recomputed from inputs.
       these assumptions" rather than a fabricated contribution.
 - [ ] A scenario saved before the contribution end age existed loads with it at
       the retirement age, and its projections are unchanged.
-- [ ] The Plan milestones table lists the contribution end age (when short of
+- [ ] The Plan milestones table (under "what will I have?") lists the contribution end age (when short of
       retirement), the retirement age, five-year steps and the horizon age, and
       its values equal the chart's at those ages under both nominal and real.
 - [ ] Sensitivity insights are solver outputs and match the charts exactly.

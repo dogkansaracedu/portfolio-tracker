@@ -1,19 +1,27 @@
 import type BigNumber from "bignumber.js"
 import { bn, BN_ZERO } from "@/lib/config"
-import { MONTHS_PER_YEAR } from "@/lib/retirement/constants"
+import { MONTHS_PER_YEAR, WITHDRAWAL_STRATEGY } from "@/lib/retirement/constants"
 import {
+  monthsToRetirement,
   projectScenario,
   resolveStartingAmountUsd,
+  valueAtMonthsFromNow,
   type ScenarioProjectionOptions,
 } from "@/lib/retirement/projection"
+import { normalizeScenarioInputs } from "@/lib/retirement/scenario"
+import { computeRetirementTarget } from "@/lib/retirement/target"
 import type { RetirementScenarioInputs } from "@/lib/retirement/types"
 
 /**
- * The two inverse plan modes, solved numerically against `projectScenario`
+ * The inverse plan questions, solved numerically against `projectScenario`
  * itself — never a closed form that could drift from the recurrence the charts
- * draw. Both return null when the target is unreachable under the assumptions;
- * the UI renders "—" rather than a fabricated number (same null contract as
- * `solveXirr`).
+ * draw. All of them return null when the answer does not exist under the
+ * assumptions; the UI renders "—" rather than a fabricated number (same null
+ * contract as `solveXirr`).
+ *
+ * The one inverse that is NOT here is `solveSupportedSpending` (`target.ts`):
+ * it inverts the retirement-target formula rather than the projection, so it
+ * lives beside the formula it mirrors.
  */
 
 /** Bisection stops when the contribution bracket is narrower than this (USD). */
@@ -107,6 +115,67 @@ export function solveMonthsToTarget(
 
   for (const month of projection.months) {
     if (month.valueUsd.isGreaterThanOrEqualTo(target)) return month.monthIndex + 1
+  }
+  return null
+}
+
+/** How far past the current age `solveEarliestRetirementAge` looks, in years. */
+export const MAX_RETIREMENT_AGE_SEARCH_YEARS = 80
+
+/**
+ * The earliest age this plan can retire at: the smallest whole age, from the
+ * current age on, whose projected value meets the retirement target FOR THAT
+ * AGE. Null when no age inside `MAX_RETIREMENT_AGE_SEARCH_YEARS` does.
+ *
+ * The target moves with the candidate age and that is the whole difficulty of
+ * the question: retiring later inflates the spending the target has to fund
+ * (raising it) while, under capital depletion, it also shortens the drawdown
+ * the target has to buy (lowering it). So the target is recomputed per
+ * candidate — never compared against the scenario's own.
+ *
+ * The candidate's contribution end age rides along the same way the scenario
+ * panel clamps it: `min(saved end age, candidate)`. Contributions therefore
+ * stop at exactly the same month for every candidate at or beyond that age,
+ * which is why ONE projection over the whole search span answers all of them —
+ * a candidate's value at its retirement month depends only on the months before
+ * it, and those months carry the same contributions in every candidate's plan.
+ *
+ * Under capital depletion, candidates at or past the depletion age are skipped
+ * rather than solved: their drawdown has no months left, which would price the
+ * target at zero and "reach" it with any portfolio (same guard as
+ * `computeSensitivityInsights`).
+ */
+export function solveEarliestRetirementAge(
+  inputs: RetirementScenarioInputs,
+  options: ScenarioProjectionOptions = {},
+): number | null {
+  const firstAge = Math.ceil(inputs.currentAge)
+  const lastAge = firstAge + MAX_RETIREMENT_AGE_SEARCH_YEARS
+  const startingAmountUsd = resolveStartingAmountUsd(
+    inputs,
+    options.startingAmountUsd,
+  )
+
+  const projection = projectScenario(inputs, {
+    ...accumulationOptions(options),
+    accumulationMonths: monthsToRetirement({ ...inputs, retirementAge: lastAge }),
+  })
+
+  for (let age = firstAge; age <= lastAge; age++) {
+    if (
+      inputs.withdrawalStrategy === WITHDRAWAL_STRATEGY.depletion &&
+      age >= inputs.depletionAge
+    ) {
+      continue
+    }
+    const candidate = normalizeScenarioInputs({ ...inputs, retirementAge: age })
+    const valueUsd = valueAtMonthsFromNow(
+      projection,
+      monthsToRetirement(candidate),
+      startingAmountUsd,
+    )
+    const target = computeRetirementTarget(candidate, { band: options.band })
+    if (valueUsd.isGreaterThanOrEqualTo(target)) return age
   }
   return null
 }

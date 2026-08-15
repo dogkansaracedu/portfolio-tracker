@@ -1,12 +1,17 @@
 import { describe, it, expect } from "vitest"
 import { bn } from "@/lib/config"
+import { WITHDRAWAL_STRATEGY } from "@/lib/retirement/constants"
 import { projectScenario } from "@/lib/retirement/projection"
+import { normalizeScenarioInputs } from "@/lib/retirement/scenario"
 import {
+  MAX_RETIREMENT_AGE_SEARCH_YEARS,
+  solveEarliestRetirementAge,
   solveMonthsToTarget,
   solveRequiredContribution,
 } from "@/lib/retirement/solvers"
 import { computeRetirementTarget } from "@/lib/retirement/target"
 import { scenario } from "@/lib/retirement/test-fixtures"
+import type { RetirementScenarioInputs } from "@/lib/retirement/types"
 
 /**
  * The two inverse plan modes must agree with the forward one: solving for the
@@ -135,5 +140,130 @@ describe("solveMonthsToTarget", () => {
     const months = solveMonthsToTarget(bn(100), bn(2000000), inputs)
     expect(months).not.toBeNull()
     expect(months!).toBeGreaterThan(240)
+  })
+})
+
+/**
+ * The deliberately naive reading of "when can I retire?": one whole projection
+ * per candidate age, each against its OWN target. `solveEarliestRetirementAge`
+ * answers all the candidates from a single projection instead; the two must
+ * agree exactly, or the shortcut is wrong.
+ */
+function bruteForceEarliestRetirementAge(
+  inputs: RetirementScenarioInputs,
+): number | null {
+  const firstAge = Math.ceil(inputs.currentAge)
+  for (let age = firstAge; age <= firstAge + MAX_RETIREMENT_AGE_SEARCH_YEARS; age++) {
+    if (
+      inputs.withdrawalStrategy === WITHDRAWAL_STRATEGY.depletion &&
+      age >= inputs.depletionAge
+    ) {
+      continue
+    }
+    const candidate = normalizeScenarioInputs({ ...inputs, retirementAge: age })
+    const value = projectScenario(candidate).finalValueUsd
+    if (value.isGreaterThanOrEqualTo(computeRetirementTarget(candidate))) return age
+  }
+  return null
+}
+
+describe("solveEarliestRetirementAge", () => {
+  it("agrees with a projection-per-candidate scan", () => {
+    const inputs = scenario()
+    const age = solveEarliestRetirementAge(inputs)
+    expect(age).toBe(bruteForceEarliestRetirementAge(inputs))
+    expect(age).not.toBeNull()
+  })
+
+  it("is the SMALLEST age that reaches its own target — the one before it falls short", () => {
+    const inputs = scenario()
+    const age = solveEarliestRetirementAge(inputs)!
+    const atAge = normalizeScenarioInputs({ ...inputs, retirementAge: age })
+    expect(
+      projectScenario(atAge).finalValueUsd.isGreaterThanOrEqualTo(
+        computeRetirementTarget(atAge),
+      ),
+    ).toBe(true)
+
+    const yearEarlier = normalizeScenarioInputs({
+      ...inputs,
+      retirementAge: age - 1,
+    })
+    expect(
+      projectScenario(yearEarlier).finalValueUsd.isLessThan(
+        computeRetirementTarget(yearEarlier),
+      ),
+    ).toBe(true)
+  })
+
+  it("moves the target with the candidate age: a frozen target answers earlier", () => {
+    // Retiring later inflates the spending the target funds, so under capital
+    // preservation the bar rises every year. Solving against the scenario's own
+    // (lower, retire-at-55) target would clear it sooner — the difference IS
+    // the target recompute.
+    const inputs = scenario()
+    const frozenTarget = computeRetirementTarget(inputs)
+    const monthsToFrozen = solveMonthsToTarget(
+      bn(inputs.monthlyContributionUsd),
+      frozenTarget,
+      inputs,
+    )!
+    const frozenAge = inputs.currentAge + monthsToFrozen / 12
+    const age = solveEarliestRetirementAge(inputs)!
+
+    expect(age).toBeGreaterThan(frozenAge)
+    expect(
+      computeRetirementTarget(
+        normalizeScenarioInputs({ ...inputs, retirementAge: age }),
+      ).isGreaterThan(frozenTarget),
+    ).toBe(true)
+  })
+
+  it("is the current age when the starting amount already funds retiring now", () => {
+    const inputs = scenario({ startingAmountUsd: 20000000 })
+    expect(solveEarliestRetirementAge(inputs)).toBe(35)
+  })
+
+  it("keeps a contribution end age that is short of the candidate, so coasting plans retire later", () => {
+    const coasting = scenario({ contributionEndAge: 45 })
+    const contributing = scenario()
+    const coastingAge = solveEarliestRetirementAge(coasting)!
+    const contributingAge = solveEarliestRetirementAge(contributing)!
+
+    expect(coastingAge).toBeGreaterThan(contributingAge)
+    expect(coastingAge).toBe(bruteForceEarliestRetirementAge(coasting))
+  })
+
+  it("is null when nothing is ever contributed and nothing is saved", () => {
+    const inputs = scenario({ monthlyContributionUsd: 0, startingAmountUsd: 0 })
+    expect(solveEarliestRetirementAge(inputs)).toBeNull()
+  })
+
+  it("is null rather than an age at or past the depletion age", () => {
+    // $10/month never funds a drawdown that has to start before 80. The ages at
+    // or past the depletion age are skipped rather than solved: their drawdown
+    // has no months left, so the target prices at zero and ANY portfolio would
+    // "reach" it.
+    const inputs = scenario({
+      monthlyContributionUsd: 10,
+      startingAmountUsd: 0,
+      withdrawalStrategy: WITHDRAWAL_STRATEGY.depletion,
+      depletionAge: 80,
+    })
+    expect(
+      computeRetirementTarget(
+        normalizeScenarioInputs({ ...inputs, retirementAge: 80 }),
+      ).isZero(),
+    ).toBe(true)
+    expect(solveEarliestRetirementAge(inputs)).toBeNull()
+  })
+
+  it("runs the solve on the overridden contribution (the suggestion table's use)", () => {
+    const inputs = scenario()
+    const base = solveEarliestRetirementAge(inputs)!
+    const richer = solveEarliestRetirementAge(inputs, {
+      monthlyContributionUsd: bn(inputs.monthlyContributionUsd * 3),
+    })!
+    expect(richer).toBeLessThan(base)
   })
 })

@@ -13,13 +13,19 @@ import {
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Projection, ProjectionBand } from "@/lib/retirement"
+import { useTheme } from "@/contexts/ThemeContext"
 import { buildBandPoints } from "./chartSeries"
+import { coastMarkerLines } from "./coastMarkers"
 import {
+  AGE_LABEL,
   BAND_CAPTION,
-  CONTRIBUTIONS_STOP_LABEL,
+  COAST_CURVE_COLOR,
+  EARLIEST_RETIREMENT_LINE_LABEL,
+  RETIREMENT_AGE_LINE_LABEL,
+  RETIREMENT_TARGET_LINE_LABEL,
   TODAYS_PURCHASING_POWER,
 } from "./constants"
-import type { RetirementDisplay } from "./display"
+import { formatAge, type RetirementDisplay } from "./display"
 
 interface Props {
   projections: Record<ProjectionBand, Projection>
@@ -27,6 +33,10 @@ interface Props {
   retirementAge: number
   /** Marked only when it is short of retirement — i.e. the plan coasts. */
   contributionEndAge: number
+  /** The coast date as an age; marked alongside the planned one when it differs. */
+  earliestCoastAge?: number | null
+  /** "When can I retire?" only: where the answer falls on this same projection. */
+  earliestRetirementAge?: number | null
   startingAmountUsd: BigNumber
   targetUsd: BigNumber
   monthsToRetirement: number
@@ -35,22 +45,25 @@ interface Props {
 
 /**
  * The plan projection: base line inside the pessimistic–optimistic band, with
- * the retirement age, the retirement target and — when the plan coasts — the
- * age contributions stop all marked. Both withdrawal strategies run past
- * retirement: the line carries on through the drawdown, down to zero at the
- * depletion age when depleting, typically still rising when the SWR sustains it
- * under preservation.
+ * the retirement age, the retirement target and — when the plan coasts — both
+ * the age contributions stop and the earliest age they could have. Both
+ * withdrawal strategies run past retirement: the line carries on through the
+ * drawdown, down to zero at the depletion age when depleting, typically still
+ * rising when the SWR sustains it under preservation.
  */
 export function PlanChart({
   projections,
   currentAge,
   retirementAge,
   contributionEndAge,
+  earliestCoastAge = null,
+  earliestRetirementAge = null,
   startingAmountUsd,
   targetUsd,
   monthsToRetirement,
   display,
 }: Props) {
+  const { theme } = useTheme()
   const points = useMemo(
     () =>
       buildBandPoints({
@@ -113,7 +126,9 @@ export function PlanChart({
                     ]
                   : [display.moneyFromChartValue(Number(value)), String(name)]
               }
-              labelFormatter={(label) => `Age ${Math.round(Number(label))}`}
+              labelFormatter={(label) =>
+                `${AGE_LABEL} ${Math.round(Number(label))}`
+              }
             />
             <Area
               dataKey="range"
@@ -136,22 +151,31 @@ export function PlanChart({
               stroke="var(--muted-foreground)"
               strokeDasharray="4 4"
               label={{
-                value: "Retirement target",
+                value: RETIREMENT_TARGET_LINE_LABEL,
                 position: "insideTopLeft",
                 fontSize: 11,
                 fill: "var(--muted-foreground)",
               }}
             />
-            {contributionEndAge < retirementAge && (
+            {coastMarkerLines({
+              plannedCoastAge:
+                contributionEndAge < retirementAge ? contributionEndAge : null,
+              earliestCoastAge:
+                contributionEndAge < retirementAge ? earliestCoastAge : null,
+              earliestColor: COAST_CURVE_COLOR[theme],
+            })}
+            {earliestRetirementAge !== null && (
               <ReferenceLine
-                x={contributionEndAge}
-                stroke="var(--muted-foreground)"
-                strokeDasharray="2 4"
+                x={earliestRetirementAge}
+                stroke="var(--primary)"
+                strokeDasharray="4 4"
                 label={{
-                  value: CONTRIBUTIONS_STOP_LABEL,
-                  position: "insideBottomLeft",
+                  value: EARLIEST_RETIREMENT_LINE_LABEL(
+                    formatAge(earliestRetirementAge),
+                  ),
+                  position: "insideTop",
                   fontSize: 11,
-                  fill: "var(--muted-foreground)",
+                  fill: "var(--primary)",
                 }}
               />
             )}
@@ -160,7 +184,7 @@ export function PlanChart({
               stroke="var(--muted-foreground)"
               strokeDasharray="4 4"
               label={{
-                value: `Retirement age ${retirementAge}`,
+                value: RETIREMENT_AGE_LINE_LABEL(formatAge(retirementAge)),
                 position: "insideTopRight",
                 fontSize: 11,
                 fill: "var(--muted-foreground)",
@@ -168,7 +192,9 @@ export function PlanChart({
             />
           </ComposedChart>
         </ResponsiveContainer>
-        <p className="mt-1 text-center text-xs text-muted-foreground">Age</p>
+        <p className="mt-1 text-center text-xs text-muted-foreground">
+          {AGE_LABEL}
+        </p>
       </CardContent>
     </Card>
   )

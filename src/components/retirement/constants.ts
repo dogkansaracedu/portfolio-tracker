@@ -13,7 +13,6 @@ import type {
 export const RETIREMENT_TAB = {
   plan: "plan",
   compare: "compare",
-  coastFire: "coast-fire",
 } as const
 
 export type RetirementTab = (typeof RETIREMENT_TAB)[keyof typeof RETIREMENT_TAB]
@@ -21,7 +20,6 @@ export type RetirementTab = (typeof RETIREMENT_TAB)[keyof typeof RETIREMENT_TAB]
 export const RETIREMENT_TAB_LABELS: Record<RetirementTab, string> = {
   [RETIREMENT_TAB.plan]: "Plan",
   [RETIREMENT_TAB.compare]: "Compare",
-  [RETIREMENT_TAB.coastFire]: "Coast FIRE",
 }
 
 export const VALUE_VIEW = { nominal: "nominal", real: "real" } as const
@@ -36,19 +34,92 @@ export const VALUE_VIEW_LABELS: Record<ValueView, string> = {
 /** The glossary's label for the real view — never a synonym. */
 export const TODAYS_PURCHASING_POWER = "today's purchasing power"
 
+/** One spelling of an age wherever it is read as a label ("Age 52"). */
+export const AGE_LABEL = "Age"
+
+/**
+ * The Plan tab is four questions, and each mode's label IS the question — the
+ * headline under it is the answer, and (where the retirement age is an input
+ * rather than the answer) the verdict banner says yes or no in words.
+ */
 export const PLAN_MODE = {
-  finalValue: "final-value",
+  earliestRetirement: "earliest-retirement",
+  coast: "coast",
   requiredContribution: "required-contribution",
-  timeToTarget: "time-to-target",
+  finalValue: "final-value",
 } as const
 
 export type PlanMode = (typeof PLAN_MODE)[keyof typeof PLAN_MODE]
 
 export const PLAN_MODE_LABELS: Record<PlanMode, string> = {
-  [PLAN_MODE.finalValue]: "Final value",
-  [PLAN_MODE.requiredContribution]: "Required contribution",
-  [PLAN_MODE.timeToTarget]: "Time to target",
+  [PLAN_MODE.earliestRetirement]: "When can I retire?",
+  [PLAN_MODE.coast]: "When can I stop contributing?",
+  [PLAN_MODE.requiredContribution]: "How much should I contribute?",
+  [PLAN_MODE.finalValue]: "What will I have?",
 }
+
+/** The label above each answer. The final-value one names the retirement age. */
+export const PLAN_HEADLINE_LABELS = {
+  [PLAN_MODE.earliestRetirement]: "Earliest retirement age",
+  [PLAN_MODE.coast]: "You can stop contributing at",
+  [PLAN_MODE.requiredContribution]: "Required monthly contribution",
+  [PLAN_MODE.finalValue]: (age: string) => `Projected value at age ${age}`,
+} as const
+
+/** The verdict banner's fixed halves; the figures around them are interpolated. */
+export const VERDICT_LABELS = {
+  works: "This plan works",
+  fallsShort: "This plan falls short",
+  /** Introduces the escape routes under a falling-short verdict. */
+  routes: "Any one of these closes it:",
+  alreadyCoasting: "You are coasting",
+} as const
+
+/** The two coast markers a chart can carry, labelled with their own ages. */
+export const COAST_LINE_LABELS = {
+  planned: (age: string) => `Planned coast: ${age}`,
+  earliest: (age: string) => `Could coast at: ${age}`,
+} as const
+
+export const EARLIEST_RETIREMENT_LINE_LABEL = (age: string) =>
+  `Earliest retirement: ${age}`
+
+export const RETIREMENT_AGE_LINE_LABEL = (age: string) => `Retirement age ${age}`
+export const RETIREMENT_TARGET_LINE_LABEL = "Retirement target"
+
+export const COAST_CHART_TITLE = "Coast FIRE number vs. projected portfolio"
+export const COAST_DATE_MARKER_LABEL = "Coast date"
+
+/** The Coast FIRE stat strip inside "when can I stop contributing?". */
+export const COAST_STRIP_LABELS = {
+  coastFireNumber: "Coast FIRE number",
+  coastFireGap: "Coast FIRE gap",
+  retirementTarget: "Retirement target",
+  coasting: "Coasting",
+} as const
+
+/** The suggested-contribution table under "how much should I contribute?". */
+export const SUGGESTIONS_TITLE = "What other contributions would buy"
+export const SUGGESTIONS_CAPTION =
+  "Round monthly amounts around the required figure, each solved the same way as the answer above."
+export const SUGGESTION_COLUMN_LABELS = {
+  contribution: "Monthly contribution",
+  earliestRetirement: "Earliest retirement",
+  coastAge: "Could coast at",
+  reachesTarget: (age: string) => `Reaches target at ${age}`,
+} as const
+
+export const SUGGESTION_REACHES_LABELS = { yes: "Yes", no: "No" } as const
+
+/**
+ * The suggested amounts: fractions of the required contribution, rounded to a
+ * round number so the row reads like a decision, not like a solver output.
+ */
+export const SUGGESTION_MULTIPLIERS = [0.75, 1, 1.25, 1.5] as const
+export const SUGGESTION_ROUNDING_USD = 250
+export const SUGGESTION_SMALL_ROUNDING_USD = 50
+/** Below this the $250 step would swallow the differences between rows. */
+export const SUGGESTION_SMALL_THRESHOLD_USD = 1000
 
 export const BAND_LABELS: Record<ProjectionBand, string> = {
   pessimistic: "Pessimistic",
@@ -64,9 +135,6 @@ export const PROJECTION_PHASE_LABELS: Record<ProjectionPhase, string> = {
 
 /** The age contributions stop — the plan coasts from there to retirement. */
 export const CONTRIBUTION_END_AGE_LABEL = "Contribution end age"
-
-/** Marks the coasting window's start on the Plan chart. */
-export const CONTRIBUTIONS_STOP_LABEL = "Contributions stop"
 
 /** The milestones table under the Plan chart. */
 export const MILESTONES_TITLE = "How much will I have at each age"
@@ -98,6 +166,9 @@ export const DEPLETION_AGE_HINTS: Record<WithdrawalStrategy, string> = {
   capital_depletion:
     "The age the portfolio is deliberately spent to zero by, which also sets the retirement target.",
 }
+
+/** An answer that has already happened — "you can stop contributing NOW". */
+export const NOW_LABEL = "Now"
 
 /** The "—" convention: a solve with no answer never renders a fabricated number. */
 export const EMPTY_FIGURE = "—"

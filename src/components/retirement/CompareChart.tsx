@@ -14,9 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTheme } from "@/contexts/ThemeContext"
 import {
   PROJECTION_BAND,
+  valueAtMonthsFromNow,
   type ComparisonResult,
 } from "@/lib/retirement"
-import { ageAt, sampleMonthsFromNow, valueAtMonthsFromNow } from "./chartSeries"
+import { ageAt, sampleMonthsFromNow } from "./chartSeries"
 import {
   BASE_CASE_CAPTION,
   OPTION_SERIES_COLORS,

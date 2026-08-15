@@ -17,11 +17,14 @@
 | Export (from `@/lib/retirement`) | Used by |
 | --- | --- |
 | `normalizeScenarioInputs(storedInputs)` | Every read of a saved scenario (`useRetirementPlanner`) — fills inputs the row predates, clamps the age-dependent ones. |
-| `projectScenario(inputs, { band, startingAmountUsd, includeRetirementDrawdown })` | Plan chart bands, Coast FIRE chart bands, "final value" headline (accumulation-only). |
+| `projectScenario(inputs, { band, startingAmountUsd, includeRetirementDrawdown, monthlyContributionUsd, accumulationMonths })` | Plan chart bands, coast chart bands, the "what will I have?" headline and the suggestion table's target check (both accumulation-only). |
+| `valueAtMonthsFromNow(projection, monthsFromNow, startingAmountUsd)` | The end-of-month indexing convention, owned by the engine: charts, the milestones table and `solveEarliestRetirementAge` all read a projection through it. |
 | `planMilestones(inputs)` | Plan tab milestones table (ages + phase; values come from the projections already computed). |
-| `computeRetirementTarget(inputs)` | Plan headline/target reference line, Coast FIRE tiles. |
-| `computeCoastFireNumber` / `coastFireCurve` / `computeCoastFireGap` / `findCoastDate` | Coast FIRE tab. |
-| `solveRequiredContribution` / `solveMonthsToTarget` | Plan modes 2 and 3, Coast FIRE "years to target". |
+| `computeRetirementTarget(inputs)` | Every Plan headline and verdict, the target reference line, the coast strip. |
+| `solveSupportedSpending(inputs, valueAtRetirementUsd)` | The "spend less" escape route of a falling-short verdict (`target.ts`, beside the formula it inverts). |
+| `computeCoastOutlook(inputs, options)` | "When can I stop contributing?" — target + Coast FIRE number + gap + curve + projection + coast date + coast **age**, in one call. Also each suggestion row's coast age. Wraps `computeCoastFireNumber` / `coastFireCurve` / `computeCoastFireGap` / `findCoastDate`, which stay exported for the pieces. |
+| `solveEarliestRetirementAge(inputs, options)` | "When can I retire?", the verdict's "retire later" route, and the suggestion table's earliest-retirement column. |
+| `solveRequiredContribution` / `solveMonthsToTarget` | "How much should I contribute?", the verdict's "contribute more" route, the coast strip's time-to-target. |
 | `computeSensitivityInsights` | Plan tab insights (structured effects → sentences in the UI). |
 | `runComparison(inputs, { startingAmountUsd })` | Compare tab table + chart. |
 | `toReal(nominalUsd, monthsFromNow, usdInflationPct)` | The global nominal/real toggle. |
@@ -37,7 +40,7 @@ the coasting window for free. Nothing switches exhaustively on `phase`;
 
 `ProjectionMonth.valueUsd` is an **end-of-month** value: month index `t` is
 `t + 1` months from now, and `monthsFromNow = 0` is the starting amount itself
-(`valueAtMonthsFromNow` in `chartSeries.ts` encodes this once).
+(`valueAtMonthsFromNow` in `projection.ts` encodes this once).
 
 ## File map
 
@@ -51,6 +54,9 @@ Pure modules; `index.ts` re-exports them all. Beyond the long-standing
 | --- | --- |
 | `scenario.ts` | `StoredRetirementScenarioInputs` (the shape a persisted row can actually have) + `normalizeScenarioInputs` — the one read edge for saved scenarios: fills `contributionEndAge` with `retirementAge` when the row predates the field, and clamps it between `currentAge` and `retirementAge`. Add a field to `RetirementScenarioInputs` ⇒ give it a default here in the same change. |
 | `milestones.ts` | `planMilestones(inputs)` → the Plan table's `{ age, monthsFromNow, phase }` rows (contribution end age when short of retirement, retirement age, `MILESTONE_STEP_YEARS` steps, the horizon age; deduped, ascending) and `phaseAtMonthIndex`, which reproduces the core's own phase boundaries. Pure age arithmetic — no projection runs here. |
+| `solvers.ts` | The inverse questions solved against `projectScenario`: `solveRequiredContribution` (bisection), `solveMonthsToTarget` (month scan), and `solveEarliestRetirementAge` — ONE projection over `MAX_RETIREMENT_AGE_SEARCH_YEARS` answers every candidate age, because a candidate's contributions stop at `min(saved contribution end age, candidate)`, which is exactly the `contributingMonths` that projection already carries; the target, however, is recomputed per candidate (`computeRetirementTarget` on `normalizeScenarioInputs({ ...inputs, retirementAge: age })`). Candidates at or past the depletion age are skipped under `capital_depletion` — their drawdown is zero months, which prices the target at zero (same guard as `computeSensitivityInsights`). |
+| `target.ts` | `computeRetirementTarget` and its inverse `solveSupportedSpending(inputs, valueAtRetirementUsd)` — closed forms of the same two expressions (preservation: `value × SWR ÷ 12`; depletion: the growing annuity solved for `P`, degenerate `value ÷ m` when `r_m = g_m`), both de-inflated to today's USD. The inverse lives here, not in `solvers.ts`, so the pair cannot drift; a round-trip test pins them. |
+| `coast.ts` | The Coast FIRE pieces plus `computeCoastOutlook(inputs, options)`, which assembles them (target, number, gap, `coasting`, curve, accumulation-only projection, coast date and coast **age**) so the headline, the strip, the chart marker and a suggestion row always name the same date. |
 | `projection.ts` | Also carries `monthsToContributionEnd(inputs)` (capped at `monthsToRetirement`) and the `contributingMonths` parameter of `projectGrowth`/`contributionForMonth` that the coasting phase rides on. The recurrence rounds its running value to `DECIMALS.projection` each month (see the recompute path below) — the app's only mid-calculation rounding, and it belongs to `projectGrowth`, not to callers. |
 
 ### Route + navigation
@@ -59,44 +65,50 @@ Pure modules; `index.ts` re-exports them all. Beyond the long-standing
 | --- | --- |
 | `src/App.tsx` | `<Route path="retirement">` (lazy, inside `AppLayout`). |
 | `src/components/layout/Sidebar.tsx` | One `navItems` entry (`PiggyBank`); `MobileNav` reuses the same array. |
-| `src/components/charts/LazyChart.tsx` | Registers `RetirementPlanChart`, `RetirementCompareChart`, `RetirementCoastFireChart` so Recharts stays code-split. |
+| `src/components/charts/LazyChart.tsx` | Registers `RetirementPlanChart`, `RetirementCompareChart`, `RetirementCoastChart` so Recharts stays code-split. |
 
 ### Page + state
 
 | File | Role |
 | --- | --- |
-| `src/pages/RetirementPage.tsx` | Shell: header + the global Nominal/Real toggle, the shared `ScenarioPanel`, and the `Plan / Compare / Coast FIRE` tabs. Holds `tab` and `valueView`; builds the `RetirementDisplay` from the scenario's USD-inflation assumption. Renders `RetirementSkeleton` while scenarios load. The panel gets `planner.inputs`; the tabs and the display edge get `planner.engineInputs` / `engineStartingAmountUsd` (see the recompute path below). |
+| `src/pages/RetirementPage.tsx` | Shell: header + the global Nominal/Real toggle, the shared `ScenarioPanel`, and the `Plan / Compare` tabs (Coast FIRE is a Plan question, not a tab). Holds `tab` and `valueView`; builds the `RetirementDisplay` from the scenario's USD-inflation assumption. Renders `RetirementSkeleton` while scenarios load. The panel gets `planner.inputs`; the tabs and the display edge get `planner.engineInputs` / `engineStartingAmountUsd` (see the recompute path below). |
 | `src/hooks/useRetirementPlanner.ts` | The scenario state machine: shared scenarios (`useRetirementScenarios` → `RetirementScenarioContext`), the loaded default, the locally edited `inputs` draft, `dirty` (JSON compare against the saved row), and the persistence actions (`save`, `createScenario`, `renameActive`, `deleteActive`, `makeActiveDefault`, `discardEdits`). Resolves `startingAmountUsd`: the scenario's own value, or `usePnL(useHoldings().holdings, usePrices().prices).totalCurrentValueUsd` when it is `null`. A `pendingSelectionRef` holds the adoption effect back until a just-created row lands in the refreshed list, so a create can't drag the draft onto another scenario. **Normalize-on-read:** `RetirementScenario.inputs` is typed `StoredRetirementScenarioInputs` (today's inputs minus anything added after the row was written), so every path that adopts a row — the load effect, `selectScenario`, `discardEdits` — must pass it through `normalizeScenarioInputs`, and the `dirty` comparison normalizes the saved side too so an old scenario doesn't load looking edited. Also exposes `engineInputs` / `engineStartingAmountUsd`: the same draft through one `useDeferredValue` over the `{ inputs, startingAmountUsd }` pair (deferred together, so a projection can never pair new inputs with a stale starting amount). |
 
 ### Components (`src/components/retirement/`)
 
 | File | Role |
 | --- | --- |
-| `constants.ts` | Every label, tab/mode id, caption, glossary hint, chart palette and sampling cap. Labels are the GLOSSARY term verbatim, including `PROJECTION_PHASE_LABELS` (Contributing / Coasting / Retirement) and the milestones-table strings. |
-| `display.ts` | `useRetirementDisplay(usdInflationPct, valueView)` — the single display edge: `toViewUsd` (real = `toReal`), `chartValue` (→ display currency number), `money` / `signedMoney` (formatted + obfuscation-aware), `moneyFromChartValue` (tooltips), `axisTick` (compact `$1.2M`). Also `formatMonthsDuration` and `formatAge`. |
-| `chartSeries.ts` | Projection months → chart points: `sampleMonthsFromNow` (stride sampling with pinned months), `valueAtMonthsFromNow`, `ageAt`, `buildBandPoints` (base line + `[pessimistic, optimistic]` tuple for Recharts' range `Area`). |
+| `constants.ts` | Every label, tab/mode id, caption, glossary hint, chart palette and sampling cap. Labels are the GLOSSARY term verbatim, including `PROJECTION_PHASE_LABELS` (Contributing / Coasting / Retirement), the milestones-table strings, `PLAN_MODE_LABELS` (the four questions, verbatim), `PLAN_HEADLINE_LABELS`, `VERDICT_LABELS`, `COAST_LINE_LABELS` / `EARLIEST_RETIREMENT_LINE_LABEL` (chart markers), `COAST_STRIP_LABELS`, and the suggestion-table strings + rounding steps. |
+| `display.ts` | `useRetirementDisplay(usdInflationPct, valueView)` — the single display edge: `toViewUsd` (real = `toReal`), `chartValue` (→ display currency number), `money` / `signedMoney` (formatted + obfuscation-aware), `moneyFromChartValue` (tooltips), `axisTick` (compact `$1.2M`). Also `formatMonthsDuration`, `formatAge` and `formatAgeLabel` ("Age 52" — the one spelling of an age as a label, used by the answers, the chart markers and the suggestion rows). |
+| `chartSeries.ts` | Projection months → chart points: `sampleMonthsFromNow` (stride sampling with pinned months), `ageAt`, `buildBandPoints` (base line + `[pessimistic, optimistic]` tuple for Recharts' range `Area`). The end-of-month lookup it builds on, `valueAtMonthsFromNow`, belongs to the engine (`projection.ts`) — the convention is the engine's, not the chart's. |
 | `ScenarioPanel.tsx` | Scenario picker (`Select`) + create / rename / set-default / delete / save / discard, the core inputs (including the **Contribution end age** field, which sits with the other ages and carries the coasting explainer), and the collapsible **Assumptions** section (primary expected-return triple, USD/TRY inflation, TRY depreciation, per-option expected returns and any flat effective tax rate). The `depletionAge` field is editable under both strategies, its label/hint switching via `DEPLETION_AGE_LABELS` / `DEPLETION_AGE_HINTS` ("Depletion age" vs. "Show until age"); the `safeWithdrawalRatePct` field mirrors that per-strategy adaptation the other way — under `capital_depletion` it is `disabled` (the target is the spending annuity) and its hint switches via `SAFE_WITHDRAWAL_RATE_HINTS`, leaving the stored value untouched. The picker's `SelectValue` takes a formatter function (`scenarioLabel`) — Base UI renders the raw selected *value*, i.e. the scenario id, when given none. The starting-amount field passes `displayValue` (the live total through `formatCurrency` + `obfuscate`, the same string as the caption under it) because a disabled `NumberField` renders as text, not as a locale-formatted native number input. Fields are keyed by scenario id so their typing buffers re-seed on switch. |
 | `ScenarioNameDialog.tsx` | Name prompt for create / rename. |
 | `RetirementControls.tsx` | `Hint` / `HintLabel` (the glossary explainer every advanced term carries), `NumberField` (string buffer so half-typed input survives; a disabled field renders as `type="text"` from `displayValue ?? String(value)` — a native number input paints its value in the *browser's* locale, e.g. `55597,51`), `SegmentedControl`, `StatTile`. |
-| `PlanTab.tsx` | Mode switch (final value / required contribution / time to target), the solved headline with its "—"/not-reachable convention, the band chart, `PlanMilestones`, and `SensitivityInsights`. It computes the three band projections once and hands the same objects to both the chart and the table. The headline is one memo returning the `SolvedMode` union — **only the mode on screen is solved**, so a required-contribution bisection or a century-long time-to-target run never happens for a mode nobody is looking at. |
+| `PlanTab.tsx` | The four question modes (`PLAN_MODE`: earliest retirement / coast / required contribution / final value), the answer headline with its "—"/not-reachable convention, and the per-question body. The headline is one memo returning the `SolvedMode` union — **only the question on screen is solved**, so an earliest-age scan or a required-contribution bisection never runs for a question nobody asked. Two more memos are gated the same way: the band projections are skipped in the coast question (which draws its own, accumulation-only), and `computeCoastOutlook` runs only when the coast question is open or the plan coasts (`contributionEndAge < retirementAge`) and the chart needs the earliest-coast marker. |
+| `PlanVerdict.tsx` | The yes/no banner for every question that fixes the retirement age. Projects once, compares with the target, and — only when short — runs the three escape routes (`solveEarliestRetirementAge`, `solveRequiredContribution`, `solveSupportedSpending`), each omitted from the sentence when its solve is null or when it does not actually improve on the plan. Given `coastingByUsd` (the coast question's gap when ≤ 0) it renders the celebratory already-coasting verdict instead and skips the solves entirely. Its own component boundary is deliberate — see the recompute path. |
+| `PlanCoastMode.tsx` | The coast question's body: the three-tile Coast FIRE strip (number vs. current value, gap + coast date, retirement target + gap + time-to-target) over `CoastChart`. Reads every figure from the `CoastOutlook` `PlanTab` solved; the only solve of its own is `solveMonthsToTarget` for the third tile. |
+| `ContributionSuggestions.tsx` | The round-number menu under "how much should I contribute?": `suggestedContributionsUsd` rounds `SUGGESTION_MULTIPLIERS` of the required figure to $250 (or $50 below $1,000), deduped and floored at one step; each row then runs `solveEarliestRetirementAge` + `computeCoastOutlook` + one `projectScenario`. Four rows is the cap on that work. When the requirement is null the table renders nothing (the headline already says not reachable); when it is zero the plan's own contribution anchors the menu. |
 | `PlanMilestones.tsx` | The milestones table (desktop) / cards (mobile), same pattern as `CompareTab`: age, phase, and the pessimistic / **base** (headline weight) / optimistic value per row. Rows come from `planMilestones(inputs)`; values from `valueAtMonthsFromNow` over `PlanTab`'s projections — it never projects anything itself, and every figure goes through the `RetirementDisplay` edge. |
-| `PlanChart.tsx` | `ComposedChart`: range `Area` (pessimistic–optimistic, `--primary` at 12%) + base `Line` (`var(--primary)`), `ReferenceLine`s for the retirement age, the retirement target, and — only when `contributionEndAge < retirementAge` — the age contributions stop. `PlanTab` asks `projectScenario` for `includeRetirementDrawdown` under **both** withdrawal strategies, so the line always carries on past retirement to `depletionAge` — down to zero when depleting, typically still rising under preservation. |
+| `coastMarkers.tsx` | `coastMarkerLines({ plannedCoastAge, earliestCoastAge, earliestColor })` → the pair of coast `ReferenceLine`s ("Planned coast: 35" / "Could coast at: 32"), shared by both charts, with `showsEarliestCoast` dropping the second when the two land in the same month. A **function returning an array**, not a component: Recharts classifies a chart's own children, so a wrapper component would not register as reference lines at all. |
+| `PlanChart.tsx` | `ComposedChart`: range `Area` (pessimistic–optimistic, `--primary` at 12%) + base `Line` (`var(--primary)`), `ReferenceLine`s for the retirement age, the retirement target, the earliest retirement age when the "when can I retire?" answer is on screen, and — only when `contributionEndAge < retirementAge` — the coast marker pair. `PlanTab` asks `projectScenario` for `includeRetirementDrawdown` under **both** withdrawal strategies, so the line always carries on past retirement to `depletionAge` — down to zero when depleting, typically still rising under preservation. |
 | `SensitivityInsights.tsx` | Calls `computeSensitivityInsights` itself (from `PlanTab`'s inputs) and phrases the engine's structured effects as full sentences (contribution steps → time saved; retirement-age shifts → required contribution), with the not-reachable wording for null solves. The solves live here, not in `PlanTab`, so they sit behind their own component boundary — see the recompute path below. |
 | `CompareTab.tsx` | `runComparison` → table (desktop) / cards (mobile): gross, retirement tax estimate (its `note` as a tooltip), **after-tax** (headline weight), after-tax in today's purchasing power. Caption: estimates under current law. |
 | `CompareChart.tsx` | One `Line` per option, base case only — five shaded bands would not stay legible — with a legend, a colour swatch shared with the table rows, and a fixed categorical palette (never cycled). |
-| `CoastFireTab.tsx` | Tiles: Coast FIRE number vs. current value; Coast FIRE gap + coast date; retirement target + its gap and years-to-target. Gap ≤ 0 renders the explicit already-coasting state instead of a negative number. |
-| `CoastFireChart.tsx` | The rising Coast FIRE curve (dashed, slot-2 hue) over the projected portfolio band, with the coast date as a `ReferenceDot`. |
+| `CoastChart.tsx` | The rising Coast FIRE curve (dashed, slot-2 hue) over the projected portfolio band, with the coast date as a `ReferenceDot` and the coast marker pair as lines. Registered lazily as `RetirementCoastChart`. |
 | `RetirementSkeleton.tsx` | Loading placeholder for the panel + first chart. |
 
 ## Recompute path (why typing stays responsive)
 
 Nothing here is cached or persisted: every figure is re-derived from the inputs,
 and a single keystroke in the scenario panel invalidates all of it. On the
-default scenario one edit is ~137 month-by-month projection runs, because the
-solvers are numeric: a required contribution is a bisection of ~45 projections
-and each sensitivity insight is another solve (~133 projections, still the
-largest single cost). Measured in Node that is ~50 ms of work per settled edit
-(~7 ms Plan tab + ~43 ms insights).
+default scenario one edit is a few hundred month-by-month projection runs,
+because the solvers are numeric: a required contribution is a bisection of ~45
+projections (~22 ms), each sensitivity insight is another solve (~43 ms for the
+set, still the largest single cost), and the suggestion table is four rows of
+three solves. The two solvers added with the question modes are cheap by
+comparison — `solveEarliestRetirementAge` is ONE long projection plus a
+closed-form target per candidate age (~4 ms), and `solveSupportedSpending` is
+closed form.
 
 **The projection recurrence is rounded to `DECIMALS.projection` (10 dp) every
 month** — `projectGrowth` in `projection.ts`, both the accumulation and the
@@ -119,17 +131,19 @@ Three things then keep that work off the keystroke:
    the typed character before starting the recompute and abandons intermediate
    values when the next keystroke lands first.
 2. **Only the mounted tab computes** — Base UI's `Tabs.Panel` defaults to
-   `keepMounted={false}`, so the hidden tabs are unmounted and `runComparison`
-   / the Coast FIRE solves do not run while the Plan tab is open. Do not add
-   `keepMounted` here. Within the Plan tab the same rule applies to the mode
-   switch (`SolvedMode`).
+   `keepMounted={false}`, so the hidden tab is unmounted and `runComparison`
+   does not run while the Plan tab is open. Do not add `keepMounted` here.
+   Within the Plan tab the same rule applies to the question switch
+   (`SolvedMode`, plus the gated `projections` and `coastOutlook` memos): a
+   question nobody asked is never solved.
 3. **Chunked so React can interrupt** — React only yields between components, so
-   a memo is all-or-nothing once entered. The insight solves therefore live in
-   `SensitivityInsights` rather than in `PlanTab`: the Plan tab's own render
-   (three band projections + the final-value headline + milestones) is the
-   cheaper half, and the insight pass — still ~6x the rest of the tab — is a
-   separate unit of work React can drop when another keystroke arrives. Keep it
-   that way if the insight set grows.
+   a memo is all-or-nothing once entered. The three heavy passes therefore live
+   in their own components rather than in `PlanTab`: `SensitivityInsights`
+   (the largest), `PlanVerdict`'s escape routes, and
+   `ContributionSuggestions`' four rows. The Plan tab's own render (the band
+   projections + the answer headline) is the cheap half, and each of the others
+   is a separate unit of work React can drop when another keystroke arrives.
+   Keep it that way — and keep the suggestion menu at four rows.
 
 ## Tax layer (`src/lib/retirement/tax/`)
 

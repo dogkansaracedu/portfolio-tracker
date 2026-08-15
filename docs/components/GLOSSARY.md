@@ -318,6 +318,23 @@ The **coast date** is the first month the projected portfolio (with planned
 contributions) meets the then-current Coast FIRE number; "years to Coast FIRE"
 is the distance to that date.
 
+### Earliest retirement age
+The smallest age at which a [contribution plan](#contribution-plan)'s
+[projection](#projection) reaches the [retirement target](#retirement-target)
+**of that age** — the target is re-derived per candidate age, because retiring
+later inflates the spending it funds and, under [capital
+depletion](#withdrawal-strategy), shortens the drawdown it buys. A candidate's
+[contribution end age](#contribution-end-age) is the earlier of the saved one
+and the candidate itself. Null (never "reachable at 115") when no age reaches
+it.
+
+### Supported spending
+The monthly retirement spending, in **today's** USD, that a given portfolio
+value at retirement can fund under the scenario's [withdrawal
+strategy](#withdrawal-strategy) — the [retirement target
+formula](#retirement-target-formula) read backwards, and the third of the three
+ways out of a plan that falls short (retire later, contribute more, spend less).
+
 ### Sensitivity insight
 An automatically generated statement quantifying how one input change moves one
 output — "at $1,500/month instead of $1,000 you reach your target 5 years
