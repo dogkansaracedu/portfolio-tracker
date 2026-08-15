@@ -78,7 +78,6 @@ export default function AssetDetailPage() {
         realizedPnlUsd={detail.realizedPnlUsd}
         realizedPnlPct={detail.realizedPnlPct}
         totalReturnUsd={detail.totalReturnUsd}
-        totalReturnPct={detail.totalReturnPct}
         mwrCumulativePct={detail.mwrCumulativePct}
         mwrAnnualizedPct={detail.mwrAnnualizedPct}
         dailyReturnAvailable={detail.dailyReturnAvailable}

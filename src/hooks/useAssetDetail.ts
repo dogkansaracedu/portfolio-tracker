@@ -53,9 +53,8 @@ interface UseAssetDetailReturn {
   realizedPnlPct: number | null
   /** Lifetime money-weighted total for the asset: value − net invested. */
   totalReturnUsd: number
-  /** Total % over the asset's peak net invested — null when peak ≤ 0. */
-  totalReturnPct: number | null
-  /** Cumulative money-weighted (XIRR) % over the asset's lifespan; any age. */
+  /** The asset's headline % — cumulative money-weighted (XIRR) return over
+   *  its lifespan ("what each dollar earned"); any age. */
   mwrCumulativePct: number | null
   /** Annualized %/yr of the same solve; null under 1 year of history. */
   mwrAnnualizedPct: number | null
@@ -262,7 +261,6 @@ export function useAssetDetail(assetId: string | undefined): UseAssetDetailRetur
     realizedPnlUsd,
     realizedPnlPct,
     totalReturnUsd: returnRates?.totalPnlUsd.toNumber() ?? 0,
-    totalReturnPct: returnRates?.totalPnlPct?.toNumber() ?? null,
     mwrCumulativePct: returnRates?.mwrCumulativePct?.toNumber() ?? null,
     mwrAnnualizedPct: returnRates?.mwrAnnualizedPct?.toNumber() ?? null,
     incomeUsd,
