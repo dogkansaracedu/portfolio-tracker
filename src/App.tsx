@@ -8,6 +8,7 @@ import LoginPage from "@/pages/LoginPage"
 import SignupPage from "@/pages/SignupPage"
 
 const PortfolioPage = lazy(() => import("@/pages/PortfolioPage"))
+const AssetDetailPage = lazy(() => import("@/pages/AssetDetailPage"))
 const TransactionsPage = lazy(() => import("@/pages/TransactionsPage"))
 const TransactionsEditPage = lazy(() => import("@/pages/TransactionsEditPage"))
 const PerformancePage = lazy(() => import("@/pages/PerformancePage"))
@@ -35,6 +36,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
             <Route path="portfolio" element={<Lazy><PortfolioPage /></Lazy>} />
+            <Route path="assets/:assetId" element={<Lazy><AssetDetailPage /></Lazy>} />
             <Route path="transactions" element={<Lazy><TransactionsPage /></Lazy>} />
             <Route path="performance" element={<Lazy><PerformancePage /></Lazy>} />
             <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />

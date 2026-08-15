@@ -34,7 +34,7 @@
   `netUsd = returnUsd − taxAccrualUsd` as the headline (percent recomputed over
   `costBasisUsd`), with a muted `gross … · −… tax` annotation (desktop) / `· gross …`
   suffix (mobile). Shared `CurrentPrice` + `formatQuantity` helpers; asset cell links
-  to `/transactions/edit/:assetId`. The desktop row also renders nested fund
+  to `/assets/:assetId` (Component 12). The desktop row also renders nested fund
   children (chevron + recursive `nested` render — see the funds-nested-under-fiat
   entry below).
 - `src/components/portfolio/PortfolioSummaryBar.tsx` — lifetime cards (value, P&L
@@ -159,5 +159,6 @@ Used at both asset and (asset, platform) granularity; group rollups reuse
   Consistent with how lifetime return also omits sold-out positions.
 - **Daily figures are USD-only** (the return column is USD even when the display
   toggle is TRY) — matches the P&L column; neither is wired to the currency toggle.
-- **There is no asset detail sheet** — no drill-down panel exists; the asset cell
-  links to the transactions edit route instead.
+- **Asset drill-down:** the asset cell (desktop row and mobile card) links to
+  the asset detail page `/assets/:assetId` (Component 12); the transactions
+  edit route is reachable from there.

@@ -24,3 +24,10 @@ export const DrawdownChart = lazy(() =>
     default: m.DrawdownChart,
   })),
 )
+
+// Asset detail chart (named export)
+export const AssetHistoryChart = lazy(() =>
+  import("@/components/asset-detail/AssetHistoryChart").then((m) => ({
+    default: m.AssetHistoryChart,
+  })),
+)
