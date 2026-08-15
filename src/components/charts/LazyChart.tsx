@@ -25,6 +25,23 @@ export const DrawdownChart = lazy(() =>
   })),
 )
 
+// Retirement charts (named exports)
+export const RetirementPlanChart = lazy(() =>
+  import("@/components/retirement/PlanChart").then((m) => ({
+    default: m.PlanChart,
+  })),
+)
+export const RetirementCompareChart = lazy(() =>
+  import("@/components/retirement/CompareChart").then((m) => ({
+    default: m.CompareChart,
+  })),
+)
+export const RetirementCoastFireChart = lazy(() =>
+  import("@/components/retirement/CoastFireChart").then((m) => ({
+    default: m.CoastFireChart,
+  })),
+)
+
 // Asset detail chart (named export)
 export const AssetHistoryChart = lazy(() =>
   import("@/components/asset-detail/AssetHistoryChart").then((m) => ({

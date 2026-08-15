@@ -1,0 +1,482 @@
+import { useState } from "react"
+import { ChevronDown, Plus, Star, Trash2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { useDisplayCurrency } from "@/contexts/DisplayContext"
+import { formatCurrency, obfuscate } from "@/lib/prices"
+import {
+  WITHDRAWAL_STRATEGY,
+  type ComparisonOption,
+  type ExpectedReturnTriple,
+  type WithdrawalStrategy,
+} from "@/lib/retirement"
+import type { RetirementPlanner } from "@/hooks/useRetirementPlanner"
+import { cn } from "@/lib/utils"
+import {
+  DEFAULT_SCENARIO_NAME,
+  GLOSSARY_HINTS,
+  WITHDRAWAL_STRATEGY_LABELS,
+} from "./constants"
+import {
+  HintLabel,
+  NumberField,
+  SegmentedControl,
+} from "./RetirementControls"
+import { ScenarioNameDialog } from "./ScenarioNameDialog"
+
+/**
+ * The persistent scenario panel: which saved scenario is loaded, the
+ * contribution plan and retirement inputs, and the assumption set folded away
+ * behind "Assumptions" so casual use isn't buried in knobs. Edits are local
+ * until Save writes them through.
+ */
+
+const STRATEGY_OPTIONS: { id: WithdrawalStrategy; label: string }[] = [
+  {
+    id: WITHDRAWAL_STRATEGY.preservation,
+    label: WITHDRAWAL_STRATEGY_LABELS[WITHDRAWAL_STRATEGY.preservation],
+  },
+  {
+    id: WITHDRAWAL_STRATEGY.depletion,
+    label: WITHDRAWAL_STRATEGY_LABELS[WITHDRAWAL_STRATEGY.depletion],
+  },
+]
+
+export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
+  const {
+    scenarios,
+    activeScenario,
+    inputs,
+    dirty,
+    saving,
+    error,
+    liveValueUsd,
+    patch,
+    selectScenario,
+    save,
+    createScenario,
+    renameActive,
+    deleteActive,
+    makeActiveDefault,
+    discardEdits,
+  } = planner
+  const { obfuscated } = useDisplayCurrency()
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false)
+  const [nameDialog, setNameDialog] = useState<"create" | "rename" | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const usesLiveValue = inputs.startingAmountUsd === null
+  const isDepleting =
+    inputs.withdrawalStrategy === WITHDRAWAL_STRATEGY.depletion
+  // Fields are remounted (so their typing buffers re-seed) when the loaded
+  // scenario changes.
+  const fieldKey = activeScenario?.id ?? "unsaved"
+
+  const patchReturn = (partial: Partial<ExpectedReturnTriple>) =>
+    patch({
+      primaryExpectedReturn: { ...inputs.primaryExpectedReturn, ...partial },
+    })
+
+  const patchOption = (id: string, partial: Partial<ComparisonOption>) =>
+    patch({
+      options: inputs.options.map((option) =>
+        option.id === id ? { ...option, ...partial } : option,
+      ),
+    })
+
+  return (
+    <Card>
+      <CardContent className="space-y-4">
+        {/* Scenario picker + persistence actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          {scenarios.length > 0 ? (
+            <Select
+              value={activeScenario?.id ?? ""}
+              onValueChange={(value) => value && selectScenario(String(value))}
+            >
+              <SelectTrigger size="sm" className="min-w-44">
+                <SelectValue placeholder="Select a scenario" />
+              </SelectTrigger>
+              <SelectContent>
+                {scenarios.map((scenario) => (
+                  <SelectItem key={scenario.id} value={scenario.id}>
+                    {scenario.name}
+                    {scenario.is_default ? " (default)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <span className="text-sm font-medium">{DEFAULT_SCENARIO_NAME}</span>
+          )}
+
+          {dirty && (
+            <span className="text-xs text-muted-foreground">Unsaved edits</span>
+          )}
+
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+            <Button size="sm" onClick={save} disabled={saving || !dirty}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+            {dirty && activeScenario && (
+              <Button size="sm" variant="ghost" onClick={discardEdits}>
+                Discard
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setNameDialog("create")}
+            >
+              <Plus /> New
+            </Button>
+            {activeScenario && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setNameDialog("rename")}
+                >
+                  Rename
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={activeScenario.is_default || saving}
+                  onClick={makeActiveDefault}
+                >
+                  <Star /> Set default
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 /> Delete
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        {/* Core inputs */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-1.5">
+            <NumberField
+              key={`${fieldKey}-start`}
+              id="starting-amount"
+              label="Starting amount"
+              hint={GLOSSARY_HINTS.startingAmount}
+              suffix="USD"
+              disabled={usesLiveValue}
+              value={
+                usesLiveValue
+                  ? Number(liveValueUsd.toFixed(2))
+                  : (inputs.startingAmountUsd ?? 0)
+              }
+              onChange={(next) => patch({ startingAmountUsd: next })}
+            />
+            <button
+              type="button"
+              className="justify-self-start text-xs text-primary underline-offset-4 hover:underline"
+              onClick={() =>
+                patch({
+                  startingAmountUsd: usesLiveValue
+                    ? Number(liveValueUsd.toFixed(2))
+                    : null,
+                })
+              }
+            >
+              {usesLiveValue
+                ? `Using live portfolio value (${obfuscate(
+                    formatCurrency(liveValueUsd.toNumber(), "USD"),
+                    obfuscated,
+                  )}) — enter my own`
+                : "Use live portfolio value"}
+            </button>
+          </div>
+
+          <NumberField
+            key={`${fieldKey}-contribution`}
+            id="monthly-contribution"
+            label="Monthly contribution"
+            suffix="USD"
+            value={inputs.monthlyContributionUsd}
+            onChange={(next) => patch({ monthlyContributionUsd: next })}
+          />
+          <NumberField
+            key={`${fieldKey}-growth`}
+            id="contribution-growth"
+            label="Contribution growth"
+            hint={GLOSSARY_HINTS.contributionGrowth}
+            suffix="%"
+            step={0.5}
+            value={inputs.contributionGrowthPct}
+            onChange={(next) => patch({ contributionGrowthPct: next })}
+          />
+          <NumberField
+            key={`${fieldKey}-spending`}
+            id="monthly-spending"
+            label="Monthly spending (today's USD)"
+            suffix="USD"
+            value={inputs.monthlySpendingUsd}
+            onChange={(next) => patch({ monthlySpendingUsd: next })}
+          />
+
+          <NumberField
+            key={`${fieldKey}-current-age`}
+            id="current-age"
+            label="Current age"
+            value={inputs.currentAge}
+            onChange={(next) => patch({ currentAge: next })}
+          />
+          <NumberField
+            key={`${fieldKey}-retirement-age`}
+            id="retirement-age"
+            label="Retirement age"
+            value={inputs.retirementAge}
+            onChange={(next) => patch({ retirementAge: next })}
+          />
+          <NumberField
+            key={`${fieldKey}-depletion-age`}
+            id="depletion-age"
+            label="Depletion age"
+            hint={GLOSSARY_HINTS.withdrawalStrategy}
+            disabled={!isDepleting}
+            value={inputs.depletionAge}
+            onChange={(next) => patch({ depletionAge: next })}
+          />
+          <NumberField
+            key={`${fieldKey}-swr`}
+            id="safe-withdrawal-rate"
+            label="Safe withdrawal rate"
+            hint={GLOSSARY_HINTS.safeWithdrawalRate}
+            suffix="%"
+            step={0.1}
+            value={inputs.safeWithdrawalRatePct}
+            onChange={(next) => patch({ safeWithdrawalRatePct: next })}
+          />
+
+          <div className="grid gap-1.5 sm:col-span-2">
+            <HintLabel hint={GLOSSARY_HINTS.withdrawalStrategy}>
+              Withdrawal strategy
+            </HintLabel>
+            <SegmentedControl
+              size="sm"
+              value={inputs.withdrawalStrategy}
+              options={STRATEGY_OPTIONS}
+              onChange={(next) => patch({ withdrawalStrategy: next })}
+            />
+          </div>
+        </div>
+
+        {/* Assumptions */}
+        <div className="border-t pt-3">
+          <button
+            type="button"
+            onClick={() => setAssumptionsOpen((open) => !open)}
+            className="flex items-center gap-1.5 text-sm font-medium"
+          >
+            <ChevronDown
+              className={cn(
+                "size-4 transition-transform",
+                assumptionsOpen && "rotate-180",
+              )}
+            />
+            Assumptions
+          </button>
+
+          {assumptionsOpen && (
+            <div className="mt-3 space-y-4">
+              <div className="space-y-2">
+                <HintLabel hint={GLOSSARY_HINTS.expectedReturnBand}>
+                  Primary expected return (drives Plan and Coast FIRE)
+                </HintLabel>
+                <ExpectedReturnFields
+                  fieldKey={`${fieldKey}-primary`}
+                  idPrefix="primary-return"
+                  triple={inputs.primaryExpectedReturn}
+                  onChange={patchReturn}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <NumberField
+                  key={`${fieldKey}-usd-inflation`}
+                  id="usd-inflation"
+                  label="USD inflation"
+                  hint={GLOSSARY_HINTS.usdInflation}
+                  suffix="%"
+                  step={0.1}
+                  value={inputs.usdInflationPct}
+                  onChange={(next) => patch({ usdInflationPct: next })}
+                />
+                <NumberField
+                  key={`${fieldKey}-try-inflation`}
+                  id="try-inflation"
+                  label="TRY inflation"
+                  hint={GLOSSARY_HINTS.tryAssumptions}
+                  suffix="%"
+                  step={0.5}
+                  value={inputs.tryInflationPct}
+                  onChange={(next) => patch({ tryInflationPct: next })}
+                />
+                <NumberField
+                  key={`${fieldKey}-try-depreciation`}
+                  id="try-depreciation"
+                  label="TRY depreciation"
+                  hint={GLOSSARY_HINTS.tryAssumptions}
+                  suffix="%"
+                  step={0.5}
+                  value={inputs.tryDepreciationPct}
+                  onChange={(next) => patch({ tryDepreciationPct: next })}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <HintLabel hint={GLOSSARY_HINTS.expectedReturn}>
+                  Expected return per comparison option (drives Compare)
+                </HintLabel>
+                {inputs.options.map((option) => (
+                  <div key={option.id} className="grid gap-2 rounded-lg border p-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      {option.name}
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                        {option.returnCurrency}
+                      </span>
+                    </div>
+                    <ExpectedReturnFields
+                      fieldKey={`${fieldKey}-${option.id}`}
+                      idPrefix={`option-${option.id}`}
+                      triple={option.expectedReturn}
+                      onChange={(partial) =>
+                        patchOption(option.id, {
+                          expectedReturn: {
+                            ...option.expectedReturn,
+                            ...partial,
+                          },
+                        })
+                      }
+                      extra={
+                        option.flatTaxRatePct === undefined ? null : (
+                          <NumberField
+                            key={`${fieldKey}-${option.id}-tax`}
+                            id={`option-${option.id}-tax`}
+                            label="Effective tax rate"
+                            hint={GLOSSARY_HINTS.retirementTaxEstimate}
+                            suffix="%"
+                            step={0.5}
+                            value={option.flatTaxRatePct}
+                            onChange={(next) =>
+                              patchOption(option.id, { flatTaxRatePct: next })
+                            }
+                          />
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+
+      <ScenarioNameDialog
+        open={nameDialog !== null}
+        onOpenChange={(open) => !open && setNameDialog(null)}
+        mode={nameDialog ?? "create"}
+        initialName={
+          nameDialog === "rename"
+            ? (activeScenario?.name ?? "")
+            : `${activeScenario?.name ?? DEFAULT_SCENARIO_NAME} copy`
+        }
+        onSubmit={nameDialog === "rename" ? renameActive : createScenario}
+      />
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this scenario?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {activeScenario?.name} will be removed. Projections keep running
+              from the defaults.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={deleteActive}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
+  )
+}
+
+function ExpectedReturnFields({
+  fieldKey,
+  idPrefix,
+  triple,
+  onChange,
+  extra,
+}: {
+  fieldKey: string
+  idPrefix: string
+  triple: ExpectedReturnTriple
+  onChange: (partial: Partial<ExpectedReturnTriple>) => void
+  extra?: React.ReactNode
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <NumberField
+        key={`${fieldKey}-pessimistic`}
+        id={`${idPrefix}-pessimistic`}
+        label="Pessimistic"
+        suffix="%"
+        step={0.5}
+        value={triple.pessimistic}
+        onChange={(next) => onChange({ pessimistic: next })}
+      />
+      <NumberField
+        key={`${fieldKey}-base`}
+        id={`${idPrefix}-base`}
+        label="Base"
+        suffix="%"
+        step={0.5}
+        value={triple.base}
+        onChange={(next) => onChange({ base: next })}
+      />
+      <NumberField
+        key={`${fieldKey}-optimistic`}
+        id={`${idPrefix}-optimistic`}
+        label="Optimistic"
+        suffix="%"
+        step={0.5}
+        value={triple.optimistic}
+        onChange={(next) => onChange({ optimistic: next })}
+      />
+      {extra}
+    </div>
+  )
+}
