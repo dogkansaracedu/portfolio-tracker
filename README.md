@@ -102,7 +102,7 @@ For historical backfill (one-shot, on demand), use **Settings → Snapshots → 
 
 ## Production deploy (Vercel + Supabase Cloud)
 
-The project ships with no GitHub integration — frontend deploys via the Vercel CLI directly from your machine, backend via the Supabase CLI.
+Deploys are **automatic on push to `main`**: the Vercel GitHub integration builds and promotes the frontend to Production, and the Supabase GitHub integration applies any new files in `supabase/migrations/` (verified 2026-08-15 — a pushed migration was live on the remote database without a manual `db push`). The CLI commands below remain the manual fallback and the one-time setup path. Edge-function deploys are still manual (`supabase functions deploy <name>`).
 
 ### One-time setup
 
@@ -145,11 +145,14 @@ vercel deploy --prod --yes
 
 ### Subsequent deploys
 
+Push to `main` — the GitHub integrations deploy the frontend (Vercel) and apply migrations (Supabase) automatically. Manual fallbacks:
+
 ```bash
-npm run deploy            # = npm run build && vercel --prod
+npm run deploy            # frontend: = npm run build && vercel --prod
+supabase db push          # migrations (normally auto-applied on push)
 ```
 
-Backend changes ship via `supabase db push` (migrations) or `supabase functions deploy <name>` (edge functions).
+Edge-function changes still ship manually via `supabase functions deploy <name>`.
 
 ### Secrets summary
 
