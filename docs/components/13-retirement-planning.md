@@ -216,6 +216,11 @@ are always recomputed from inputs.
   a collapsible "Assumptions" section so casual use isn't buried in knobs.
 - Every advanced term surfaces its one-line glossary explainer inline
   (tooltip or caption).
+- An input that the loaded withdrawal strategy does not use is shown but not
+  editable, with an explainer saying why: under capital depletion the safe
+  withdrawal rate drives nothing (the target is the spending to the depletion
+  age), so the field is inert — and the value it holds is left untouched, ready
+  for a switch back to capital preservation.
 - Charts follow the app's existing chart conventions (responsive, themed,
   tooltips with formatted currency); tables follow existing table/card
   conventions on desktop/mobile.
