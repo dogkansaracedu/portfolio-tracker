@@ -128,9 +128,9 @@ export function PortfolioRow({
             <span className="inline-block size-3.5" />
           ) : null}
           <Link
-            to={`/transactions/edit/${asset.id}`}
+            to={`/assets/${asset.id}`}
             className="flex items-center gap-2 text-left hover:underline focus:outline-none focus-visible:underline"
-            title="View / edit transactions"
+            title="View asset details"
           >
             <AssetIcon asset={asset} size="sm" />
             <span className="font-medium">{asset.ticker}</span>
@@ -273,7 +273,7 @@ export function PortfolioRowCard({
     <Card size="sm">
       <CardContent className="flex items-center justify-between">
         <Link
-          to={`/transactions/edit/${asset.id}`}
+          to={`/assets/${asset.id}`}
           className="flex flex-col items-start gap-0.5 text-left focus:outline-none"
         >
           <div className="flex items-center gap-2">
