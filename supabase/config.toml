@@ -405,6 +405,18 @@ verify_jwt = false
 [functions.take-intraday-snapshots]
 verify_jwt = false
 
+# Campaign ingestion door. Authorized by CAMPAIGN_INGEST_TOKEN (a shared secret
+# independent of any user credential — this path writes global data no user may
+# write), so no JWT. Same token-not-JWT pattern as fetch-prices.
+[functions.ingest-campaigns]
+verify_jwt = false
+
+# Weekly campaign research. Authorized by X-Cron-Token (the pg_cron caller) or
+# the ingest bearer token (manual re-run); callers cannot inject campaign data,
+# rows come only from the grounded model sweeps, so no JWT.
+[functions.research-campaigns]
+verify_jwt = false
+
 # Ticker resolution (Yahoo lookup). Added 2026-05-25 and deployed manually, but
 # its config block was missed at the time — declared here so the GitHub
 # integration manages it. verify_jwt matches the live setting.

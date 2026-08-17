@@ -6,8 +6,10 @@ import {
   TrendingUp,
   PiggyBank,
   Wallet,
+  Megaphone,
   Settings,
 } from "lucide-react"
+import { CAMPAIGN_COPY } from "@/lib/constants/campaigns"
 import Logo from "@/components/common/Logo"
 import BuildBadge from "@/components/common/BuildBadge"
 
@@ -18,6 +20,7 @@ const navItems = [
   { to: "/performance", label: "Performance", icon: TrendingUp },
   { to: "/retirement", label: "Retirement", icon: PiggyBank },
   { to: "/budget", label: "Budget", icon: Wallet },
+  { to: "/campaigns", label: CAMPAIGN_COPY.navLabel, icon: Megaphone },
   { to: "/settings", label: "Settings", icon: Settings },
 ]
 
