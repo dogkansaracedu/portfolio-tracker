@@ -112,6 +112,15 @@ describe("validateCampaignBatch — per-row rejects", () => {
     expect(rejectReason(row({ source_url: "" }))).toContain("source_url")
   })
 
+  it("rejects aggregate pseudo-tickers, accepts real symbols", () => {
+    expect(rejectReason(row({ asset_ticker: "STABLECOINS (UNSPECIFIED)" }))).toContain(
+      "single specific symbol",
+    )
+    expect(rejectReason(row({ asset_ticker: "GOLD TOKENS" }))).toContain("single specific symbol")
+    expect(batch([row({ asset_ticker: "USD1" })]).valid).toHaveLength(1)
+    expect(batch([row({ asset_ticker: "jitosol" })]).valid).toHaveLength(1)
+  })
+
   it("rejects an unrecognized program type", () => {
     expect(rejectReason(row({ program_type: "yield_farming" }))).toContain(
       "unknown program_type",

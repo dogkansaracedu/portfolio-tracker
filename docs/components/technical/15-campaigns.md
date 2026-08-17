@@ -93,7 +93,9 @@ recorded in `campaign_research_runs`, not in the cron response.
 
 Input: `{ producer, model?, summary?, campaigns: CampaignInput[] }`. Per-row
 rejects (collected into `rejected`, not thrown): missing
-ticker/platform/program_type/source_url; `program_type` not in
+ticker/platform/program_type/source_url; ticker not a single specific symbol
+(`^[A-Z0-9]{2,12}$` — kills aggregates like "STABLECOINS (UNSPECIFIED)");
+`program_type` not in
 `CAMPAIGN_PROGRAM_TYPES`; `apr` present but outside `(0, 1000]`; `apr` present
 without valid `apr_kind`; neither `apr` nor `reward_description`; `source_url`
 not parseable as http(s) URL; `deadline`/`fetched_at` not `YYYY-MM-DD` or calendar-invalid; non-object rows;

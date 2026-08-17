@@ -257,6 +257,11 @@ function validateRow(row: unknown): { ok: true; value: CampaignInput } | { ok: f
 
   const ticker = optionalText(row.asset_ticker)
   if (!ticker) return { ok: false, reason: "missing asset_ticker" }
+  // A row must be about one specific asset — aggregate pseudo-tickers like
+  // "STABLECOINS (UNSPECIFIED)" are useless as campaign rows.
+  if (!/^[A-Z0-9]{2,12}$/.test(ticker.toUpperCase())) {
+    return { ok: false, reason: "asset_ticker is not a single specific symbol" }
+  }
 
   const platform = optionalText(row.platform)
   if (!platform) return { ok: false, reason: "missing platform" }
