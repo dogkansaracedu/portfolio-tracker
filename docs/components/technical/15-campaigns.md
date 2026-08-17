@@ -142,7 +142,10 @@ previous data intact.
    every sweep fails or zero rows validate.
 5. Both engines: merge, drop structured-product rows (deterministic regex
    backstop for the prompt exclusion — dual investment/dual currency are
-   options strategies, not earn), dedupe on `(ticker, platform, program_type)`
+   options strategies, not earn), scrub "Turkey eligibility: unconfirmed"-style
+   boilerplate out of `conditions` (regex backstop; the prompt's eligibility
+   rule drops explicitly-excluded campaigns and forbids the phrase), dedupe on
+   `(ticker, platform, program_type)`
    keeping the higher APR, **compute** the change summary in code (diff of
    `ticker@platform` pairs vs the previous successful run — never
    model-written), stamp missing `fetched_at` with today, then validate and
