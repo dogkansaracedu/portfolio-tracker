@@ -89,9 +89,9 @@ export const CAMPAIGN_COPY = {
       emptyText: "No campaigns for the coins you hold right now.",
     },
     stablecoin: {
-      title: "Stablecoin campaigns",
-      description: "Where dollars can earn while they wait.",
-      emptyText: "No stablecoin campaigns in this run.",
+      title: "Stable value",
+      description: "Where parked dollars and gold can earn while they wait.",
+      emptyText: "No stable-value campaigns in this run.",
     },
     considering: {
       title: "Worth considering",

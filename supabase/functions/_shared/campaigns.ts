@@ -81,6 +81,12 @@ export const PLATFORM_WATCH_LIST: readonly WatchListEntry[] = [
     flag: "SPK-listed",
   },
   {
+    platform: "OKX (global) — Earn + campaigns",
+    kind: "cex-global",
+    groundUrl: "okx.com/en/earn",
+    flag: "Per-campaign Turkey eligibility must be checked; TRY services live on OKX TR instead",
+  },
+  {
     platform: "Binance TR — Staking (\"Biriktir\")",
     kind: "cex-turkey",
     groundUrl: "binance.tr/tr/blog",
