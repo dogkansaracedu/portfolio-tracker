@@ -1,4 +1,9 @@
 import type { StoredRetirementScenarioInputs } from "@/lib/retirement/scenario";
+import type {
+  AprKind,
+  CampaignProgramType,
+  CampaignRunStatus,
+} from "@/lib/constants/campaigns";
 
 // ─── Enum Union Types ───────────────────────────────────────────────
 
@@ -183,6 +188,60 @@ export interface BudgetTarget {
   currency: string;
   effective_from: string;
   created_at: string;
+}
+
+// ─── Campaigns (Component 15) ───────────────────────────────────────
+//
+// Global, service-written tables (same shape of trust as `price_cache`): a
+// research run produces a batch of campaign rows and the app always reads the
+// latest successful run. Rows carry intrinsic facts only — personalization
+// happens at read time by intersecting `asset_ticker` with what the user holds.
+// No user_id anywhere, and no client write path.
+
+/** One automated research pass. A failed run leaves the previous run's rows
+ *  untouched; "latest run" = greatest `ran_at` with `status = 'success'`. */
+export interface CampaignResearchRun {
+  id: string;
+  ran_at: string;
+  producer: string;
+  model: string | null;
+  status: CampaignRunStatus;
+  /** Model-written prose: what changed since the previous run. */
+  summary: string | null;
+  /** Per-row validation rejects, kept for debugging. */
+  rejected_rows: unknown;
+  /** Raw producer output, kept for debugging. */
+  raw_output: unknown;
+}
+
+/** One earn/reward opportunity on one platform, as found on the public web.
+ *  `asset_ticker` is free text (upper-cased on ingest) and may not exist in the
+ *  asset catalog — always join by ticker string, never by asset id.
+ *  A row carries `apr` OR `reward_description` (or both), never neither. */
+export interface Campaign {
+  id: string;
+  run_id: string;
+  asset_ticker: string;
+  platform: string;
+  program_type: CampaignProgramType;
+  /** Percent, e.g. 3.8. Null when the reward is prose-only. */
+  apr: number | null;
+  /** Null iff `apr` is null. */
+  apr_kind: AprKind | null;
+  reward_description: string | null;
+  /** Null or 0 = flexible. */
+  lock_days: number | null;
+  min_amount: number | null;
+  max_amount: number | null;
+  /** Currency/unit of `min_amount` / `max_amount` (e.g. 'USDT', 'ETH'). */
+  amount_currency: string | null;
+  conditions: string | null;
+  /** YYYY-MM-DD; null = open-ended. */
+  deadline: string | null;
+  is_stablecoin: boolean;
+  source_url: string;
+  /** YYYY-MM-DD the research found this row. */
+  fetched_at: string;
 }
 
 // ─── Snapshot Breakdown Shape ───────────────────────────────────────

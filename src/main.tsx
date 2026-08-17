@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { AssetsProvider } from "@/contexts/AssetsContext"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { BudgetProvider } from "@/contexts/BudgetContext"
+import { CampaignsProvider } from "@/contexts/CampaignsContext"
 import { DisplayProvider } from "@/contexts/DisplayContext"
 import { HoldingsProvider } from "@/contexts/HoldingsContext"
 import { PlatformsProvider } from "@/contexts/PlatformsContext"
@@ -32,8 +33,10 @@ createRoot(document.getElementById("root")!).render(
                         <SnapshotsProvider>
                           <RetirementScenarioProvider>
                             <BudgetProvider>
-                              <App />
-                              <Toaster />
+                              <CampaignsProvider>
+                                <App />
+                                <Toaster />
+                              </CampaignsProvider>
                             </BudgetProvider>
                           </RetirementScenarioProvider>
                         </SnapshotsProvider>
