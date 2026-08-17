@@ -138,13 +138,20 @@ previous data intact.
    true grounding on billing-enabled keys). Output is fenced-JSON, extracted
    defensively. One failed sweep doesn't kill the run; a run fails only when
    every sweep fails or zero rows validate.
-5. Both engines: merge, dedupe on `(ticker, platform, program_type)` keeping
-   the higher APR, **compute** the change summary in code (diff of
+5. Both engines: merge, drop structured-product rows (deterministic regex
+   backstop for the prompt exclusion — dual investment/dual currency are
+   options strategies, not earn), dedupe on `(ticker, platform, program_type)`
+   keeping the higher APR, **compute** the change summary in code (diff of
    `ticker@platform` pairs vs the previous successful run — never
    model-written), stamp missing `fetched_at` with today, then validate and
    insert via the write-order pseudo-transaction above. Any thrown error →
    run row with `status='failed'` and the error in `summary`; previous runs
    are never touched.
+6. **Freshness guard (cost control):** a non-forced start is skipped while the
+   latest successful run is younger than 10 days — the weekly cron therefore
+   runs effectively fortnightly (~2 pro researches ≈ 400–500 of the 1,000
+   monthly free credits). Manual `{"force": true}` overrides; continuation
+   hops are never skipped.
 
 Env (function secrets): `TAVILY_API_KEY`, `TAVILY_RESEARCH_MODEL`
 (default `mini`), `CAMPAIGN_RESEARCH_ENGINE` (default `tavily`),

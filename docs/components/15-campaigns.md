@@ -60,7 +60,12 @@ Intrinsic facts only (nothing user-specific):
 
 ### Research pass
 
-- Runs on a schedule (default **weekly**). Each pass:
+- Runs on a schedule (default **weekly**, but a pass is skipped while the
+  latest successful one is fresher than 10 days — cost control on the free
+  research budget; a manual forced pass overrides). Structured products whose
+  principal can settle in a different asset (e.g. dual investment) are never
+  campaigns — excluded at research time and dropped defensively if reported.
+  Each pass:
   1. Scopes coins from the **global asset catalog** (crypto + stablecoins) and
      platforms from the configured **watch list**.
   2. Researches the live public web (search + reading real pages — never from
