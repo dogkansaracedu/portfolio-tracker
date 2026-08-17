@@ -80,8 +80,11 @@ Intrinsic facts only (nothing user-specific):
   major on-chain/DeFi protocols — plus the local regulator's announcements,
   because a rule change can pause every local earn program at once. The run
   summary must surface regulatory news and paused/changed programs, not only
-  new campaigns. Campaigns on global platforms may be country-gated, so the
-  research records eligibility caveats in the row's conditions when found.
+  new campaigns. Campaigns on global platforms may be country-gated; the
+  eligibility rule is three-way: a campaign that **explicitly excludes** the
+  investor's country is dropped entirely, explicit availability may be noted,
+  and unknown eligibility is **never mentioned** (no "unconfirmed" boilerplate
+  — the page-level "verify at source" framing already carries that caution).
 - A new successful run **supersedes** the previous one: the app always shows
   the latest successful run's rows. Older runs are retained as history, never
   edited.
