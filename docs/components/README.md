@@ -41,6 +41,7 @@ Build in order — each builds on the previous.
 | 12 | Asset Detail | [spec](12-asset-detail.md) | [tech](technical/12-asset-detail.md) | Done |
 | 13 | Retirement Planning | [spec](13-retirement-planning.md) | [tech](technical/13-retirement-planning.md) | Done |
 | 14 | Budgeting | [spec](14-budgeting.md) | [tech](technical/14-budgeting.md) | Partial — monthly view done, plan-vs-actual & expense ledger designed but not built |
+| 15 | Campaigns | [spec](15-campaigns.md) | [tech](technical/15-campaigns.md) | Designed — not built |
 
 ## Dependency graph
 
@@ -59,6 +60,7 @@ Build in order — each builds on the previous.
 12 Asset Detail          → 3, 4, 5, 6, 10
 13 Retirement Planning   → 2, 5, 6         (forward-looking; reads current value, never writes P&L)
 14 Budgeting              → 2, 4, 5         (reads transactions & rates; never writes holdings or P&L)
+15 Campaigns              → 2, 3, 5         (global web-researched dataset; reads holdings/prices for grouping only)
 ```
 
 (6 and 10 are mutually referential at runtime: snapshots store the values the P&L

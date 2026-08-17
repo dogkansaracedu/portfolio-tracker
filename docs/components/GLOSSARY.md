@@ -380,6 +380,22 @@ with no explicit [cash-flow entry](#cash-flow-entry) falls back to the row
 with the latest effective-from at or before it. Raises are appended, never
 edited into history.
 
+### Campaign
+One earn/reward opportunity on one platform: an asset ticker, a program type
+(flexible earn / locked earn / staking / launchpool / hold-to-earn / promo /
+airdrop), a reward (a rate with a fixed / variable / "up to" kind, and/or a
+prose reward description), terms (lock days, min/max amount, conditions,
+deadline), and provenance (source URL + found-on date). Campaign data is
+**global and shared** (like the [asset](#asset) catalog) and is a *claim found
+on the public web*, not a guarantee — the app always shows its source and age.
+
+### Research run
+One automated pass that produced a batch of [campaigns](#campaign): when it
+ran, what produced it, whether it succeeded, and a prose summary of what
+changed since the previous run. The app always displays the **latest
+successful** run's campaigns; older runs are history, never edited, and a
+failed run leaves the previous run's data in place.
+
 ## Canonical formulas
 
 State-only here; the rationale lives in [P&L Methodology](../pnl-methodology.md).
