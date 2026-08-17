@@ -38,6 +38,9 @@ const GROUNDING_MODES = ["url_context", "google_search"] as const
 type GroundingMode = (typeof GROUNDING_MODES)[number]
 const DEFAULT_GROUNDING: GroundingMode = "url_context"
 
+/** Skip a scheduled run while the latest success is younger than this. */
+const FRESHNESS_SKIP_DAYS = 10
+
 const RESEARCH_ENGINES = ["tavily", "gemini"] as const
 type ResearchEngine = (typeof RESEARCH_ENGINES)[number]
 const DEFAULT_ENGINE: ResearchEngine = "tavily"
@@ -486,6 +489,18 @@ function parseTavilyContent(content: unknown): { campaigns: unknown[]; regulator
   return { campaigns: [], regulatoryNotes: null }
 }
 
+/** Structured products are options strategies, not earn campaigns (user
+ *  decision 2026-08-17). The prompt already excludes them; this is the
+ *  deterministic backstop for when the researcher ignores it. */
+const STRUCTURED_PRODUCT_RE = /dual[\s-]?invest|dual[\s-]?currency|sell[\s-]?high|buy[\s-]?low/i
+
+function isStructuredProduct(row: unknown): boolean {
+  if (!row || typeof row !== "object") return false
+  const r = row as Record<string, unknown>
+  return [r.program_type, r.reward_description, r.conditions]
+    .some((v) => typeof v === "string" && STRUCTURED_PRODUCT_RE.test(v))
+}
+
 /** fetched_at is this run's date by definition; models routinely omit it. */
 function stampFetchedAt(row: unknown, today: string): unknown {
   if (!row || typeof row !== "object") return row
@@ -582,6 +597,7 @@ Deno.serve(async (req) => {
   const payload = (await req.json().catch(() => null)) as Record<string, unknown> | null
   const pendingRequestId = typeof payload?.request_id === "string" ? payload.request_id : null
   const hop = typeof payload?.hop === "number" ? payload.hop : 0
+  const force = payload?.force === true
 
   const supabase = getServiceClient()
   const engineEnv = Deno.env.get("CAMPAIGN_RESEARCH_ENGINE")
@@ -595,6 +611,27 @@ Deno.serve(async (req) => {
   const today = new Date().toISOString().slice(0, 10)
 
   try {
+    // Freshness guard — cost control on the Tavily free tier: the cron is
+    // weekly but a pro research burns ~200 credits, so runs are skipped while
+    // the latest successful run is fresh (effective cadence: fortnightly).
+    // Manual {"force": true} overrides; continuation hops are never skipped.
+    if (!pendingRequestId && !force) {
+      const { data: lastRun } = await supabase
+        .from("campaign_research_runs")
+        .select("ran_at")
+        .eq("status", "success")
+        .order("ran_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const ageMs = lastRun ? Date.now() - new Date(lastRun.ran_at as string).getTime() : Infinity
+      if (ageMs < FRESHNESS_SKIP_DAYS * 86_400_000) {
+        return json({
+          status: "skipped",
+          reason: `latest successful run is ${Math.round(ageMs / 86_400_000)}d old (< ${FRESHNESS_SKIP_DAYS}d)`,
+        })
+      }
+    }
+
     // Scope: the global crypto catalog, split so stablecoins get their own
     // sweep (their offers live on different pages than coin staking).
     const { data: assetRows, error: assetErr } = await supabase
@@ -696,6 +733,12 @@ Deno.serve(async (req) => {
       )
       rawOutput = results.map((r) => ({ sweep: r.name, error: r.error ?? null, text: r.rawText }))
       notes.push(...failedSweeps.map((r) => `sweep ${r.name} failed: ${r.error}`))
+    }
+
+    const structuredDropped = merged.filter(isStructuredProduct).length
+    if (structuredDropped > 0) {
+      merged = merged.filter((row) => !isStructuredProduct(row))
+      notes.push(`${structuredDropped} structured-product rows dropped (dual investment etc.)`)
     }
 
     const { valid, rejected } = validateCampaignBatch({
