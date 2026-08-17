@@ -75,9 +75,10 @@ const REGULATORY_CONTEXT = `Regulatory context (Turkey): Turkish SPK rules ban c
 guaranteed-return promos; staking is a tolerated GRAY ZONE for Turkish-licensed entities. A TR earn
 program that has been paused, withdrawn or restructured is ITSELF a finding — report it (as a
 campaign row whose conditions explain the pause, or in your notes) rather than omitting it. Any SPK
-announcement touching staking/earn/lending is likewise a finding. Campaigns on global platforms are
-often country-gated: put the Turkey eligibility of each campaign into that row's "conditions" field,
-and say so explicitly when eligibility is unconfirmed.`
+announcement touching staking/earn/lending is likewise a finding. ELIGIBILITY RULE: if a campaign
+EXPLICITLY excludes Turkey, DROP the row entirely. If a source explicitly confirms Turkey
+availability, you may note it in "conditions". If eligibility is simply not stated, say NOTHING
+about it — never write "unconfirmed" or "unknown eligibility".`
 
 interface Sweep {
   name: string
@@ -362,7 +363,8 @@ function tavilyOutputSchema(): Record<string, unknown> {
             amount_currency: { type: "string", description: "Unit of min/max, e.g. USDT." },
             conditions: {
               type: "string",
-              description: "Fine print INCLUDING Turkey eligibility (say when unconfirmed).",
+              description:
+                "Fine print. Mention Turkey eligibility ONLY when a source explicitly states it; a campaign that explicitly excludes Turkey must be dropped, and unknown eligibility gets no mention at all.",
             },
             deadline: { type: "string", description: "YYYY-MM-DD. Omit when open-ended." },
             is_stablecoin: {
@@ -507,6 +509,20 @@ function isStructuredProduct(row: unknown): boolean {
   const r = row as Record<string, unknown>
   return [r.program_type, r.reward_description, r.conditions]
     .some((v) => typeof v === "string" && STRUCTURED_PRODUCT_RE.test(v))
+}
+
+/** "Turkey eligibility: unconfirmed" tells the reader nothing the page's
+ *  verify-at-source line doesn't — scrubbed whatever the prompt says (user
+ *  decision 2026-08-17). Explicit exclusions drop the row at research time. */
+const ELIGIBILITY_NOISE_RE =
+  /\bturkey eligibility:?\s*(is\s+)?(unconfirmed|unknown|not\s+(stated|specified|confirmed))[.;,]?\s*/gi
+
+function scrubEligibilityNoise(row: unknown): unknown {
+  if (!row || typeof row !== "object") return row
+  const r = row as Record<string, unknown>
+  if (typeof r.conditions !== "string") return row
+  const cleaned = r.conditions.replace(ELIGIBILITY_NOISE_RE, "").replace(/^[;,.\s]+/, "").trim()
+  return { ...r, conditions: cleaned.length > 0 ? cleaned : null }
 }
 
 /** fetched_at is this run's date by definition; models routinely omit it. */
@@ -748,6 +764,7 @@ Deno.serve(async (req) => {
       merged = merged.filter((row) => !isStructuredProduct(row))
       notes.push(`${structuredDropped} structured-product rows dropped (dual investment etc.)`)
     }
+    merged = merged.map(scrubEligibilityNoise)
 
     const { valid, rejected } = validateCampaignBatch({
       producer: PRODUCER_RESEARCH,
