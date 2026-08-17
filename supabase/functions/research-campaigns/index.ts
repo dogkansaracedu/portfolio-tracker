@@ -299,7 +299,11 @@ ${watchListBlock()}
 COVERAGE RULE — breadth before depth: visit EVERY watch-list platform. A platform with a live earn
 page and zero rows is an incomplete answer; cap yourself at ~4 rows per platform rather than mining
 one platform deeply. RATES RULE: any published rate goes in "apr" as a number (top of range +
-apr_kind "up_to" for ranges) — never as prose.
+apr_kind "up_to" for ranges) — never as prose. TIERED/BONUS RATES: when a high rate applies only up
+to a small amount cap (e.g. "27.94% on your first 0.01"), that is NOT the product's rate — put the
+BASE rate in "apr"; the bonus tier may only appear as its own "promo" row with the cap in
+"max_amount". TICKER RULE: one row per specific asset symbol; never aggregate rows like
+"stablecoins" — if you cannot name the exact ticker, drop the row.
 
 ${REGULATORY_CONTEXT}
 Put earn-availability changes (paused/withdrawn programs, SPK decisions touching staking/earn) in
@@ -326,7 +330,11 @@ function tavilyOutputSchema(): Record<string, unknown> {
         items: {
           type: "object",
           properties: {
-            asset_ticker: { type: "string", description: "Rewarded coin's ticker, e.g. ETH" },
+            asset_ticker: {
+              type: "string",
+              description:
+                "One specific ticker symbol (A-Z/0-9, e.g. ETH, USD1). Never an aggregate like 'STABLECOINS'.",
+            },
             platform: { type: "string", description: "Platform running the offer" },
             program_type: {
               type: "string",
