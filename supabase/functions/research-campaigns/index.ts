@@ -15,16 +15,54 @@ import {
   type StoredCampaign,
 } from "../_shared/campaign-store.ts"
 
-// The default campaign producer (Component 15): three grounded Gemini sweeps
-// over the platform watch list, merged into one batch and pushed through the
-// same validate+insert path as the ingest door. Triggered weekly by pg_cron
-// (X-Cron-Token); invocable by hand with the ingest bearer token.
+// The default campaign producer (Component 15). Two engines, selected by the
+// CAMPAIGN_RESEARCH_ENGINE env var:
+//   tavily (default) — one Tavily Research call (hosted multi-step researcher,
+//     search included, structured output via output_schema). Free tier covers
+//     the weekly cadence; mini tier costs 4–110 credits of the 1,000/month.
+//   gemini — three url_context/google_search sweeps (Gemini free keys have no
+//     search; kept as the fallback engine).
+// Both funnel into the same validate+insert path as the ingest door. Triggered
+// weekly by pg_cron (X-Cron-Token); invocable by hand with the ingest bearer
+// token.
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
+
+/** How sweeps reach the live web. Free API keys have no google_search quota on
+ *  3.x models (and the 2.5 models with free grounding are closed to new keys,
+ *  verified empirically 2026-08-17), but url_context — fetching the watch
+ *  list's pages directly — is free. google_search stays available for
+ *  billing-enabled projects via the GEMINI_GROUNDING env var. */
+const GROUNDING_MODES = ["url_context", "google_search"] as const
+type GroundingMode = (typeof GROUNDING_MODES)[number]
+const DEFAULT_GROUNDING: GroundingMode = "url_context"
+
+const RESEARCH_ENGINES = ["tavily", "gemini"] as const
+type ResearchEngine = (typeof RESEARCH_ENGINES)[number]
+const DEFAULT_ENGINE: ResearchEngine = "tavily"
+
+const TAVILY_BASE = "https://api.tavily.com"
+/** mini = 4–110 credits per call (dynamic), pro = 15–250. Weekly pro worst-case
+ *  brushes the free 1,000/month; mini proved too shallow for a 15-platform
+ *  sweep (first run: one page, five rows), so the tier is env-tunable. */
+const DEFAULT_TAVILY_MODEL = "mini"
+const TAVILY_MODEL = Deno.env.get("TAVILY_RESEARCH_MODEL") ?? DEFAULT_TAVILY_MODEL
+const TAVILY_POLL_MS = 10_000
+/** Research is async (submit → poll) and a pro run outlives the free-tier
+ *  edge-function wall clock (~150s — a 320s in-function poll died with
+ *  WORKER_RESOURCE_LIMIT). So the function self-chains: each invocation polls
+ *  within this per-hop budget, then re-invokes itself with the request_id.
+ *  Client disconnects don't kill Supabase function execution (the cron jobs
+ *  already rely on that), so a 5s fire-and-forget delivers the next hop. */
+const TAVILY_HOP_BUDGET_MS = 100_000
+const TAVILY_MAX_HOPS = 6
 
 /** Tickers that are stablecoins regardless of how the catalog tags them. */
 const STABLE_TICKERS = ["USDT", "USDC", "DAI", "FDUSD", "TUSD"]
+/** Tokenized gold is parked value the same way dollars are — its earn offers
+ *  belong in the stable-value bucket (user decision 2026-08-17). */
+const GOLD_TOKEN_TICKERS = ["PAXG", "XAUT"]
 const STABLE_TAG = "usd"
 
 /** Regulatory framing every sweep carries — without it the model reports TR
@@ -94,11 +132,19 @@ Rates are what the platform publishes today — do not estimate, extrapolate or 
 finds nothing, return an empty array \`[]\`.`
 }
 
-function buildPrompt(today: string, instruction: string): string {
-  return `You are a crypto earn-programme researcher. Today is ${today}. Use Google Search for
+function buildPrompt(today: string, instruction: string, grounding: GroundingMode): string {
+  const method =
+    grounding === "google_search"
+      ? `Use Google Search for
 EVERY claim — never answer from memory; published rates change weekly.
 
-WATCH LIST (search each; the caveat tells you what to verify or flag):
+WATCH LIST (search each; the caveat tells you what to verify or flag):`
+      : `Fetch and read the watch-list source pages below (the url_context tool retrieves them for
+you) and base every claim ONLY on their live content — never on memory; published rates change
+weekly. Follow a page's own links only when it cites a specific campaign page.
+
+WATCH LIST (fetch each source page; the caveat tells you what to verify or flag):`
+  return `You are a crypto earn-programme researcher. Today is ${today}. ${method}
 ${watchListBlock()}
 
 ${REGULATORY_CONTEXT}
@@ -124,10 +170,10 @@ Cover every coin you can find an offer for; skip the ones with nothing live.`,
   sweeps.push(
     {
       name: "stablecoins",
-      instruction: `Find current stablecoin earn offers (flexible earn, locked earn, lending-style
+      instruction: `Find current stable-value earn offers (flexible earn, locked earn, lending-style
 "staking", promo/boosted rates) on the watch-list platforms, for ${stableTickers.join(", ")} and any
-other major stablecoin. Set "is_stablecoin": true on every row. Boosted/limited-time promo rates are
-especially relevant — record their deadline.`,
+other major stablecoin or tokenized-gold token. Set "is_stablecoin": true on every row.
+Boosted/limited-time promo rates are especially relevant — record their deadline.`,
     },
     {
       name: "notable-sweep",
@@ -180,7 +226,7 @@ function extractJsonArray(text: string): unknown[] | null {
 
 async function runSweep(
   sweep: Sweep,
-  opts: { apiKey: string; model: string; prompt: string },
+  opts: { apiKey: string; model: string; prompt: string; grounding: GroundingMode },
 ): Promise<SweepResult> {
   try {
     const res = await fetch(
@@ -190,9 +236,10 @@ async function runSweep(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
-          // Grounded search: the whole point is that rates come off the live
-          // web, not the model's training data.
-          tools: [{ google_search: {} }],
+          // Grounded either way: rates must come off the live web, not the
+          // model's training data. url_context reads the watch-list pages;
+          // google_search (paid tier) searches beyond them.
+          tools: opts.grounding === "google_search" ? [{ google_search: {} }] : [{ url_context: {} }],
         }),
       },
     )
@@ -220,6 +267,231 @@ async function runSweep(
     const msg = err instanceof Error ? err.message : "unknown error"
     return { name: sweep.name, rows: [], rawText: "", error: msg }
   }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Tavily research engine
+// ──────────────────────────────────────────────────────────────────────
+
+/** The single research task: same three collection targets the Gemini sweeps
+ *  split up, folded into one call because each research call carries a 4+
+ *  credit floor. */
+function buildTavilyInput(today: string, catalogTickers: string[], stableTickers: string[]): string {
+  return `You are collecting crypto earn/reward campaigns for a retail investor in Turkey. Today is
+${today}. Report only offers that are LIVE or announced-and-upcoming as of ${today} — no historical
+campaigns; rates must be what platforms publish now, never estimated, extrapolated or remembered.
+
+Collect three things:
+1. Earn/staking/launchpool/hold-to-earn/airdrop offers on the watch-list platforms for these coins:
+${catalogTickers.join(", ") || "(none in catalog — skip this part)"}.
+2. Stable-value earn offers on those platforms — stablecoins AND tokenized gold
+(${stableTickers.join(", ")} and other major stablecoins or gold tokens) — set "is_stablecoin": true
+on every such row; boosted/limited-time promo rates are especially relevant, record their deadline.
+3. Any other currently-notable campaign on those platforms worth joining even without holding the
+coin — new launchpools, HODLer airdrops, points seasons, deposit promos, newly-listed-coin campaigns.
+
+WATCH LIST (check each; the caveat says what to verify or flag):
+${watchListBlock()}
+
+COVERAGE RULE — breadth before depth: visit EVERY watch-list platform. A platform with a live earn
+page and zero rows is an incomplete answer; cap yourself at ~4 rows per platform rather than mining
+one platform deeply. RATES RULE: any published rate goes in "apr" as a number (top of range +
+apr_kind "up_to" for ranges) — never as prose.
+
+${REGULATORY_CONTEXT}
+Put earn-availability changes (paused/withdrawn programs, SPK decisions touching staking/earn) in
+"regulatory_notes" — one short paragraph at most.
+
+STRICT EXCLUSIONS: no tax guidance, no deposit/withdrawal mechanics, no KYC/AML explanation, no
+exchange reviews, no general regulation commentary — not anywhere in the output. Also exclude
+structured products whose principal can settle in a different asset (Dual Investment,
+dual-currency, sell-high/buy-low products): those are options strategies, not earn campaigns.
+Anything that is not a campaign row or an earn-availability note is unwanted.
+
+Every row's "source_url" must be a page you actually read. If you cannot cite a real page for a
+row, drop the row. If a platform has nothing live, return nothing for it.`
+}
+
+/** Our campaign row as a JSON Schema so the researcher fills rows instead of
+ *  writing a report. fetched_at is deliberately absent — stamped server-side. */
+function tavilyOutputSchema(): Record<string, unknown> {
+  return {
+    properties: {
+      campaigns: {
+        type: "array",
+        description: "One row per live earn/reward campaign found.",
+        items: {
+          type: "object",
+          properties: {
+            asset_ticker: { type: "string", description: "Rewarded coin's ticker, e.g. ETH" },
+            platform: { type: "string", description: "Platform running the offer" },
+            program_type: {
+              type: "string",
+              enum: [...CAMPAIGN_PROGRAM_TYPES],
+              description: "The campaign's program type.",
+            },
+            apr: {
+              type: "number",
+              description:
+                "Rate in percent (3.8 means 3.8%). ALWAYS set this when any rate is published; for a range like 3.36%-7.2% set apr to the top (7.2) with apr_kind 'up_to'. Omit ONLY when the reward truly has no rate.",
+            },
+            apr_kind: {
+              type: "string",
+              enum: [...APR_KINDS],
+              description: "Required whenever apr is set.",
+            },
+            reward_description: {
+              type: "string",
+              description:
+                "Prose reward ONLY when there is no rate (e.g. token airdrops). Never put percentages here — rates belong in apr. Every row must have apr OR reward_description.",
+            },
+            lock_days: { type: "integer", description: "Lock-up in days; 0 or omitted = flexible." },
+            min_amount: { type: "number", description: "Minimum participation amount. Omit if none." },
+            max_amount: { type: "number", description: "Maximum/cap amount. Omit if none." },
+            amount_currency: { type: "string", description: "Unit of min/max, e.g. USDT." },
+            conditions: {
+              type: "string",
+              description: "Fine print INCLUDING Turkey eligibility (say when unconfirmed).",
+            },
+            deadline: { type: "string", description: "YYYY-MM-DD. Omit when open-ended." },
+            is_stablecoin: {
+              type: "boolean",
+              description:
+                "True when the deposited/rewarded asset is stable-value: a stablecoin or tokenized gold (PAXG, XAUT).",
+            },
+            source_url: {
+              type: "string",
+              description: "The real page this was read on. Never invent or template a URL.",
+            },
+          },
+          required: ["asset_ticker", "platform", "program_type", "source_url", "is_stablecoin"],
+        },
+      },
+      regulatory_notes: {
+        type: "string",
+        description:
+          "ONLY changes to earn/staking availability (paused programs, SPK decisions). Not tax, not banking, not general regulation. Omit when nothing changed.",
+      },
+    },
+    required: ["campaigns"],
+  }
+}
+
+/** include_domains wants bare hostnames; groundUrl entries are scheme-less and
+ *  occasionally compound ("a.com/x + /y"). API cap: 20 domains. */
+function watchListDomains(): string[] {
+  const domains = new Set<string>()
+  for (const entry of PLATFORM_WATCH_LIST) {
+    for (const token of entry.groundUrl.split(/[\s+]+/)) {
+      const host = token.split("/")[0]?.trim().replace(/^www\./, "")
+      if (host && host.includes(".")) domains.add(host)
+    }
+  }
+  return [...domains].slice(0, 20)
+}
+
+/** Submit the research task; returns its request_id (and content when it
+ *  somehow completes synchronously). */
+async function submitTavilyResearch(
+  apiKey: string,
+  input: string,
+): Promise<{ requestId: string; content?: unknown }> {
+  const submit = await fetch(`${TAVILY_BASE}/research`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      input,
+      model: TAVILY_MODEL,
+      include_domains: watchListDomains(),
+      output_schema: tavilyOutputSchema(),
+    }),
+  })
+  const body = (await submit.json().catch(() => null)) as Record<string, unknown> | null
+  if (!submit.ok) {
+    throw new Error(`tavily submit HTTP ${submit.status}: ${JSON.stringify(body)?.slice(0, 300)}`)
+  }
+  const requestId = typeof body?.request_id === "string" ? body.request_id : null
+  if (!requestId) throw new Error("tavily submit returned no request_id")
+  if (body?.status === "completed") return { requestId, content: body.content }
+  return { requestId }
+}
+
+/** Poll GET /research/{id} within one hop's budget. Statuses per the API
+ *  reference: pending | in_progress | completed | failed. */
+async function pollTavilyResearch(
+  apiKey: string,
+  requestId: string,
+  budgetMs: number,
+): Promise<{ done: true; content: unknown } | { done: false }> {
+  const deadline = Date.now() + budgetMs
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, TAVILY_POLL_MS))
+    const res = await fetch(`${TAVILY_BASE}/research/${requestId}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    const body = (await res.json().catch(() => null)) as Record<string, unknown> | null
+    if (body?.status === "completed") return { done: true, content: body.content }
+    if (body?.status === "failed") throw new Error(`tavily research ${requestId} failed`)
+  }
+  return { done: false }
+}
+
+/** Fire-and-forget self-invocation carrying the pending request_id. The 5s
+ *  abort only drops our side of the connection — the invoked function keeps
+ *  running (same guarantee the pg_net crons depend on). */
+async function chainNextHop(requestId: string, hop: number): Promise<void> {
+  const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/research-campaigns`
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 5_000)
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Cron-Token": Deno.env.get("CRON_TOKEN") ?? "",
+      },
+      body: JSON.stringify({ request_id: requestId, hop }),
+      signal: controller.signal,
+    })
+  } catch {
+    // Aborting our side is expected; delivery already happened.
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** content is "a string or a structured object if output_schema was provided" —
+ *  parse defensively either way. */
+function parseTavilyContent(content: unknown): { campaigns: unknown[]; regulatoryNotes: string | null } {
+  let parsed: unknown = content
+  if (typeof content === "string") {
+    try {
+      parsed = JSON.parse(content)
+    } catch {
+      const arr = extractJsonArray(content)
+      parsed = arr ? { campaigns: arr } : null
+    }
+  }
+  if (Array.isArray(parsed)) return { campaigns: parsed, regulatoryNotes: null }
+  if (parsed && typeof parsed === "object") {
+    const obj = parsed as Record<string, unknown>
+    return {
+      campaigns: Array.isArray(obj.campaigns) ? obj.campaigns : [],
+      regulatoryNotes:
+        typeof obj.regulatory_notes === "string" && obj.regulatory_notes.trim()
+          ? obj.regulatory_notes.trim()
+          : null,
+    }
+  }
+  return { campaigns: [], regulatoryNotes: null }
+}
+
+/** fetched_at is this run's date by definition; models routinely omit it. */
+function stampFetchedAt(row: unknown, today: string): unknown {
+  if (!row || typeof row !== "object") return row
+  const out: Record<string, unknown> = { ...(row as Record<string, unknown>) }
+  if (typeof out.fetched_at !== "string" || !out.fetched_at) out.fetched_at = today
+  return out
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -305,14 +577,24 @@ Deno.serve(async (req) => {
   const isManual = !!ingestToken && req.headers.get("Authorization") === `Bearer ${ingestToken}`
   if (!isCron && !isManual) return json({ error: "unauthorized" }, 401)
 
+  // A body with request_id is a continuation hop of an already-submitted
+  // Tavily research task (see chainNextHop); an empty body starts a new run.
+  const payload = (await req.json().catch(() => null)) as Record<string, unknown> | null
+  const pendingRequestId = typeof payload?.request_id === "string" ? payload.request_id : null
+  const hop = typeof payload?.hop === "number" ? payload.hop : 0
+
   const supabase = getServiceClient()
-  const model = Deno.env.get("GEMINI_MODEL") ?? DEFAULT_GEMINI_MODEL
+  const engineEnv = Deno.env.get("CAMPAIGN_RESEARCH_ENGINE")
+  const engine: ResearchEngine = (RESEARCH_ENGINES as readonly string[]).includes(engineEnv ?? "")
+    ? (engineEnv as ResearchEngine)
+    : DEFAULT_ENGINE
+  const model =
+    engine === "tavily"
+      ? `tavily-research-${TAVILY_MODEL}`
+      : Deno.env.get("GEMINI_MODEL") ?? DEFAULT_GEMINI_MODEL
   const today = new Date().toISOString().slice(0, 10)
 
   try {
-    const apiKey = Deno.env.get("GEMINI_API_KEY")
-    if (!apiKey) throw new Error("GEMINI_API_KEY is not configured")
-
     // Scope: the global crypto catalog, split so stablecoins get their own
     // sweep (their offers live on different pages than coin staking).
     const { data: assetRows, error: assetErr } = await supabase
@@ -324,7 +606,7 @@ Deno.serve(async (req) => {
 
     const seen = new Set<string>()
     const catalog: string[] = []
-    const stables = new Set(STABLE_TICKERS)
+    const stables = new Set([...STABLE_TICKERS, ...GOLD_TOKEN_TICKERS])
     for (const row of (assetRows ?? []) as AssetRow[]) {
       const ticker = row.ticker.trim().toUpperCase()
       if (!ticker || seen.has(ticker)) continue
@@ -333,44 +615,94 @@ Deno.serve(async (req) => {
       else catalog.push(ticker)
     }
 
-    const sweeps = buildSweeps(today, catalog, [...stables])
-    const results: SweepResult[] = []
-    for (const sweep of sweeps) {
-      results.push(
-        await runSweep(sweep, { apiKey, model, prompt: buildPrompt(today, sweep.instruction) }),
-      )
-    }
+    let merged: unknown[]
+    let rawOutput: unknown
+    const notes: string[] = []
 
-    // One failed sweep must not cost the whole run — the others' rows still
-    // beat last week's data. Failures are named in the summary instead.
-    const failedSweeps = results.filter((r) => r.error)
-    if (failedSweeps.length === results.length) {
-      throw new Error(
-        `all sweeps failed: ${failedSweeps.map((r) => `${r.name} (${r.error})`).join(", ")}`,
-      )
-    }
+    if (engine === "tavily") {
+      const apiKey = Deno.env.get("TAVILY_API_KEY")
+      if (!apiKey) throw new Error("TAVILY_API_KEY is not configured")
 
-    // Defaults first, model's own values second: fetched_at is today's run by
-    // definition, and the stablecoin sweep's rows are stablecoin rows even
-    // when the model forgets the flag.
-    const merged = results.flatMap((r) =>
-      r.rows.map((row) => {
-        if (!row || typeof row !== "object") return row
-        const merged: Record<string, unknown> = { ...(row as Record<string, unknown>) }
-        if (typeof merged.fetched_at !== "string" || !merged.fetched_at) merged.fetched_at = today
-        if (r.name === "stablecoins" && merged.is_stablecoin !== false) merged.is_stablecoin = true
-        return merged
-      }),
-    )
+      let requestId = pendingRequestId
+      let content: unknown
+      if (!requestId) {
+        const submitted = await submitTavilyResearch(
+          apiKey,
+          buildTavilyInput(today, catalog, [...stables]),
+        )
+        requestId = submitted.requestId
+        content = submitted.content
+      }
+      if (content === undefined) {
+        if (hop > TAVILY_MAX_HOPS) {
+          throw new Error(
+            `tavily research ${requestId} still running after ${TAVILY_MAX_HOPS} hops — giving up`,
+          )
+        }
+        const polled = await pollTavilyResearch(apiKey, requestId, TAVILY_HOP_BUDGET_MS)
+        if (!polled.done) {
+          await chainNextHop(requestId, hop + 1)
+          return json({ status: "pending", request_id: requestId, next_hop: hop + 1 }, 202)
+        }
+        content = polled.content
+      }
+
+      const { campaigns, regulatoryNotes } = parseTavilyContent(content)
+      if (regulatoryNotes) notes.push(`regulatory: ${regulatoryNotes}`)
+      merged = campaigns.map((row) => stampFetchedAt(row, today))
+      rawOutput = { engine, request_id: requestId, content }
+    } else {
+      const apiKey = Deno.env.get("GEMINI_API_KEY")
+      if (!apiKey) throw new Error("GEMINI_API_KEY is not configured")
+      const groundingEnv = Deno.env.get("GEMINI_GROUNDING")
+      const grounding: GroundingMode = (GROUNDING_MODES as readonly string[]).includes(
+        groundingEnv ?? "",
+      )
+        ? (groundingEnv as GroundingMode)
+        : DEFAULT_GROUNDING
+
+      const sweeps = buildSweeps(today, catalog, [...stables])
+      const results: SweepResult[] = []
+      for (const sweep of sweeps) {
+        results.push(
+          await runSweep(sweep, {
+            apiKey,
+            model,
+            grounding,
+            prompt: buildPrompt(today, sweep.instruction, grounding),
+          }),
+        )
+      }
+
+      // One failed sweep must not cost the whole run — the others' rows still
+      // beat last week's data. Failures are named in the summary instead.
+      const failedSweeps = results.filter((r) => r.error)
+      if (failedSweeps.length === results.length) {
+        throw new Error(
+          `all sweeps failed: ${failedSweeps.map((r) => `${r.name} (${r.error})`).join(", ")}`,
+        )
+      }
+
+      // Defaults first, model's own values second: the stablecoin sweep's rows
+      // are stablecoin rows even when the model forgets the flag.
+      merged = results.flatMap((r) =>
+        r.rows.map((row) => {
+          const stamped = stampFetchedAt(row, today)
+          if (!stamped || typeof stamped !== "object") return stamped
+          const obj = stamped as Record<string, unknown>
+          if (r.name === "stablecoins" && obj.is_stablecoin !== false) obj.is_stablecoin = true
+          return obj
+        }),
+      )
+      rawOutput = results.map((r) => ({ sweep: r.name, error: r.error ?? null, text: r.rawText }))
+      notes.push(...failedSweeps.map((r) => `sweep ${r.name} failed: ${r.error}`))
+    }
 
     const { valid, rejected } = validateCampaignBatch({
       producer: PRODUCER_RESEARCH,
       campaigns: merged,
     })
     const deduped = dedupeCampaigns(valid)
-
-    const rawOutput = results.map((r) => ({ sweep: r.name, error: r.error ?? null, text: r.rawText }))
-    const notes = failedSweeps.map((r) => `sweep ${r.name} failed: ${r.error}`)
     if (rejected.length > 0) notes.push(`${rejected.length} rows rejected by validation`)
 
     if (deduped.length === 0) {

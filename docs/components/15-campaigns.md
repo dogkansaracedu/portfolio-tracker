@@ -53,7 +53,9 @@ Intrinsic facts only (nothing user-specific):
 - **Terms** — lock duration in days (0/absent = flexible), minimum / maximum
   amount with its currency, free-text conditions (the fine print), and an
   optional deadline date.
-- **Stablecoin flag** — whether the earning asset is a stablecoin.
+- **Stable-value flag** — whether the earning asset is parked value: a
+  stablecoin **or tokenized gold** (e.g. PAXG, XAUT). (Stored under the
+  historical name "stablecoin"; the meaning is the broader one.)
 - **Provenance** — source URL and the date research found it.
 
 ### Research pass
@@ -61,9 +63,10 @@ Intrinsic facts only (nothing user-specific):
 - Runs on a schedule (default **weekly**). Each pass:
   1. Scopes coins from the **global asset catalog** (crypto + stablecoins) and
      platforms from the configured **watch list**.
-  2. Searches the live public web (grounded search — never from a model's
-     memory) in three sweeps: offers for catalog coins, stablecoin offers, and
-     an open-ended "anything notable on these platforms" sweep that may return
+  2. Researches the live public web (search + reading real pages — never from
+     a model's memory) against three collection targets: offers for catalog
+     coins, stable-value offers (stablecoins + tokenized gold), and an
+     open-ended "anything notable on these platforms" sweep that may return
      coins nobody holds.
   3. Emits structured campaign rows plus a short prose **summary of what
      changed** since the previous run.
@@ -98,7 +101,8 @@ Intrinsic facts only (nothing user-specific):
    price × rate ≈ **$/yr** (only when a rate exists; reward-description-only
    campaigns show the description instead). Sorted by estimated $/yr, highest
    first.
-2. **"Stablecoin campaigns"** — rows flagged stablecoin, regardless of holding.
+2. **"Stable value"** — rows flagged stable-value (stablecoins and tokenized
+   gold), regardless of holding.
 3. **"Worth considering"** — everything else. Sorted by rate (desc), rate-less
    rows last.
 

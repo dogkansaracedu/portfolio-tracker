@@ -204,8 +204,8 @@ describe("validateCampaignBatch — batch level", () => {
 })
 
 describe("PLATFORM_WATCH_LIST", () => {
-  it("carries all 15 entries, each with a ground URL and a flag", () => {
-    expect(PLATFORM_WATCH_LIST).toHaveLength(15)
+  it("carries all 16 entries, each with a ground URL and a flag", () => {
+    expect(PLATFORM_WATCH_LIST).toHaveLength(16)
     for (const entry of PLATFORM_WATCH_LIST) {
       expect(entry.platform.length).toBeGreaterThan(0)
       expect(entry.groundUrl.length).toBeGreaterThan(0)

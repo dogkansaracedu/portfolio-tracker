@@ -8,13 +8,17 @@
   `campaigns`), shared-read RLS, no client write policy (service-role writes
   only, same pattern as `price_cache`).
 - **Supabase Edge Functions (Deno)** — `research-campaigns` (the scheduled
-  producer, calls the Gemini API with Google Search grounding) and
-  `ingest-campaigns` (the token-secured door for any external producer). Both
-  funnel through one shared validate+insert module.
+  producer) and `ingest-campaigns` (the token-secured door for any external
+  producer). Both funnel through one shared validate+insert module.
 - **pg_cron + pg_net + Vault** — weekly trigger, reusing the existing
   `functions_url` / `cron_token` vault secrets and `X-Cron-Token` convention.
-- **Gemini API** — `gemini-2.5-flash` with the `google_search` tool (free-tier
-  grounding); model name is env config so it can be flipped without a deploy.
+- **Tavily Research API** (primary engine) — one hosted deep-research call per
+  run (`POST /research`, `output_schema`-constrained, watch-list
+  `include_domains`), polled via self-chaining hops. Free tier: 1,000
+  credits/month; a research call costs 4–110 (mini) / 15–250 (pro) credits.
+- **Gemini API** (fallback engine) — `gemini-3.6-flash` with the free
+  `url_context` tool (reads the watch-list pages; no search). Selected via
+  `CAMPAIGN_RESEARCH_ENGINE=gemini`.
 - Frontend: React context provider (repo convention: shared server data never
   fetch-on-mount per call site), shadcn/ui cards, BigNumber.js for estimates.
 
@@ -27,7 +31,7 @@
 | `supabase/functions/_shared/campaign-store.ts` | Persistence half (needs the Supabase client, so it can't live in the import-free module): `insertCampaignBatch`, `recordFailedRun`, `fetchLatestSuccessfulRows`, run-status/producer constants. Both functions insert through it. |
 | `supabase/functions/ingest-campaigns/index.ts` | POST door: checks `Authorization: Bearer <CAMPAIGN_INGEST_TOKEN>` (500 if env unset, 401 mismatch, 405 non-POST), validates via `validateCampaignBatch` (zero valid rows → 422 with reasons), inserts run + rows via `campaign-store`. Honors an optional `producer` string in the payload (default `'ingest'`). |
 | `src/lib/campaign-validation.test.ts` | Vitest over `validateCampaignBatch` (imports `_shared/campaigns.ts`, same cross-boundary pattern as `yahoo.test.ts`). |
-| `supabase/functions/research-campaigns/index.ts` | Cron entry (`X-Cron-Token`): builds prompt from catalog crypto tickers + `PLATFORM_WATCH_LIST`, 3 grounded Gemini calls (holdings-scope / stablecoins / notable sweep), parses JSON, funnels through the same validate+insert. |
+| `supabase/functions/research-campaigns/index.ts` | Cron entry (`X-Cron-Token`; also accepts the ingest bearer for manual runs): builds the research task from catalog crypto tickers + `PLATFORM_WATCH_LIST`, runs the selected engine (Tavily research with self-chaining polling, or 3 Gemini url_context/search sweeps), funnels through the same validate+insert. |
 | `src/types/database.ts` | `CampaignResearchRun`, `Campaign` row interfaces (hand-synced, as ever). |
 | `src/lib/constants/campaigns.ts` | UI-side constants: program-type display labels, APR-kind affixes, `CAMPAIGN_STALENESS_DAYS = 10`, `DEADLINE_SOON_DAYS = 7`, `CAMPAIGN_RUN_STATUS`, table names, and all page copy (`CAMPAIGN_COPY`). Re-exports `CampaignProgramType` / `AprKind` **as types only** from `_shared/campaigns.ts` (backend truth, zero bundle cost) — `database.ts` imports them from here. |
 | `src/lib/campaigns.ts` | Pure grouping/estimate logic: `groupCampaigns(campaigns, heldTickers, estimateFor?)` → the three buckets; `estimateYearlyUsd(qty, priceUsd, aprPct)` (BigNumber, null when any input is missing/zero); `isExpired` / `partitionExpired` / `isDeadlineSoon` / `isRunStale` / `formatApr`. |
@@ -66,7 +70,7 @@ CREATE TABLE campaigns (
   amount_currency    text,                   -- currency/unit of min/max (e.g. 'USDT', 'ETH')
   conditions         text,
   deadline           date,
-  is_stablecoin      boolean NOT NULL DEFAULT false,
+  is_stablecoin      boolean NOT NULL DEFAULT false,  -- stable-value: stablecoin OR tokenized gold (PAXG/XAUT)
   source_url         text NOT NULL,
   fetched_at         date NOT NULL
 );
@@ -112,36 +116,49 @@ previous data intact.
    `fetch-prices`); also accepts the ingest bearer token so it can be invoked
    manually.
 2. Reads catalog: `assets` where `category = 'crypto'` and `is_active`,
-   splitting stablecoins by the `usd` tag / known stable tickers.
-3. Up to three Gemini calls (`generateContent`, tools: `google_search`):
-   catalog-coin offers (skipped when no non-stable active crypto exists),
-   stablecoin offers, notable sweep. The API rejects `response_mime_type`
-   alongside `google_search`, so output is always fenced-JSON, extracted
-   defensively (fenced block → bare `[...]` scan → whole-text parse; unwraps
-   `{"campaigns": [...]}`). Each prompt embeds `PLATFORM_WATCH_LIST` with its
-   flags, the regulatory-context paragraph, today's date, the exact output
-   schema, and demands per-row `source_url` + explicit conditions. One failed
-   sweep doesn't kill the run (noted in the summary); a run fails only when
+   splitting stable-value tickers by the `usd` tag / known stable tickers +
+   the tokenized-gold tickers (PAXG, XAUT).
+3. Engine `tavily` (default): one `POST /research` call — `model` from
+   `TAVILY_RESEARCH_MODEL` (default `mini`; `pro` researches deeper for more
+   credits), `include_domains` derived from the watch list's ground URLs,
+   `output_schema` = the campaign row schema (Tavily's schema dialect:
+   every property needs a `description`, union types are rejected — nullable
+   fields are modeled as optional single-type fields), and one `input` prompt
+   carrying the three collection targets, the watch list with flags, the
+   regulatory paragraph, and strict exclusions (no tax/banking/KYC/review
+   content; no structured products whose principal can settle in another
+   asset — Dual Investment and the like are options strategies, not earn). Research is async: the function polls `GET /research/{id}`
+   within a ~100s hop budget, then **self-chains** — fire-and-forget POST to
+   itself with `{request_id, hop}` (X-Cron-Token auth, 5s abort; Supabase
+   keeps executing after client disconnect) — up to 6 hops before giving up,
+   because a pro research outlives the free-tier ~150s function wall clock.
+   `regulatory_notes` from the response is appended to the run summary.
+4. Engine `gemini` (fallback): up to three `generateContent` sweeps with the
+   `url_context` tool by default (`GEMINI_GROUNDING=google_search` restores
+   true grounding on billing-enabled keys). Output is fenced-JSON, extracted
+   defensively. One failed sweep doesn't kill the run; a run fails only when
    every sweep fails or zero rows validate.
-4. Merges rows, dedupes on `(ticker, platform, program_type)` keeping the
-   higher APR, **computes** the change summary in code (diff of
-   `ticker@platform` pairs vs the previous successful run: counts + up to 8
-   names each, plus failed-sweep/reject notes — never model-written), then
-   validates and inserts via the write-order pseudo-transaction above.
-   Stablecoin-sweep rows default `is_stablecoin: true`; missing `fetched_at`
-   defaults to today. Any thrown error → run row with `status='failed'` and
-   the error in `summary`; previous runs are never touched.
+5. Both engines: merge, dedupe on `(ticker, platform, program_type)` keeping
+   the higher APR, **compute** the change summary in code (diff of
+   `ticker@platform` pairs vs the previous successful run — never
+   model-written), stamp missing `fetched_at` with today, then validate and
+   insert via the write-order pseudo-transaction above. Any thrown error →
+   run row with `status='failed'` and the error in `summary`; previous runs
+   are never touched.
 
-Env (function secrets): `GEMINI_API_KEY`, `GEMINI_MODEL`
-(default `gemini-2.5-flash`), `CAMPAIGN_INGEST_TOKEN`, plus the pre-existing
-`CRON_TOKEN`. `supabase/config.toml`: both functions `verify_jwt = false`
-(auth is the token, as with `fetch-prices`).
+Env (function secrets): `TAVILY_API_KEY`, `TAVILY_RESEARCH_MODEL`
+(default `mini`), `CAMPAIGN_RESEARCH_ENGINE` (default `tavily`),
+`GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-3.6-flash`),
+`GEMINI_GROUNDING` (default `url_context`), `CAMPAIGN_INGEST_TOKEN`, plus the
+pre-existing `CRON_TOKEN`. `supabase/config.toml`: both functions
+`verify_jwt = false` (auth is the token, as with `fetch-prices`).
 
-**Gemini free-tier constraint:** Google Search grounding is free only on
-2.5-generation Flash models (500 req/day); on Gemini 3.x it requires a
-billing-enabled project. Do not bump `GEMINI_MODEL` to a 3.x model without
-enabling billing (then it's 5,000 free searches/month — still $0 at this
-cadence). Verified 2026-08 against ai.google.dev/gemini-api/docs/pricing.
+**Gemini free-tier reality (verified empirically 2026-08-17, overriding the
+pricing docs):** `gemini-2.5-flash`/`-lite` — the models with free grounding —
+are closed to newly created keys ("no longer available to new users");
+`google_search` on 3.x models has zero free quota (instant 429). The free
+Gemini path is therefore `gemini-3.6-flash` + `url_context` (page fetch, no
+search), which is why Tavily is the primary engine.
 
 ## Frontend
 
@@ -173,6 +190,7 @@ canonical URL the research prompt grounds on, ordered by usefulness:
 |---|---|---|---|---|
 | 1 | Binance (global) — Launchpool / HODLer Airdrops / Megadrop | cex-global | binance.com/en/launchpool + /en/support/announcement | **Per-campaign Turkey eligibility** — each announcement's country list must be checked; TRY services removed but accounts/withdrawals work |
 | 2 | OKX TR — Earn + campaigns | cex-turkey | tr.okx.com/en/earn | SPK-listed |
+| 2b | OKX (global) — Earn + campaigns | cex-global | okx.com/en/earn | Per-campaign Turkey eligibility; TRY services live on OKX TR (added 2026-08-17: global+TR variants both watched) |
 | 3 | Binance TR — Staking ("Biriktir") | cex-turkey | binance.tr/tr/blog | SPK-listed, ~180 earn assets |
 | 4 | Paribu — Staking | cex-turkey | paribu.com/blog/en/news/ | SPK-listed; flexible + fixed, incl. TRY-balance rewards |
 | 5 | Midas Kripto — liquid staking + promos | cex-turkey | getmidas.com/midas-kripto/ | User's own platform; USDT "staking" is lending-like — SPK risk |
