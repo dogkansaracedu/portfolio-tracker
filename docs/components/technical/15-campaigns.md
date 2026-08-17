@@ -23,12 +23,14 @@
 | Path | Role |
 |---|---|
 | `supabase/migrations/20260817120000_campaigns.sql` | Tables + RLS + weekly cron. |
-| `supabase/functions/_shared/campaigns.ts` | **Dependency-free pure TS** (importable by both Deno and Vite/Vitest): `CAMPAIGN_PROGRAM_TYPES`, `APR_KINDS`, `PLATFORM_WATCH_LIST`, `CampaignInput` type, `validateCampaignBatch(payload)` → `{ valid, rejected }`. |
-| `supabase/functions/ingest-campaigns/index.ts` | POST door: checks `Authorization: Bearer <CAMPAIGN_INGEST_TOKEN>`, validates via `validateCampaignBatch`, inserts run + rows transactionally. |
+| `supabase/functions/_shared/campaigns.ts` | **Dependency-free pure TS** (zero imports — loadable by both Deno and Vite/Vitest): `CAMPAIGN_PROGRAM_TYPES`, `APR_KINDS`, `PLATFORM_WATCH_LIST`, `CampaignInput`/`CampaignBatch` types, `validateCampaignBatch(payload)` → `{ valid, rejected }`. |
+| `supabase/functions/_shared/campaign-store.ts` | Persistence half (needs the Supabase client, so it can't live in the import-free module): `insertCampaignBatch`, `recordFailedRun`, `fetchLatestSuccessfulRows`, run-status/producer constants. Both functions insert through it. |
+| `supabase/functions/ingest-campaigns/index.ts` | POST door: checks `Authorization: Bearer <CAMPAIGN_INGEST_TOKEN>` (500 if env unset, 401 mismatch, 405 non-POST), validates via `validateCampaignBatch` (zero valid rows → 422 with reasons), inserts run + rows via `campaign-store`. Honors an optional `producer` string in the payload (default `'ingest'`). |
+| `src/lib/campaign-validation.test.ts` | Vitest over `validateCampaignBatch` (imports `_shared/campaigns.ts`, same cross-boundary pattern as `yahoo.test.ts`). |
 | `supabase/functions/research-campaigns/index.ts` | Cron entry (`X-Cron-Token`): builds prompt from catalog crypto tickers + `PLATFORM_WATCH_LIST`, 3 grounded Gemini calls (holdings-scope / stablecoins / notable sweep), parses JSON, funnels through the same validate+insert. |
 | `src/types/database.ts` | `CampaignResearchRun`, `Campaign` row interfaces (hand-synced, as ever). |
-| `src/lib/constants/campaigns.ts` | UI-side constants: program-type display labels, `CAMPAIGN_STALENESS_DAYS = 10`, `DEADLINE_SOON_DAYS = 7`. |
-| `src/lib/campaigns.ts` | Pure grouping/estimate logic: `groupCampaigns(campaigns, heldTickers)` → the three buckets; `estimateYearlyUsd(qty, priceUsd, aprPct)` (BigNumber). |
+| `src/lib/constants/campaigns.ts` | UI-side constants: program-type display labels, APR-kind affixes, `CAMPAIGN_STALENESS_DAYS = 10`, `DEADLINE_SOON_DAYS = 7`, `CAMPAIGN_RUN_STATUS`, table names, and all page copy (`CAMPAIGN_COPY`). Re-exports `CampaignProgramType` / `AprKind` **as types only** from `_shared/campaigns.ts` (backend truth, zero bundle cost) — `database.ts` imports them from here. |
+| `src/lib/campaigns.ts` | Pure grouping/estimate logic: `groupCampaigns(campaigns, heldTickers, estimateFor?)` → the three buckets; `estimateYearlyUsd(qty, priceUsd, aprPct)` (BigNumber, null when any input is missing/zero); `isExpired` / `partitionExpired` / `isDeadlineSoon` / `isRunStale` / `formatApr`. |
 | `src/lib/campaigns.test.ts` | Vitest: grouping rules, estimate math, expired filtering. |
 | `src/lib/queries/campaigns.ts` | `fetchLatestCampaigns()` → latest successful run + its rows. |
 | `src/contexts/CampaignsContext.tsx` | Provider: loads once per session, exposes `{ run, campaigns, loading, error, refresh }`. |
@@ -44,7 +46,7 @@ CREATE TABLE campaign_research_runs (
   producer      text NOT NULL,              -- 'research-campaigns' | 'ingest'
   model         text,                        -- e.g. 'gemini-2.5-flash'
   status        text NOT NULL,              -- 'success' | 'failed'
-  summary       text,                        -- model-written change summary
+  summary       text,                        -- change summary vs previous run (computed in code)
   rejected_rows jsonb,                       -- validation rejects, for debugging
   raw_output    jsonb                        -- raw model output, for debugging
 );
@@ -90,10 +92,19 @@ rejects (collected into `rejected`, not thrown): missing
 ticker/platform/program_type/source_url; `program_type` not in
 `CAMPAIGN_PROGRAM_TYPES`; `apr` present but outside `(0, 1000]`; `apr` present
 without valid `apr_kind`; neither `apr` nor `reward_description`; `source_url`
-not parseable as http(s) URL; `deadline`/`fetched_at` not `YYYY-MM-DD`.
+not parseable as http(s) URL; `deadline`/`fetched_at` not `YYYY-MM-DD` or calendar-invalid; non-object rows;
+present-but-unparseable numerics.
 Normalization: tickers upper-cased/trimmed, platform trimmed, apr rounded to 4
-dp. Batch-level: zero valid rows → the whole batch fails (run recorded as
-`failed`, previous data untouched).
+dp, numeric strings from models coerced (`"4.25%"` → `4.25`),
+`amount_currency` upper-cased, `lock_days` truncated to integer. Batch-level:
+zero valid rows → the whole batch fails (run recorded as `failed`, previous
+data untouched).
+
+**Write order (pseudo-transaction).** PostgREST has no multi-statement
+transaction, so inserts go: run row with `status='failed'` → campaign rows →
+flip run to `success` (+ summary, rejected_rows). Readers only ever query
+`status='success'`, so a mid-way crash leaves an inert failed run and the
+previous data intact.
 
 ## research-campaigns flow
 
@@ -102,15 +113,24 @@ dp. Batch-level: zero valid rows → the whole batch fails (run recorded as
    manually.
 2. Reads catalog: `assets` where `category = 'crypto'` and `is_active`,
    splitting stablecoins by the `usd` tag / known stable tickers.
-3. Three Gemini calls (`generateContent`, tools: `google_search`,
-   `response_mime_type: application/json` where grounding allows, else
-   fenced-JSON extraction): catalog-coin offers, stablecoin offers, notable
-   sweep. Each call's prompt embeds `PLATFORM_WATCH_LIST` and today's date and
-   demands per-row `source_url` + explicit conditions.
-4. Merges rows, dedupes on `(ticker, platform, program_type)`, asks for /
-   assembles the change summary vs the previous run's rows, then validates and
-   inserts run + rows in one transaction. Any thrown error → run row with
-   `status='failed'` and the error in `summary`.
+3. Up to three Gemini calls (`generateContent`, tools: `google_search`):
+   catalog-coin offers (skipped when no non-stable active crypto exists),
+   stablecoin offers, notable sweep. The API rejects `response_mime_type`
+   alongside `google_search`, so output is always fenced-JSON, extracted
+   defensively (fenced block → bare `[...]` scan → whole-text parse; unwraps
+   `{"campaigns": [...]}`). Each prompt embeds `PLATFORM_WATCH_LIST` with its
+   flags, the regulatory-context paragraph, today's date, the exact output
+   schema, and demands per-row `source_url` + explicit conditions. One failed
+   sweep doesn't kill the run (noted in the summary); a run fails only when
+   every sweep fails or zero rows validate.
+4. Merges rows, dedupes on `(ticker, platform, program_type)` keeping the
+   higher APR, **computes** the change summary in code (diff of
+   `ticker@platform` pairs vs the previous successful run: counts + up to 8
+   names each, plus failed-sweep/reject notes — never model-written), then
+   validates and inserts via the write-order pseudo-transaction above.
+   Stablecoin-sweep rows default `is_stablecoin: true`; missing `fetched_at`
+   defaults to today. Any thrown error → run row with `status='failed'` and
+   the error in `summary`; previous runs are never touched.
 
 Env (function secrets): `GEMINI_API_KEY`, `GEMINI_MODEL`
 (default `gemini-2.5-flash`), `CAMPAIGN_INGEST_TOKEN`, plus the pre-existing
@@ -131,8 +151,13 @@ cadence). Verified 2026-08 against ai.google.dev/gemini-api/docs/pricing.
   (from `HoldingsContext`, balance > 0), sorted by `estimateYearlyUsd` desc;
   bucket 2 = remaining `is_stablecoin` rows; bucket 3 = rest, apr desc,
   rate-less rows last. Expired (`deadline < today`) hidden behind a toggle.
+  The toggle re-includes expired rows in their own bucket, badged `Expired`
+  and dimmed — not as a separate fourth list.
 - Estimates: `qty × price_usd × apr/100` in BigNumber; price from
-  `PricesContext`; no estimate when price or apr missing.
+  `PricesContext`; no estimate when price or apr missing. The page builds one
+  entry per held ticker (balance summed across platforms, upper-cased ticker
+  key, price looked up as `prices[price_id ?? ticker]`) and closes over it as
+  the `estimateFor` callback `groupCampaigns` sorts bucket 1 with.
 - Header: run `ran_at` (+ summary), staleness warning past
   `CAMPAIGN_STALENESS_DAYS`; every card shows source link + "found on
   {fetched_at} — verify at source" line; gain-style coloring is **not** used

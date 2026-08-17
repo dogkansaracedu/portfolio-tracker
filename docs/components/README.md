@@ -41,7 +41,7 @@ Build in order — each builds on the previous.
 | 12 | Asset Detail | [spec](12-asset-detail.md) | [tech](technical/12-asset-detail.md) | Done |
 | 13 | Retirement Planning | [spec](13-retirement-planning.md) | [tech](technical/13-retirement-planning.md) | Done |
 | 14 | Budgeting | [spec](14-budgeting.md) | [tech](technical/14-budgeting.md) | Partial — monthly view done, plan-vs-actual & expense ledger designed but not built |
-| 15 | Campaigns | [spec](15-campaigns.md) | [tech](technical/15-campaigns.md) | Designed — not built |
+| 15 | Campaigns | [spec](15-campaigns.md) | [tech](technical/15-campaigns.md) | Built — functions/secrets deployment pending, no data until first research run |
 
 ## Dependency graph
 
