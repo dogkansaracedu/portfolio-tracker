@@ -162,6 +162,13 @@ figures are computed by the same engines as the Portfolio/Dashboard — this
 screen introduces **no new P&L math**, only a new composition of existing
 figures.
 
+### Interest positions
+
+The page is the management home for this asset's
+[interest positions](GLOSSARY.md#interest-position) — list, add, edit, close,
+delete, plus a cross-link when a live campaign matches the ticker. Defined in
+[Component 16](16-interest.md); it never affects any figure above it.
+
 ## Contract (I/O)
 
 **Inputs:** an asset identifier (from the route); the asset record; its holdings

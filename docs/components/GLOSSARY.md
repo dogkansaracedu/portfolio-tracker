@@ -396,6 +396,33 @@ changed since the previous run. The app always displays the **latest
 successful** run's campaigns; older runs are history, never edited, and a
 failed run leaves the previous run's data in place.
 
+### Interest position
+A **personal** record that the investor has committed some quantity of one
+[asset](#asset) on one [platform](#platform) to earn a return: crypto staking, a
+stablecoin flexible-earn balance, a fiat time deposit at a bank, tokenized gold
+earn. It records what was committed (asset, platform, quantity), what it pays (a
+rate with a fixed / variable / "up to" kind, optional), the program's name, when
+it started and when it ends (**no end date = flexible**), an optional link to the
+[campaign](#campaign) it was tracked from, and a free note. It can be **closed**
+(soft-archived once redeemed) — closed positions are history: never listed by
+default, never warned about.
+
+An interest position is **informational only**. It creates no
+[transaction](#transaction), changes no [holding](#holding) or balance, and is
+absent from every [P&L](#total-pl) figure — the asset is already counted by the
+holding it sits in. Any return figure shown next to one is a *display-time
+estimate*, never a booked amount. Distinguish from a [campaign](#campaign): a
+campaign is a global claim about an offer that exists; a position is the user's
+private note that they took it.
+
+### Interest status ladder
+The four states an [interest position](#interest-position) can be in, derived
+from its end date alone and never stored: **flexible** (no end date), **active**
+(ends further out than the warning horizon), **ends soon** (ends within the same
+7-day horizon a campaign [deadline](#campaign) uses — today and the boundary day
+both count), and **expired** (the end date has passed). "Ends soon" and
+"expired" are the two states that warn on the dashboard.
+
 ## Canonical formulas
 
 State-only here; the rationale lives in [P&L Methodology](../pnl-methodology.md).
