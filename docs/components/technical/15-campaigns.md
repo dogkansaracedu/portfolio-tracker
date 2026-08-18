@@ -187,6 +187,9 @@ search), which is why Tavily is the primary engine.
   entry per held ticker (balance summed across platforms, upper-cased ticker
   key, price looked up as `prices[price_id ?? ticker]`) and closes over it as
   the `estimateFor` callback `groupCampaigns` sorts bucket 1 with.
+- Each card's "Track" button hands the campaign to
+  [Component 16](../16-interest.md)'s prefill (planned, not built) — Campaigns
+  stays capture-only; positions live on the asset pages.
 - Header: run `ran_at` (+ summary), staleness warning past
   `CAMPAIGN_STALENESS_DAYS`; every card shows source link + "found on
   {fetched_at} — verify at source" line; gain-style coloring is **not** used

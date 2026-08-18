@@ -116,7 +116,9 @@ Intrinsic facts only (nothing user-specific):
 
 Every card shows: platform, program type, reward, lock/min/max/conditions,
 deadline (with a "ends soon" cue when within 7 days), the source link, and the
-found-on date.
+found-on date. A card also offers "Track" — the capture point for
+[Component 16 (Interest Positions)](16-interest.md); this page never lists the
+resulting positions.
 
 ### Trust & staleness rules
 

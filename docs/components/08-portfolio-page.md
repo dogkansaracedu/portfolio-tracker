@@ -152,6 +152,13 @@ A no-trade day on a position held since yesterday (closed 200, now 210, qty 10):
 `2100 − 2000 − 0 = +$100`. The asset's **group header daily** = the sum of its
 visible rows' daily amounts.
 
+### Interest indicator
+
+A row whose asset has an open
+[interest position](GLOSSARY.md#interest-position) carries a small status cue
+next to the ticker — see [Component 16](16-interest.md). It is *status*
+coloring, never gain/loss coloring, and rows without a position show nothing.
+
 ## Contract (I/O)
 
 **Inputs:** active assets; per-asset/per-platform holdings (live balances);
