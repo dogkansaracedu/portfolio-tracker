@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Card,
   CardAction,
@@ -79,6 +80,7 @@ export default function CampaignsPage() {
   const { platforms } = usePlatformsContext()
   const { prices } = usePricesContext()
   const [showExpired, setShowExpired] = useState(false)
+  const [assetFilter, setAssetFilter] = useState("")
   // Doubles as "the track dialog is open" and "what to prefill it with". This
   // page only *captures* positions (Component 16, surface 3) — it never lists
   // or manages them; that lives on the asset's own page.
@@ -113,7 +115,11 @@ export default function CampaignsPage() {
     [campaigns, today],
   )
 
-  const visible = showExpired ? campaigns : active
+  const query = assetFilter.trim().toUpperCase()
+  const visibleAll = showExpired ? campaigns : active
+  const visible = query
+    ? visibleAll.filter((c) => c.asset_ticker.toUpperCase().includes(query))
+    : visibleAll
 
   const groups = useMemo(() => {
     const heldTickers = new Set(heldByTicker.keys())
@@ -186,6 +192,14 @@ export default function CampaignsPage() {
               </CardContent>
             </Card>
           )}
+
+          <Input
+            value={assetFilter}
+            onChange={(e) => setAssetFilter(e.target.value)}
+            placeholder={CAMPAIGN_COPY.assetFilterPlaceholder}
+            className="max-w-xs"
+            aria-label={CAMPAIGN_COPY.assetFilterPlaceholder}
+          />
 
           <CampaignGroup
             title={CAMPAIGN_COPY.groups.held.title}
