@@ -2,8 +2,8 @@
 
 > Layer: behavioral (tech-agnostic). Implementation → [technical/16-interest.md](technical/16-interest.md)
 >
-> **Status: designed, not built.** This spec is the agreed contract; no code for
-> it exists yet.
+> **Status: built** (v0.7.0). The contract below describes the shipped
+> behavior.
 
 ## Purpose
 
@@ -61,7 +61,8 @@ Surfaces it appears on: Component 7 (dashboard warnings), Component 8
 - **Note** — free text.
 - **Closed flag** — a soft archive for a matured or redeemed position. Closed
   positions leave every default list and stop warning, but are kept as history
-  and can be shown again on demand.
+  and can be shown again on demand. Closing is reversible: a position archived
+  by mistake can be re-opened, since nothing about it was ever booked.
 
 ### Status ladder
 

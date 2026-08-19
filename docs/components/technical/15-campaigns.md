@@ -38,7 +38,7 @@
 | `src/lib/campaigns.test.ts` | Vitest: grouping rules, estimate math, expired filtering. |
 | `src/lib/queries/campaigns.ts` | `fetchLatestCampaigns()` → latest successful run + its rows. |
 | `src/contexts/CampaignsContext.tsx` | Provider: loads once per session, exposes `{ run, campaigns, loading, error, refresh }`. |
-| `src/pages/CampaignsPage.tsx` | The three-group page. |
+| `src/pages/CampaignsPage.tsx` | The three-group page. Each card also carries a **"Track"** button (Component 16): it opens the shared interest-position dialog prefilled from the campaign. Capture only — the page never lists or manages positions. See [technical/16-interest.md](16-interest.md). |
 | `src/App.tsx`, `src/components/layout/Sidebar.tsx`, `MobileNav.tsx` | Route `/campaigns` + nav entries. |
 
 ## Schema

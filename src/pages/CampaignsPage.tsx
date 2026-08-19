@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import type BigNumber from "bignumber.js"
 import {
+  BookmarkPlus,
   CalendarClock,
   ExternalLink,
   Lock,
@@ -19,8 +20,10 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { InterestPositionForm } from "@/components/interest/InterestPositionForm"
 import { useCampaignsContext } from "@/contexts/CampaignsContext"
 import { useHoldingsContext } from "@/contexts/HoldingsContext"
+import { usePlatformsContext } from "@/contexts/PlatformsContext"
 import { usePricesContext } from "@/contexts/PricesContext"
 import {
   estimateYearlyUsd,
@@ -39,6 +42,8 @@ import {
   PROGRAM_TYPE_LABELS,
 } from "@/lib/constants/campaigns"
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies"
+import { INTEREST_COPY } from "@/lib/constants/interest"
+import { buildPositionPrefill, type PositionPrefill } from "@/lib/interest"
 import { formatCryptoAmount, formatCurrency } from "@/lib/prices"
 import { cn } from "@/lib/utils"
 import type { Campaign } from "@/types/database"
@@ -71,8 +76,13 @@ function formatDay(value: string): string {
 export default function CampaignsPage() {
   const { run, campaigns, loading, error, refresh } = useCampaignsContext()
   const { holdings } = useHoldingsContext()
+  const { platforms } = usePlatformsContext()
   const { prices } = usePricesContext()
   const [showExpired, setShowExpired] = useState(false)
+  // Doubles as "the track dialog is open" and "what to prefill it with". This
+  // page only *captures* positions (Component 16, surface 3) — it never lists
+  // or manages them; that lives on the asset's own page.
+  const [trackPrefill, setTrackPrefill] = useState<PositionPrefill | null>(null)
 
   const today = homeDayIso()
 
@@ -116,6 +126,9 @@ export default function CampaignsPage() {
   }, [visible, heldByTicker])
 
   const stale = isRunStale(run?.ran_at)
+
+  const onTrack = (campaign: Campaign) =>
+    setTrackPrefill(buildPositionPrefill(campaign, platforms, today))
 
   if (loading) {
     return (
@@ -181,6 +194,7 @@ export default function CampaignsPage() {
             campaigns={groups.held}
             today={today}
             heldByTicker={heldByTicker}
+            onTrack={onTrack}
           />
           <CampaignGroup
             title={CAMPAIGN_COPY.groups.stablecoin.title}
@@ -188,6 +202,7 @@ export default function CampaignsPage() {
             emptyText={CAMPAIGN_COPY.groups.stablecoin.emptyText}
             campaigns={groups.stablecoin}
             today={today}
+            onTrack={onTrack}
           />
           <CampaignGroup
             title={CAMPAIGN_COPY.groups.considering.title}
@@ -195,6 +210,7 @@ export default function CampaignsPage() {
             emptyText={CAMPAIGN_COPY.groups.considering.emptyText}
             campaigns={groups.considering}
             today={today}
+            onTrack={onTrack}
           />
 
           {expired.length > 0 && (
@@ -210,6 +226,14 @@ export default function CampaignsPage() {
           )}
         </>
       )}
+
+      <InterestPositionForm
+        open={trackPrefill !== null}
+        onOpenChange={(open) => {
+          if (!open) setTrackPrefill(null)
+        }}
+        prefill={trackPrefill ?? undefined}
+      />
     </div>
   )
 }
@@ -231,6 +255,7 @@ interface CampaignGroupProps {
   today: string
   /** Only bucket 1 personalizes; the other groups pass nothing. */
   heldByTicker?: Map<string, HeldPosition>
+  onTrack: (campaign: Campaign) => void
 }
 
 function CampaignGroup({
@@ -240,6 +265,7 @@ function CampaignGroup({
   campaigns,
   today,
   heldByTicker,
+  onTrack,
 }: CampaignGroupProps) {
   return (
     <section className="space-y-3">
@@ -265,6 +291,7 @@ function CampaignGroup({
               campaign={campaign}
               today={today}
               position={heldByTicker?.get(campaign.asset_ticker.toUpperCase())}
+              onTrack={onTrack}
             />
           ))}
         </div>
@@ -277,9 +304,15 @@ interface CampaignCardProps {
   campaign: Campaign
   today: string
   position?: HeldPosition
+  onTrack: (campaign: Campaign) => void
 }
 
-function CampaignCard({ campaign, today, position }: CampaignCardProps) {
+function CampaignCard({
+  campaign,
+  today,
+  position,
+  onTrack,
+}: CampaignCardProps) {
   const apr = formatApr(campaign.apr, campaign.apr_kind)
   const expired = isExpired(campaign, today)
   const endsSoon = !expired && isDeadlineSoon(campaign, today)
@@ -371,15 +404,28 @@ function CampaignCard({ campaign, today, position }: CampaignCardProps) {
       </CardContent>
 
       <CardFooter className="flex-col items-start gap-1 text-xs text-muted-foreground">
-        <a
-          href={campaign.source_url}
-          target={EXTERNAL_LINK_TARGET}
-          rel={EXTERNAL_LINK_REL}
-          className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
-        >
-          {CAMPAIGN_COPY.sourceLabel}
-          <ExternalLink className="size-3" />
-        </a>
+        <div className="flex w-full items-center justify-between gap-2">
+          <a
+            href={campaign.source_url}
+            target={EXTERNAL_LINK_TARGET}
+            rel={EXTERNAL_LINK_REL}
+            className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+          >
+            {CAMPAIGN_COPY.sourceLabel}
+            <ExternalLink className="size-3" />
+          </a>
+          {/* Capture only: this opens the shared add-dialog prefilled from the
+              card. Managing the position afterwards happens on the asset. */}
+          <Button
+            variant="outline"
+            size="xs"
+            aria-label={INTEREST_COPY.trackAria}
+            onClick={() => onTrack(campaign)}
+          >
+            <BookmarkPlus className="size-3" />
+            {INTEREST_COPY.track}
+          </Button>
+        </div>
         <span>
           {CAMPAIGN_COPY.foundOnPrefix}
           {formatDay(campaign.fetched_at)}

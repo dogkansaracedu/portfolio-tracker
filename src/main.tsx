@@ -7,6 +7,7 @@ import { BudgetProvider } from "@/contexts/BudgetContext"
 import { CampaignsProvider } from "@/contexts/CampaignsContext"
 import { DisplayProvider } from "@/contexts/DisplayContext"
 import { HoldingsProvider } from "@/contexts/HoldingsContext"
+import { InterestProvider } from "@/contexts/InterestContext"
 import { PlatformsProvider } from "@/contexts/PlatformsContext"
 import { PricesProvider } from "@/contexts/PricesContext"
 import { RetirementScenarioProvider } from "@/contexts/RetirementScenarioContext"
@@ -34,8 +35,10 @@ createRoot(document.getElementById("root")!).render(
                           <RetirementScenarioProvider>
                             <BudgetProvider>
                               <CampaignsProvider>
-                                <App />
-                                <Toaster />
+                                <InterestProvider>
+                                  <App />
+                                  <Toaster />
+                                </InterestProvider>
                               </CampaignsProvider>
                             </BudgetProvider>
                           </RetirementScenarioProvider>

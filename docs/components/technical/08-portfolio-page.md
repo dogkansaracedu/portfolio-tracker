@@ -28,7 +28,11 @@
   (daily); renders "—" when `!dailyReturnAvailable`. Both modes stay **gross** —
   the after-tax treatment lives only in `PortfolioRow`.
 - `src/components/portfolio/PortfolioRow.tsx` — exports **both** the desktop
-  `PortfolioRow` and the mobile `PortfolioRowCard`; each picks
+  `PortfolioRow` and the mobile `PortfolioRowCard`. Both render
+  `<InterestBadge assetId>` next to the ticker — **Component 16's** per-row
+  "something of this is earning" cue, tinted by *status* (amber/red), never by
+  `gainLossClass`; it renders `null` for an asset with no open position. See
+  [technical/16-interest.md](16-interest.md). Each picks
   `unrealizedPnlUsd`/`unrealizedPnlPct` (total) vs `dailyReturnUsd`/`dailyReturnPct`
   (daily). In **Total** mode, taxed rows (`asset.taxAccrualUsd > 0`) show
   `netUsd = returnUsd − taxAccrualUsd` as the headline (percent recomputed over
