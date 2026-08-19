@@ -89,6 +89,12 @@ rate, a missing price, or a zero anywhere, **no estimate is shown at all** —
 never a fabricated zero. An estimate is a display-time projection: it is never
 booked, never accrued, and never enters any P&L figure.
 
+Interest is **simple, never compounding** (user requirement, 2026-08-19): the
+projection always runs on the position's fixed recorded quantity — earned
+rewards do not grow the earning base, and the current holding balance is never
+substituted for the position's quantity. Linear proration over days is the
+whole model.
+
 ### Where it appears
 
 Four surfaces, each with one job:
