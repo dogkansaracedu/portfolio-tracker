@@ -10,6 +10,7 @@ import PlatformBreakdown from "@/components/dashboard/PlatformBreakdown"
 import CurrencyBreakdown from "@/components/dashboard/CurrencyBreakdown"
 import TopMovers from "@/components/dashboard/TopMovers"
 import ForeignIncomeCard from "@/components/dashboard/ForeignIncomeCard"
+import { InterestAlerts } from "@/components/dashboard/InterestAlerts"
 
 function SkeletonCard({ className }: { className?: string }) {
   return (
@@ -121,6 +122,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
+      {/* Above the fold: a term quietly ending is the one thing on this page
+          that needs a decision this week (Component 16). */}
+      <InterestAlerts />
+
       <Suspense fallback={<RouteSkeleton />}>
         <DashboardHero
           snapshots={snapshots}

@@ -17,6 +17,7 @@ import {
 import type { EnrichedAsset, ReturnMode } from "@/hooks/usePortfolio"
 import { assetNativeCurrency } from "@/lib/constants/assets"
 import { AssetIcon } from "@/components/common/AssetIcon"
+import { InterestBadge } from "@/components/interest/InterestBadge"
 
 interface PortfolioRowProps {
   asset: EnrichedAsset
@@ -135,6 +136,9 @@ export function PortfolioRow({
             <AssetIcon asset={asset} size="sm" />
             <span className="font-medium">{asset.ticker}</span>
           </Link>
+          {/* A status cue only (Component 16): "something of this is earning".
+              Never the gain/loss palette — the return column owns that. */}
+          <InterestBadge assetId={asset.id} />
         </div>
       </TableCell>
 
@@ -279,6 +283,7 @@ export function PortfolioRowCard({
           <div className="flex items-center gap-2">
             <AssetIcon asset={asset} size="sm" />
             <span className="font-medium">{asset.ticker}</span>
+            <InterestBadge assetId={asset.id} />
           </div>
           <span className="tabular-nums text-sm">
             <CurrentPrice asset={asset} />
