@@ -21,10 +21,14 @@
 
 - `src/pages/DashboardPage.tsx` — page shell. Pulls breakdowns/snapshots from
   `useDashboard` and the live current-value/total-P&L from `usePnLSummary`, then
-  lays out hero → (allocation + platform) → (movers + currency) in
-  `grid-cols-1 md:grid-cols-2` rows, with the foreign-income card full-width at
-  the bottom. Owns the skeleton + no-assets empty state; wraps the lazy
-  hero/allocation in `<Suspense>`.
+  lays out interest alerts → hero → (allocation + platform) → (movers +
+  currency) in `grid-cols-1 md:grid-cols-2` rows, with the foreign-income card
+  full-width at the bottom. Owns the skeleton + no-assets empty state; wraps the
+  lazy hero/allocation in `<Suspense>`.
+- `src/components/dashboard/InterestAlerts.tsx` — **Component 16's** two
+  warning banners (expired / ends-soon interest positions), rendered above the
+  hero and dismissable for the browser session. Owned by Component 16; see
+  [technical/16-interest.md](16-interest.md).
 - `src/components/dashboard/DashboardHero.tsx` — the hero card: Value|P&L tabs,
   the TWR|MWR measure switch, time-range buttons, benchmark `DropdownMenu`, the
   Recharts `AreaChart`, and the headline/delta/subtitle. Owns axis-tick math (`niceStep`/`niceTicks`,

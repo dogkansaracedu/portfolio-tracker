@@ -21,13 +21,19 @@ import type { Campaign } from "@/types/database"
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
-/** Parse a `YYYY-MM-DD` day into UTC-midnight ms. NaN for anything else. */
-function isoDayToUtcMs(day: string): number {
+/**
+ * Parse a `YYYY-MM-DD` day into UTC-midnight ms. NaN for anything else.
+ *
+ * Exported (with {@link daysBetweenIsoDays}) as the app's one implementation of
+ * ISO-day arithmetic — Component 16's interest logic builds its status ladder
+ * and end-date maths on these rather than restating them.
+ */
+export function isoDayToUtcMs(day: string): number {
   return Date.parse(`${day}T00:00:00Z`)
 }
 
 /** Whole days from `from` to `to`, both `YYYY-MM-DD`. Negative = `to` is past. */
-function daysBetweenIsoDays(from: string, to: string): number {
+export function daysBetweenIsoDays(from: string, to: string): number {
   return (isoDayToUtcMs(to) - isoDayToUtcMs(from)) / MS_PER_DAY
 }
 

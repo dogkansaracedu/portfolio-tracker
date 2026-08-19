@@ -24,7 +24,7 @@
 | File | Role |
 | --- | --- |
 | `src/App.tsx` | Adds `<Route path="assets/:assetId" …>` (lazy, inside `AppLayout`). |
-| `src/pages/AssetDetailPage.tsx` | Page shell: reads `useParams().assetId`, pulls the view-model from `useAssetDetail`, renders header → position summary → chart → income/costs → per-platform table → transaction list. Not-found state when the id resolves to no asset or an asset with no transactions and no holding. |
+| `src/pages/AssetDetailPage.tsx` | Page shell: reads `useParams().assetId`, pulls the view-model from `useAssetDetail`, renders header → position summary → chart → income/costs → per-platform table → interest positions (Component 16) → transaction list. Not-found state when the id resolves to no asset or an asset with no transactions and no holding. |
 
 ### View-model
 
@@ -44,6 +44,7 @@
 | `AssetPlatformTable.tsx` | Per-platform `Table` from the asset's `HoldingPnL` slices: platform dot + name, quantity, cost basis, value, unrealized return. Hidden when no nonzero slice. |
 | `AssetHistoryChart.tsx` | Recharts `ComposedChart`: `Area` = value (display currency), `Line type="stepAfter"` = cost basis on the **value** axis (`var(--chart-4)`; TRY display converts `costBasisUsd × usdTry` per point — each date's frozen rate, never today's), `Line` = `priceUsd` on a right-hand axis; "Cost" and "Price" toggle buttons, `TimeRangeSelector` (reused from performance) above; the live "now" point is appended by `useAssetDetail` (held positions only, with `costBasisUsd` = the engine's current figure). `< 2` in-range points → "not enough history" hint. Exported via `LazyChart.tsx` + `<Suspense>` (Recharts stays code-split). |
 | `AssetIncomeCosts.tsx` | Cards for income / taxes / fees (USD, obfuscation-aware); zero-valued cards omitted. |
+| `AssetInterestSection.tsx` | **Component 16's** management home, rendered between the platform table and the transaction list: this asset's open interest positions with add / edit / close / reopen / delete, a "Show N closed" history toggle, display-time `$/yr` + per-term estimates, and a cross-link to `/campaigns` when the latest research run still has live rows for this ticker. Reads `InterestContext`; writes nothing to holdings, transactions or P&L. See [technical/16-interest.md](16-interest.md). |
 
 ### Reused as-is
 

@@ -244,6 +244,44 @@ export interface Campaign {
   fetched_at: string;
 }
 
+// ─── Interest Positions (Component 16) ──────────────────────────────
+//
+// Per-user notes on what is committed somewhere to earn a return. The mirror
+// image of `campaigns`: a campaign is a global claim that an offer exists, a
+// position is the user's private note that they took it — so this table has a
+// user_id, real FKs into the user's own catalog, and a client write path.
+//
+// Informational only: a row here creates no transaction and changes no holding,
+// balance or P&L figure. Status (flexible/active/ends soon/expired) is derived
+// from `expires_at` at read time and deliberately not stored.
+
+export interface InterestPosition {
+  id: string;
+  user_id: string;
+  asset_id: string;
+  platform_id: string;
+  /** How much of the asset is committed, in the asset's own unit. Never
+   *  reconciled against the holding's balance — see Component 16's spec. */
+  quantity: number;
+  /** Percent per year, e.g. 5.25. Null when the program has no quoted rate. */
+  apr: number | null;
+  /** Null iff `apr` is null. */
+  apr_kind: AprKind | null;
+  /** Program name the user recognises it by ("OKX TR fixed 105d"). */
+  label: string | null;
+  /** YYYY-MM-DD. */
+  started_at: string;
+  /** YYYY-MM-DD; null = flexible (never expires, never warns). */
+  expires_at: string | null;
+  /** Optional provenance when captured from a campaign card. Allowed to go
+   *  stale — campaign rows are replaced by every research run (SET NULL). */
+  campaign_id: string | null;
+  note: string | null;
+  /** Soft archive: closed positions leave every default list and stop warning. */
+  is_closed: boolean;
+  created_at: string;
+}
+
 // ─── Snapshot Breakdown Shape ───────────────────────────────────────
 //
 // The snapshot's `breakdown` is the authoritative aggregation of a portfolio's
@@ -335,4 +373,29 @@ export type IncomeDefaultInsert = Omit<IncomeDefault, "id" | "created_at"> & {
 };
 export type IncomeDefaultUpdate = Partial<
   Omit<IncomeDefault, "id" | "user_id" | "created_at"> & { amount: number | string }
+>;
+
+// `quantity` and `apr` are both numeric columns, so both accept a
+// BigNumber.toFixed() string on write. is_closed is optional on insert: the
+// column defaults to false and a position is only ever archived later, by
+// closeInterestPosition.
+type InterestPositionNumerics = {
+  quantity: number | string;
+  apr: number | string | null;
+};
+
+export type InterestPositionInsert = Omit<
+  InterestPosition,
+  "id" | "quantity" | "apr" | "is_closed" | "created_at"
+> &
+  InterestPositionNumerics & {
+    is_closed?: boolean;
+  };
+
+export type InterestPositionUpdate = Partial<
+  Omit<
+    InterestPosition,
+    "id" | "user_id" | "quantity" | "apr" | "created_at"
+  > &
+    InterestPositionNumerics
 >;

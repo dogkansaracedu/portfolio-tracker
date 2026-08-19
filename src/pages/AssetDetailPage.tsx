@@ -9,6 +9,7 @@ import { AssetDetailHeader } from "@/components/asset-detail/AssetDetailHeader"
 import { AssetPositionSummary } from "@/components/asset-detail/AssetPositionSummary"
 import { AssetPlatformTable } from "@/components/asset-detail/AssetPlatformTable"
 import { AssetIncomeCosts } from "@/components/asset-detail/AssetIncomeCosts"
+import { AssetInterestSection } from "@/components/asset-detail/AssetInterestSection"
 import { AssetHistoryChart } from "@/components/charts/LazyChart"
 import { TransactionList } from "@/components/transactions/TransactionList"
 import {
@@ -99,6 +100,10 @@ export default function AssetDetailPage() {
           category={detail.asset.category}
         />
       )}
+
+      {/* Component 16's management home. Notes only — it reads nothing from
+          the P&L engine above and writes nothing back to it. */}
+      <AssetInterestSection asset={detail.asset} />
 
       <div>
         <h2 className="mb-2 text-lg font-semibold">Transactions</h2>
