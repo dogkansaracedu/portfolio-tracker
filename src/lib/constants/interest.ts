@@ -141,6 +141,7 @@ export const INTEREST_COPY = {
   estimateYearSuffix: "/yr",
   estimateTermPrefix: "≈ ",
   estimateTermSuffix: " over the term",
+  estimateSoFarSuffix: " so far",
   campaignLinkPrefix: "The latest campaign research has live offers for",
   campaignLinkAction: "See campaigns",
   loadFailedPrefix: "Couldn't load interest positions",

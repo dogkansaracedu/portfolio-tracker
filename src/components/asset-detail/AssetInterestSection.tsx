@@ -34,6 +34,7 @@ import {
 } from "@/lib/constants/interest"
 import {
   estimatePositionTermUsd,
+  estimatePositionAccruedUsd,
   estimatePositionYearlyUsd,
   positionStatus,
   sortPositions,
@@ -256,6 +257,7 @@ function PositionCard({
   const rate = formatPositionRate(position)
   const yearly = estimatePositionYearlyUsd(position, priceUsd)
   const term = estimatePositionTermUsd(position, priceUsd)
+  const accrued = estimatePositionAccruedUsd(position, priceUsd, today)
 
   return (
     <Card size="sm" className={cn("h-full", position.is_closed && "opacity-60")}>
@@ -315,6 +317,13 @@ function PositionCard({
               <span className="ml-2 text-xs text-muted-foreground tabular-nums">
                 {formatCurrency(yearly.toNumber(), DEFAULT_CURRENCY)}
                 {INTEREST_COPY.estimateYearSuffix}
+              </span>
+            )}
+            {accrued && (
+              <span className="ml-2 text-xs text-muted-foreground tabular-nums">
+                {INTEREST_COPY.estimatePrefix}
+                {formatCurrency(accrued.toNumber(), DEFAULT_CURRENCY)}
+                {INTEREST_COPY.estimateSoFarSuffix}
               </span>
             )}
           </div>

@@ -113,6 +113,24 @@ export function estimatePositionTermUsd(
   return yearly.times(bn(termDays).dividedBy(INTEREST_DAYS_PER_YEAR))
 }
 
+/**
+ * Simple interest accrued from `started_at` to today, capped at the term end
+ * (a matured position stops accruing; a flexible one accrues indefinitely).
+ * Null before the start date or when the yearly estimate is null.
+ */
+export function estimatePositionAccruedUsd(
+  position: Pick<InterestPosition, "quantity" | "apr"> & PositionTerm,
+  priceUsd: number | null | undefined,
+  today: string,
+): BigNumber | null {
+  const yearly = estimatePositionYearlyUsd(position, priceUsd)
+  if (!yearly) return null
+  const until = position.expires_at && position.expires_at < today ? position.expires_at : today
+  const elapsed = daysBetweenIsoDays(position.started_at, until)
+  if (!Number.isFinite(elapsed) || elapsed <= 0) return null
+  return yearly.times(bn(elapsed).dividedBy(INTEREST_DAYS_PER_YEAR))
+}
+
 /** Whole days the term runs for. Null when flexible or unparseable. */
 export function positionTermDays(position: PositionTerm): number | null {
   if (!position.expires_at) return null
