@@ -114,6 +114,9 @@ Intrinsic facts only (nothing user-specific):
 3. **"Worth considering"** — everything else. Sorted by rate (desc), rate-less
    rows last.
 
+A free-text **asset filter** narrows all three groups to campaigns whose ticker
+contains the query (case-insensitive); empty query shows everything.
+
 Every card shows: platform, program type, reward, lock/min/max/conditions,
 deadline (with a "ends soon" cue when within 7 days), the source link, and the
 found-on date. A card also offers "Track" — the capture point for
