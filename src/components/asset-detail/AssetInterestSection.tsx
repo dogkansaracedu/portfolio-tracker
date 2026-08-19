@@ -304,16 +304,17 @@ function PositionCard({
 
         {yearly && (
           <div className="text-sm">
+            {/* Term payout leads when a term exists — it's the decision number;
+                the annualized rate is context. Flexible falls back to /yr. */}
             <span className="font-semibold tabular-nums">
               {INTEREST_COPY.estimatePrefix}
-              {formatCurrency(yearly.toNumber(), DEFAULT_CURRENCY)}
-              {INTEREST_COPY.estimateYearSuffix}
+              {formatCurrency((term ?? yearly).toNumber(), DEFAULT_CURRENCY)}
+              {term ? INTEREST_COPY.estimateTermSuffix : INTEREST_COPY.estimateYearSuffix}
             </span>
             {term && (
               <span className="ml-2 text-xs text-muted-foreground tabular-nums">
-                {INTEREST_COPY.estimateTermPrefix}
-                {formatCurrency(term.toNumber(), DEFAULT_CURRENCY)}
-                {INTEREST_COPY.estimateTermSuffix}
+                {formatCurrency(yearly.toNumber(), DEFAULT_CURRENCY)}
+                {INTEREST_COPY.estimateYearSuffix}
               </span>
             )}
           </div>
