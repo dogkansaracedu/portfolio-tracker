@@ -117,6 +117,7 @@ export const CAMPAIGN_COPY = {
   showExpiredPrefix: "Show",
   showExpiredSuffix: "expired",
   hideExpired: "Hide expired",
+  assetFilterPlaceholder: "Filter by asset (e.g. USDT)",
   noRate: "No published rate",
 } as const
 
