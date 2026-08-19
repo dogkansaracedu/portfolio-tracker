@@ -4,6 +4,7 @@ import {
   buildPositionPrefill,
   daysUntil,
   estimatePositionTermUsd,
+  estimatePositionAccruedUsd,
   estimatePositionYearlyUsd,
   isWarningStatus,
   matchPlatformByName,
@@ -196,6 +197,41 @@ describe("estimatePositionYearlyUsd", () => {
     expect(estimatePositionYearlyUsd(position({ quantity: 0 }), 100)).toBeNull()
     expect(estimatePositionYearlyUsd(position({ apr: 0 }), 100)).toBeNull()
     expect(estimatePositionYearlyUsd(position(), 0)).toBeNull()
+  })
+})
+
+describe("estimatePositionAccruedUsd", () => {
+  const p = position({
+    quantity: 500,
+    apr: 10,
+    started_at: "2026-04-02",
+    expires_at: "2026-09-29",
+  })
+
+  it("prorates simple interest over elapsed days", () => {
+    // Apr 2 → Aug 19 = 139 days: 500 × 10% × 139/365
+    const value = estimatePositionAccruedUsd(p, 1, "2026-08-19")
+    expect(value?.toFixed(4)).toBe("19.0411")
+  })
+
+  it("caps accrual at the term end after maturity", () => {
+    const atEnd = estimatePositionAccruedUsd(p, 1, "2026-09-29")
+    const after = estimatePositionAccruedUsd(p, 1, "2027-01-01")
+    expect(after?.toString()).toBe(atEnd?.toString())
+  })
+
+  it("accrues indefinitely for a flexible position", () => {
+    const flex = position({ quantity: 500, apr: 10, started_at: "2026-04-02", expires_at: null })
+    const value = estimatePositionAccruedUsd(flex, 1, "2027-04-02")
+    expect(value?.toString()).toBe("50")
+  })
+
+  it("is null before the start date or with no rate", () => {
+    expect(estimatePositionAccruedUsd(p, 1, "2026-04-02")).toBeNull()
+    expect(estimatePositionAccruedUsd(p, 1, "2026-03-01")).toBeNull()
+    expect(
+      estimatePositionAccruedUsd(position({ apr: null, expires_at: "2026-09-29" }), 1, "2026-08-19"),
+    ).toBeNull()
   })
 })
 

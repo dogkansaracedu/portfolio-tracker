@@ -89,6 +89,11 @@ rate, a missing price, or a zero anywhere, **no estimate is shown at all** —
 never a fabricated zero. An estimate is a display-time projection: it is never
 booked, never accrued, and never enters any P&L figure.
 
+Alongside the term/yearly projection, a position also shows **estimated income
+so far**: the same simple-interest figure prorated over elapsed days from the
+start date, capped at the term end once matured (flexible positions accrue
+indefinitely); hidden before the start date.
+
 The projection models **simple interest only** (the only mode in v1): it always
 runs on the position's fixed recorded quantity — earned rewards do not grow the
 earning base, and the current holding balance is never substituted for the
