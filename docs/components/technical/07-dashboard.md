@@ -256,7 +256,9 @@
   money gain in a smaller inline span (`text-lg sm:text-xl md:text-2xl` vs the
   percent's `2xl…4xl`): `formatSignedCurrency(periodDeltaValue, currency)` wrapped
   in `obfuscate` — the same window-rebased delta the tooltip's "Şimdi" row shows.
-  It inherits the headline's gain/loss color. Its sub-label comes from
+  It is colored by `periodColor` (its own sign, keyed off `delta.usd`), not
+  `twrColor` — a mid-window deposit can flip the two signs apart. Its sub-label
+  comes from
   `MEASURE_SUBLABELS[effectiveMeasure]` — TWR: "Growth vs market — time-weighted,
   deposits/withdrawals removed"; MWR: "Your money's growth — money-weighted,
   deposit timing included". The subtitle row shows the

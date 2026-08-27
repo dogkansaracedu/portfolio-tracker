@@ -256,8 +256,9 @@ export function PortfolioRowCard({
   returnMode,
   dailyReturnAvailable,
 }: PortfolioRowProps) {
-  const { currency } = useDisplayCurrency()
+  const { currency, obfuscated } = useDisplayCurrency()
   const { openTransactionModal } = useTransactionModal()
+  const o = (v: string) => obfuscate(v, obfuscated)
 
   const displayValue =
     currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
@@ -303,11 +304,11 @@ export function PortfolioRowCard({
 
         <div className="flex flex-col items-end gap-0.5">
           <span className="font-semibold">
-            {formatCurrency(displayValue, currency)}
+            {o(formatCurrency(displayValue, currency))}
           </span>
           {showReturn ? (
             <span className={`text-xs ${gainLossClass(netIsPositive)}`}>
-              {formatSignedCurrency(netUsd, "USD")}
+              {o(formatSignedCurrency(netUsd, "USD"))}
               {netPct !== null && (
                 <>
                   {" "}
@@ -317,7 +318,7 @@ export function PortfolioRowCard({
               {taxed && (
                 <span className="text-muted-foreground">
                   {" · "}
-                  gross {formatSignedCurrency(returnUsd, "USD")}
+                  gross {o(formatSignedCurrency(returnUsd, "USD"))}
                 </span>
               )}
             </span>
