@@ -44,7 +44,7 @@ export function deriveTransactionDisplay(
   rates: ExchangeRate[],
 ): TransactionDisplay {
   const isPositive = POSITIVE_TYPES.includes(tx.type)
-  const sign = isPositive ? "+" : "-"
+  const sign = isPositive ? "" : "-"
   const amountColor = isPositive ? "text-green-600" : "text-red-600"
 
   const nativeCurrency: FiatCurrency = isFiatCurrency(tx.price_currency)
@@ -61,7 +61,7 @@ export function deriveTransactionDisplay(
   const showRealized = tx.type === TRANSACTION_TYPES.SELL && realized != null
   const realizedPnlUsd = realized?.realizedPnlUsd ?? null
   const usdIsGain = realizedPnlUsd ? realizedPnlUsd.gte(0) : false
-  const usdSign = usdIsGain ? "+" : "-"
+  const usdSign = usdIsGain ? "" : "-"
   const realizedColor = usdIsGain ? "text-green-600" : "text-red-600"
   const realizedUsdAbs = realizedPnlUsd ? realizedPnlUsd.abs().toNumber() : 0
 
@@ -71,7 +71,7 @@ export function deriveTransactionDisplay(
       : realizedPnlUsd
         ? fromUsdOnDate(realizedPnlUsd, nativeCurrency, tx.date, rates)
         : null
-  const nativeSign = nativePnlBn?.gte(0) ? "+" : "-"
+  const nativeSign = nativePnlBn?.gte(0) ? "" : "-"
   const realizedNativeAbs = nativePnlBn ? nativePnlBn.abs().toNumber() : 0
 
   const realizedPctBn =
