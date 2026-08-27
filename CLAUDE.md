@@ -24,6 +24,17 @@ incomplete — no silent drift between code and docs.
 3. **Before committing** — re-read the touched docs and confirm they describe the code
    as shipped.
 
+## UI rules (always apply)
+
+- Every UI change must be mobile compatible. When reporting UI work as done, state
+  the mobile behaviour explicitly (what wraps, scrolls, or collapses) — "looks fine"
+  is not a statement.
+- Reuse existing components and shared helpers (shadcn/ui primitives, `gainLossClass`,
+  `formatSignedCurrency`, etc.); match the density and idiom of existing pages.
+- No speculative UI: no sections, props, empty states, or options nobody asked for.
+- Before any UI work, load the `ui-conventions` skill. After UI changes, review with
+  the `ux-reviewer` agent.
+
 ### P&L specifics
 The P&L engine is the pure function `computePortfolioPnL` (`src/lib/pnl/portfolio.ts`);
 `usePnL` is a thin wrapper. Worked numeric behaviour lives in `docs/pnl-test-cases.md`
