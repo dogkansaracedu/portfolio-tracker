@@ -38,7 +38,6 @@ export interface MonthlyReturn {
 
 export interface PerformanceMetrics {
   monthlyReturns: MonthlyReturn[]
-  ytdReturnPct: number | null
   allTimeReturnPct: number | null
   cagr: number | null
   maxDrawdownPct: number
@@ -435,25 +434,6 @@ export function computeMonthlyReturns(
   return returns
 }
 
-export function computeYTDReturn(snapshots: Snapshot[]): number | null {
-  if (snapshots.length < 2) return null
-
-  const sorted = sortSnapshotsAsc(snapshots)
-  const yearStart = `${new Date().getFullYear()}-01-01`
-  // Earliest snapshot on/after Jan 1 of the current year — NOT a literal
-  // January row. The daily cron may have missed January, or the portfolio may
-  // have started mid-year; any later first-of-year snapshot is a valid anchor.
-  const startSnap = sorted.find((s) => s.snapshot_date >= yearStart)
-  const latest = sorted[sorted.length - 1]
-
-  if (!startSnap || !latest) return null
-
-  const start = bn(startSnap.total_usd)
-  if (start.isZero()) return null
-
-  return bn(latest.total_usd).minus(start).div(start).times(BN_HUNDRED).toNumber()
-}
-
 /**
  * All-time return = total P&L / total invested capital. Anchors on the user's
  * actual money in (not the first snapshot we happened to take).
@@ -600,7 +580,6 @@ export function computePerformanceMetrics(
   } = input
 
   const monthlyReturns = computeMonthlyReturns(snapshots, transactions, rates)
-  const ytdReturnPct = computeYTDReturn(snapshots)
   const allTimeReturnPct = computeAllTimeReturn(totalPnlUsd, totalInvestedUsd)
   const firstTxDate = transactions.length > 0
     ? transactions
@@ -630,7 +609,6 @@ export function computePerformanceMetrics(
 
   return {
     monthlyReturns,
-    ytdReturnPct,
     allTimeReturnPct,
     cagr,
     maxDrawdownPct,
