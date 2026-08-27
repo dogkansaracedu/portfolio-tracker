@@ -9,6 +9,7 @@ import {
   Cell,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatSignedPercent } from "@/lib/prices"
 import type { MonthlyReturn } from "@/lib/performance"
 
 interface Props {
@@ -32,13 +33,7 @@ export function MonthlyReturnsChart({ returns }: Props) {
               tickFormatter={(v: number) => `${v.toFixed(0)}%`}
             />
             <Tooltip
-              formatter={(value) => {
-                const v = Number(value)
-                return [
-                  `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`,
-                  "Return",
-                ]
-              }}
+              formatter={(value) => [formatSignedPercent(Number(value), 1), "Return"]}
             />
             <Bar dataKey="returnPct" radius={[2, 2, 0, 0]}>
               {returns.map((entry, idx) => (

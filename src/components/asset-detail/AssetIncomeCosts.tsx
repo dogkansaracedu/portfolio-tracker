@@ -17,17 +17,17 @@ export function AssetIncomeCosts({ incomeUsd, taxesUsd, feesUsd }: Props) {
   const cards = [
     incomeUsd !== 0 && {
       label: "Income (dividends + interest)",
-      value: `+${formatCurrency(incomeUsd, "USD")}`,
+      value: formatCurrency(incomeUsd, "USD"),
       className: gainLossClass(true),
     },
     taxesUsd !== 0 && {
       label: "Taxes withheld",
-      value: `−${formatCurrency(taxesUsd, "USD")}`,
+      value: `-${formatCurrency(taxesUsd, "USD")}`,
       className: "text-muted-foreground",
     },
     feesUsd !== 0 && {
       label: "Fees paid",
-      value: `−${formatCurrency(feesUsd, "USD")}`,
+      value: `-${formatCurrency(feesUsd, "USD")}`,
       className: "text-muted-foreground",
     },
   ].filter(Boolean) as { label: string; value: string; className: string }[]
