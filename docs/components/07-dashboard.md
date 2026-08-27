@@ -105,7 +105,9 @@ default.**
   [time-weighted return](GLOSSARY.md#time-weighted-return-twr) and the index's
   cumulative return over the same window — so the reader sees who is ahead at a
   glance. The **headline is the portfolio's time-weighted return %** for the
-  range; beneath it a subtitle carries the index's return and the **gap between
+  range, with the period's **money gain in smaller type beside it** (display
+  currency, masked under the privacy toggle) — e.g. "+10.71% +$3,770"; beneath
+  it a subtitle carries the index's return and the **gap between
   them in percentage points** (your TWR − the index), plus the **dollar lifetime
   Total P&L** (the same [money-weighted](GLOSSARY.md#money-weighted) total the
   Portfolio page reports, with its percent over

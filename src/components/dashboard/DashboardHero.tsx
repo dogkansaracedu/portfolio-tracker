@@ -515,9 +515,21 @@ export default function DashboardHero({
               viewMode === "pnl" && twrColor,
             )}
           >
-            {viewMode === "pnl"
-              ? formatSignedPercent(twrEnd, 2)
-              : obfuscate(formatCurrency(headlineValue, currency), obfuscated)}
+            {viewMode === "pnl" ? (
+              <>
+                {formatSignedPercent(twrEnd, 2)}
+                {/* Period money gain (window-rebased delta — same figure the
+                    tooltip's "Şimdi" row shows), smaller beside the %. */}
+                <span className="ml-2 text-lg font-semibold sm:text-xl md:text-2xl">
+                  {obfuscate(
+                    formatSignedCurrency(periodDeltaValue, currency),
+                    obfuscated,
+                  )}
+                </span>
+              </>
+            ) : (
+              obfuscate(formatCurrency(headlineValue, currency), obfuscated)
+            )}
           </p>
           {viewMode === "pnl" && (
             <p className="text-xs text-muted-foreground">
