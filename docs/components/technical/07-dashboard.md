@@ -244,7 +244,13 @@
   but `denom × 0.1%` for `1D`, so a sub-1% intraday day fills the chart instead of
   collapsing into a sliver. Tooltip rows show **You (TWR)** / **You (MWR)**
   (`You ({activeMeasure.label})` — the label comes from `MEASURES`, not a second
-  string map) and the index (`benchmarkLabel`), each via `formatSignedPercent`.
+  string map) and the index (`benchmarkLabel`). The **You** row shows the
+  money gained since the window start beside the percent — the hovered point's
+  `valueUsd`/`valueTry` from `displayChartData` (already rebased to 0 at the
+  window's first point), via `formatSignedCurrency` wrapped in `obfuscate`,
+  then ` · ` and `formatSignedPercent(point.twrPct, 2)`. The index row stays
+  percent-only (`formatSignedPercent`) — there is no "your money" amount for
+  the benchmark line.
 - **Headline (P&L mode)** = `formatSignedPercent(twrEnd, 2)`, colored by `twrColor`
   (`gainLossClass(twrEnd > 0)`, muted when exactly flat). Its sub-label comes from
   `MEASURE_SUBLABELS[effectiveMeasure]` — TWR: "Growth vs market — time-weighted,

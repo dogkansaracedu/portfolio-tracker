@@ -115,7 +115,13 @@ default.**
   a head start from when cash happened to go in. When older history is only
   weekly-sampled **and** a deposit or withdrawal lands inside one of those
   multi-day periods, the return is an approximation and an **"approximate"**
-  marker is shown.
+  marker is shown. Hovering any point shows, beside the portfolio's cumulative
+  return %, the **money gained or lost since the window start as of that date**
+  (in the display currency, masked under the privacy toggle) — so the reader
+  can see what a period earned in currency, not just in percent. The window's
+  first point reads 0, and the "now" point matches the period delta. The index
+  row stays percent-only — an amount would imply the reader's money was in the
+  index.
 - **Measure toggle (TWR | MWR), inside Performance mode:** a small secondary
   switch selects which return measure the percent race plots. **TWR is the
   default** (the fair strategy-vs-index frame above). Switching to **MWR** re-draws
