@@ -252,7 +252,11 @@
   percent-only (`formatSignedPercent`) — there is no "your money" amount for
   the benchmark line.
 - **Headline (P&L mode)** = `formatSignedPercent(twrEnd, 2)`, colored by `twrColor`
-  (`gainLossClass(twrEnd > 0)`, muted when exactly flat). Its sub-label comes from
+  (`gainLossClass(twrEnd > 0)`, muted when exactly flat), followed by the period's
+  money gain in a smaller inline span (`text-lg sm:text-xl md:text-2xl` vs the
+  percent's `2xl…4xl`): `formatSignedCurrency(periodDeltaValue, currency)` wrapped
+  in `obfuscate` — the same window-rebased delta the tooltip's "Şimdi" row shows.
+  It inherits the headline's gain/loss color. Its sub-label comes from
   `MEASURE_SUBLABELS[effectiveMeasure]` — TWR: "Growth vs market — time-weighted,
   deposits/withdrawals removed"; MWR: "Your money's growth — money-weighted,
   deposit timing included". The subtitle row shows the
