@@ -392,6 +392,10 @@ export default function DashboardHero({
     if (!props.active || !props.payload || props.payload.length === 0) return null
     const point = props.payload[0].payload
     if (!point) return null
+    // The payload comes from displayChartData, so valueUsd/valueTry are
+    // rebased to 0 at the window's first point — the money gained/lost
+    // since the range start, as of the hovered date.
+    const gainSinceStart = currency === "USD" ? point.valueUsd : point.valueTry
     let dateLabel: string
     if (point.label === "Şimdi") {
       dateLabel = "Şimdi"
@@ -421,6 +425,11 @@ export default function DashboardHero({
             You ({activeMeasure.label})
           </span>
           <span className="text-right font-medium">
+            {obfuscate(
+              formatSignedCurrency(gainSinceStart, currency),
+              obfuscated,
+            )}
+            <span className="text-muted-foreground"> · </span>
             {formatSignedPercent(point.twrPct, 2)}
           </span>
           <span className="text-muted-foreground">{benchmarkLabel}</span>
