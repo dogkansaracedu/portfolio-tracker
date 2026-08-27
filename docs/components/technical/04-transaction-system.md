@@ -17,7 +17,10 @@
 - `src/components/transactions/AddTransactionModal.tsx` — the type-driven add/edit
   dialog: hydrates from edit target / prefill, prefills price from cached market data,
   forces price currency to the asset's native currency, validates balance + funding
-  cash, computes transfer cost basis via FIFO, and on submit builds the payload and
+  cash (balance-limited types come from `BALANCE_LIMITED_TYPES`; a narrower guard —
+  sell/transfer_out only — shows a "Max" button that fills Amount with the platform
+  balance on create),
+  computes transfer cost basis via FIFO, and on submit builds the payload and
   (for `transfer_out`) the matching `transfer_in`. "Save & add another" keeps the form
   open. (Sub-controls `TransactionTypeSelector`, `AssetSearchSelect`,
   `FundingSourceSelect` live alongside it — see Component 3 / 9.)

@@ -39,7 +39,10 @@ import { fetchLinkedChild } from "@/lib/queries/transactions"
 import { validateFundingCash } from "@/lib/cash"
 import { computeTransferCostBasis } from "@/lib/pnl/fifo"
 import { bn } from "@/lib/config"
-import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
+import {
+  TRANSACTION_TYPES,
+  BALANCE_LIMITED_TYPES,
+} from "@/lib/constants/transaction-types"
 import { assetNativeCurrency } from "@/lib/constants/assets"
 import {
   CURRENCY_SYMBOLS,
@@ -317,10 +320,16 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   // Validation: check balance on the specific platform for sell/transfer/fee.
   // Skip in edit mode because the existing tx is already counted in the balance —
   // a strict check would falsely flag the very tx being edited as overdrawing.
+  const isBalanceLimited = BALANCE_LIMITED_TYPES.has(type)
   const isOverBalance =
+    !isEdit && isBalanceLimited && parsedAmount.gt(selectedPlatformBalance)
+
+  // Max fills the amount only for sell/transfer_out — a fee equal to the whole
+  // balance is never the intent, even though fee is balance-limited too.
+  const canFillMax =
     !isEdit &&
-    (type === "sell" || type === "transfer_out" || type === "fee") &&
-    parsedAmount.gt(selectedPlatformBalance)
+    (type === TRANSACTION_TYPES.SELL || type === TRANSACTION_TYPES.TRANSFER_OUT) &&
+    bn(selectedPlatformBalance).gt(0)
 
   const canSubmit =
     assetId &&
@@ -509,7 +518,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            {platformId && selectedAsset && (type === "sell" || type === "transfer_out" || type === "fee") && (
+            {platformId && selectedAsset && isBalanceLimited && (
               <p className="text-xs text-muted-foreground">
                 Balance on this platform: {selectedPlatformBalance} {selectedAsset.ticker}
               </p>
@@ -581,15 +590,27 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           {/* Amount */}
           <div className="space-y-2">
             <Label>Amount</Label>
-            <Input
-              ref={amountInputRef}
-              type="number"
-              step="any"
-              min="0"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                ref={amountInputRef}
+                type="number"
+                step="any"
+                min="0"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="flex-1"
+              />
+              {canFillMax && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAmount(bn(selectedPlatformBalance).toFixed())}
+                >
+                  Max
+                </Button>
+              )}
+            </div>
             {isOverBalance && (
               <p className="text-xs text-destructive">
                 Insufficient balance on this platform (have: {selectedPlatformBalance}{" "}
