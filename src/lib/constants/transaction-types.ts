@@ -40,6 +40,13 @@ export const POSITIVE_TYPES: TransactionType[] = [
   TRANSACTION_TYPES.CASH_CREDIT,
 ]
 
+/** Types whose amount may not exceed the platform balance (checked on create). */
+export const BALANCE_LIMITED_TYPES = new Set<TransactionType>([
+  TRANSACTION_TYPES.SELL,
+  TRANSACTION_TYPES.TRANSFER_OUT,
+  TRANSACTION_TYPES.FEE,
+])
+
 /** Parent types that may carry a linked child row. */
 export const TYPES_WITH_LINKED_CHILD = new Set<TransactionType>([
   TRANSACTION_TYPES.BUY,
