@@ -38,28 +38,30 @@ export function gainLossClass(positive: boolean): string {
 }
 
 /**
- * Format a signed currency figure: a leading +/− and the absolute amount
- * (e.g. "+$1,234.56", "-₺500,00"). Zero renders without a sign. The sign is
- * applied here (over `Math.abs`) rather than relying on the locale formatter,
- * so "+" is shown for gains.
+ * Format a "signed" currency figure: losses carry a leading ASCII minus,
+ * gains and zero render bare (e.g. "$1,234.56", "-₺500,00") — direction is
+ * carried by the gain/loss color, not a "+". The sign is applied here (over
+ * `Math.abs`) rather than relying on the locale formatter so the convention
+ * stays uniform app-wide.
  */
 export function formatSignedCurrency(
   value: number,
   currency: FiatCurrency
 ): string {
-  const sign = value > 0 ? "+" : value < 0 ? "-" : ""
+  const sign = value < 0 ? "-" : ""
   return `${sign}${formatCurrency(Math.abs(value), currency)}`
 }
 
 /**
- * Format a signed percentage to `decimals` places (e.g. "+12.3%", "-4.0%").
- * Zero renders without a sign. Defaults to `DECIMALS.percentage`.
+ * Format a "signed" percentage to `decimals` places: losses get a leading
+ * minus, gains and zero render bare (e.g. "12.3%", "-4.0%"). Defaults to
+ * `DECIMALS.percentage`.
  */
 export function formatSignedPercent(
   value: number,
   decimals: number = DECIMALS.percentage
 ): string {
-  const sign = value > 0 ? "+" : value < 0 ? "-" : ""
+  const sign = value < 0 ? "-" : ""
   return `${sign}${Math.abs(value).toFixed(decimals)}%`
 }
 

@@ -130,15 +130,17 @@ renders as a loss). FIFO is computed over the asset's **complete** prior history
 a filtered view, so a sell shown under a date/type filter still reports the correct
 cost basis.
 
-- USD-priced sell → one line: `+$50.00 (+20.0%)`.
+- USD-priced sell → one line: `$50.00 (20.0%)` — gains render bare (direction is
+  carried by the gain/loss colour), losses with a leading minus.
 - Non-USD sell → native primary (no %) plus a USD secondary with the %:
-  `+₺1,000.00` and `~$13.33 (+66.7%)`.
+  `₺1,000.00` and `~$13.33 (66.7%)`.
 - Sell with no prior lots (cost basis 0) → show the dollar figure, omit the % (no
   divide-by-zero). Sign/colour follow the USD result.
 
 > Worked example — realized P&L. Buy 1 unit @ $250, then buy 2 @ $262, then sell 1 @
 > $300. FIFO consumes the oldest lot ($250 basis): gain `$300 − $250 = $50.00`, i.e.
-> `50 / 250 = +20.0%` (minus any sell fee). The sell row shows **+$50.00 (+20.0%)**.
+> `50 / 250 = +20.0%` (minus any sell fee). The sell row shows **$50.00 (20.0%)**
+> in the gain colour.
 
 > Worked example — FX makes native ≠ USD. Day 1 (USD/TRY 50) buy ₺1,000 → $20 basis.
 > Day 30 (USD/TRY 60) sell for ₺2,000 → $33.33 proceeds. Native return looks like

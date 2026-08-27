@@ -47,8 +47,9 @@ and portfolio views exactly.
   on the transaction's date) is shown alongside.
 - **Linked cash leg as a subtitle.** Because [buys and sells carry a linked cash
   leg](GLOSSARY.md#transaction), each trade row surfaces that leg inline beneath
-  the asset, e.g. a sell shows `+$998.50 USD → Midas` (auto-credit) and a
-  platform-funded buy shows `−$1,001.50 USD from Bank`. A buy funded by outside
+  the asset, e.g. a sell shows `$998.50 USD → Midas` (auto-credit) and a
+  platform-funded buy shows `-$1,001.50 USD from Bank` (only outflows carry a
+  sign; the arrow wording carries the direction). A buy funded by outside
   money (no linked leg) shows an `external cash` hint instead. The subtitle text
   is read from the linked child, never recomputed.
 - **Realized P&L per sell.** Every sell row shows the realized P&L it booked —

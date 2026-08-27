@@ -396,7 +396,8 @@ lifetime XIRR chip) is built on a dedicated engine module:
 
 - **Render formatting / colors:** `gainLossClass`, `formatSignedCurrency`,
   `formatSignedPercent`, `formatCurrency` from `@/lib/prices` — canonical
-  emerald-600 / red-500, ASCII minus, no sign at zero. Don't hand-roll. (Known
+  emerald-600 / red-500; losses carry an ASCII minus, gains and zero render
+  bare (no "+" anywhere — colour carries direction). Don't hand-roll. (Known
   deviation: `TopMovers` still uses inline `text-emerald-600`/`text-red-500`.)
 - **Obfuscation hides amounts only:** every currency string is wrapped in
   `obfuscate(v, obfuscated)` (some components alias `const o = (v) => obfuscate(v,
