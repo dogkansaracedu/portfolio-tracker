@@ -191,7 +191,10 @@ A type-driven form: choosing the type reveals only the relevant fields.
 - `transfer_out`: a **destination platform**; the cost-basis line is shown read-only
   (auto-computed).
 - Sell / transfer-out / fee are blocked when the amount exceeds the current balance on
-  that platform.
+  that platform. Next to the amount, sell and transfer-out offer a **Max** action that
+  fills in the platform's full balance (shown only when creating and the balance is
+  positive) — fee deliberately doesn't, since a fee of the whole balance is never the
+  intent.
 - "Save & add another" records the entry and keeps the form open with type / asset /
   platform / date / currency / funding / notes intact, clearing only amount and price.
 
