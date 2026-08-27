@@ -32,7 +32,7 @@ Capture the portfolio's value and composition once per day as a frozen [snapshot
 
 1. **Daily automatic** — a scheduled job writes one snapshot per portfolio per day, late in the day. It runs **after** the daily price refresh so the frozen value reflects that day's fresh prices/rates.
 2. **Manual "now"** — the user can capture today's snapshot on demand from the performance view.
-3. **Live trailing of today** — while the app is open, today's snapshot is kept in step with the freshest data the client has: a price refresh or a transaction add/edit/delete rewrites today's row so the value chart's "now" point stays current. Price-driven rewrites are skipped when today's total hasn't actually moved.
+3. **Live trailing of today** — while the app is open, today's snapshot is kept in step with the freshest data the client has: a price refresh or a transaction add/edit/delete rewrites today's row so the value chart's "now" point stays current. Price-driven rewrites are skipped when today's total hasn't actually moved. Trailing rewrites are **silent**: the views keep showing the data already on screen while the refreshed history loads behind them — only the very first load of a session may show a loading state.
 4. **Historical backfill** — on demand (from settings), the system reconstructs past snapshots by replaying transactions against historical prices/rates. See density below.
 5. **Hourly intraday (rolling 24h)** — a scheduled job captures the portfolio's
    **total value** every hour into a separate intraday store, keeping only the

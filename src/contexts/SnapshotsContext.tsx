@@ -65,14 +65,22 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // `loading` gates full-page skeletons in consumers (e.g. DashboardPage), so
+  // only the FIRST load per user may flip it on. Every later `load()` — the
+  // live-trailing rewrite of today's snapshot, takeSnapshot, removeSnapshot —
+  // refreshes silently behind the data already on screen; re-entering the
+  // loading state there blanked the whole dashboard on tab refocus whenever
+  // a price refresh had moved today's total.
+  const loadedForUserRef = useRef<string | null>(null)
   const load = useCallback(async () => {
     if (!user) {
       setSnapshots([])
       setIntradaySnapshots([])
+      loadedForUserRef.current = null
       setLoading(false)
       return
     }
-    setLoading(true)
+    if (loadedForUserRef.current !== user.id) setLoading(true)
     setError(null)
     try {
       const [data, intraday] = await Promise.all([
@@ -81,6 +89,7 @@ export function SnapshotsProvider({ children }: { children: ReactNode }) {
       ])
       setSnapshots(data)
       setIntradaySnapshots(intraday)
+      loadedForUserRef.current = user.id
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load snapshots")
     } finally {
