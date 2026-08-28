@@ -4,6 +4,7 @@ import AppLayout from "@/components/layout/AppLayout"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import RouteSkeleton from "@/components/layout/RouteSkeleton"
 import DashboardPage from "@/pages/DashboardPage"
+import MorePage from "@/pages/MorePage"
 import LoginPage from "@/pages/LoginPage"
 import SignupPage from "@/pages/SignupPage"
 import { FEATURES } from "@/lib/features"
@@ -49,6 +50,8 @@ export default function App() {
             <Route path="budget" element={<Lazy><BudgetPage /></Lazy>} />
             <Route path="campaigns" element={<Lazy><CampaignsPage /></Lazy>} />
             <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />
+            {/* Mobile nav hub — eager: tapping the More tab must not show a skeleton. */}
+            <Route path="more" element={<MorePage />} />
           </Route>
         </Route>
       </Routes>
