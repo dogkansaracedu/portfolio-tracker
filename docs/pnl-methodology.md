@@ -55,6 +55,15 @@ Withdrawal example: buy $30k → buy $20k (peak $50k) → withdraw $25k (current
 invested $25k, peak still **$50k**). Value $26k → Total P&L $ = 26 − 25 = **+$1k**;
 % = 1 ÷ 50 = **+2%**.
 
+**Display status (since 2026-08-28):** the peak-based % is **no longer rendered as
+the Total P&L companion**. The Dashboard hero shows the Total P&L dollar alone (its
+% lenses are the TWR headline and the XIRR chip), and the Portfolio summary bar's
+headline % is the **lifetime cumulative MWR** (`computeLifetimeMwrCumulativePct`,
+`src/lib/mwr.ts`) — the same lens as the per-asset return %. The formula above
+remains canonical in the engine (`summarizePnLTotals`, currently dollar-only
+consumers) and peak stays the denominator base for the hero's period-% rules
+(zero-start / all-time windows).
+
 ## 3. Return metrics — which number answers which question
 
 There is no single "correct" return %. Three distinct questions get three distinct
@@ -63,8 +72,8 @@ metrics, and each is surfaced in its own view — **one graph never mixes two of
 | Question | Metric | Where it lives | On a withdrawal |
 |---|---|---|---|
 | "Did I beat the index?" | **TWR** (mine vs the index's) | Dashboard hero, vs-market view (the default) — `computeTWRSeries` | Invisible — by design |
-| "How much did I grow from *investing*, not from adding cash?" | **Simple ROI** = Total P&L $ ÷ peak net invested (§1–§2) | The engine headline: Dashboard + Portfolio | $ preserved, % stable (peak can't shrink) |
-| "What % did each of my dollars earn?" | **MWR / XIRR** (money-weighted rate) | Dashboard hero MWR measure + lifetime "%/yr" chip — `computeMWRSeries` / `computeLifetimeXirrPct`; per-period, the Performance page monthly returns — `computeMonthlyReturns` / `subPeriodReturn` | Outflow at its real date → less capital at work afterwards; the rate stays honest |
+| "How much did I grow from *investing*, not from adding cash?" | **Simple ROI** = Total P&L $ ÷ peak net invested (§1–§2) | Engine-internal since 2026-08-28 (`summarizePnLTotals`; no display consumer for the %); peak survives as the hero's period-% denominator base | $ preserved, % stable (peak can't shrink) |
+| "What % did each of my dollars earn?" | **MWR / XIRR** (money-weighted rate) | **Portfolio summary bar headline %** (lifetime cumulative — `computeLifetimeMwrCumulativePct`), per-asset return % (`computeAssetReturnRates`), Dashboard hero MWR measure + lifetime "%/yr" chip — `computeMWRSeries` / `computeLifetimeXirrPct`; per-period, the Performance page monthly returns — `computeMonthlyReturns` / `subPeriodReturn` | Outflow at its real date → less capital at work afterwards; the rate stays honest |
 
 **XIRR is the app's single money-weighted core** (`src/lib/xirr.ts`). Everything
 money-weighted resolves to that one solver: the windowed MWR series, the lifetime
@@ -129,7 +138,7 @@ fresh $2k → $3k (+50%, +$1k); total money added **+$6,000**:
 |---|---|---|---|
 | **Time-Weighted (TWR)** | **+87.5%** (1.25 × 1.50 − 1) | "How good were my *decisions*?" — blind to how much money was in | Funds, indices, managers (GIPS standard) |
 | **Money-Weighted (MWR / XIRR)** | **≈ +26.8%/yr** | "What did *my actual dollars* earn?" — weighted by size & timing | Brokerages ("personal rate of return"), spreadsheet `XIRR()` |
-| **Simple ROI** | **+30%** (6k ÷ 20k peak) | "How much did I add on top, total?" — non-annualized | Casual trackers (this app's headline) |
+| **Simple ROI** | **+30%** (6k ÷ 20k peak) | "How much did I add on top, total?" — non-annualized | Casual trackers (this app's headline **$** logic; since 2026-08-28 the displayed % companion is the cumulative MWR) |
 
 The app's own goal — **"how much money I added on top of my original money"** — is
 **money-weighted by definition**: dollars matter, so a great-but-tiny year (the +50% on

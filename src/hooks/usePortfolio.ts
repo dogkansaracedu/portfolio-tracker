@@ -6,6 +6,7 @@ import { usePrices } from "@/hooks/usePrices"
 import { usePnL } from "@/hooks/usePnL"
 import { useSnapshots } from "@/hooks/useSnapshots"
 import { summarizePnLTotals } from "@/lib/pnl/totals"
+import { computeLifetimeMwrCumulativePct } from "@/lib/mwr"
 import {
   buildSnapshotLookups,
   buildDailyReturnLookups,
@@ -85,7 +86,9 @@ interface UsePortfolioReturn {
   totalRealizedPnlUsd: number
   totalIncomeUsd: number
   totalPnlUsd: number
-  totalPnlPct: number | null
+  /** Lifetime cumulative money-weighted (XIRR) return % — the headline %
+   *  companion to the P&L dollars; null when the solver has no answer. */
+  totalMwrPct: number | null
   heldAssetCount: number
   loading: boolean
   error: string | null
@@ -219,13 +222,25 @@ export function usePortfolio(): UsePortfolioReturn {
     : totalUnrealizedPnlUsd.div(totalCostBasisUsd).times(100).toNumber()
 
   // Total P&L = current value − net invested (money-weighted), shared with the
-  // Dashboard via summarizePnLTotals so both pages show the identical headline.
-  const { totalPnlUsd: totalPnlUsdBn, totalPnlPct: totalPnlPctBn } =
-    summarizePnLTotals({
-      totalCurrentValueUsd,
-      totalInvestedUsd,
-      peakInvestedUsd: totalPeakInvestedUsd,
-    })
+  // Dashboard via summarizePnLTotals so both pages show the identical dollars.
+  const { totalPnlUsd: totalPnlUsdBn } = summarizePnLTotals({
+    totalCurrentValueUsd,
+    totalInvestedUsd,
+    peakInvestedUsd: totalPeakInvestedUsd,
+  })
+
+  // Headline %: lifetime cumulative money-weighted (XIRR) return — the same
+  // lens as the per-asset return %, over the portfolio's external flows.
+  const totalMwrPct = useMemo(
+    () =>
+      computeLifetimeMwrCumulativePct(
+        transactions,
+        txRates,
+        totalCurrentValueUsd.toNumber(),
+        homeDayIso(),
+      ),
+    [transactions, txRates, totalCurrentValueUsd],
+  )
 
   const refetch = async () => {
     await Promise.all([refetchAssets(), refetchHoldings()])
@@ -242,7 +257,7 @@ export function usePortfolio(): UsePortfolioReturn {
     totalRealizedPnlUsd: totalRealizedPnlUsd.toNumber(),
     totalIncomeUsd: totalIncomeUsd.toNumber(),
     totalPnlUsd: totalPnlUsdBn.toNumber(),
-    totalPnlPct: totalPnlPctBn?.toNumber() ?? null,
+    totalMwrPct,
     heldAssetCount: enrichedAssets.length,
     loading,
     error,

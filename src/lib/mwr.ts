@@ -184,6 +184,36 @@ export function computeMWRSeries(
 }
 
 /**
+ * Lifetime cumulative money-weighted return % — the Portfolio page's headline
+ * companion to the Total P&L dollars. The same solve as `computeLifetimeXirrPct`
+ * (every external flow at its real date, V_start = 0, live value as terminal),
+ * de-annualized back over the book's own span so it reads as a total earned,
+ * not a rate. Same convention as the per-asset headline %
+ * (`computeAssetReturnRates.mwrCumulativePct`), over the portfolio boundary.
+ *
+ * NOT gated on history length — a cumulative figure is exact at any age; the
+ * 1-year gate guards only annualized readouts. Null when there are no external
+ * flows, the span is zero, or the solver has no answer.
+ */
+export function computeLifetimeMwrCumulativePct(
+  transactions: Transaction[],
+  rates: ExchangeRate[],
+  currentValueUsd: number,
+  todayIso: string,
+): number | null {
+  const flows = externalFlows(transactions, rates)
+  if (flows.length === 0) return null
+
+  const today = todayIso.slice(0, 10)
+  const years = yearsBetween(flows[0].date, today)
+  if (!(years > 0)) return null
+
+  const logGrowth = solveXirrLog1p(flows, bn(currentValueUsd), today)
+  if (logGrowth === null) return null
+  return deannualizeLog1p(logGrowth, years).times(BN_HUNDRED).toNumber()
+}
+
+/**
  * Lifetime annualized XIRR % — every external flow at its real date against the
  * live value today, with no opening value (V_start = 0). This is the "%/yr"
  * chip.

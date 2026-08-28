@@ -279,9 +279,11 @@
   percent, so it is deliberately **not** wrapped in `obfuscate`.
 - **"Total" subtitle (P&L mode):** the dollar figure is rendered from the gross
   `totalPnlUsd`/`Try` props (usePnLSummary); colour/sign use
-  `gainLossClass(totalPnlUsdNow > 0)`; percent = `totalPnlPct` (over peak net
-  invested). No after-tax figures are rendered or plumbed here — the engine's tax
-  accrual surfaces only on the Portfolio page's taxed rows (component 8).
+  `gainLossClass(totalPnlUsdNow > 0)`. **No percent companion** — the peak-based
+  `totalPnlPct` prop was removed (2026-08-28); the money-weighted % surfaces as
+  the XIRR chip here and as the Portfolio summary bar's cumulative MWR %. No
+  after-tax figures are rendered or plumbed here — the engine's tax accrual
+  surfaces only on the Portfolio page's taxed rows (component 8).
 
 ### MWR / XIRR measure (implementation contract)
 

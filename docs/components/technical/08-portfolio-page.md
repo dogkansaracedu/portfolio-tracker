@@ -118,8 +118,11 @@
   `hp.taxAccrualUsd` (per-(asset, platform), **not** the spread asset-level value) so
   platform grouping doesn't double-count. Consumed only by `PortfolioRow` — the
   engine's portfolio-level `totalTaxAccrualUsd` is currently unrendered.
-- Totals: `totalPnlUsd`/`totalPnlPct` via `summarizePnLTotals` (shared with the
-  dashboard — money-weighted value − net invested).
+- Totals: `totalPnlUsd` via `summarizePnLTotals` (shared with the dashboard —
+  money-weighted value − net invested). The headline % is `totalMwrPct`:
+  lifetime cumulative money-weighted return via
+  `computeLifetimeMwrCumulativePct` (`src/lib/mwr.ts`), which replaced the
+  peak-based `totalPnlPct` display (2026-08-28).
 
 ### `daily.ts` signatures
 

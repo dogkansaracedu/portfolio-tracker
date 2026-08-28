@@ -8,12 +8,17 @@ import {
   obfuscate,
 } from "@/lib/prices"
 
+/** Hover hint for the headline % — a different lens than the P&L dollars. */
+const MWR_HINT =
+  "Cumulative money-weighted (XIRR) return — what each dollar earned for the time it was invested."
+
 interface PortfolioSummaryBarProps {
   totalValueUsd: number
   totalValueTry: number
   totalPnlUsd: number
-  /** null = nothing ever deployed (peak ≤ 0) → render "—". */
-  totalPnlPct: number | null
+  /** Lifetime cumulative money-weighted (XIRR) return %; null = no answer
+   *  (no flows yet, or the solver found no rate) → render "—". */
+  totalMwrPct: number | null
   totalUnrealizedPnlUsd: number
   totalRealizedPnlUsd: number
   totalIncomeUsd: number
@@ -24,7 +29,7 @@ export function PortfolioSummaryBar({
   totalValueUsd,
   totalValueTry,
   totalPnlUsd,
-  totalPnlPct,
+  totalMwrPct,
   totalUnrealizedPnlUsd,
   totalRealizedPnlUsd,
   totalIncomeUsd,
@@ -67,8 +72,15 @@ export function PortfolioSummaryBar({
               >
                 {o(formatSignedCurrency(totalPnlUsd, "USD"))}
               </span>
-              <span className={`text-sm ${gainLossClass(pnlIsPositive)}`}>
-                ({totalPnlPct == null ? "—" : formatSignedPercent(totalPnlPct)})
+              <span
+                className={`text-sm ${
+                  totalMwrPct == null
+                    ? "text-muted-foreground"
+                    : gainLossClass(totalMwrPct >= 0)
+                }`}
+                title={MWR_HINT}
+              >
+                ({totalMwrPct == null ? "—" : formatSignedPercent(totalMwrPct)})
               </span>
             </div>
             {hasRealized && (

@@ -13,8 +13,6 @@ export interface PnLSummary {
   totalIncomeUsd: number
   totalPnlUsd: number
   totalPnlTry: number
-  /** null = nothing ever deployed (peak ≤ 0) → render "—". */
-  totalPnlPct: number | null
   loading: boolean
 }
 
@@ -39,7 +37,7 @@ export function usePnLSummary(): PnLSummary {
   const usdTry = rates?.usd_try ?? 0
 
   return useMemo(() => {
-    const { totalPnlUsd, totalPnlPct } = summarizePnLTotals({
+    const { totalPnlUsd } = summarizePnLTotals({
       totalCurrentValueUsd,
       totalInvestedUsd,
       peakInvestedUsd: totalPeakInvestedUsd,
@@ -53,7 +51,6 @@ export function usePnLSummary(): PnLSummary {
       totalIncomeUsd: totalIncomeUsd.toNumber(),
       totalPnlUsd: totalPnlUsd.toNumber(),
       totalPnlTry: totalPnlUsd.times(rate).toNumber(),
-      totalPnlPct: totalPnlPct?.toNumber() ?? null,
       loading: holdingsLoading || pricesLoading || pnlLoading,
     }
   }, [

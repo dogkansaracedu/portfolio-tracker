@@ -191,9 +191,13 @@ transaction.
 alongside group-by and sort. Switching it re-renders every group header and every
 row's return cell; default is **Total**.
 
-**Summary bar:** above the table — total portfolio value, lifetime P&L (amount +
-%, with an unrealized/realized split when any realized exists), and the
-held-asset count. **Not** affected by the toggle.
+**Summary bar:** above the table — total portfolio value, lifetime P&L (the
+money-weighted dollar amount, paired with the **lifetime cumulative
+[money-weighted](GLOSSARY.md#money-weighted) (XIRR) return %** — the same lens
+as the per-asset return %, so the headline and its rows answer the same
+"what did my dollars earn" question; "—" when the solver has no answer — with
+an unrealized/realized split when any realized exists), and the held-asset
+count. **Not** affected by the toggle.
 
 **Funds nested under fiat rows (in-table):** in the category and tag groupings, a
 fiat currency row that has funds/bonds in it carries a chevron toggle; expanding
