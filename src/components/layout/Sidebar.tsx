@@ -8,9 +8,10 @@ import {
   Wallet,
   Megaphone,
   Settings,
-  LayoutGrid,
+  Ellipsis,
 } from "lucide-react"
 import { CAMPAIGN_COPY } from "@/lib/constants/campaigns"
+import { APP_NAME } from "@/lib/constants/app"
 import { FEATURES } from "@/lib/features"
 import Logo from "@/components/common/Logo"
 import BuildBadge from "@/components/common/BuildBadge"
@@ -36,14 +37,14 @@ const secondaryNavItems = [
 
 const navItems = [...primaryNavItems, ...secondaryNavItems]
 
-const moreNavItem = { to: "/more", label: "More", icon: LayoutGrid }
+const moreNavItem = { to: "/more", label: "More", icon: Ellipsis }
 
 export default function Sidebar() {
   return (
     <aside className="hidden md:flex md:w-60 md:flex-col md:border-r bg-sidebar">
       <div className="flex h-14 items-center gap-2.5 border-b px-4">
         <Logo size={26} />
-        <span className="text-base font-semibold tracking-tight">Portfolio Tracker</span>
+        <span className="text-base font-semibold tracking-tight">{APP_NAME}</span>
       </div>
       <nav className="flex-1 space-y-1 p-2">
         {navItems.map((item) => (

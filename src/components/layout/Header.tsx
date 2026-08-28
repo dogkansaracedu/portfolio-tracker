@@ -5,6 +5,7 @@ import ThemeToggle from "@/components/common/ThemeToggle"
 import PriceRefreshButton from "@/components/prices/PriceRefreshButton"
 import UserMenu from "@/components/layout/UserMenu"
 import { navItems, moreNavItem } from "@/components/layout/Sidebar"
+import { APP_NAME } from "@/lib/constants/app"
 import { usePrices } from "@/hooks/usePrices"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { Button } from "@/components/ui/button"
@@ -14,13 +15,27 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip"
 
-const pageTitles: Record<string, string> = Object.fromEntries(
-  [...navItems, moreNavItem].map((item) => [item.to, item.label]),
-)
+const pageTitles: Record<string, string> = {
+  ...Object.fromEntries(
+    [...navItems, moreNavItem].map((item) => [item.to, item.label]),
+  ),
+  // Parameterised drill-downs aren't nav items; title them explicitly.
+  "/assets": "Asset",
+}
+
+// Exact route first, then longest-prefix match for parameterised routes
+// (e.g. /assets/:assetId → "Asset").
+function titleFor(pathname: string): string {
+  if (pageTitles[pathname]) return pageTitles[pathname]
+  const prefix = Object.keys(pageTitles)
+    .filter((to) => to !== "/" && pathname.startsWith(`${to}/`))
+    .sort((a, b) => b.length - a.length)[0]
+  return prefix ? pageTitles[prefix] : APP_NAME
+}
 
 export default function Header() {
   const location = useLocation()
-  const title = pageTitles[location.pathname] ?? "Portfolio Tracker"
+  const title = titleFor(location.pathname)
   const { lastUpdated, refreshing, refreshPrices } = usePrices()
   const { obfuscated, toggleObfuscated } = useDisplayCurrency()
 
