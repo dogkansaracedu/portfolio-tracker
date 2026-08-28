@@ -418,6 +418,20 @@ export function validateCampaignBatch(payload: unknown): ValidationResult {
  *  event-like program types are exempt. */
 export const CAMPAIGN_MIN_APR_PCT = 1.5
 
+/** The run summary is a page header, not a report — producers have shipped
+ *  multi-thousand-character essays into it. Both doors clamp to this. */
+export const RUN_SUMMARY_MAX_CHARS = 500
+
+/** Truncate an overlong run summary on a word boundary, ellipsis appended.
+ *  Short summaries pass through untouched. */
+export function clampRunSummary(summary: string): string {
+  const trimmed = summary.trim()
+  if (trimmed.length <= RUN_SUMMARY_MAX_CHARS) return trimmed
+  const slice = trimmed.slice(0, RUN_SUMMARY_MAX_CHARS - 1)
+  const lastSpace = slice.lastIndexOf(" ")
+  return `${(lastSpace > 0 ? slice.slice(0, lastSpace) : slice).replace(/[\s.,;:]+$/, "")}…`
+}
+
 /** Rate products whose same-asset offers are duration tiers of one product —
  *  these merge into a single "up to" row. */
 const LADDER_PROGRAM_TYPES: readonly string[] = [

@@ -120,6 +120,9 @@ Intrinsic facts only (nothing user-specific):
     Time-limited offers and event-like programs are never floored.
   - The counts of merged and dropped rows are recorded on the run and
     surfaced in its summary.
+  - The run's change summary is a **page header, not a report**: an overlong
+    producer summary is truncated to a short paragraph (on a word boundary,
+    with an ellipsis) before it is stored.
 
 ### Campaigns page — three groups
 
