@@ -1,6 +1,6 @@
 import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
-import { consolidateCampaigns, validateCampaignBatch } from "../_shared/campaigns.ts"
+import { clampRunSummary, consolidateCampaigns, validateCampaignBatch } from "../_shared/campaigns.ts"
 import { insertCampaignBatch, PRODUCER_INGEST } from "../_shared/campaign-store.ts"
 
 // The vendor-neutral ingestion door (Component 15). Any producer that can emit
@@ -63,7 +63,10 @@ Deno.serve(async (req) => {
     merged > 0 || floored > 0
       ? `Consolidated: ${merged} tier/duplicate rows merged, ${floored} base-rate rows dropped.`
       : ""
-  const summary = [producerSummary, consolidationNote].filter(Boolean).join(" ") || null
+  // The summary renders as the page header — clamp before the producer's
+  // prose, so the consolidation stats always survive.
+  const summary =
+    [clampRunSummary(producerSummary), consolidationNote].filter(Boolean).join(" ") || null
 
   try {
     const { runId, inserted } = await insertCampaignBatch(getServiceClient(), campaigns, {

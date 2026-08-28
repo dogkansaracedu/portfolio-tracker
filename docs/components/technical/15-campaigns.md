@@ -140,6 +140,12 @@ Returns `{ campaigns, merged, floored }`; both doors surface the counts
 and fail the batch (422) if nothing survives. The research function's old
 local `dedupeCampaigns` was replaced by this shared path.
 
+Both doors also clamp the stored summary via `clampRunSummary`
+(`RUN_SUMMARY_MAX_CHARS = 500`, word-boundary truncation + ellipsis) — the
+summary renders as the Campaigns page header, and a producer once shipped an
+~9k-char report into it. The ingest door clamps the producer's prose *before*
+appending the consolidation stats so the stats always survive.
+
 **Write order (pseudo-transaction).** PostgREST has no multi-statement
 transaction, so inserts go: run row with `status='failed'` → campaign rows →
 flip run to `success` (+ summary, rejected_rows). Readers only ever query

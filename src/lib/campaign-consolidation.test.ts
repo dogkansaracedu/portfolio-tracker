@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest"
 import {
   CAMPAIGN_MIN_APR_PCT,
   PLATFORM_WATCH_LIST,
+  RUN_SUMMARY_MAX_CHARS,
   canonicalPlatformName,
+  clampRunSummary,
   consolidateCampaigns,
   type CampaignInput,
 } from "../../supabase/functions/_shared/campaigns.ts"
@@ -178,6 +180,18 @@ describe("consolidateCampaigns — quality floor", () => {
   it("keeps a rate exactly at the floor", () => {
     const { campaigns } = consolidateCampaigns([row({ apr: CAMPAIGN_MIN_APR_PCT })])
     expect(campaigns).toHaveLength(1)
+  })
+
+  it("clamps an overlong run summary to the header budget, on a word boundary", () => {
+    const long = "word ".repeat(400).trim()
+    const clamped = clampRunSummary(long)
+    expect(clamped.length).toBeLessThanOrEqual(RUN_SUMMARY_MAX_CHARS)
+    expect(clamped.endsWith("…")).toBe(true)
+    expect(clamped).not.toContain("word wor…")
+  })
+
+  it("leaves a short summary untouched", () => {
+    expect(clampRunSummary("15 campaigns found.")).toBe("15 campaigns found.")
   })
 
   it("floors after merging, so a ladder is judged by its top tier", () => {
