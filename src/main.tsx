@@ -17,7 +17,10 @@ import { TransactionProvider } from "@/contexts/TransactionContext"
 import { TransactionDataProvider } from "@/contexts/TransactionDataContext"
 import { Toaster } from "@/components/ui/sonner"
 import App from "./App"
+import { initAnalytics } from "@/lib/analytics"
 import "./index.css"
+
+initAnalytics()
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
