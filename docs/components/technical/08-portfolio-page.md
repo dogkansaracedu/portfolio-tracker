@@ -46,8 +46,9 @@
   construction unaffected by the toggle. The P&L **headline** is the gross
   `totalPnlUsd`; no after-tax figures here.
 - `src/components/portfolio/PortfolioFilters.tsx` — search `Input`, the
-  **Total | Daily** `ToggleGroup`, the group-by `ToggleGroup` (Tag/Platform/
-  Category — `GroupBy = "platform" | "category" | "tag"`, no `currency` axis), and
+  **Total | Daily** `ToggleGroup`, the group-by `ToggleGroup` (Platform/
+  Category — `GroupBy = "platform" | "category"`; the tag grouping was removed
+  2026-08-28, no `currency` axis), and
   the sort `Select` (`SORT_LABELS` inlined here).
 - **Cash-equivalents-nested-under-fiat** (there is no separate currency-holdings card):
   - `nestCashEquivalentsUnderFiat(assets)` in `src/lib/portfolio/grouping.ts` lifts
