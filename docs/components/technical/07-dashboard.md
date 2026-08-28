@@ -132,12 +132,11 @@
 - Range filtering via `filterByTimeRange(fakeSnapshots, timeRange)` (rebuilds
   throwaway `Snapshot`-shaped objects; `compareByDate` re-attaches the secondary
   values the filter would otherwise drop).
-- `delta = end − start`; percent denominator via `resolveHeroPctDenom`
-  (`lib/dashboard/heroPercent.ts`): normal value window → `startUsd`; **P&L mode, or
-  `startUsd ≈ 0`, or `timeRange === "ALL"`** → `computePeakInvestedUsd` (the same base
-  as the headline Total P&L %, stable across withdrawals). In the ~$0-start case the
-  numerator is lifetime `value − computeCurrentInvestedUsd` (avoids "millions-of-percent"
-  off a ~$0 base), so the figure equals the headline Total P&L % exactly.
+- `delta = end − start`; `delta.pct = deltaUsd / |startUsd|` only when
+  `|startUsd| ≥ 1` — otherwise **null**, and the hero hides the percent. No
+  fallback denominator exists: peak-invested calculations and
+  `lib/dashboard/heroPercent.ts` were removed 2026-08-28. P&L mode never
+  renders this percent (its % lenses are the TWR/MWR measure and XIRR chip).
 - `pnlDenom` = portfolio value at the visible start; the hero uses it to calibrate
   the left (currency) axis to the right (%) axis.
 - Benchmark overlay (P&L mode, **`measure === "twr"` only**): `closesAtOrBefore`

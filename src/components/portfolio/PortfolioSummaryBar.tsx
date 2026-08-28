@@ -8,7 +8,12 @@ import {
   obfuscate,
 } from "@/lib/prices"
 
-/** Hover hint for the headline % — a different lens than the P&L dollars. */
+/** Visible micro-label for the headline % — the same idiom as the dashboard
+ *  hero's "XIRR" chip. Load-bearing on touch, where `title` never fires: the
+ *  % is a money-weighted rate, NOT the dollar ÷ invested ratio beside it. */
+const MWR_LABEL = "MWR"
+
+/** Supplementary hover hint (desktop) for the headline %. */
 const MWR_HINT =
   "Cumulative money-weighted (XIRR) return — what each dollar earned for the time it was invested."
 
@@ -72,16 +77,17 @@ export function PortfolioSummaryBar({
               >
                 {o(formatSignedCurrency(totalPnlUsd, "USD"))}
               </span>
-              <span
-                className={`text-sm ${
-                  totalMwrPct == null
-                    ? "text-muted-foreground"
-                    : gainLossClass(totalMwrPct >= 0)
-                }`}
-                title={MWR_HINT}
-              >
-                ({totalMwrPct == null ? "—" : formatSignedPercent(totalMwrPct)})
-              </span>
+              {/* Absent (never a "—" placeholder) when the solver has no
+                  answer — same hidden-not-zeroed convention as the hero's
+                  XIRR chip. */}
+              {totalMwrPct != null && (
+                <span className="text-sm text-muted-foreground" title={MWR_HINT}>
+                  {MWR_LABEL}{" "}
+                  <span className={gainLossClass(totalMwrPct >= 0)}>
+                    {formatSignedPercent(totalMwrPct)}
+                  </span>
+                </span>
+              )}
             </div>
             {hasRealized && (
               <span className="text-xs text-muted-foreground tabular-nums">

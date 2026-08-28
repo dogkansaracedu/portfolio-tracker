@@ -29,15 +29,12 @@ export default function PerformancePage() {
 
   const {
     assetPnLs,
-    totalUnrealizedPnlUsd,
-    totalRealizedPnlUsd,
     totalInvestedUsd,
     totalCurrentValueUsd,
     transactions,
     rates: pnlRates,
   } = usePnL(holdings, prices)
 
-  const totalPnlUsd = totalUnrealizedPnlUsd.plus(totalRealizedPnlUsd).toNumber()
   const totalInvestedNum = totalInvestedUsd.toNumber()
   const currentValueNum = totalCurrentValueUsd.toNumber()
 
@@ -46,6 +43,7 @@ export default function PerformancePage() {
     filteredSnapshots,
     categoryAttribution,
     drawdownSeries,
+    allTimeMwrPct,
     ...metrics
   } = usePerformance({
     snapshots,
@@ -54,7 +52,6 @@ export default function PerformancePage() {
     transactions,
     rates: pnlRates,
     totalInvestedUsd: totalInvestedNum,
-    totalPnlUsd,
     currentValueUsd: currentValueNum,
   })
 
@@ -93,6 +90,7 @@ export default function PerformancePage() {
           {/* Summary stats */}
           <PerformanceSummary
             metrics={{ monthlyReturns, drawdownSeries, ...metrics }}
+            allTimeMwrPct={allTimeMwrPct}
             currentValueUsd={currentValueNum}
             currency={currency}
             timeRange={timeRange}

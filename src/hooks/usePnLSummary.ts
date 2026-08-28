@@ -30,7 +30,6 @@ export function usePnLSummary(): PnLSummary {
     totalRealizedPnlUsd,
     totalIncomeUsd,
     totalInvestedUsd,
-    totalPeakInvestedUsd,
     loading: pnlLoading,
   } = usePnL(holdings, prices)
 
@@ -40,7 +39,6 @@ export function usePnLSummary(): PnLSummary {
     const { totalPnlUsd } = summarizePnLTotals({
       totalCurrentValueUsd,
       totalInvestedUsd,
-      peakInvestedUsd: totalPeakInvestedUsd,
     })
     const rate = bn(usdTry)
     return {
@@ -59,7 +57,6 @@ export function usePnLSummary(): PnLSummary {
     totalRealizedPnlUsd,
     totalIncomeUsd,
     totalInvestedUsd,
-    totalPeakInvestedUsd,
     usdTry,
     holdingsLoading,
     pricesLoading,

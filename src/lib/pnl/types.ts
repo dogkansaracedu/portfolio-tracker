@@ -118,10 +118,4 @@ export interface PortfolioPnL {
    * transfers cancelling). The numerator of Total P&L $ (value − this).
    */
   totalInvestedUsd: BigNumber
-  /**
-   * Peak net invested (running max of the ledger above). The denominator of the
-   * Total P&L %, so withdrawals don't distort the return. See
-   * `computePeakInvestedUsd` and `summarizePnLTotals`.
-   */
-  totalPeakInvestedUsd: BigNumber
 }

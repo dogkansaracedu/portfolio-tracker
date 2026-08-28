@@ -4,7 +4,6 @@ import {
   filterByTimeRange,
   computePnLTimeSeries,
   computeCurrentInvestedUsd,
-  computePeakInvestedUsd,
   computeTWRSeries,
   type TimeRange,
 } from "@/lib/performance"
@@ -14,7 +13,6 @@ import {
   computeMWRSeries,
   computeWhatIfIndexMWRSeries,
 } from "@/lib/mwr"
-import { resolveHeroPctDenom } from "@/lib/dashboard/heroPercent"
 import { buildIntradaySeries } from "@/lib/dashboard/intraday"
 import type { BenchmarkPrice, Snapshot, IntradaySnapshot } from "@/types/database"
 
@@ -67,7 +65,9 @@ export interface DashboardHeroData {
   compareNow: { usd: number; try: number; pct: number }
   compareKind: CompareKind
   rangeStart: { usd: number; try: number; date: string | null }
-  delta: { usd: number; try: number; pct: number }
+  /** `pct` is null when the window has no real starting base (< $1) —
+   *  callers hide the percent rather than fabricate one. */
+  delta: { usd: number; try: number; pct: number | null }
   /** Denominator the chart uses to map left-axis (USD/TRY) to right-axis
    *  (%) in P&L mode = portfolio value at the visible range's start. Zero
    *  when there's no usable starting value (e.g. ALL range whose synthetic
@@ -535,22 +535,14 @@ export function useDashboardHero({
 
     const deltaUsd = endUsd - startUsd
     const deltaTry = endTry - startTry
-    // Percent denominator (resolveHeroPctDenom):
-    //  · Value mode, normal window → the period's starting portfolio value.
-    //  · P&L mode, or value mode with an ~$0 start (ALL range / pre-history) →
-    //    PEAK net invested, the same base as the headline Total P&L % (one
-    //    denominator everywhere; stable across withdrawals). In the ~$0-start
-    //    case the numerator also switches to lifetime P&L (value − invested),
-    //    so the figure equals the headline Total P&L % exactly.
-    let pctNumer: number = deltaUsd
-    if (viewMode !== "pnl" && (timeRange === "ALL" || Math.abs(startUsd) < 1)) {
-      pctNumer = currentValueUsd - computeCurrentInvestedUsd(transactions, rates)
-    }
-    const peakInvested = computePeakInvestedUsd(transactions, rates).toNumber()
-    const pctDenom =
-      resolveHeroPctDenom({ viewMode, timeRange, startUsd, peakInvested }) || 1
-
-    const deltaPct = pctDenom !== 0 ? (pctNumer / pctDenom) * 100 : 0
+    // Period % = ΔValue ÷ the window's starting value. A window with no real
+    // starting base (< $1: ALL's synthetic $0 anchor, or a range reaching back
+    // before the portfolio existed) gets NO percent (null → hidden) — a Δ
+    // against ~$0 has no meaningful base, and the chart already shows the flat
+    // run-in. No fallback denominator: peak-invested calculations were removed
+    // app-wide (2026-08-28). P&L mode never renders this percent.
+    const deltaPct =
+      Math.abs(startUsd) >= 1 ? (deltaUsd / Math.abs(startUsd)) * 100 : null
 
     // In P&L mode the secondary line is always the benchmark (percent);
     // in value mode it's the cost-basis amount (currency). Loading state
