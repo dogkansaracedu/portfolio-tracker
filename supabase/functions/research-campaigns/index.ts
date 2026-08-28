@@ -4,6 +4,7 @@ import {
   CAMPAIGN_PROGRAM_TYPES,
   APR_KINDS,
   PLATFORM_WATCH_LIST,
+  clampRunSummary,
   consolidateCampaigns,
   validateCampaignBatch,
   type CampaignInput,
@@ -776,7 +777,8 @@ Deno.serve(async (req) => {
     }
 
     const previous = await fetchLatestSuccessfulRows(supabase)
-    const summary = buildChangeSummary(deduped, previous, notes)
+    // Clamped like the ingest door: regulatory notes can balloon the header.
+    const summary = clampRunSummary(buildChangeSummary(deduped, previous, notes))
 
     const { runId, inserted } = await insertCampaignBatch(supabase, deduped, {
       producer: PRODUCER_RESEARCH,
