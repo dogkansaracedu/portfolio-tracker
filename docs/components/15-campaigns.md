@@ -101,6 +101,25 @@ Intrinsic facts only (nothing user-specific):
   malformed source URL, and rows with neither a rate nor a reward description.
   A batch with no valid rows is rejected outright; per-row rejects are recorded
   on the run.
+- After validation, every batch is **consolidated** — the same rules for every
+  producer, so none can flood the page (a campaign is one opportunity worth a
+  decision, not one price point):
+  - **Platform names snap to a canonical short form** from the watch list
+    ("Binance" and "Binance (global)" are the same platform), so grouping and
+    run-to-run diffs hold.
+  - **Tier merge** — rate offers on the same asset + platform + program type
+    that differ only by lock duration are one product, not many campaigns:
+    they merge into a single row showing the top rate as "up to", with the
+    full duration ladder recorded in the fine print (e.g.
+    "Tiers: 30d 2.13% / 60d 4.24% / 90d 6.12% / 120d 8.13%"). Time-limited
+    offers (promos, launchpools, airdrops) and prose-reward rows are distinct
+    opportunities and never merge — only byte-identical duplicates collapse.
+  - **Quality floor** — a standing rate product (flexible/locked earn,
+    staking) below **1.5%** with no deadline is a base rate, not a campaign;
+    it is dropped after merging (a ladder is judged by its top tier).
+    Time-limited offers and event-like programs are never floored.
+  - The counts of merged and dropped rows are recorded on the run and
+    surfaced in its summary.
 
 ### Campaigns page — three groups
 

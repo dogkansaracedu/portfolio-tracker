@@ -51,8 +51,16 @@ export const PLATFORM_KINDS = [
 export type PlatformKind = (typeof PLATFORM_KINDS)[number]
 
 export interface WatchListEntry {
-  /** Display name as it should appear in a campaign row's `platform`. */
+  /** Long name fed to the research prompt (may carry a "— what to look for"
+   *  suffix). Not what rows store — see `shortName`. */
   platform: string
+  /** Canonical platform name campaign rows are normalized to. Producers drift
+   *  ("Binance" vs "Binance (global)"), which breaks grouping and the run
+   *  diff — every stored row snaps to this. */
+  shortName: string
+  /** Lower-case spellings producers have used for this platform, beyond the
+   *  obvious short/long-name matches. */
+  aliases?: readonly string[]
   kind: PlatformKind
   /** Canonical URL(s) the research prompt grounds its search on. */
   groundUrl: string
@@ -69,6 +77,8 @@ export interface WatchListEntry {
 export const PLATFORM_WATCH_LIST: readonly WatchListEntry[] = [
   {
     platform: "Binance (global) — Launchpool / HODLer Airdrops / Megadrop",
+    shortName: "Binance (global)",
+    aliases: ["binance", "binance global", "binance.com", "binance earn"],
     kind: "cex-global",
     groundUrl: "binance.com/en/launchpool + /en/support/announcement",
     flag:
@@ -76,90 +86,114 @@ export const PLATFORM_WATCH_LIST: readonly WatchListEntry[] = [
   },
   {
     platform: "OKX TR — Earn + campaigns",
+    shortName: "OKX TR",
+    aliases: ["okx turkey", "okx tr earn"],
     kind: "cex-turkey",
     groundUrl: "tr.okx.com/en/earn",
     flag: "SPK-listed",
   },
   {
     platform: "OKX (global) — Earn + campaigns",
+    shortName: "OKX (global)",
+    aliases: ["okx", "okx global", "okx earn"],
     kind: "cex-global",
     groundUrl: "okx.com/en/earn",
     flag: "Per-campaign Turkey eligibility must be checked; TRY services live on OKX TR instead",
   },
   {
     platform: "Binance TR — Staking (\"Biriktir\")",
+    shortName: "Binance TR",
+    aliases: ["binance turkey", "binance.tr", "biriktir"],
     kind: "cex-turkey",
     groundUrl: "binance.tr/tr/blog",
     flag: "SPK-listed, ~180 earn assets",
   },
   {
     platform: "Paribu — Staking",
+    shortName: "Paribu",
     kind: "cex-turkey",
     groundUrl: "paribu.com/blog/en/news/",
     flag: "SPK-listed; flexible + fixed, incl. TRY-balance rewards",
   },
   {
     platform: "Midas Kripto — liquid staking + promos",
+    shortName: "Midas Kripto",
+    aliases: ["midas"],
     kind: "cex-turkey",
     groundUrl: "getmidas.com/midas-kripto/",
     flag: "User's own platform; USDT \"staking\" is lending-like — SPK risk",
   },
   {
     platform: "Trust Wallet — Launchpool + staking",
+    shortName: "Trust Wallet",
+    aliases: ["trustwallet"],
     kind: "wallet",
     groundUrl: "trustwallet.com/blog/announcements",
     flag: "Self-custodial hold-to-earn token farms",
   },
   {
     platform: "Bybit (global + TR) — Earn / Launchpool",
+    shortName: "Bybit",
+    aliases: ["bybit (global)", "bybit tr", "bybit global"],
     kind: "cex-global",
     groundUrl: "bybit.com/en/earn/home + announcements.bybit.com",
     flag: "Feb-2025 hack (covered) — trust caveat; per-campaign eligibility",
   },
   {
     platform: "Jito — JitoSOL + points seasons",
+    shortName: "Jito",
     kind: "defi",
     groundUrl: "jito.network",
     flag: "Solana LST/airdrop signal",
   },
   {
     platform: "Lido — stETH rate + incentives",
+    shortName: "Lido",
     kind: "defi",
     groundUrl: "lido.fi",
     flag: "ETH LST benchmark",
   },
   {
     platform: "Aave — Merit rewards / rate spikes",
+    shortName: "Aave",
     kind: "defi",
     groundUrl: "app.aave.com",
     flag: "Stablecoin yield benchmark",
   },
   {
     platform: "OKX Web3 Wallet Earn",
+    shortName: "OKX Web3 Earn",
+    aliases: ["okx web3 wallet", "okx web3"],
     kind: "wallet",
     groundUrl: "web3.okx.com/earn",
     flag: "DeFi campaign aggregator",
   },
   {
     platform: "Icrypex — stake campaigns",
+    shortName: "Icrypex",
     kind: "cex-turkey",
     groundUrl: "research.icrypex.com/tr/",
     flag: "Secondary local signal",
   },
   {
     platform: "Kraken — staking assets",
+    shortName: "Kraken",
     kind: "cex-global",
     groundUrl: "kraken.com/features/staking-coins",
     flag: "Turkey eligibility unconfirmed — verify in-app before acting",
   },
   {
     platform: "BtcTurk — announcements",
+    shortName: "BtcTurk",
+    aliases: ["btcturk kripto"],
     kind: "cex-turkey",
     groundUrl: "kripto.btcturk.com/en/corporate/announcements",
     flag: "No earn product today; watch for launch",
   },
   {
     platform: "SPK press announcements",
+    shortName: "SPK",
+    aliases: ["spk"],
     kind: "regulator",
     groundUrl: "spk.gov.tr/duyurular/basin-duyurulari",
     flag:
@@ -369,4 +403,142 @@ export function validateCampaignBatch(payload: unknown): ValidationResult {
   }
 
   return { valid, rejected }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Consolidation — runs after validation, in BOTH ingestion doors, so no
+// producer can flood the page with tier ladders or standing base rates
+// (the 2026-08-18 run shipped 240 rows: one per lock duration, plus
+// 0.02%-APR "campaigns"). A campaign is one opportunity worth a decision,
+// not one price point.
+// ──────────────────────────────────────────────────────────────────────
+
+/** Quality floor (percent): a rate product below this with no deadline is a
+ *  standing base rate, not a campaign — dropped. Time-limited offers and the
+ *  event-like program types are exempt. */
+export const CAMPAIGN_MIN_APR_PCT = 1.5
+
+/** Rate products whose same-asset offers are duration tiers of one product —
+ *  these merge into a single "up to" row. */
+const LADDER_PROGRAM_TYPES: readonly string[] = [
+  "flexible_earn",
+  "locked_earn",
+  "staking",
+  "hold_to_earn",
+]
+
+/** Program types the quality floor applies to. Promos, launchpools and
+ *  airdrops are events, not standing rates — never floored. */
+const FLOORED_PROGRAM_TYPES: readonly string[] = ["flexible_earn", "locked_earn", "staking"]
+
+/** Snap a producer's platform spelling to the watch list's canonical short
+ *  name. Matches the short name, the long prompt name (with or without its
+ *  "— what to look for" suffix) and the per-entry aliases, case-insensitively.
+ *  Platforms outside the watch list pass through trimmed — research may
+ *  report notable finds elsewhere. */
+export function canonicalPlatformName(raw: string): string {
+  const needle = raw.trim().toLowerCase()
+  if (!needle) return raw.trim()
+  for (const entry of PLATFORM_WATCH_LIST) {
+    if (
+      needle === entry.shortName.toLowerCase() ||
+      needle === entry.platform.toLowerCase() ||
+      needle === entry.platform.split("—")[0].trim().toLowerCase() ||
+      entry.aliases?.includes(needle)
+    ) {
+      return entry.shortName
+    }
+  }
+  return raw.trim()
+}
+
+export interface ConsolidationResult {
+  campaigns: CampaignInput[]
+  /** Rows folded into another row (tier merges + exact duplicates). */
+  merged: number
+  /** Rows dropped by the quality floor. */
+  floored: number
+}
+
+function ladderKey(c: CampaignInput): string {
+  return `${c.asset_ticker}|${c.platform}|${c.program_type}`
+}
+
+/** Fingerprint for event-like rows (promo/launchpool/airdrop and prose-only
+ *  rows): only byte-identical offers are duplicates — two promos on the same
+ *  asset are two opportunities. */
+function eventFingerprint(c: CampaignInput): string {
+  return [
+    c.asset_ticker,
+    c.platform,
+    c.program_type,
+    c.apr ?? "",
+    c.apr_kind ?? "",
+    c.deadline ?? "",
+    c.reward_description ?? "",
+    c.conditions ?? "",
+  ].join("|")
+}
+
+function tierLabel(c: CampaignInput): string {
+  const lock = c.lock_days ?? 0
+  return lock > 0 ? `${lock}d ${c.apr}%` : `flex ${c.apr}%`
+}
+
+/** Merge tier ladders, drop duplicates and apply the quality floor.
+ *  Expects validated rows; normalizes platform names as it goes. */
+export function consolidateCampaigns(rows: CampaignInput[]): ConsolidationResult {
+  let merged = 0
+  const consolidated: CampaignInput[] = []
+  const ladders = new Map<string, CampaignInput[]>()
+  const seenEvents = new Set<string>()
+
+  for (const raw of rows) {
+    const row = { ...raw, platform: canonicalPlatformName(raw.platform) }
+    const hasRate = row.apr !== null && row.apr !== undefined
+    if (hasRate && LADDER_PROGRAM_TYPES.includes(row.program_type)) {
+      const key = ladderKey(row)
+      const group = ladders.get(key)
+      if (group) group.push(row)
+      else ladders.set(key, [row])
+    } else {
+      const fingerprint = eventFingerprint(row)
+      if (seenEvents.has(fingerprint)) merged += 1
+      else {
+        seenEvents.add(fingerprint)
+        consolidated.push(row)
+      }
+    }
+  }
+
+  for (const group of ladders.values()) {
+    if (group.length === 1) {
+      consolidated.push(group[0])
+      continue
+    }
+    merged += group.length - 1
+    const base = group.reduce((best, c) => ((c.apr ?? 0) > (best.apr ?? 0) ? c : best))
+    const tiers = [...group].sort((a, b) => (a.lock_days ?? 0) - (b.lock_days ?? 0))
+    const ladder = `Tiers: ${tiers.map(tierLabel).join(" / ")}`
+    const distinctAprs = new Set(group.map((c) => c.apr)).size
+    consolidated.push({
+      ...base,
+      apr_kind: distinctAprs > 1 ? "up_to" : base.apr_kind,
+      conditions: base.conditions ? `${base.conditions}; ${ladder}` : ladder,
+    })
+  }
+
+  let floored = 0
+  const campaigns = consolidated.filter((c) => {
+    const isBaseRateNoise =
+      c.apr !== null &&
+      c.apr !== undefined &&
+      c.apr < CAMPAIGN_MIN_APR_PCT &&
+      !c.deadline &&
+      FLOORED_PROGRAM_TYPES.includes(c.program_type)
+    if (isBaseRateNoise) floored += 1
+    return !isBaseRateNoise
+  })
+
+  return { campaigns, merged, floored }
 }

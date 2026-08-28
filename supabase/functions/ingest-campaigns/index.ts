@@ -1,6 +1,6 @@
 import { getServiceClient } from "../_shared/client.ts"
 import { corsHeaders } from "../_shared/cors.ts"
-import { validateCampaignBatch } from "../_shared/campaigns.ts"
+import { consolidateCampaigns, validateCampaignBatch } from "../_shared/campaigns.ts"
 import { insertCampaignBatch, PRODUCER_INGEST } from "../_shared/campaign-store.ts"
 
 // The vendor-neutral ingestion door (Component 15). Any producer that can emit
@@ -47,18 +47,34 @@ Deno.serve(async (req) => {
     return json({ error: "no valid campaigns in batch", rejected }, 422)
   }
 
+  // Consolidation happens here, not only in the research producer, so no
+  // producer can flood the page with tier ladders or standing base rates.
+  const { campaigns, merged, floored } = consolidateCampaigns(valid)
+  if (campaigns.length === 0) {
+    return json(
+      { error: "no campaigns left after consolidation", rejected, merged, floored },
+      422,
+    )
+  }
+
   const meta = (payload ?? {}) as { producer?: unknown; model?: unknown; summary?: unknown }
+  const producerSummary = typeof meta.summary === "string" ? meta.summary.trim() : ""
+  const consolidationNote =
+    merged > 0 || floored > 0
+      ? `Consolidated: ${merged} tier/duplicate rows merged, ${floored} base-rate rows dropped.`
+      : ""
+  const summary = [producerSummary, consolidationNote].filter(Boolean).join(" ") || null
 
   try {
-    const { runId, inserted } = await insertCampaignBatch(getServiceClient(), valid, {
+    const { runId, inserted } = await insertCampaignBatch(getServiceClient(), campaigns, {
       producer: typeof meta.producer === "string" && meta.producer.trim()
         ? meta.producer.trim()
         : PRODUCER_INGEST,
       model: typeof meta.model === "string" ? meta.model : null,
-      summary: typeof meta.summary === "string" ? meta.summary : null,
+      summary,
       rejected,
     })
-    return json({ run_id: runId, inserted, rejected: rejected.length })
+    return json({ run_id: runId, inserted, rejected: rejected.length, merged, floored })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown ingest error"
     return json({ error: msg }, 500)
