@@ -27,10 +27,11 @@
 | Path | Role |
 |---|---|
 | `supabase/migrations/20260817120000_campaigns.sql` | Tables + RLS + weekly cron. |
-| `supabase/functions/_shared/campaigns.ts` | **Dependency-free pure TS** (zero imports — loadable by both Deno and Vite/Vitest): `CAMPAIGN_PROGRAM_TYPES`, `APR_KINDS`, `PLATFORM_WATCH_LIST`, `CampaignInput`/`CampaignBatch` types, `validateCampaignBatch(payload)` → `{ valid, rejected }`. |
+| `supabase/functions/_shared/campaigns.ts` | **Dependency-free pure TS** (zero imports — loadable by both Deno and Vite/Vitest): `CAMPAIGN_PROGRAM_TYPES`, `APR_KINDS`, `PLATFORM_WATCH_LIST`, `CampaignInput`/`CampaignBatch` types, `validateCampaignBatch(payload)` → `{ valid, rejected }`, `canonicalPlatformName(raw)`, `consolidateCampaigns(rows)` → `{ campaigns, merged, floored }`, `CAMPAIGN_MIN_APR_PCT`. |
 | `supabase/functions/_shared/campaign-store.ts` | Persistence half (needs the Supabase client, so it can't live in the import-free module): `insertCampaignBatch`, `recordFailedRun`, `fetchLatestSuccessfulRows`, run-status/producer constants. Both functions insert through it. |
 | `supabase/functions/ingest-campaigns/index.ts` | POST door: checks `Authorization: Bearer <CAMPAIGN_INGEST_TOKEN>` (500 if env unset, 401 mismatch, 405 non-POST), validates via `validateCampaignBatch` (zero valid rows → 422 with reasons), inserts run + rows via `campaign-store`. Honors an optional `producer` string in the payload (default `'ingest'`). |
 | `src/lib/campaign-validation.test.ts` | Vitest over `validateCampaignBatch` (imports `_shared/campaigns.ts`, same cross-boundary pattern as `yahoo.test.ts`). |
+| `src/lib/campaign-consolidation.test.ts` | Vitest over `consolidateCampaigns` / `canonicalPlatformName` (tier merge, promo distinctness, quality floor, platform-drift grouping). |
 | `supabase/functions/research-campaigns/index.ts` | Cron entry (`X-Cron-Token`; also accepts the ingest bearer for manual runs): builds the research task from catalog crypto tickers + `PLATFORM_WATCH_LIST`, runs the selected engine (Tavily research with self-chaining polling, or 3 Gemini url_context/search sweeps), funnels through the same validate+insert. |
 | `src/types/database.ts` | `CampaignResearchRun`, `Campaign` row interfaces (hand-synced, as ever). |
 | `src/lib/constants/campaigns.ts` | UI-side constants: program-type display labels, APR-kind affixes, `CAMPAIGN_STALENESS_DAYS = 10`, `DEADLINE_SOON_DAYS = 7`, `CAMPAIGN_RUN_STATUS`, table names, and all page copy (`CAMPAIGN_COPY`). Re-exports `CampaignProgramType` / `AprKind` **as types only** from `_shared/campaigns.ts` (backend truth, zero bundle cost) — `database.ts` imports them from here. |
@@ -106,6 +107,39 @@ dp, numeric strings from models coerced (`"4.25%"` → `4.25`),
 zero valid rows → the whole batch fails (run recorded as `failed`, previous
 data untouched).
 
+## Consolidation (`consolidateCampaigns`)
+
+Runs after validation in **both** doors (`ingest-campaigns` and
+`research-campaigns`) — added 2026-08-28 after a producer pushed 240 rows
+(one per lock tier, plus 0.02%-APR base rates) through the ingest door, which
+only validated row shape. Pure, import-free, Vitest-covered.
+
+1. **Platform canonicalization** — `canonicalPlatformName(raw)` snaps each
+   row's platform to the watch list's `shortName` (new `WatchListEntry` field,
+   with optional `aliases`), matching short name / long prompt name (with or
+   without its "—" suffix) / aliases case-insensitively. Unknown platforms
+   pass through trimmed.
+2. **Tier merge** — apr-bearing rows of ladder types (`flexible_earn`,
+   `locked_earn`, `staking`, `hold_to_earn`) group by
+   `(ticker, platform, program_type)`; a group keeps its highest-APR row's
+   fields, sets `apr_kind: "up_to"` when tiers differ, and appends
+   `Tiers: 30d 2.13% / … ` (sorted by `lock_days`, 0/null labeled `flex`) to
+   `conditions`. Prose-only rows never join a ladder.
+3. **Event dedupe** — promo/launchpool/airdrop and prose-only rows are
+   distinct opportunities; only rows identical on
+   (ticker, platform, type, apr, apr_kind, deadline, reward_description,
+   conditions) collapse.
+4. **Quality floor** — after merging, rows with
+   `apr < CAMPAIGN_MIN_APR_PCT` (1.5), no `deadline`, and program type in
+   (`flexible_earn`, `locked_earn`, `staking`) are dropped as standing base
+   rates. Promos/launchpools/airdrops/`hold_to_earn` and prose rows are never
+   floored.
+
+Returns `{ campaigns, merged, floored }`; both doors surface the counts
+(ingest: response + appended to the run summary; research: a summary note)
+and fail the batch (422) if nothing survives. The research function's old
+local `dedupeCampaigns` was replaced by this shared path.
+
 **Write order (pseudo-transaction).** PostgREST has no multi-statement
 transaction, so inserts go: run row with `status='failed'` → campaign rows →
 flip run to `success` (+ summary, rejected_rows). Readers only ever query
@@ -144,9 +178,9 @@ previous data intact.
    backstop for the prompt exclusion — dual investment/dual currency are
    options strategies, not earn), scrub "Turkey eligibility: unconfirmed"-style
    boilerplate out of `conditions` (regex backstop; the prompt's eligibility
-   rule drops explicitly-excluded campaigns and forbids the phrase), dedupe on
-   `(ticker, platform, program_type)`
-   keeping the higher APR, **compute** the change summary in code (diff of
+   rule drops explicitly-excluded campaigns and forbids the phrase), run the
+   shared `consolidateCampaigns` (see **Consolidation** below — replaces the
+   old local higher-APR dedupe), **compute** the change summary in code (diff of
    `ticker@platform` pairs vs the previous successful run — never
    model-written), stamp missing `fetched_at` with today, then validate and
    insert via the write-order pseudo-transaction above. Any thrown error →

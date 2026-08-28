@@ -4,6 +4,7 @@ import {
   CAMPAIGN_PROGRAM_TYPES,
   APR_KINDS,
   PLATFORM_WATCH_LIST,
+  consolidateCampaigns,
   validateCampaignBatch,
   type CampaignInput,
 } from "../_shared/campaigns.ts"
@@ -537,22 +538,6 @@ function stampFetchedAt(row: unknown, today: string): unknown {
 // Merge + diff
 // ──────────────────────────────────────────────────────────────────────
 
-const identity = (c: { asset_ticker: string; platform: string; program_type: string }) =>
-  `${c.asset_ticker}|${c.platform}|${c.program_type}`
-
-/** Same offer reported by two sweeps: keep the higher rate. Sweeps overlap by
- *  design (a stablecoin in the catalog shows up in two of them), and the
- *  higher figure is the one the user would want to check at source. */
-function dedupeCampaigns(rows: CampaignInput[]): CampaignInput[] {
-  const byKey = new Map<string, CampaignInput>()
-  for (const row of rows) {
-    const key = identity(row)
-    const existing = byKey.get(key)
-    if (!existing || (row.apr ?? -1) > (existing.apr ?? -1)) byKey.set(key, row)
-  }
-  return [...byKey.values()]
-}
-
 const pairName = (c: { asset_ticker: string; platform: string }) =>
   `${c.asset_ticker}@${c.platform}`
 
@@ -770,8 +755,14 @@ Deno.serve(async (req) => {
       producer: PRODUCER_RESEARCH,
       campaigns: merged,
     })
-    const deduped = dedupeCampaigns(valid)
+    // Shared consolidation (same rules as the ingest door): tier ladders and
+    // sweep-overlap duplicates collapse, standing base rates fall below the
+    // quality floor.
+    const { campaigns: deduped, merged: mergedRows, floored } = consolidateCampaigns(valid)
     if (rejected.length > 0) notes.push(`${rejected.length} rows rejected by validation`)
+    if (mergedRows > 0 || floored > 0) {
+      notes.push(`consolidated: ${mergedRows} tier/duplicate rows merged, ${floored} base-rate rows dropped`)
+    }
 
     if (deduped.length === 0) {
       const runId = await recordFailedRun(supabase, {
