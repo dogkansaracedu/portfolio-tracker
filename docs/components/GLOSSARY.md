@@ -440,7 +440,12 @@ carries its FX gain as unrealized.
 Total P&L % = Total P&L ÷ peak net invested × 100   (— when peak ≤ 0)
 ```
 Over [peak net invested](#peak-net-invested-capital), not the current balance, so the
-% is stable across withdrawals. The same base everywhere a money-weighted % is shown.
+% is stable across withdrawals. **No longer displayed as the Total P&L companion**
+(since 2026-08-28): the dashboard hero shows the Total P&L dollar alone, and the
+Portfolio summary bar's headline % is the lifetime **cumulative
+[money-weighted return](#money-weighted-return-xirr-formula)** — the same lens as
+the per-asset return %. Peak remains the denominator base for the dashboard hero's
+period-% rules (zero-start / all-time windows).
 
 ### Daily return formula
 ```

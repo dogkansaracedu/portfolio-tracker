@@ -113,8 +113,9 @@ default.**
   it a subtitle carries the index's return and the **gap between
   them in percentage points** (your TWR − the index), plus the **dollar lifetime
   Total P&L** (the same [money-weighted](GLOSSARY.md#money-weighted) total the
-  Portfolio page reports, with its percent over
-  [peak net invested](GLOSSARY.md#peak-net-invested-capital)) and the period's
+  Portfolio page reports — the dollar alone, no percent companion; the % lenses
+  here are the headline TWR and the XIRR chip, and the cumulative money-weighted
+  % lives on the [Portfolio page](08-portfolio-page.md)) and the period's
   delta percent. Time-weighting means deposits and withdrawals are removed, so
   the comparison is fair: it is the holdings' performance against the index, not
   a head start from when cash happened to go in. When older history is only
@@ -148,16 +149,15 @@ default.**
 - **Lifetime XIRR chip:** the Performance-mode subtitle's lifetime Total P&L also
   carries the **lifetime annualized [XIRR](GLOSSARY.md#money-weighted-return-mwr--xirr)**
   ("+X.X%/yr") once the transaction history spans at least a year — the rigorous
-  "what did each of my dollars earn per year" companion to the peak-based
-  percent. Hidden (not zeroed) when the history is shorter or the solver has no
+  "what did each of my dollars earn per year" companion to the Total P&L
+  dollars. Hidden (not zeroed) when the history is shorter or the solver has no
   solution.
 - **Value mode:** headline = current total value; an area line of value over the
   range; period delta = ΔValue (end − start) with its percent; a secondary
   reference line for cost basis.
 
 **Lifetime total stays gross of the tax accrual.** The subtitle's lifetime total
-P&L and its percent (over
-[peak net invested](GLOSSARY.md#peak-net-invested-capital)) carry no
+P&L (a dollar figure only) carries no
 [at-source](GLOSSARY.md#at-source-tax) accrual adjustment — the
 [after-tax](GLOSSARY.md#after-tax-pl) (net) view is deliberately confined to taxed
 asset rows on the [Portfolio page](08-portfolio-page.md), and no tax figure renders
@@ -223,9 +223,8 @@ in the second; the user deposits **$2,000** mid-month. The chosen index returns
   subtitle reports the index at **+4%** with the gap **−1.1 pts** (the portfolio
   trailed the index this month).
 - Separately, the subtitle still shows the dollar lifetime
-  [Total P&L](GLOSSARY.md#total-pl) (money-weighted, percent over
-  [peak net invested](GLOSSARY.md#peak-net-invested-capital)) — the "how much am I
-  up in dollars" answer, unaffected by the time-weighting above.
+  [Total P&L](GLOSSARY.md#total-pl) (money-weighted, dollar only) — the "how much
+  am I up in dollars" answer, unaffected by the time-weighting above.
 
 ## Contract (I/O)
 
@@ -338,8 +337,9 @@ display state.
       only when the transaction history spans ≥ 1 year and the solver has a solution;
       otherwise the chip is absent (never a fabricated 0).
 - [ ] In the vs-market view, the subtitle's dollar lifetime **Total** P&L is
-      money-weighted with no tax annotation; its percent is over peak net invested.
-      After-tax detail appears only on the Portfolio page's taxed rows.
+      money-weighted with no tax annotation, rendered as a dollar only (no
+      percent companion). After-tax detail appears only on the Portfolio page's
+      taxed rows.
 - [ ] Toggling privacy **hides amounts but keeps percentages visible** (allocation
       %, period %, total %, benchmark %).
 - [ ] With < 2 points in the chosen range the hero shows a "not enough data"

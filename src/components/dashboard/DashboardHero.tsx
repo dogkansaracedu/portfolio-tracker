@@ -53,8 +53,6 @@ interface DashboardHeroProps {
    *  the after-tax view lives only on the Portfolio page's taxed rows. */
   totalPnlUsd: number
   totalPnlTry: number
-  /** null = nothing ever deployed (peak ≤ 0) → render "—". */
-  totalPnlPct: number | null
   usdTry: number
 }
 
@@ -187,7 +185,6 @@ export default function DashboardHero({
   currentValueTry,
   totalPnlUsd,
   totalPnlTry,
-  totalPnlPct,
   usdTry,
 }: DashboardHeroProps) {
   const { currency, obfuscated } = useDisplayCurrency()
@@ -263,7 +260,6 @@ export default function DashboardHero({
   // Portfolio page). Invested = value − P&L.
   const totalPnlUsdNow = totalPnlUsd
   const totalPnlTryNow = totalPnlTry
-  const totalPnlPctNow = totalPnlPct
   const investedNowUsd = currentValueUsd - totalPnlUsdNow
   const investedNowTry = currentValueTry - totalPnlTryNow
 
@@ -598,8 +594,7 @@ export default function DashboardHero({
                     ),
                     obfuscated,
                   )}
-                </span>{" "}
-                ({totalPnlPctNow == null ? "—" : formatSignedPercent(totalPnlPctNow, 2)})
+                </span>
               </span>
               {/* Lifetime annualized XIRR — absent (never 0) when the history is
                   under a year or the solver found no rate. A percent, so it

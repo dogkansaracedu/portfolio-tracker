@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import { bn } from "@/lib/config"
 import { computeTWRSeries } from "@/lib/performance"
 import {
+  computeLifetimeMwrCumulativePct,
   computeLifetimeXirrPct,
   computeMWRSeries,
   computeWhatIfIndexMWRSeries,
@@ -239,6 +240,69 @@ describe("computeMWRSeries — degenerate inputs", () => {
     expect(series.points[1].cumulativePct).toBeCloseTo(20, 6)
     expect(series.points[2].cumulativePct).toBeCloseTo(20, 6)
     expect(series.annualizedEndPct).toBeNull()
+  })
+})
+
+describe("computeLifetimeMwrCumulativePct — Portfolio headline %", () => {
+  it("round-trips a single deposit exactly: value/deposit − 1", () => {
+    // $10,000 in, worth $11,000 a year later → +10% cumulative regardless of
+    // day count (the de-annualization inverts the solve's own annualization).
+    const pct = computeLifetimeMwrCumulativePct(
+      [buy(100, 100, { date: "2025-01-01" })],
+      [],
+      11000,
+      "2026-01-01",
+    )
+    expect(pct).not.toBeNull()
+    expect(pct!).toBeCloseTo(10, 6)
+  })
+
+  it("is exact under a year — cumulative is not gated like the %/yr chip", () => {
+    const pct = computeLifetimeMwrCumulativePct(
+      [buy(100, 100, { date: "2026-01-01" })],
+      [],
+      10500,
+      "2026-07-01",
+    )
+    expect(pct).not.toBeNull()
+    expect(pct!).toBeCloseTo(5, 6)
+
+    // The annualized chip refuses the same half-year book.
+    expect(
+      computeLifetimeXirrPct(
+        [buy(100, 100, { date: "2026-01-01" })],
+        [],
+        10500,
+        "2026-07-01",
+      ),
+    ).toBeNull()
+  })
+
+  it("weights a late deposit by its time in — DCA reads above gain/total", () => {
+    // $10k works the full year (+$1,500 total book gain); another $10k lands a
+    // day before the end. Gain ÷ total in = 7.5%, but the second deposit had no
+    // time to work, so the money-weighted % stays near the first deposit's +15%.
+    const pct = computeLifetimeMwrCumulativePct(
+      [buy(100, 100, { date: "2025-01-01" }), buy(100, 100, { date: "2025-12-30" })],
+      [],
+      21500,
+      "2025-12-31",
+    )
+    expect(pct).not.toBeNull()
+    expect(pct!).toBeGreaterThan(13)
+  })
+
+  it("is null with no external flows or an unsolvable book", () => {
+    expect(computeLifetimeMwrCumulativePct([], [], 1000, "2026-01-01")).toBeNull()
+    // Wiped out to zero: no sign change for the solver.
+    expect(
+      computeLifetimeMwrCumulativePct(
+        [buy(100, 100, { date: "2026-01-01" })],
+        [],
+        0,
+        "2026-06-01",
+      ),
+    ).toBeNull()
   })
 })
 
