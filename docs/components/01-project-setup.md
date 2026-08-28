@@ -39,6 +39,7 @@ None — this component is pre-domain. It defines structure (routes, shell, them
 - **Build identity.** The shell displays the running build's version and source-revision identifier, unobtrusively, at the foot of the desktop side navigation — so the user can tell at a glance which build is live after a deploy. Hovering reveals the full revision identifier and the build timestamp. The values are fixed when the bundle is built, not read at runtime; a build made outside version control still renders a stable placeholder rather than failing.
 - **Theme.** The app supports a light and a dark theme. The choice is user-toggleable, persists across reloads and sessions, and on first visit defaults to the operating-system preference. The correct theme must be applied before first paint (no flash of the wrong theme).
 - **Lazy screens.** Screens may load on demand the first time they're visited; while a screen's content is loading, a neutral placeholder shows in the content region.
+- **Usage analytics.** The app reports usage events — screen views (including in-place route changes) and interactions — to an external analytics service, so the owner can review which screens and features get used from a dashboard outside the app. Reporting is fire-and-forget: it must not delay first paint, and the app behaves identically if the service is unreachable or blocked.
 
 ## Contract (I/O)
 
