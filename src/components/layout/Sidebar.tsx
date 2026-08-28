@@ -1,4 +1,4 @@
-import { NavLink } from "react-router"
+import { Link, useLocation } from "react-router"
 import {
   LayoutDashboard,
   Briefcase,
@@ -39,7 +39,20 @@ const navItems = [...primaryNavItems, ...secondaryNavItems]
 
 const moreNavItem = { to: "/more", label: "More", icon: Ellipsis }
 
+// Exact match or a sub-path — "/budget" must not match a future "/budgets".
+const matchesPath = (pathname: string, to: string) =>
+  pathname === to || pathname.startsWith(`${to}/`)
+
+// Shared by Sidebar and MobileNav so both shells light the same entry.
+// Asset detail is Portfolio's drill-down; it lights the Portfolio entry.
+const isNavItemActive = (pathname: string, to: string) =>
+  to === "/"
+    ? pathname === "/"
+    : matchesPath(pathname, to) ||
+      (to === "/portfolio" && matchesPath(pathname, "/assets"))
+
 export default function Sidebar() {
+  const { pathname } = useLocation()
   return (
     <aside className="hidden md:flex md:w-60 md:flex-col md:border-r bg-sidebar">
       <div className="flex h-14 items-center gap-2.5 border-b px-4">
@@ -47,23 +60,24 @@ export default function Sidebar() {
         <span className="text-base font-semibold tracking-tight">{APP_NAME}</span>
       </div>
       <nav className="flex-1 space-y-1 p-2">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === "/"}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                isActive
+        {navItems.map((item) => {
+          const active = isNavItemActive(pathname, item.to)
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              aria-current={active ? "page" : undefined}
+              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-              }`
-            }
-          >
-            <item.icon className="h-4 w-4" />
-            {item.label}
-          </NavLink>
-        ))}
+              }`}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          )
+        })}
       </nav>
       <div className="border-t px-4 py-2.5">
         <BuildBadge />
@@ -72,4 +86,11 @@ export default function Sidebar() {
   )
 }
 
-export { navItems, primaryNavItems, secondaryNavItems, moreNavItem }
+export {
+  navItems,
+  primaryNavItems,
+  secondaryNavItems,
+  moreNavItem,
+  matchesPath,
+  isNavItemActive,
+}
