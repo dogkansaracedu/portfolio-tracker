@@ -4,6 +4,7 @@ import CurrencyToggle from "@/components/common/CurrencyToggle"
 import ThemeToggle from "@/components/common/ThemeToggle"
 import PriceRefreshButton from "@/components/prices/PriceRefreshButton"
 import UserMenu from "@/components/layout/UserMenu"
+import { navItems, moreNavItem } from "@/components/layout/Sidebar"
 import { usePrices } from "@/hooks/usePrices"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { Button } from "@/components/ui/button"
@@ -13,13 +14,9 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip"
 
-const pageTitles: Record<string, string> = {
-  "/": "Dashboard",
-  "/portfolio": "Portfolio",
-  "/transactions": "Transactions",
-  "/performance": "Performance",
-  "/settings": "Settings",
-}
+const pageTitles: Record<string, string> = Object.fromEntries(
+  [...navItems, moreNavItem].map((item) => [item.to, item.label]),
+)
 
 export default function Header() {
   const location = useLocation()
