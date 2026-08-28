@@ -1,32 +1,30 @@
 import { Link, useLocation } from "react-router"
-import { primaryNavItems, secondaryNavItems, moreNavItem } from "./Sidebar"
+import {
+  primaryNavItems,
+  secondaryNavItems,
+  moreNavItem,
+  matchesPath,
+  isNavItemActive,
+} from "./Sidebar"
 
 const tabClass = (isActive: boolean) =>
   `flex flex-1 flex-col items-center gap-1 py-2 text-xs transition-colors ${
     isActive ? "text-primary" : "text-muted-foreground"
   }`
 
-// Exact match or a sub-path — "/budget" must not match a future "/budgets".
-const matches = (pathname: string, to: string) =>
-  pathname === to || pathname.startsWith(`${to}/`)
-
 export default function MobileNav() {
   const { pathname } = useLocation()
 
-  const isPrimaryActive = (to: string) =>
-    to === "/"
-      ? pathname === "/"
-      : matches(pathname, to) ||
-        // Asset detail is Portfolio's drill-down; keep its tab lit there.
-        (to === "/portfolio" && matches(pathname, "/assets"))
-
   // The More tab stays highlighted while on any of its hub's sections.
   const moreActive =
-    matches(pathname, moreNavItem.to) ||
-    secondaryNavItems.some((item) => matches(pathname, item.to))
+    matchesPath(pathname, moreNavItem.to) ||
+    secondaryNavItems.some((item) => matchesPath(pathname, item.to))
 
   const tabs = [
-    ...primaryNavItems.map((item) => ({ ...item, active: isPrimaryActive(item.to) })),
+    ...primaryNavItems.map((item) => ({
+      ...item,
+      active: isNavItemActive(pathname, item.to),
+    })),
     { ...moreNavItem, active: moreActive },
   ]
 
