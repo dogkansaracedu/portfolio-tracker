@@ -555,12 +555,11 @@ export default function DashboardHero({
                   obfuscated,
                 )}
               </span>
-              {/* In ALL range, delta is "value − $0 anchor" while % falls
-                  back to lifetime return (pnl/invested). Mixing the two on
-                  one line reads as if you earned 3% on a $22k gain, which
-                  isn't what's happening — the same % already lives in the
-                  Performance tab's "Total" subtitle. Hide it here. */}
-              {timeRange !== "ALL" && (
+              {/* Null when the window has no real starting base (ALL's $0
+                  anchor, or a range reaching before the portfolio existed) —
+                  a Δ against ~$0 has no meaningful %, so it's hidden, not
+                  fabricated. */}
+              {delta.pct != null && (
                 <span className={cn("font-medium", periodColor)}>
                   {formatSignedPercent(delta.pct, 2)}
                 </span>

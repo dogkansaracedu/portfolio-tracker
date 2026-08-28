@@ -36,9 +36,9 @@ export interface AssetReturnRates {
  * surfaces as return, exactly as in the engine's decomposition. Sold-out
  * assets work naturally: terminal value 0 against the historical flows.
  *
- * No peak-based % here: at the asset level the user reads the % as "what did
- * my dollars earn", which is the money-weighted question — the peak-invested
- * denominator stays a portfolio-headline convention (lib/pnl/totals.ts).
+ * The % here is the money-weighted question — "what did my dollars earn" —
+ * the same lens the portfolio-level headline % uses
+ * (`computeLifetimeMwrCumulativePct`, lib/mwr.ts).
  */
 export function computeAssetReturnRates(
   transactions: Transaction[],

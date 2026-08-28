@@ -185,14 +185,14 @@ is hidden in the 1-day range.
 
 **Percent denominator rules** (so a percent is never misleading):
 - Value mode, normal window → ΔValue ÷ starting value of the period.
-- Performance mode, and any window whose start value is ~0 (e.g. ALL's synthetic zero
-  anchor, or a period beginning before any priceable holdings) → divide by
-  [peak net invested](GLOSSARY.md#peak-net-invested-capital) — the same base as the
-  headline [Total P&L](GLOSSARY.md#total-pl) %, so the figure is stable across
-  withdrawals. In the ~$0-start case the numerator is lifetime P&L (value − invested),
-  so the figure equals the headline Total P&L % exactly. In the all-time window the
-  period percent is suppressed on the value headline to avoid pairing a near-infinite
-  "% on $0" with the dollar delta.
+- A window with no real starting base (~$0: ALL's synthetic zero anchor, or a
+  period beginning before any priceable holdings) → **no percent at all** — the
+  Δ against ~$0 has no meaningful base, so the figure is hidden rather than
+  fabricated (the chart already shows the flat run-in, and the lifetime %
+  lives on the Portfolio page as the MWR headline). No fallback denominator
+  exists — peak-invested calculations were removed app-wide (2026-08-28).
+- Performance mode never renders this delta percent (its % lenses are the
+  TWR/MWR measure headline and the XIRR chip).
 
 **Privacy / obfuscation toggle.** A global toggle hides monetary amounts (net
 worth, breakdown values, hero figures, tooltips) by masking them — but

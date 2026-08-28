@@ -128,7 +128,6 @@ export function usePortfolio(): UsePortfolioReturn {
     totalRealizedPnlUsd,
     totalIncomeUsd,
     totalInvestedUsd,
-    totalPeakInvestedUsd,
     transactions,
     rates: txRates,
     loading: pnlLoading,
@@ -226,7 +225,6 @@ export function usePortfolio(): UsePortfolioReturn {
   const { totalPnlUsd: totalPnlUsdBn } = summarizePnLTotals({
     totalCurrentValueUsd,
     totalInvestedUsd,
-    peakInvestedUsd: totalPeakInvestedUsd,
   })
 
   // Headline %: lifetime cumulative money-weighted (XIRR) return — the same

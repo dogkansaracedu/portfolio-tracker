@@ -38,7 +38,6 @@ export interface MonthlyReturn {
 
 export interface PerformanceMetrics {
   monthlyReturns: MonthlyReturn[]
-  allTimeReturnPct: number | null
   cagr: number | null
   maxDrawdownPct: number
   bestMonth: MonthlyReturn | null
@@ -435,19 +434,6 @@ export function computeMonthlyReturns(
 }
 
 /**
- * All-time return = total P&L / total invested capital. Anchors on the user's
- * actual money in (not the first snapshot we happened to take).
- */
-export function computeAllTimeReturn(
-  totalPnlUsd: number,
-  totalInvestedUsd: number,
-): number | null {
-  const investedAbs = Math.abs(totalInvestedUsd)
-  if (investedAbs === 0) return null
-  return (totalPnlUsd / investedAbs) * 100
-}
-
-/**
  * CAGR anchored on the user's first transaction (not first snapshot).
  *
  * For simple deposits with no withdrawals this is a fair approximation. With
@@ -563,7 +549,6 @@ export interface PerformanceMetricsInput {
   transactions: Transaction[]
   rates: ExchangeRate[]
   totalInvestedUsd: number
-  totalPnlUsd: number
   currentValueUsd: number
 }
 
@@ -575,12 +560,10 @@ export function computePerformanceMetrics(
     transactions,
     rates,
     totalInvestedUsd,
-    totalPnlUsd,
     currentValueUsd,
   } = input
 
   const monthlyReturns = computeMonthlyReturns(snapshots, transactions, rates)
-  const allTimeReturnPct = computeAllTimeReturn(totalPnlUsd, totalInvestedUsd)
   const firstTxDate = transactions.length > 0
     ? transactions
         .map((t) => t.date.slice(0, 10))
@@ -609,7 +592,6 @@ export function computePerformanceMetrics(
 
   return {
     monthlyReturns,
-    allTimeReturnPct,
     cagr,
     maxDrawdownPct,
     bestMonth,
@@ -790,28 +772,3 @@ export function computeCurrentInvestedUsd(
   return cum.toNumber()
 }
 
-/**
- * Peak net invested capital in USD — the running maximum of the net-invested
- * ledger over the transaction timeline. "The most external capital ever at work
- * at once."
- *
- * This is the denominator for the all-time Total P&L % (lib/pnl/totals.ts).
- * Because it's the max of the SAME pairing-aware fold `computeCurrentInvestedUsd`
- * uses, it never shrinks when you withdraw — so withdrawing your own money can't
- * change your return %, and a sell reads the same % whether its proceeds are
- * withdrawn or kept as cash. Returns a BigNumber; the caller decides the % and
- * renders "—" when peak ≤ 0 (nothing was ever deployed).
- */
-export function computePeakInvestedUsd(
-  transactions: Transaction[],
-  rates: ExchangeRate[],
-  opts: InvestedOptions = {},
-): ReturnType<typeof bn> {
-  let cum = bn(0)
-  let peak = bn(0)
-  for (const tx of transactions) {
-    cum = applyTxToInvested(tx, rates, cum, opts)
-    if (cum.gt(peak)) peak = cum
-  }
-  return peak
-}

@@ -33,36 +33,28 @@ headline, the per-asset breakdown, and the chart's "now" anchor all read the sam
 money-weighted figure — including fiat FX P&L, which a FIFO-only sum would throw away.
 (The Performance page is the lone exception — see §5.)
 
-## 2. The return % — over peak net invested
+## 2. The return % — lifetime cumulative MWR
 
-```
-Total P&L % = Total P&L ÷ peak net invested × 100      (— when peak ≤ 0)
-```
+The headline % beside the Total P&L dollars is the **lifetime cumulative
+money-weighted (XIRR) return** (`computeLifetimeMwrCumulativePct`,
+`src/lib/mwr.ts`): every external flow at its real date against the live value
+today, solved as one XIRR and de-annualized back over the book's own span. The
+same lens as the per-asset return % — "what did each of my dollars earn for the
+time it was in." Not gated on history length (a cumulative figure is exact at
+any age); "—" only when the solver has no answer (no flows, or a degenerate
+book). Surfaced on the Portfolio summary bar and as the Performance page's
+All-Time Return; the Dashboard hero shows the Total P&L **dollar alone** (its %
+lenses are the TWR headline and the annualized XIRR chip).
 
-The **%** is taken over **peak net invested** — the running maximum of the net-invested
-ledger (`computePeakInvestedUsd`), "the most external capital ever at work at once" —
-**not** the current balance. (The **$** still uses current net invested; only the **%**
-uses peak.) Renders "—" when peak ≤ 0 (nothing ever deployed).
-
-**Why peak:** *withdrawing your own money must not change your return %.* The current
-balance shrinks on withdrawal, which would inflate the % (and blow it up toward
-infinity as the balance nears zero, or flip it negative). Peak doesn't shrink, so the
-% stays stable — and a sale reads the same whether its proceeds are withdrawn or kept
-as cash on-platform. For a book that only ever adds capital, peak = current, so the %
-is the ordinary "gain ÷ what I put in."
-
-Withdrawal example: buy $30k → buy $20k (peak $50k) → withdraw $25k (current net
-invested $25k, peak still **$50k**). Value $26k → Total P&L $ = 26 − 25 = **+$1k**;
-% = 1 ÷ 50 = **+2%**.
-
-**Display status (since 2026-08-28):** the peak-based % is **no longer rendered as
-the Total P&L companion**. The Dashboard hero shows the Total P&L dollar alone (its
-% lenses are the TWR headline and the XIRR chip), and the Portfolio summary bar's
-headline % is the **lifetime cumulative MWR** (`computeLifetimeMwrCumulativePct`,
-`src/lib/mwr.ts`) — the same lens as the per-asset return %. The formula above
-remains canonical in the engine (`summarizePnLTotals`, currently dollar-only
-consumers) and peak stays the denominator base for the hero's period-% rules
-(zero-start / all-time windows).
+**History — peak net invested (removed 2026-08-28).** From 2026-06-06 the % was
+`Total P&L ÷ peak net invested` (the running maximum of the net-invested
+ledger), chosen so withdrawing your own money couldn't inflate the %. MWR keeps
+that property — an outflow enters the solve at its real date and simply means
+less capital at work afterwards — while also weighting each dollar by its time
+invested, so the peak convention and **all peak-invested calculations** were
+removed app-wide by user decision. Do **not** reintroduce a
+current-net-invested denominator either: it shrinks on withdrawal and explodes
+near zero — the original reason peak existed.
 
 ## 3. Return metrics — which number answers which question
 
@@ -72,7 +64,7 @@ metrics, and each is surfaced in its own view — **one graph never mixes two of
 | Question | Metric | Where it lives | On a withdrawal |
 |---|---|---|---|
 | "Did I beat the index?" | **TWR** (mine vs the index's) | Dashboard hero, vs-market view (the default) — `computeTWRSeries` | Invisible — by design |
-| "How much did I grow from *investing*, not from adding cash?" | **Simple ROI** = Total P&L $ ÷ peak net invested (§1–§2) | Engine-internal since 2026-08-28 (`summarizePnLTotals`; no display consumer for the %); peak survives as the hero's period-% denominator base | $ preserved, % stable (peak can't shrink) |
+| "How much did I grow from *investing*, not from adding cash?" | **Simple ROI** = Total P&L $ ÷ a capital base | **Removed 2026-08-28** — the peak-based % and every peak calculation were deleted app-wide; the $ answer remains the headline Total P&L (§1), and the % question is answered by MWR | — |
 | "What % did each of my dollars earn?" | **MWR / XIRR** (money-weighted rate) | **Portfolio summary bar headline %** (lifetime cumulative — `computeLifetimeMwrCumulativePct`), per-asset return % (`computeAssetReturnRates`), Dashboard hero MWR measure + lifetime "%/yr" chip — `computeMWRSeries` / `computeLifetimeXirrPct`; per-period, the Performance page monthly returns — `computeMonthlyReturns` / `subPeriodReturn` | Outflow at its real date → less capital at work afterwards; the rate stays honest |
 
 **XIRR is the app's single money-weighted core** (`src/lib/xirr.ts`). Everything
@@ -138,7 +130,7 @@ fresh $2k → $3k (+50%, +$1k); total money added **+$6,000**:
 |---|---|---|---|
 | **Time-Weighted (TWR)** | **+87.5%** (1.25 × 1.50 − 1) | "How good were my *decisions*?" — blind to how much money was in | Funds, indices, managers (GIPS standard) |
 | **Money-Weighted (MWR / XIRR)** | **≈ +26.8%/yr** | "What did *my actual dollars* earn?" — weighted by size & timing | Brokerages ("personal rate of return"), spreadsheet `XIRR()` |
-| **Simple ROI** | **+30%** (6k ÷ 20k peak) | "How much did I add on top, total?" — non-annualized | Casual trackers (this app's headline **$** logic; since 2026-08-28 the displayed % companion is the cumulative MWR) |
+| **Simple ROI** | **+30%** (6k ÷ 20k peak) | "How much did I add on top, total?" — non-annualized | Casual trackers (this app's headline **$** logic; the % itself was removed 2026-08-28 — the displayed % is the cumulative MWR) |
 
 The app's own goal — **"how much money I added on top of my original money"** — is
 **money-weighted by definition**: dollars matter, so a great-but-tiny year (the +50% on
@@ -159,9 +151,10 @@ truth; the % is a lens.**
 
 ## 4. Period vs all-time ("this year" vs lifetime)
 
-The peak % is an **all-time** number — cumulative, it doesn't reset when you cash out.
-In the Y1/Y2 example above the all-time % after re-entry is ~30% (the full $6k against
-the $20k lifetime peak). That is **not** "this year": Y2 on its own is +50%.
+The headline MWR % is an **all-time** number — cumulative over the whole book, it
+doesn't reset when you cash out. In the Y1/Y2 example above the lifetime figure
+after re-entry blends both years' dollars at their real dates. That is **not**
+"this year": Y2 on its own is +50%.
 
 "This year / this period" is a **windowed money-weighted return**, measured against the
 capital at work *during the window*:
@@ -187,10 +180,10 @@ separately (see §6 for the not-yet-built YTD return).
   sums only currently-held assets, so a fully-sold position's realized P&L is absent
   from the per-category breakdown (Performance page). Understates; not wired to the
   money-weighted headline.
-- **Performance page** computes its own all-time return as the FIFO sum
-  (`unrealized + realized`), diverging from the money-weighted headline whenever fiat
-  FX or the above bite. **Parked by decision** — the single-engine consolidation
-  covers the Dashboard + Portfolio, not the Performance page.
+- ~~**Performance page** computes its own all-time return as the FIFO sum~~
+  **Resolved 2026-08-28**: the Performance page's All-Time Return tile now reads
+  the same lifetime cumulative MWR as the Portfolio headline
+  (`computeLifetimeMwrCumulativePct` via `usePerformance`).
 
 ## 6. Future ideas (not yet built)
 
@@ -205,8 +198,9 @@ separately (see §6 for the not-yet-built YTD return).
 | Concern | Function | File |
 |---|---|---|
 | **Engine (one pure function)** | `computePortfolioPnL` | `src/lib/pnl/portfolio.ts` |
-| Canonical total + % | `summarizePnLTotals` | `src/lib/pnl/totals.ts` |
-| Net invested / peak | `computeCurrentInvestedUsd` / `computePeakInvestedUsd` | `src/lib/performance.ts` |
+| Canonical total ($, dollars only) | `summarizePnLTotals` | `src/lib/pnl/totals.ts` |
+| Headline % (lifetime cumulative MWR) | `computeLifetimeMwrCumulativePct` | `src/lib/mwr.ts` |
+| Net invested | `computeCurrentInvestedUsd` | `src/lib/performance.ts` |
 | FIFO cost basis & realized | `computeFIFOLots`, `buildRealizedByTx` | `src/lib/pnl/fifo.ts`, `realized.ts` |
 | Unrealized | `computeUnrealizedPnL` | `src/lib/pnl/unrealized.ts` |
 | Income (dividend/interest) | `computeIncomeUsd` | `src/lib/pnl/income.ts` |

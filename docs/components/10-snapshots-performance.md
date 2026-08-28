@@ -71,7 +71,8 @@ All performance math is [money-weighted](GLOSSARY.md#money-weighted) and [USD-an
   - Worked example: period start value 10,000; end value 11,500; a 1,000 deposit at the period midpoint. Time-weight w = (T − t)/T = 0.5. Return = (11,500 − 10,000 − 1,000) / (10,000 + 1,000·0.5) = 500 / 10,500 ≈ **+4.76%**. Counting the deposit as gain would wrongly read +15%.
 - **Drawdown** — for each snapshot, `(value − running peak) / running peak`, always ≤ 0. Max drawdown is the minimum of the series. Computed on USD only (home-fiat drawdown would be distorted by currency depreciation).
 - **Category attribution** — per category: cost basis, current value, total P&L (unrealized + realized), and that category's share of total portfolio P&L. Anchored on actual transactions (cost basis), not on snapshots, so it doesn't misstate the starting point when snapshots begin after the first deposit. Fiat is excluded (no meaningful P&L). This view is portfolio-wide (lifetime), independent of the selected range.
-- **All-time return** — total P&L ÷ absolute net invested capital.
+- **All-time return (MWR)** — the lifetime cumulative money-weighted (XIRR)
+  return, the same lens as the Portfolio headline %.
 - **CAGR** — `(current value / net invested)^(1/years) − 1`, anchored on the first transaction date; shown as `N/A` below ~1 month of history. A friendly approximation; rigorous money-weighting for irregular flows would be a per-flow internal rate of return.
 - **Benchmark comparison** — the portfolio's value path overlaid against a chosen market index's daily-close series (default: a broad US index), so relative performance is visible. The index is informational only — it never feeds the portfolio's own totals.
 

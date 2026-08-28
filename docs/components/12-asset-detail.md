@@ -74,9 +74,9 @@ return, shown **cumulative at any age** — "what each dollar earned for the
 time it was in", exact regardless of history length — with the **annualized
 %/yr shown beneath only once the asset has ≥ 1 year of history** (the same
 gate as the portfolio's lifetime chip; annualizing a short book is noise).
-The peak-net-invested % convention is deliberately **not** used here — it
-stays a portfolio-headline convention; at the asset level the user reads the
-% as "what did my dollars earn", which is the money-weighted question. The
+A peak-net-invested % is **not** used here — nor anywhere since 2026-08-28,
+when peak calculations were removed app-wide; the user reads every % as "what
+did my dollars earn", which is the money-weighted question. The
 flows use the canonical per-transaction net-invested rule over the **asset
 boundary** — deliberately different from the portfolio MWR's external-flow
 rule: there a buy's paired cash leg cancels it (money never left the

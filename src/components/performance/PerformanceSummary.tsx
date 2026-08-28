@@ -4,6 +4,8 @@ import type { PerformanceMetrics, TimeRange } from "@/lib/performance"
 
 interface Props {
   metrics: PerformanceMetrics
+  /** Lifetime cumulative money-weighted (XIRR) return % — null renders "N/A". */
+  allTimeMwrPct: number | null
   currentValueUsd: number
   currency: "USD" | "TRY"
   timeRange: TimeRange
@@ -11,6 +13,7 @@ interface Props {
 
 export function PerformanceSummary({
   metrics,
+  allTimeMwrPct,
   currentValueUsd,
   currency,
   timeRange,
@@ -25,12 +28,12 @@ export function PerformanceSummary({
       value: formatCurrency(currentValueUsd, currency),
     },
     {
-      label: "All-Time Return",
-      value: metrics.allTimeReturnPct != null
-        ? formatSignedPercent(metrics.allTimeReturnPct, 1)
+      label: "All-Time Return (MWR)",
+      value: allTimeMwrPct != null
+        ? formatSignedPercent(allTimeMwrPct, 1)
         : "N/A",
-      color: metrics.allTimeReturnPct != null
-        ? gainLossClass(metrics.allTimeReturnPct >= 0)
+      color: allTimeMwrPct != null
+        ? gainLossClass(allTimeMwrPct >= 0)
         : undefined,
     },
     {

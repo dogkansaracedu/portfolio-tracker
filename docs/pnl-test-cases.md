@@ -2,7 +2,7 @@
 
 Companion to `docs/pnl-methodology.md` (definitions, return-% methodology, and known issues).
 
-Purpose: a verifiable, case-by-case description of how the P&L engine **must** behave. Each case lists concrete inputs and the exact expected outputs. Use it to (a) hand the engine off to anyone (or future-you), (b) manually verify on prod, and (c) drive the automated tests. These cases are now wired as **Vitest** tests against the real engine (`computePortfolioPnL`): `src/lib/pnl/cases.test.ts`, `peak.test.ts`, `totals.test.ts`, and `src/lib/portfolio/daily.test.ts`. The time-weighted-return cases at the end run against `computeTWRSeries` in `src/lib/twr.test.ts`. Run `npm test`.
+Purpose: a verifiable, case-by-case description of how the P&L engine **must** behave. Each case lists concrete inputs and the exact expected outputs. Use it to (a) hand the engine off to anyone (or future-you), (b) manually verify on prod, and (c) drive the automated tests. These cases are now wired as **Vitest** tests against the real engine (`computePortfolioPnL`): `src/lib/pnl/cases.test.ts`, `totals.test.ts`, and `src/lib/portfolio/daily.test.ts`. The time-weighted-return cases at the end run against `computeTWRSeries` in `src/lib/twr.test.ts`. Run `npm test`.
 
 ---
 
@@ -13,13 +13,13 @@ All money math is in USD, via `bignumber.js`. Engine lives in `src/lib/pnl/*` an
 **Canonical Total P&L (money-weighted):**
 ```
 Total P&L $   = total value − net invested capital
-Total P&L %   = Total P&L $ / peak net invested capital × 100   (— when peak ≤ 0)
 ```
-- **Peak net invested** = the running maximum of the net-invested ledger
-  (`computePeakInvestedUsd`) — "the most external capital ever at work at once."
-  The % uses peak, not the *current* net invested, so withdrawing your own money
-  never changes the return and a sell reads the same whether its proceeds are
-  withdrawn or kept as cash. The **$** figure still uses current net invested.
+- **The % companion is the lifetime cumulative MWR** (`computeLifetimeMwrCumulativePct`,
+  `src/lib/mwr.ts` — tested in `mwr.test.ts`, see methodology §2), not a ratio of
+  the dollars above. The former peak-net-invested % and all peak calculations
+  were removed 2026-08-28; the historical per-case "% = x/peak" expectations
+  were removed from this file with them. The **$** expectations below are
+  unchanged and still run as tests.
 - **Total value** = every holding (incl. cash balances) × current price, in USD.
 - **Net invested capital** = external money deployed. Per transaction type (`applyTxToInvested` in `performance.ts`):
 
@@ -54,7 +54,7 @@ Total value − net invested  ==  unrealized + realized + income      (within $0
 period return $  = current value − previous-snapshot value − net invested during the period
 period return %  = period return $ / (previous value + net invested during the period)
 ```
-Income is neutral in "net invested during the period" too — so interest earned in the period shows up as period gain. The **baseline** is the most recent snapshot dated *before today* (home-local, `homeDayIso()`), chosen by date — not `snapshots[length-2]` — so it's correct before today's snapshot is written and across cron gaps (a >1-day-old baseline still shows the delta). Period transactions are bucketed by their **home-local** day so the cutoff matches the (home-local) `snapshot_date`. The period % keeps its own base (`prev value + period invested`); peak is only for the all-time %.
+Income is neutral in "net invested during the period" too — so interest earned in the period shows up as period gain. The **baseline** is the most recent snapshot dated *before today* (home-local, `homeDayIso()`), chosen by date — not `snapshots[length-2]` — so it's correct before today's snapshot is written and across cron gaps (a >1-day-old baseline still shows the delta). Period transactions are bucketed by their **home-local** day so the cutoff matches the (home-local) `snapshot_date`. The period % keeps its own base (`prev value + period invested`).
 
 ---
 
@@ -106,9 +106,9 @@ Format per case: **Inputs** → **Expected** (net invested, value, unrealized / 
 **Expected:**
 - Net invested = 200 − 150 = **$50**. Remaining 1 unit, cost $100. Value = **$150**.
 - unrealized **+$50** (150 − 100), realized **+$50** (150 − 100), income $0.
-- **Total P&L = +$100** (150 − 50). **% = 100 / 200 = +50%** (peak invested = $200, the high-water mark before the sell).
+- **Total P&L = +$100** (150 − 50).
 - Reconcile: 50 + 50 + 0 = 100 = 150 − 50. ✓
-- **Note:** the % is over *peak* net invested ($200), so it reads the intuitive +50% regardless of whether the $150 was withdrawn or left on the platform as cash.
+- **Note:** the $ reads the same regardless of whether the $150 was withdrawn or left on the platform as cash (the paired `cash_credit` cancels the sell's subtraction).
 
 ### Case 7 — Fiat FX is real P&L
 **Inputs:** Hold €100 cash (`transfer_in` €100) when EUR/USD = 1.10. Later EUR/USD = 1.20. No income.
@@ -135,34 +135,34 @@ This validates the net-invested vs fiat-cost-basis split. The interest must show
 **Expected:**
 - Net invested = 100 − 130 = **−$30** (you took out more than you put in). Value = **$0**.
 - unrealized $0, realized **+$30** (130 − 100), income $0.
-- **Total P&L = +$30** (0 − (−30)). **% = 30 / 100 = +30%** (peak invested = $100).
-- Reconcile: 0 + 30 + 0 = 30 = 0 − (−30). ✓ (% uses peak net invested, so "turned $100 into $130" reads as +30% even though current net invested is −$30. Realized from sold-out positions is included in the headline total.)
+- **Total P&L = +$30** (0 − (−30)).
+- Reconcile: 0 + 30 + 0 = 30 = 0 − (−30). ✓ (Realized from sold-out positions is included in the headline total.)
 
-### Case 11 — Peak invariance: withdraw vs hold proceeds (the headline demo)
+### Case 11 — Cash-plumbing invariance: withdraw vs hold proceeds (the headline demo)
 **Inputs:** Buy 2 @ $100 ($200). Sell 1 @ $150 — once with proceeds **withdrawn**, once **kept as cash** (paired `cash_credit`).
-**Expected:** Both → Total P&L **+$100**, peak invested **$200**, **% = +50%**. Same trade ⇒ same %, regardless of cash plumbing. (`computePeakInvestedUsd` in `peak.test.ts`.)
+**Expected:** Both → Total P&L **+$100**. Same trade ⇒ same P&L, regardless of cash plumbing.
 
 ### Case 12 — Withdraw the full principal, keep the gains
 **Inputs:** Buy 1 @ $100; price → $200; sell 0.5 @ $200 (proceeds withdrawn). Remaining 0.5 unit @ $200.
-**Expected:** Net invested **$0**, value **$100**, peak **$100**, Total P&L **+$100 = +100%**. (Peak keeps the % well-defined even though current net invested is $0.)
+**Expected:** Net invested **$0**, value **$100**, Total P&L **+$100**.
 - Reconcile: unrealized 50 + realized 50 + 0 = 100. ✓
 
 ### Case 13 — Loss then withdrawal
 **Inputs:** Buy 1 @ $100; price → $50; sell 1 @ $50 (withdrawn).
-**Expected:** realized **−$50**, peak **$100**, Total P&L **−$50 = −50%** (not −100%). ✓
+**Expected:** realized **−$50**, Total P&L **−$50** (not −$100). ✓
 
 ### Case 14 — FIFO ordering (oldest lot first)
 **Inputs:** Buy 1 @ $100, buy 1 @ $200, sell 1 @ $250 (withdrawn). Current price $250.
-**Expected:** realized **+$150** (250 − 100, not avg 150), remaining lot $200 → unrealized **+$50**, peak **$300**, Total P&L **+$200 = +66.67%**.
+**Expected:** realized **+$150** (250 − 100, not avg 150), remaining lot $200 → unrealized **+$50**, Total P&L **+$200**.
 - Reconcile: 50 + 150 + 0 = 200. ✓
 
 ### Case 15 — Income reinvested then fully sold at cost (counted once)
 **Inputs:** Buy 1 @ $100; reinvested dividend 0.05u @ $100 (income); sell 1.05u @ $100 (withdrawn).
-**Expected:** realized **$0**, income **+$5**, peak **$100**, Total P&L **+$5 = +5%**. The $5 is counted once. ✓
+**Expected:** realized **$0**, income **+$5**, Total P&L **+$5**. The $5 is counted once. ✓
 
 ### Case 16 — Income then withdrawn
 **Inputs:** $100 USD cash; +$5 interest (cash); withdraw $5.
-**Expected:** net invested **$95**, peak **$100**, value **$100**, income **+$5**, Total P&L **+$5 = +5%**. ✓
+**Expected:** net invested **$95**, value **$100**, income **+$5**, Total P&L **+$5**. ✓
 
 ### Case 17 — Income on a losing position
 **Inputs:** Buy 1 @ $100; +$5 cash dividend; price → $80.
@@ -170,15 +170,15 @@ This validates the net-invested vs fiat-cost-basis split. The interest must show
 
 ### Case 18 — Fee on a buy (capitalized, still held)
 **Inputs:** Buy 1 @ $100 + **$2 fee**; price $120.
-**Expected:** cost basis **$102** (fee capitalized), net invested **$102**, peak **$102**, unrealized **+$18**, Total P&L **+$18 = +17.65%**. ✓
+**Expected:** cost basis **$102** (fee capitalized), net invested **$102**, unrealized **+$18**, Total P&L **+$18**. ✓
 
 ### Case 19 — Fee on a sell (reduces proceeds → realized)
 **Inputs:** Buy 1 @ $100; sell 1 @ $150 − **$3 fee** (withdrawn).
-**Expected:** realized **+$47** (147 − 100), net invested **−$47**, peak **$100**, Total P&L **+$47 = +47%**. ✓
+**Expected:** realized **+$47** (147 − 100), net invested **−$47**, Total P&L **+$47**. ✓
 
 ### Case 20 — Asset priced in TRY (native currency + FX)
 **Inputs:** Buy 10 units @ ₺100 (₺1000) at USD/TRY = 25 → cost **$40**. Later price ₺150 at USD/TRY = 30 → value **$50**.
-**Expected:** unrealized **+$10**, peak **$40**, Total P&L **+$10 = +25%**. (₺ gain +50%, USD gain +25% — TRY depreciation eats the rest.) ✓
+**Expected:** unrealized **+$10**, Total P&L **+$10**. (₺ gain +50%, USD gain +25% of the deployed $40 — TRY depreciation eats the rest.) ✓
 
 ### Case 21 — Standalone fee (KNOWN-FAILING, out of scope)
 **Inputs:** $100 USD cash; standalone `fee` of $5.
@@ -200,7 +200,7 @@ The `tax` type: money the tax office took from a cash balance (e.g. Midas' month
 **Expected:**
 - Balance 950 → value **$950**. Net invested **$1,000** (tax is a cost, never a flow — it must not shrink invested the way a `transfer_out` would, and it is not an external flow for XIRR/TWR either, so the return engines absorb it as performance).
 - Total P&L **−$50**, surfaced as the cash holding's unrealized (the fiat cost basis keeps the pre-tax figure).
-- % over peak: −50/1,000 = **−5%**. Reconciles: 950 − 1,000 = −50 + 0 + 0. ✓
+- Reconciles: 950 − 1,000 = −50 + 0 + 0. ✓
 
 ### Case 10 — Reconciliation invariant (master check)
 For **any** mix of the above, the engine must hold:
@@ -296,7 +296,7 @@ from `solveXirrLog1p`) and lands on −10%.
 3. For period return ("for the given time"), use the Portfolio **Daily** return toggle (compares against the previous snapshot).
 
 ## Known, intentional behaviors (not bugs)
-- **% denominator is peak net invested** (money-weighted). Stable across withdrawals; "—" only when nothing was ever deployed. The **$** uses current net invested (Cases 6, 9).
+- **The headline % is the lifetime cumulative MWR** (`lib/mwr.ts`) — no peak- or current-invested ratio. The **$** uses current net invested (Cases 6, 9).
 - **Fiat FX counts as P&L** (Case 7) — by design (USD anchor).
 - **Income is neutral to net invested** and recognized once, as the `income` term (Cases 2–5, 8).
 - **At-source tax is an additive overlay** (Case 22): an asset with an `at_source_tax_rate` (e.g. PPF 17.5%) reports `taxAccrualUsd` = rate × positive native gain (held + realized); gross figures and the reconciliation invariant are untouched, and after-tax Total P&L = gross − `totalTaxAccrualUsd`. Realized accrual covers held positions only (a sold-out position is not accrued).
@@ -308,7 +308,6 @@ from `solveXirrLog1p`) and lands on −10%.
 |---|---|---|
 | **Engine (one pure function)** | `computePortfolioPnL` | `src/lib/pnl/portfolio.ts` |
 | Net invested | `computeCurrentInvestedUsd` / `applyTxToInvested` | `src/lib/performance.ts` |
-| Peak net invested (% denominator) | `computePeakInvestedUsd` | `src/lib/performance.ts` |
 | Income | `computeIncomeUsd` | `src/lib/pnl/income.ts` |
 | FIFO cost basis & realized | `computeFIFOLots`, `buildRealizedByTx` | `src/lib/pnl/fifo.ts`, `realized.ts` |
 | Unrealized | `computeUnrealizedPnL` | `src/lib/pnl/unrealized.ts` |
