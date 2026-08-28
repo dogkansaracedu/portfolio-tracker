@@ -30,7 +30,7 @@ This component *uses* most P&L vocabulary; it does not define it. See:
 - [FIFO lots and cost basis](GLOSSARY.md#fifo-lots-and-cost-basis) · [Realized and unrealized](GLOSSARY.md#realized-and-unrealized) · [Fiat FX P&L](GLOSSARY.md#fiat-fx-pl)
 - [Daily return](GLOSSARY.md#daily-return) · [Time-Weighted Return](GLOSSARY.md#time-weighted-return-twr) · [Snapshot](GLOSSARY.md#snapshot) · [Exchange rate](GLOSSARY.md#exchange-rate)
 - Formulas: [Total P&L](GLOSSARY.md#total-pl) · [Daily return formula](GLOSSARY.md#daily-return-formula) · [Time-Weighted Return formula](GLOSSARY.md#time-weighted-return-formula)
-- Deep rationale (incl. the return-% methodology — TWR vs money-weighted vs peak): [P&L Methodology](../pnl-methodology.md)
+- Deep rationale (incl. the return-% methodology — TWR vs money-weighted): [P&L Methodology](../pnl-methodology.md)
 - Verifiable behaviour: [worked P&L cases](../pnl-test-cases.md) (each case runs
   as an automated test)
 
@@ -103,15 +103,17 @@ transfers cancel (out + in net to zero, a lone transfer_in adds its cost basis);
 that lands cash on-platform nets to **zero** invested change. A **tax** charge
 is neutral to net invested and is never an external flow: the cash it removes
 surfaces entirely as P&L loss (and as cost drag in the return measures), because
-money taken by the tax office is a cost, not a withdrawal. Total-return % is
-over [peak net invested capital](GLOSSARY.md#peak-net-invested-capital) (the running
-max), **not** the current balance — so withdrawing your own money never changes the %,
-and it can't explode as the current balance shrinks toward zero.
+money taken by the tax office is a cost, not a withdrawal. The total-return %
+shown beside the dollars is the lifetime cumulative
+[money-weighted return](GLOSSARY.md#money-weighted-return-mwr--xirr) — never a
+ratio over the current net-invested balance (which shrinks on withdrawal and
+would distort the %); the former peak-net-invested convention was removed
+2026-08-28.
 
-**Worked example.** Deploy a net $50,000 over time (never withdrawing, so peak =
-current = $50,000); portfolio is worth $51,000 today → Total P&L = 51,000 − 50,000 =
-**+$1,000** (+2.0%). After a withdrawal the current balance shrinks, but the % stays
-over the $50,000 peak.
+**Worked example.** Deploy a net $50,000 over time; portfolio is worth $51,000
+today → Total P&L = 51,000 − 50,000 = **+$1,000**. The % companion is the
+money-weighted return of those same flows, so a withdrawal enters at its real
+date and cannot inflate the figure.
 
 ### 4. Realized / unrealized as sub-views
 
@@ -214,10 +216,10 @@ any cash added or removed along the way.
 - **Per asset:** cost basis (USD + native when single-currency), current value,
   unrealized P&L (USD + %), realized P&L, remaining lots.
 - **Portfolio totals:** total cost basis, total current value, total unrealized,
-  total realized (full history), income, **net invested capital**, **peak net
-  invested**, and the canonical **Total P&L** (USD, TRY, %). The % is over peak and is
-  **null → render "—"** when peak ≤ 0 (nothing ever deployed). Plus the portfolio
-  sum of the per-asset [after-tax](GLOSSARY.md#after-tax-pl) accrual.
+  total realized (full history), income, **net invested capital**, and the
+  canonical **Total P&L dollars** (USD, TRY). The % companion is computed
+  outside the engine as the lifetime cumulative money-weighted return. Plus the
+  portfolio sum of the per-asset [after-tax](GLOSSARY.md#after-tax-pl) accrual.
 - **Per asset (cont.):** the at-source tax accrual for that holding (0 when it
   carries no rate).
 - **Per realizing transaction:** a realized-P&L entry (proceeds, cost basis,
@@ -244,8 +246,10 @@ any cash added or removed along the way.
 - [ ] Realized + unrealized reconcile to the total (`unrealized = total − realized`).
 - [ ] Daily return = Δ(value − invested) since the most recent snapshot before today
       (home-local day); a ≤ 0 base returns no value rather than 0% / NaN.
-- [ ] **Total P&L % is over peak net invested** — a withdrawal does not change it; it
-      renders "—" when peak ≤ 0 (nothing ever deployed).
+- [ ] **Total P&L % is the lifetime cumulative money-weighted return** — a
+      withdrawal enters at its real date and does not inflate it; absent/"—"
+      when the solver has no answer. No peak- or current-invested ratio
+      anywhere.
 - [ ] An at-source-taxed asset (e.g. PPF, 17.5%) reports its gain net of tax via an
       additive accrual; gross figures and the money-weighted invariant are unchanged.
 - [ ] The accrual covers the held position's positive native gain (unrealized plus

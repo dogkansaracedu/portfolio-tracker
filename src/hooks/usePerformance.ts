@@ -7,6 +7,8 @@ import {
   type PerformanceMetrics,
   type CategoryAttributionRow,
 } from "@/lib/performance"
+import { computeLifetimeMwrCumulativePct } from "@/lib/mwr"
+import { homeDayIso } from "@/lib/config"
 import type { Snapshot, Transaction, ExchangeRate } from "@/types/database"
 import type { AssetPnL } from "@/lib/pnl/types"
 
@@ -17,13 +19,15 @@ interface UsePerformanceArgs {
   transactions: Transaction[]
   rates: ExchangeRate[]
   totalInvestedUsd: number
-  totalPnlUsd: number
   currentValueUsd: number
 }
 
 interface UsePerformanceResult extends PerformanceMetrics {
   filteredSnapshots: Snapshot[]
   categoryAttribution: CategoryAttributionRow[]
+  /** Lifetime cumulative money-weighted (XIRR) return % — the All-Time Return
+   *  tile. Null when the solver has no answer. */
+  allTimeMwrPct: number | null
 }
 
 export function usePerformance({
@@ -33,7 +37,6 @@ export function usePerformance({
   transactions,
   rates,
   totalInvestedUsd,
-  totalPnlUsd,
   currentValueUsd,
 }: UsePerformanceArgs): UsePerformanceResult {
   const filtered = useMemo(
@@ -48,17 +51,22 @@ export function usePerformance({
         transactions,
         rates,
         totalInvestedUsd,
-        totalPnlUsd,
         currentValueUsd,
       }),
-    [
-      filtered,
-      transactions,
-      rates,
-      totalInvestedUsd,
-      totalPnlUsd,
-      currentValueUsd,
-    ],
+    [filtered, transactions, rates, totalInvestedUsd, currentValueUsd],
+  )
+
+  // All-Time Return = lifetime cumulative MWR — same lens as the Portfolio
+  // headline % and the per-asset %.
+  const allTimeMwrPct = useMemo(
+    () =>
+      computeLifetimeMwrCumulativePct(
+        transactions,
+        rates,
+        currentValueUsd,
+        homeDayIso(),
+      ),
+    [transactions, rates, currentValueUsd],
   )
 
   // Category attribution is portfolio-wide and time-range independent: it
@@ -72,5 +80,6 @@ export function usePerformance({
     ...metrics,
     categoryAttribution,
     filteredSnapshots: filtered,
+    allTimeMwrPct,
   }
 }

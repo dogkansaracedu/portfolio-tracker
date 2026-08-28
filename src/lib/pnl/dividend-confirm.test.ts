@@ -12,12 +12,16 @@ import {
   prices,
 } from "./test-fixtures"
 
+/** Total P&L $ as a % of net invested. Fine as a test lens here: these books
+ *  only ever add capital, so net invested is the natural base. */
 const pct = (p: PortfolioPnL) =>
   summarizePnLTotals({
     totalCurrentValueUsd: p.totalCurrentValueUsd,
     totalInvestedUsd: p.totalInvestedUsd,
-    peakInvestedUsd: p.totalPeakInvestedUsd,
-  }).totalPnlPct?.toNumber() ?? null
+  })
+    .totalPnlUsd.div(p.totalInvestedUsd)
+    .times(100)
+    .toNumber()
 
 /** unrealized % of a single asset lot = its own-transaction return. */
 const assetPct = (p: PortfolioPnL, assetId: string) =>

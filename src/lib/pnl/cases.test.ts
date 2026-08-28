@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest"
 import { computePortfolioPnL } from "@/lib/pnl/portfolio"
-import { summarizePnLTotals } from "@/lib/pnl/totals"
 import type { PortfolioPnL } from "@/lib/pnl/types"
 import type { Transaction, PriceCache, ExchangeRate } from "@/types/database"
 import type { HoldingWithDetails } from "@/lib/queries/holdings"
@@ -42,16 +41,6 @@ function run(
   })
 }
 
-/** Total P&L % over peak (what the headline shows). */
-function pct(pnl: PortfolioPnL): number | null {
-  const { totalPnlPct } = summarizePnLTotals({
-    totalCurrentValueUsd: pnl.totalCurrentValueUsd,
-    totalInvestedUsd: pnl.totalInvestedUsd,
-    peakInvestedUsd: pnl.totalPeakInvestedUsd,
-  })
-  return totalPnlPct?.toNumber() ?? null
-}
-
 /** The reconciliation invariant must hold for every case. */
 function expectReconciles(pnl: PortfolioPnL) {
   const moneyWeighted = pnl.totalCurrentValueUsd.minus(pnl.totalInvestedUsd)
@@ -67,58 +56,48 @@ describe("P&L cases — unrealized & realized (USD)", () => {
   it("C1 — buy, price rises (pure unrealized)", () => {
     const pnl = run([buy(1, 100)], [holding({ balance: 1 })], prices({ ASSET: 120 }))
     expect(pnl.totalInvestedUsd.toNumber()).toBe(100)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(100)
     expect(pnl.totalCurrentValueUsd.toNumber()).toBe(120)
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(20)
     expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(0)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(0)
-    expect(pct(pnl)).toBe(20)
     expectReconciles(pnl)
   })
 
-  it("C6 — sell (realized); % is over peak, not the shrunken balance", () => {
+  it("C6 — sell (realized)", () => {
     const pnl = run(
       [buy(2, 100), sell(1, 150)],
       [holding({ balance: 1 })],
       prices({ ASSET: 150 }),
     )
     expect(pnl.totalInvestedUsd.toNumber()).toBe(50)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(200)
     expect(pnl.totalCurrentValueUsd.toNumber()).toBe(150)
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(50)
     expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(50)
-    expect(pct(pnl)).toBe(50) // was +200% under |current invested|
     expectReconciles(pnl)
   })
 
   it("C9 — fully sold / house money (negative net invested)", () => {
     const pnl = run([buy(1, 100), sell(1, 130)], [], prices({ ASSET: 130 }))
     expect(pnl.totalInvestedUsd.toNumber()).toBe(-30)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(100)
     expect(pnl.totalCurrentValueUsd.toNumber()).toBe(0)
     expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(30)
-    expect(pct(pnl)).toBe(30) // was +100%
     expectReconciles(pnl)
   })
 
-  it("withdraw the full principal — % stays put (peak base)", () => {
+  it("withdraw the full principal — P&L $ stays put", () => {
     const pnl = run(
       [buy(1, 100), sell(0.5, 200)],
       [holding({ balance: 0.5 })],
       prices({ ASSET: 200 }),
     )
     expect(pnl.totalInvestedUsd.toNumber()).toBe(0)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(100)
     expect(pnl.totalCurrentValueUsd.toNumber()).toBe(100)
-    expect(pct(pnl)).toBe(100)
     expectReconciles(pnl)
   })
 
   it("loss then withdrawal — −50%, not −100%", () => {
     const pnl = run([buy(1, 100), sell(1, 50)], [], prices({ ASSET: 50 }))
     expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(-50)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(100)
-    expect(pct(pnl)).toBe(-50)
     expectReconciles(pnl)
   })
 
@@ -130,8 +109,6 @@ describe("P&L cases — unrealized & realized (USD)", () => {
     )
     expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(150) // 250 − 100, not − avg(150)
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(50) // remaining 200 lot
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(300)
-    expect(pct(pnl)).toBeCloseTo(66.67, 2)
     expectReconciles(pnl)
   })
 })
@@ -147,7 +124,6 @@ describe("P&L cases — income (dividend / interest)", () => {
     expect(pnl.totalCurrentValueUsd.toNumber()).toBe(105)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(5)
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(0)
-    expect(pct(pnl)).toBe(5)
     expectReconciles(pnl)
   })
 
@@ -161,7 +137,6 @@ describe("P&L cases — income (dividend / interest)", () => {
     expect(pnl.totalCurrentValueUsd.toNumber()).toBe(105)
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(0)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(5)
-    expect(pct(pnl)).toBe(5)
     expectReconciles(pnl)
   })
 
@@ -174,7 +149,6 @@ describe("P&L cases — income (dividend / interest)", () => {
     expect(pnl.totalCurrentValueUsd.toNumber()).toBe(126)
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(21)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(5)
-    expect(pct(pnl)).toBe(26)
     expectReconciles(pnl)
   })
 
@@ -186,8 +160,6 @@ describe("P&L cases — income (dividend / interest)", () => {
     )
     expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(0)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(5)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(100)
-    expect(pct(pnl)).toBe(5)
     expectReconciles(pnl)
   })
 
@@ -198,10 +170,8 @@ describe("P&L cases — income (dividend / interest)", () => {
       prices({ USD: 1 }),
     )
     expect(pnl.totalInvestedUsd.toNumber()).toBe(95)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(100)
     expect(pnl.totalCurrentValueUsd.toNumber()).toBe(100)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(5)
-    expect(pct(pnl)).toBe(5)
     expectReconciles(pnl)
   })
 
@@ -218,7 +188,6 @@ describe("P&L cases — income (dividend / interest)", () => {
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(-20)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(5)
     expect(pnl.totalInvestedUsd.toNumber()).toBe(100)
-    expect(pct(pnl)).toBe(-15)
     expectReconciles(pnl)
   })
 })
@@ -231,9 +200,7 @@ describe("P&L cases — fees", () => {
       prices({ ASSET: 120 }),
     )
     expect(pnl.totalInvestedUsd.toNumber()).toBe(102)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(102)
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(18)
-    expect(pct(pnl)).toBeCloseTo(17.65, 2)
     expectReconciles(pnl)
   })
 
@@ -245,8 +212,6 @@ describe("P&L cases — fees", () => {
     )
     expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(47)
     expect(pnl.totalInvestedUsd.toNumber()).toBe(-47)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(100)
-    expect(pct(pnl)).toBe(47)
     expectReconciles(pnl)
   })
 })
@@ -264,12 +229,10 @@ describe("P&L cases — taxes", () => {
     // Net invested untouched by the tax — the charge is a cost, not a
     // withdrawal — so the 50 lost surfaces entirely as P&L.
     expect(pnl.totalInvestedUsd.toNumber()).toBe(1000)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(1000)
     expect(pnl.totalCurrentValueUsd.toNumber()).toBe(950)
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(-50)
     expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(0)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(0)
-    expect(pct(pnl)).toBe(-5)
     expectReconciles(pnl)
   })
 })
@@ -286,7 +249,6 @@ describe("P&L cases — currency / FX", () => {
     expect(pnl.totalCurrentValueUsd.toNumber()).toBeCloseTo(120, 6)
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBeCloseTo(10, 6)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(0)
-    expect(pct(pnl)).toBeCloseTo(9.09, 2)
     expectReconciles(pnl)
   })
 
@@ -318,7 +280,6 @@ describe("P&L cases — currency / FX", () => {
     expect(pnl.totalInvestedUsd.toNumber()).toBeCloseTo(40, 6) // ₺1000 / 25
     expect(pnl.totalCurrentValueUsd.toNumber()).toBeCloseTo(50, 6)
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBeCloseTo(10, 6)
-    expect(pct(pnl)).toBeCloseTo(25, 6)
     expectReconciles(pnl)
   })
 })
@@ -335,8 +296,6 @@ describe("P&L cases — invariant & known gaps", () => {
     expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(21)
     expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(50)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(5)
-    expect(pnl.totalPeakInvestedUsd.toNumber()).toBe(200)
-    expect(pct(pnl)).toBe(38) // 76 / 200
     expectReconciles(pnl)
   })
 

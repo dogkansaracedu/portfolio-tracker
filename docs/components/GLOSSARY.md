@@ -96,15 +96,11 @@ is tracked in its native units, but its gain/loss is always the change in USD va
 The **net USD actually deployed** into a position or the portfolio. Deposits and the
 cash legs of trades net out — a sell and its paired `cash_credit` cancel — so this
 reflects capital at work, not cash sloshing in and out. Total P&L $ is `value − net
-invested`; the **%** is taken over [peak net invested](#peak-net-invested-capital),
-not this current balance.
-
-### Peak net invested capital
-The **running maximum** of net invested capital over the portfolio's life — "the most
-external capital ever at work at once." The denominator for [Total P&L](#total-pl) %,
-so withdrawing your own money never changes the return % (and the % can't explode as
-the current balance shrinks toward zero). Equals current net invested for a book that
-only ever added capital; "—" when it is ≤ 0 (nothing was ever deployed).
+invested`; the headline **%** is the lifetime cumulative
+[money-weighted return](#money-weighted-return-mwr--xirr), never a ratio over this
+balance (which shrinks on withdrawal and would distort the %). The former
+"peak net invested" denominator convention was removed 2026-08-28 — no peak
+calculations exist in the app.
 
 ### Money-weighted
 Comparing value today against **dollars actually deployed** (not a time-weighted
@@ -149,8 +145,8 @@ spans at least a year (shorter spans annualize into noise). Unlike
 [TWR](#time-weighted-return-twr) it needs no intermediate valuations — only
 endpoint values and dated flows — so a windowed MWR is exact even over
 weekly-sampled history. Contrast: TWR answers "how good is the strategy, per
-dollar"; MWR answers "what did *my* dollars earn"; the peak-based
-[Total P&L %](#total-pl-1) is a simpler lifetime score with no time dimension.
+dollar"; MWR answers "what did *my* dollars earn" — and its lifetime cumulative
+form is the app's [Total P&L %](#total-pl-1).
 See the [formula](#money-weighted-return-xirr-formula).
 
 ### What-if index (same-flows benchmark)
@@ -436,16 +432,15 @@ carries its FX gain as unrealized.
 → [P&L Methodology](../pnl-methodology.md).
 
 ### Total P&L %
-```
-Total P&L % = Total P&L ÷ peak net invested × 100   (— when peak ≤ 0)
-```
-Over [peak net invested](#peak-net-invested-capital), not the current balance, so the
-% is stable across withdrawals. **No longer displayed as the Total P&L companion**
-(since 2026-08-28): the dashboard hero shows the Total P&L dollar alone, and the
-Portfolio summary bar's headline % is the lifetime **cumulative
-[money-weighted return](#money-weighted-return-xirr-formula)** — the same lens as
-the per-asset return %. Peak remains the denominator base for the dashboard hero's
-period-% rules (zero-start / all-time windows).
+The lifetime **cumulative [money-weighted return](#money-weighted-return-xirr-formula)**:
+solve the XIRR of every external flow (at its real date, opening value 0)
+against the live value today, then de-annualize over the book's own span —
+`(1+r)^years − 1`. The same lens as the per-asset return %. Shown on the
+Portfolio summary bar (labelled MWR) and the Performance page's All-Time
+Return; the dashboard hero shows the Total P&L dollar alone. "—"/absent when
+the solver has no answer. (The former peak-net-invested ratio was removed
+2026-08-28 along with all peak calculations; a current-net-invested ratio is
+equally banned — it shrinks on withdrawal and explodes near zero.)
 
 ### Daily return formula
 ```

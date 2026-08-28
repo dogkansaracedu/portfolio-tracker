@@ -3,10 +3,7 @@ import { computeFIFOLots } from "@/lib/pnl/fifo"
 import { buildRealizedByTx } from "@/lib/pnl/realized"
 import { computeUnrealizedPnL } from "@/lib/pnl/unrealized"
 import { computeIncomeUsd } from "@/lib/pnl/income"
-import {
-  computeCurrentInvestedUsd,
-  computePeakInvestedUsd,
-} from "@/lib/performance"
+import { computeCurrentInvestedUsd } from "@/lib/performance"
 import type {
   Transaction,
   PriceCache,
@@ -48,14 +45,13 @@ export const EMPTY_PNL: PortfolioPnL = {
   totalRealizedPnlUsd: BN_ZERO,
   totalIncomeUsd: BN_ZERO,
   totalInvestedUsd: BN_ZERO,
-  totalPeakInvestedUsd: BN_ZERO,
 }
 
 /**
  * The P&L engine, as a pure function. Composes the per-(asset, platform) FIFO
  * cost basis + unrealized, aggregates to asset level, and computes the canonical
  * portfolio totals: value, unrealized (held), realized & income (FULL history,
- * so sold-out positions count), net invested, and peak net invested.
+ * so sold-out positions count), and net invested.
  *
  * This is the single source of truth `usePnL` wraps — no other code path
  * re-derives portfolio P&L, so the Dashboard and Portfolio can never diverge.
@@ -74,13 +70,11 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
     const totalRealizedPnlUsd = sumRealized(transactions, rates)
     const totalIncomeUsd = computeIncomeUsd(transactions, rates)
     const totalInvestedUsd = bn(computeCurrentInvestedUsd(transactions, rates))
-    const totalPeakInvestedUsd = computePeakInvestedUsd(transactions, rates)
     return {
       ...EMPTY_PNL,
       totalRealizedPnlUsd,
       totalIncomeUsd,
       totalInvestedUsd,
-      totalPeakInvestedUsd,
     }
   }
 
@@ -320,7 +314,6 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
   const totalRealizedPnlUsd = sumRealized(transactions, rates)
   const totalIncomeUsd = computeIncomeUsd(transactions, rates)
   const totalInvestedUsd = bn(computeCurrentInvestedUsd(transactions, rates))
-  const totalPeakInvestedUsd = computePeakInvestedUsd(transactions, rates)
 
   return {
     assetPnLs,
@@ -332,7 +325,6 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
     totalRealizedPnlUsd,
     totalIncomeUsd,
     totalInvestedUsd,
-    totalPeakInvestedUsd,
   }
 }
 
