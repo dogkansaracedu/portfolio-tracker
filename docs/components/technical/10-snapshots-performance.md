@@ -2,6 +2,12 @@
 
 > Layer: React/Vite/Supabase implementation. Contract → [../10-snapshots-performance.md](../10-snapshots-performance.md)
 
+> ⚠️ **PERFORMANCE PAGE FROZEN (2026-08-28)** — disabled via
+> `FEATURES.performancePage` (`src/lib/features.ts`). `PerformancePage.tsx`,
+> `usePerformance.ts`, `src/components/performance/*`, and their sections here
+> are deliberately stale and exempt from doc-sync until re-enabled. Snapshot
+> infrastructure (cron, storage, dashboard reads) is live and NOT frozen.
+
 ## Stack
 
 - React 19 + Vite + TypeScript; charts via **Recharts**, all money/quantity math via **BigNumber.js**.
