@@ -24,6 +24,7 @@ import { NumberCell } from "./cells/NumberCell"
 import { TotalCostCell } from "./cells/TotalCostCell"
 import { CurrencyCell } from "./cells/CurrencyCell"
 import { useTransactionMutations } from "@/hooks/useTransactions"
+import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import {
@@ -159,7 +160,7 @@ export function TransactionsSheetGrid({
     )
       .then((txs: TransactionWithDetails[]) => {
         if (cancelled) return
-        loadRows(txs)
+        loadRows(txs.filter(isGridEditable))
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -285,7 +286,10 @@ export function TransactionsSheetGrid({
 
     for (const row of effectiveRows) {
       if (row.status !== "dirty" || !row.txId || !row.original) continue
-      const payload = buildPayload(row)
+      // Never write linked_tx_id on an edit — an existing transfer_in may be
+      // linked to its transfer_out, and the grid has no pairing UI; sending
+      // the insert default (null) would silently sever the pair.
+      const { linked_tx_id: _omit, ...payload } = buildPayload(row)
       try {
         await editTransaction(row.txId, payload, {
           assetId: row.original.assetId,
@@ -403,7 +407,9 @@ export function TransactionsSheetGrid({
         ? { assetId, includeLinkedChildren: true }
         : { includeLinkedChildren: false },
     )
-      .then(loadRows)
+      .then((txs: TransactionWithDetails[]) =>
+        loadRows(txs.filter(isGridEditable)),
+      )
       .catch((err: unknown) => {
         toast.error(err instanceof Error ? err.message : "Failed to reload")
       })
@@ -631,6 +637,14 @@ export function TransactionsSheetGrid({
     />
     </>
   )
+}
+
+/** The grid never shows a linked transfer_in — it's the auto-managed
+ *  destination side of a transfer pair, kept in lockstep through its
+ *  transfer_out parent (editing both sides as independent grid rows would
+ *  let one save silently overwrite the other). */
+function isGridEditable(tx: TransactionWithDetails): boolean {
+  return !(tx.type === TRANSACTION_TYPES.TRANSFER_IN && tx.linked_tx_id)
 }
 
 function buildPayload(row: SheetRow): Omit<TransactionInsert, "user_id"> {

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { normalizeToUsd } from "@/lib/pnl/currency"
+import { collapseLinkedTransferIns } from "@/components/transactions/transactionRowModel"
 import type { TransactionType } from "@/types/database"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 
@@ -101,7 +102,11 @@ export function useTransactionLog() {
   const { transactions: rawTransactions, loading, error, refetch } =
     useTransactions(serverFilters)
 
-  // Client-side filtering for transaction types only
+  // Client-side filtering for transaction types, then transfer-pair collapse:
+  // a linked transfer_in whose transfer_out parent is visible in the same
+  // filtered list is folded into the parent's combined "A → B" row. When the
+  // parent is filtered out (e.g. the platform filter matches only the
+  // destination side), the transfer_in stays as its own row.
   const transactions = useMemo(() => {
     let result: TransactionWithDetails[] = rawTransactions
 
@@ -109,7 +114,7 @@ export function useTransactionLog() {
       result = result.filter((tx) => filters.types!.includes(tx.type))
     }
 
-    return result
+    return collapseLinkedTransferIns(result)
   }, [rawTransactions, filters.types])
 
   const summary = useMemo<TransactionLogSummary>(() => {

@@ -33,8 +33,15 @@ export function TransactionTypeSelector({ value, onChange }: Props) {
   )
 }
 
-export function TransactionTypeBadge({ type }: { type: TransactionType }) {
-  const config = TRANSACTION_TYPE_DISPLAY[type]
+export function TransactionTypeBadge({
+  type,
+  display,
+}: {
+  type: TransactionType
+  /** Override the per-type display, e.g. the combined transfer-pair badge. */
+  display?: { label: string; color: string; bg: string }
+}) {
+  const config = display ?? TRANSACTION_TYPE_DISPLAY[type]
   if (!config) return null
   return (
     <span

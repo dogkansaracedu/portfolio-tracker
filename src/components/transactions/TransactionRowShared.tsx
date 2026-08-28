@@ -19,6 +19,7 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
 import { AssetIcon } from "@/components/common/AssetIcon"
+import { PlatformDot } from "@/components/common/PlatformDot"
 import { formatCurrency } from "@/lib/prices"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionMutations } from "@/hooks/useTransactions"
@@ -28,11 +29,66 @@ import {
   type FiatCurrency,
 } from "@/lib/constants/currencies"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
-import { formatTxDate, type TransactionDisplay } from "./transactionRowModel"
+import {
+  formatTxDate,
+  formatTxQuantity,
+  type TransactionDisplay,
+} from "./transactionRowModel"
+
+// A linked transfer pair (transfer_out parent + its transfer_in child) renders
+// as one combined row: neutral quantity, "Transfer" badge, source → destination
+// in the platform slot, and a delete that names both sides.
+export function isTransferPair(
+  tx: Pick<TransactionWithDetails, "type">,
+  linkedChild: Pick<TransactionWithDetails, "type"> | null,
+): boolean {
+  return (
+    tx.type === TRANSACTION_TYPES.TRANSFER_OUT &&
+    linkedChild?.type === TRANSACTION_TYPES.TRANSFER_IN
+  )
+}
+
+// Source → destination platform readout for a combined transfer row. Wraps on
+// narrow cells; each platform keeps its dot + name together.
+export function TransferRoute({
+  source,
+  destination,
+}: {
+  source: TransactionWithDetails
+  destination: TransactionWithDetails
+}) {
+  // min-w-0 + per-name truncate: the route must never win the space fight
+  // against the asset ticker sitting beside it in the mobile card.
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+      <span className="flex min-w-0 items-center gap-1.5">
+        {source.platforms && <PlatformDot color={source.platforms.color} />}
+        <span className="truncate text-sm">
+          {source.platforms?.name ?? "--"}
+        </span>
+      </span>
+      <span className="text-muted-foreground">→</span>
+      <span className="flex min-w-0 items-center gap-1.5">
+        {destination.platforms && (
+          <PlatformDot color={destination.platforms.color} />
+        )}
+        <span className="truncate text-sm">
+          {destination.platforms?.name ?? "--"}
+        </span>
+      </span>
+    </div>
+  )
+}
 
 // Dropdown (edit/delete) + delete confirmation dialog. Owns its own local state
 // so it can be dropped into either the desktop table row or the mobile card.
-export function TransactionRowActions({ tx }: { tx: TransactionWithDetails }) {
+export function TransactionRowActions({
+  tx,
+  linkedChild = null,
+}: {
+  tx: TransactionWithDetails
+  linkedChild?: TransactionWithDetails | null
+}) {
   const { openTransactionModal } = useTransactionModal()
   const { removeTransaction } = useTransactionMutations()
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -86,9 +142,15 @@ export function TransactionRowActions({ tx }: { tx: TransactionWithDetails }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete transaction?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes the {tx.type} of {tx.amount}{" "}
-              {tx.assets?.ticker ?? ""} on {formatTxDate(tx.date)}. Holdings will
-              be recalculated. This cannot be undone.
+              {isTransferPair(tx, linkedChild)
+                ? `This permanently removes the transfer of ${formatTxQuantity(tx.amount)} ` +
+                  `${tx.assets?.ticker ?? ""} from ${tx.platforms?.name ?? "--"} ` +
+                  `to ${linkedChild?.platforms?.name ?? "--"} on ` +
+                  `${formatTxDate(tx.date)} — both the outgoing and incoming ` +
+                  `rows. Holdings will be recalculated. This cannot be undone.`
+                : `This permanently removes the ${tx.type} of ${formatTxQuantity(tx.amount)} ` +
+                  `${tx.assets?.ticker ?? ""} on ${formatTxDate(tx.date)}. ` +
+                  `Holdings will be recalculated. This cannot be undone.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -125,7 +187,9 @@ export function TransactionAssetLabel({
         <span className="truncate font-medium">
           {tx.assets?.ticker ?? "Unknown"}
         </span>
-        {linkedChild && (
+        {linkedChild && linkedChild.type !== TRANSACTION_TYPES.TRANSFER_IN && (
+          // Cash-leg subtitle only — a transfer pair's direction lives in the
+          // platform column (source → destination), not here.
           <span className="truncate text-xs italic text-muted-foreground">
             {linkedChild.type === TRANSACTION_TYPES.CASH_CREDIT
               ? `${CURRENCY_SYMBOLS[linkedChild.price_currency as FiatCurrency] ?? ""}${Number(linkedChild.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${linkedChild.price_currency} → ${linkedChild.platforms?.name ?? "platform"}`

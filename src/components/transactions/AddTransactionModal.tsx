@@ -102,6 +102,9 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     amount: string
     platformId: string
   } | null>(null)
+  // Editing a transfer_out that has a linked transfer_in: the destination
+  // select stays visible (seeded from the child) and saving moves both sides.
+  const [editingTransferPair, setEditingTransferPair] = useState(false)
   const [fundingError, setFundingError] = useState<string | null>(null)
   const lastPrefilledTickerRef = useRef<string | null>(null)
   const amountInputRef = useRef<HTMLInputElement>(null)
@@ -130,22 +133,34 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
       )
       setNotes(editing.notes ?? "")
       ;(async () => {
-        if (editing.type !== TRANSACTION_TYPES.BUY) {
-          setFundingPlatformId(null)
-          setExistingChild(null)
+        if (editing.type === TRANSACTION_TYPES.BUY) {
+          setEditingTransferPair(false)
+          const child = await fetchLinkedChild(editing.id)
+          if (child) {
+            setFundingPlatformId(child.platform_id)
+            setExistingChild({
+              amount: String(child.amount),
+              platformId: child.platform_id,
+            })
+          } else {
+            setFundingPlatformId(null)
+            setExistingChild(null)
+          }
           return
         }
-        const child = await fetchLinkedChild(editing.id)
-        if (child) {
-          setFundingPlatformId(child.platform_id)
-          setExistingChild({
-            amount: String(child.amount),
-            platformId: child.platform_id,
-          })
-        } else {
-          setFundingPlatformId(null)
-          setExistingChild(null)
+        setFundingPlatformId(null)
+        setExistingChild(null)
+        // A transfer_out may carry a linked transfer_in (the destination side).
+        // Surface it so the edit form shows — and can move — the destination.
+        if (editing.type === TRANSACTION_TYPES.TRANSFER_OUT) {
+          const child = await fetchLinkedChild(editing.id)
+          if (child?.type === TRANSACTION_TYPES.TRANSFER_IN) {
+            setDestPlatformId(child.platform_id)
+            setEditingTransferPair(true)
+            return
+          }
         }
+        setEditingTransferPair(false)
       })()
       return
     }
@@ -164,6 +179,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     setNotes("")
     setFundingPlatformId(null)
     setExistingChild(null)
+    setEditingTransferPair(false)
     setFundingError(null)
   }, [
     modalState.isOpen,
@@ -339,7 +355,9 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     !fundingError &&
     !submitting &&
     (showPriceFields ? parsedPrice.gt(0) : true) &&
-    (isTransfer && !isEdit ? destPlatformId && destPlatformId !== platformId : true)
+    (isTransfer && (!isEdit || editingTransferPair)
+      ? destPlatformId && destPlatformId !== platformId
+      : true)
 
   // `keepOpen` powers "Save & add another": record the tx but leave the modal
   // open with type/asset/platform/date/currency/funding/notes intact, clearing
@@ -364,7 +382,9 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           (type === "dividend" || type === "interest") && relatedAssetId
             ? relatedAssetId
             : null,
-        linked_tx_id: null,
+        // Editing must not sever an existing link (a transfer_in pointing at
+        // its transfer_out) — carry it through unchanged.
+        linked_tx_id: isEdit ? (editing?.linked_tx_id ?? null) : null,
         notes: notes || null,
       }
 
@@ -373,15 +393,21 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           editing.id,
           payload,
           { assetId: editing.asset_id, platformId: editing.platform_id },
-          { fundingPlatformId },
+          {
+            fundingPlatformId,
+            transferDestPlatformId:
+              editingTransferPair && destPlatformId ? destPlatformId : undefined,
+          },
         )
         toast.success("Transaction updated")
       } else {
-        await addTransaction(payload, { fundingPlatformId })
+        const created = await addTransaction(payload, { fundingPlatformId })
 
-        // For transfer_out, create matching transfer_in on the destination platform.
-        // We don't auto-pair on edit — the source side and the destination side
-        // are independent rows after creation, edit them individually.
+        // For transfer_out, create the matching transfer_in on the destination
+        // platform, linked to its parent (linked_tx_id) so the pair renders as
+        // one combined row and edit/delete keep the two sides in lockstep
+        // (useTransactionMutations handles the reconciliation on edit; the DB
+        // cascade handles delete).
         if (isTransfer && destPlatformId) {
           const selectedPlatform = platforms.find((p) => p.id === platformId)
           await addTransaction({
@@ -396,7 +422,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             fee: 0,
             fee_currency: null,
             related_asset_id: null,
-            linked_tx_id: null,
+            linked_tx_id: created.id,
             notes: notes
               ? `Transfer from ${selectedPlatform?.name ?? "unknown"}: ${notes}`
               : `Transfer from ${selectedPlatform?.name ?? "unknown"}`,
@@ -488,7 +514,11 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
 
           {/* Platform Selection */}
           <div className="space-y-2">
-            <Label>{isTransfer && !isEdit ? "Source Platform" : "Platform"}</Label>
+            <Label>
+              {isTransfer && (!isEdit || editingTransferPair)
+                ? "Source Platform"
+                : "Platform"}
+            </Label>
             <Select
               value={platformId}
               onValueChange={(v) => v && setPlatformId(v)}
@@ -525,8 +555,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             )}
           </div>
 
-          {/* Transfer destination platform (creation only — paired tx) */}
-          {isTransfer && !isEdit && (
+          {/* Transfer destination platform — on create it drives the paired
+              transfer_in; when editing a linked pair it shows (and can move)
+              the destination side. */}
+          {isTransfer && (!isEdit || editingTransferPair) && (
             <div className="space-y-2">
               <Label>Destination Platform</Label>
               <Select
@@ -560,6 +592,11 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                     ))}
                 </SelectContent>
               </Select>
+              {isEdit && editingTransferPair && (
+                <p className="text-xs text-muted-foreground">
+                  This is a linked transfer — saving updates both sides.
+                </p>
+              )}
             </div>
           )}
 
@@ -589,7 +626,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
 
           {/* Amount */}
           <div className="space-y-2">
-            <Label>Amount</Label>
+            <Label>Quantity</Label>
             <div className="flex gap-2">
               <Input
                 ref={amountInputRef}
