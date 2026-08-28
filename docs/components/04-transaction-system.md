@@ -103,9 +103,14 @@ in [net invested capital](GLOSSARY.md#net-invested-capital).
 
 A transfer relocates a position from one [Platform](GLOSSARY.md#platform) to another.
 Recording a `transfer_out` of an asset also produces a matching `transfer_in` on the
-destination platform (on creation; afterward the two sides are independent rows,
-edited individually). **A transfer books no [realized](GLOSSARY.md#realized-and-unrealized)
-P&L** — it carries the position's [cost basis](GLOSSARY.md#fifo-lots-and-cost-basis)
+destination platform, and the two sides are **durably linked as one pair**: editing
+the source side keeps the destination side's shared fields (asset, date, quantity,
+price, currency) in lockstep, and deleting the source side removes both. Deleting
+the destination side alone removes only that side. Changing the source side's type
+away from a transfer dissolves the pair and removes the destination side. A lone
+`transfer_in`/`transfer_out` (money entering or leaving from outside the tracked
+platforms) has no counterpart and stays a single independent row.
+**A transfer books no [realized](GLOSSARY.md#realized-and-unrealized) P&L** — it carries the position's [cost basis](GLOSSARY.md#fifo-lots-and-cost-basis)
 across, so the moved units keep their original USD cost. The `transfer_in` carries
 the **weighted-average USD cost of the lots consumed** by the move:
 
@@ -158,7 +163,8 @@ platform**.
 
 - The transaction row is persisted.
 - If the type warrants it, a paired **cash leg** (`cash_credit`/`cash_debit`) or a
-  matching **`transfer_in`** is created automatically.
+  matching **`transfer_in`** is created automatically; both kinds of children are
+  linked to their parent row.
 - Every touched **(asset, platform)** [Holding](GLOSSARY.md#holding) balance is
   recalculated as `SUM(adds) − SUM(subtracts)` over its transactions (the auto cash
   legs participate naturally because they sit on the fiat holding).
@@ -169,6 +175,8 @@ platform**.
 
 - Cash legs are system-generated, never hand-entered, and exist only for `buy`/`sell`.
 - A transfer books **no realized P&L**.
+- A linked transfer pair never drifts: the destination side's shared fields always
+  mirror the source side's, and a source-side delete removes both sides.
 - Quantities and prices reflect full numeric precision; balances are derived, never
   typed directly.
 
@@ -189,7 +197,8 @@ A type-driven form: choosing the type reveals only the relevant fields.
 - `sell`: no funding selector (cash always lands on the trading platform); a
   confirmation line shows `Sale proceeds: <amount> → credited to {platform} {currency}`.
 - `transfer_out`: a **destination platform**; the cost-basis line is shown read-only
-  (auto-computed).
+  (auto-computed). Editing a linked transfer keeps the destination platform visible
+  and changeable, with a note that saving updates both sides.
 - Sell / transfer-out / fee are blocked when the amount exceeds the current balance on
   that platform. Next to the amount, sell and transfer-out offer a **Max** action that
   fills in the platform's full balance (shown only when creating and the balance is
@@ -259,6 +268,8 @@ and funded buys) or rolls back entirely, after which holding balances are recomp
 - [ ] A `sell` / `transfer_out` / `fee` exceeding the platform balance is rejected.
 - [ ] A transfer moves the position across platforms, carries weighted-average cost
       basis, and books **no realized P&L**.
+- [ ] A platform-to-platform transfer's two sides are linked: editing the source
+      updates the destination's shared fields; deleting the source removes both.
 - [ ] A `sell` row shows its FIFO realized P&L (USD-anchored; native + USD for non-USD
       sells; % omitted when cost basis is zero).
 - [ ] A trade's price currency is **defaulted from the asset and editable**, never a

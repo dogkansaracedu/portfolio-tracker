@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase"
+import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
 import type {
   Transaction,
   TransactionInsert,
@@ -42,7 +43,15 @@ export async function fetchTransactions(
     filters?.includeLinkedChildren ?? Boolean(filters?.assetId)
 
   if (!showLinkedChildren) {
-    query = query.is("linked_tx_id", null)
+    // Hide auto-paired cash legs, but keep linked transfer_in rows in the
+    // result: a platform filter on the *destination* platform matches only
+    // the transfer_in side, and dropping it would make the transfer invisible
+    // there. When both sides of a pair land in the same result set, the log
+    // collapses the child into the parent's combined row client-side
+    // (useTransactionLog).
+    query = query.or(
+      `linked_tx_id.is.null,type.eq.${TRANSACTION_TYPES.TRANSFER_IN}`,
+    )
   }
 
   if (filters?.assetId) {

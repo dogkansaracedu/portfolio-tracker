@@ -53,6 +53,16 @@ export const TYPES_WITH_LINKED_CHILD = new Set<TransactionType>([
   TRANSACTION_TYPES.SELL,
 ])
 
+/** Badge display for a linked transfer pair rendered as one combined row
+ *  (a transfer_out whose linked child is its transfer_in). Neutral slate —
+ *  the pair is an internal move, so it must not borrow transfer_in's inflow
+ *  blue or transfer_out's outflow orange. */
+export const TRANSFER_PAIR_DISPLAY = {
+  label: "Transfer",
+  color: "text-slate-700",
+  bg: "bg-slate-100 border-slate-300",
+}
+
 /** Types selectable in the AddTransactionModal type picker. */
 export const USER_PICKABLE_TYPES: TransactionType[] = [
   TRANSACTION_TYPES.BUY,

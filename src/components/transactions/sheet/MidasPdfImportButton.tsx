@@ -59,7 +59,10 @@ export function MidasPdfImportButton({ assets, platforms, gridRows, onAppend }: 
           platformId: midas.id,
           dateFrom: dates[0],
           dateTo: dates[dates.length - 1],
-          includeLinkedChildren: false,
+          // Linked children must stay in the dedup set: a transfer_in that was
+          // linked to its transfer_out still counts as "already imported".
+          // Cash legs can't false-match — parsed rows never carry cash types.
+          includeLinkedChildren: true,
         })
         const existing: DedupCandidate[] = [
           ...existingTxs.map((tx) => ({

@@ -9,6 +9,35 @@ import type { TransactionWithDetails } from "@/lib/queries/transactions"
 import type { RealizedPnLEntry } from "@/lib/pnl/types"
 import type { ExchangeRate } from "@/types/database"
 
+/** Fold linked transfer pairs for display: drop a transfer_in whose
+ *  transfer_out parent is visible in the same list — the parent renders as the
+ *  combined "source → destination" row. A transfer_in whose parent is NOT in
+ *  the list (lone deposit, or the filter matched only the destination side)
+ *  stays as its own row. */
+export function collapseLinkedTransferIns<
+  T extends Pick<TransactionWithDetails, "id" | "type" | "linked_tx_id">,
+>(rows: T[]): T[] {
+  const visibleIds = new Set(rows.map((tx) => tx.id))
+  return rows.filter(
+    (tx) =>
+      !(
+        tx.type === TRANSACTION_TYPES.TRANSFER_IN &&
+        tx.linked_tx_id &&
+        visibleIds.has(tx.linked_tx_id)
+      ),
+  )
+}
+
+const QUANTITY_FORMAT = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 8,
+})
+
+/** Quantity as the log rows render it (grouped, up to 8 decimals). */
+export function formatTxQuantity(amount: number): string {
+  return QUANTITY_FORMAT.format(amount)
+}
+
 export function formatTxDate(dateStr: string): string {
   const date = new Date(dateStr)
   return date.toLocaleDateString("en-US", {
@@ -42,10 +71,17 @@ export function deriveTransactionDisplay(
   currency: "USD" | "TRY",
   realized: RealizedPnLEntry | null,
   rates: ExchangeRate[],
+  /** A linked transfer pair rendered as one combined row is an internal move —
+   *  neutral quantity, no sign, no gain/loss color. */
+  opts?: { transferPair?: boolean },
 ): TransactionDisplay {
   const isPositive = POSITIVE_TYPES.includes(tx.type)
-  const sign = isPositive ? "" : "-"
-  const amountColor = isPositive ? "text-green-600" : "text-red-600"
+  const sign = opts?.transferPair ? "" : isPositive ? "" : "-"
+  const amountColor = opts?.transferPair
+    ? ""
+    : isPositive
+      ? "text-green-600"
+      : "text-red-600"
 
   const nativeCurrency: FiatCurrency = isFiatCurrency(tx.price_currency)
     ? tx.price_currency
