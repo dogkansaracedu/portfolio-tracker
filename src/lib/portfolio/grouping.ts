@@ -253,7 +253,6 @@ export function enrichAsset(
     ticker: asset.ticker,
     category: asset.category,
     icon_url: asset.icon_url,
-    tags: asset.tags ?? [],
     totalBalance: bnTotalBalance.toNumber(),
     holdings: holdingsData,
     currentPriceUsd: currentPriceUsd.toNumber(),
@@ -590,41 +589,6 @@ function groupByPlatform(
   return result.sort(byValueDesc)
 }
 
-function groupByTag(
-  sortedAssets: EnrichedAsset[],
-  ctx: GroupContext,
-): AssetGroup[] {
-  const { dailyReturnLookups } = ctx
-  const tagToAssetIds = new Map<string, Set<string>>()
-  const assetById = new Map<string, EnrichedAsset>()
-
-  for (const asset of sortedAssets) {
-    assetById.set(asset.id, asset)
-    const tags = asset.tags.length > 0 ? asset.tags : ["Other"]
-    for (const tag of tags) {
-      const existing = tagToAssetIds.get(tag) ?? new Set<string>()
-      existing.add(asset.id)
-      tagToAssetIds.set(tag, existing)
-    }
-  }
-
-  const result: AssetGroup[] = []
-  for (const [key, assetIds] of tagToAssetIds) {
-    const groupAssets = [...assetIds]
-      .map((id) => assetById.get(id)!)
-      .filter(Boolean)
-    result.push(
-      rollupGroup({
-        key,
-        label: key,
-        assets: groupAssets,
-        dailyAvailable: dailyReturnLookups.available,
-      }),
-    )
-  }
-  return result.sort(byValueDesc)
-}
-
 function groupByCategory(
   sortedAssets: EnrichedAsset[],
   ctx: GroupContext,
@@ -661,8 +625,6 @@ export function groupAssets(
   switch (groupBy) {
     case "platform":
       return groupByPlatform(sortedAssets, holdingPnLs, ctx)
-    case "tag":
-      return groupByTag(sortedAssets, ctx)
     case "category":
       return groupByCategory(sortedAssets, ctx)
   }
