@@ -36,7 +36,12 @@
 - `TransactionList.tsx` — branches desktop `Table` vs mobile card list; maps rows,
   joining `childMap.get(tx.id)` and `realizedByTx.get(tx.id)` per row.
 - `TransactionRow.tsx` — one desktop table row; calls `deriveTransactionDisplay(...)`
-  for sign/color/converted/realized, then renders cells.
+  for sign/color/converted/realized, then renders cells. A linked transfer pair
+  (`isTransferPair(tx, linkedChild)` — transfer_out parent + transfer_in child)
+  renders combined: `TransferRoute` (source → destination with platform dots) in the
+  platform cell, the `TRANSFER_PAIR_DISPLAY` "Transfer" badge, and a neutral quantity
+  (`deriveTransactionDisplay`'s `transferPair` option drops sign + colour). Quantity
+  column header/label says "Quantity" (matches Portfolio), not "Amount".
 - `TransactionFilters.tsx` — date presets + two `Calendar` popovers, asset `Select`,
   platform `Select`, and the type chips; pushes changes through `onFiltersChange`.
 - `TransactionSummary.tsx` — three stat `Card`s: count, buy volume, sell volume.
@@ -48,9 +53,12 @@
 - `FundingSourceSelect.tsx` — funding-source `Select` for buys (platform-deduct vs
   `EXTERNAL_CASH_VALUE` = no cash leg); shows each platform's fiat balance. Editor-side.
 - Supporting (not in the brief but load-bearing): `TransactionRowShared.tsx`
-  (`TransactionRowActions` edit/delete menu + confirm dialog, `TransactionAssetLabel`
-  subtitle, `RealizedPnLLine`), `transactionRowModel.ts` (`deriveTransactionDisplay`,
-  `formatTxDate`), `TransactionRowCard.tsx` (mobile card).
+  (`TransactionRowActions` edit/delete menu + confirm dialog — pair-aware: names
+  both sides when deleting a linked transfer; `TransactionAssetLabel` subtitle —
+  cash legs only, a transfer child renders no subtitle; `TransferRoute`;
+  `isTransferPair`; `RealizedPnLLine`), `transactionRowModel.ts`
+  (`deriveTransactionDisplay`, `collapseLinkedTransferIns`, `formatTxDate`),
+  `TransactionRowCard.tsx` (mobile card — same pair rendering as the table row).
 
 **Hooks** (`src/hooks/`)
 - `useTransactionLog.ts` — the page's view-model. Reads/writes filters via URL search
@@ -62,7 +70,10 @@
   unfiltered full-history fetch first and refetch once the param landed (two requests,
   plus a duplicate child-row fetch, per visit). Sends date/asset/platform to
   the **server** query
-  (`useTransactions(serverFilters)`); applies the **type** filter client-side; builds
+  (`useTransactions(serverFilters)`); applies the **type** filter client-side, then
+  `collapseLinkedTransferIns` — a linked `transfer_in` whose parent survived the
+  filters is folded into the parent's combined row (`AssetDetailPage` applies the
+  same collapse to its asset-filtered slice); builds
   the `summary` (count + buy/sell volume) by `normalizeToUsd`-ing each row's total.
 - `useTransactions.ts` — two exports: `useTransactionMutations()` (create/edit/delete
   only, **no fetch**) and `useTransactions(filters)` (server-filtered list + the
@@ -86,9 +97,12 @@
 
 **Queries**
 - `src/lib/queries/transactions.ts` — `fetchTransactions(userId, filters)` (server
-  date/asset/platform filter + `assets`/`platforms` joins, ordered date DESC),
-  `fetchLinkedChildrenForParents(ids)` → `Map<parentId, child>`, `fetchLinkedChild`,
-  and the create/update/delete used by the mutations.
+  date/asset/platform filter + `assets`/`platforms` joins, ordered date DESC; the
+  default "hide children" clause is `linked_tx_id IS NULL OR type = transfer_in`, so
+  linked transfer_ins stay fetchable under a destination-platform filter and are
+  collapsed client-side instead), `fetchLinkedChildrenForParents(ids)` →
+  `Map<parentId, child>`, `fetchLinkedChild`, and the create/update/delete used by
+  the mutations.
 
 ## Notes & gotchas
 
@@ -127,8 +141,10 @@
   changed and updates/creates/deletes the linked cash child to match — including the
   subtlety that the bulk-sheet edit path passes **no** funding option, so it falls
   back to the existing child's platform for a buy (updating its `cash_debit` in place
-  instead of orphaning it). Delete relies on `ON DELETE CASCADE` for the child but
-  still recalcs the cash-asset balance.
+  instead of orphaning it). A transfer pair is reconciled *before* the cash logic:
+  the linked `transfer_in` follows its `transfer_out` in lockstep (see Component 4
+  technical). Delete relies on `ON DELETE CASCADE` for the child but
+  still recalcs the child's `(asset, platform)` balance.
 - **Summary is USD-normalized.** Buy/sell volume sum `normalizeToUsd(total, ...)` per
   row using dated rates from the global SoT, so mixed-currency activity is comparable;
   it then renders in the display currency. Only 3 stats exist: count, buy volume,

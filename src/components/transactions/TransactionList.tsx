@@ -52,7 +52,7 @@ export function TransactionList({
               <TableHead>Asset</TableHead>
               <TableHead>Platform</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Amount</TableHead>
+              <TableHead>Quantity</TableHead>
               <TableHead>Unit Price</TableHead>
               <TableHead>Total</TableHead>
               <TableHead className="w-12 text-right" />

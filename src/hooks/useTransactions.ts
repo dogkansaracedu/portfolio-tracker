@@ -85,7 +85,13 @@ export function useTransactionMutations() {
     /** original asset/platform so we can recalculate balances on either side
      * if they changed. */
     original: { assetId: string; platformId: string },
-    options?: { fundingPlatformId?: string | null },
+    options?: {
+      fundingPlatformId?: string | null
+      /** For a linked transfer pair: where the destination side should sit
+       *  after the edit. Omitted (the bulk-sheet path) keeps the child's
+       *  current platform. */
+      transferDestPlatformId?: string
+    },
   ) => {
     if (!user) throw new Error("Not authenticated")
 
@@ -104,6 +110,41 @@ export function useTransactionMutations() {
     // Parent lenses (old + new if they differ).
     addLens(original.assetId, original.platformId)
     addLens(updated.asset_id, updated.platform_id)
+
+    // Transfer-pair reconciliation. A transfer_out's linked child is its
+    // transfer_in on the destination platform — NOT a cash leg, so it must be
+    // handled before the cash-side logic below (which would otherwise delete
+    // it as an orphan, silently wiping the destination side). Shared fields
+    // follow the parent in lockstep; the destination platform stays the
+    // child's own. If the edit changed the type away from transfer_out, the
+    // pair no longer describes a transfer — remove the destination side (same
+    // rule as a buy dropping its cash leg).
+    if (existingChild?.type === TRANSACTION_TYPES.TRANSFER_IN) {
+      addLens(existingChild.asset_id, existingChild.platform_id)
+      if (updated.type === TRANSACTION_TYPES.TRANSFER_OUT) {
+        const destPlatformId =
+          options?.transferDestPlatformId ?? existingChild.platform_id
+        await updateTransactionQuery(existingChild.id, {
+          asset_id: updated.asset_id,
+          platform_id: destPlatformId,
+          date: updated.date,
+          amount: updated.amount,
+          unit_price: updated.unit_price,
+          price_currency: updated.price_currency,
+          total_cost: updated.total_cost,
+        })
+        addLens(updated.asset_id, destPlatformId)
+      } else {
+        await deleteTransaction(existingChild.id)
+      }
+      for (const lens of lenses) {
+        const [assetId, platformId] = lens.split("::")
+        await recalculateBalance(user.id, assetId, platformId)
+      }
+      await refresh()
+      bumpTxVersion()
+      return updated
+    }
 
     // Cash-side reconciliation. An explicit funding option (from the
     // single-row modal, which lets the user choose a funding source —

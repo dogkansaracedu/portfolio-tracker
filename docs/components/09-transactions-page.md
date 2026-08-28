@@ -41,6 +41,15 @@ and portfolio views exactly.
 - **Sign of the quantity** follows the [Transaction](GLOSSARY.md#transaction)
   balance effect: add-types (buy, transfer-in, dividend, interest, cash-credit)
   render `+`; subtract-types (sell, transfer-out, fee, cash-debit) render `−`.
+- **A linked transfer pair renders as ONE combined row.** A platform-to-platform
+  transfer (Component 4 links the two sides) shows a single row labelled simply
+  "Transfer": the platform cell reads `source → destination`, and the quantity is
+  **neutral** — no sign, no gain/loss colour — because at portfolio level nothing
+  was gained or lost. The destination side is folded into this row whenever its
+  source side is visible in the same filtered list; when a filter matches only the
+  destination side (e.g. filtering to the destination platform), that side appears
+  as its own directional row so the transfer never disappears. Lone transfers
+  (no counterpart) keep their signed, directional single-row rendering.
 - **Native + converted.** A row's unit price and total are shown in the
   transaction's native price currency; when the display currency differs, an
   approximate converted figure (using the [exchange rate](GLOSSARY.md#exchange-rate)
@@ -83,7 +92,8 @@ and portfolio views exactly.
   changed), the linked cash leg is updated/created/removed to match, and all P&L
   re-derives. A single-entry edit opens a pre-filled editor; this page launches it.
 - **Delete.** Removing a transaction asks for confirmation, then removes it and its
-  linked cash leg and recalculates the affected balances.
+  linked child (cash leg, or the destination side of a transfer pair — the
+  confirmation names both sides) and recalculates the affected balances.
 - **Bulk import entry.** The page offers an entry point into the bulk-import
   subsystem ([Component 4](04-transaction-system.md)) — a "bulk add" action and (on
   a per-asset basis, reached from elsewhere in the app) an "edit this asset's
@@ -122,7 +132,8 @@ and portfolio views exactly.
 ## UI contract — log list, filters, realized P&L, edit, import entry
 
 - **Log list.** Table on wide screens (columns: Date, Asset, Platform, Type,
-  Amount, Unit Price, Total, row-actions); a stacked card list on narrow screens.
+  Quantity, Unit Price, Total, row-actions — "Quantity", matching the Portfolio
+  page's wording, never "Amount"); a stacked card list on narrow screens.
   Type is a color-coded badge per type. Asset cell carries the icon, ticker, and the
   linked-leg subtitle. Empty and loading states are explicit.
 - **Filters.** Date-range presets (Last 7d / Last 30d / This Year / All Time) plus
@@ -150,6 +161,10 @@ and portfolio views exactly.
       change the realized P&L shown on any still-visible sell.
 - [ ] Auto-paired cash legs are hidden in the default view but appear when filtering
       to the relevant cash/fiat asset.
+- [ ] A linked transfer pair shows as one neutral "Transfer" row with
+      `source → destination`; filtering to either platform still surfaces the
+      transfer; deleting the combined row removes both sides after a confirmation
+      that names them.
 - [ ] The activity summary reflects the **filtered** set (count, buy volume, sell
       volume).
 - [ ] Editing a transaction updates the affected [Holding](GLOSSARY.md#holding)

@@ -4,12 +4,19 @@ import { formatCurrency } from "@/lib/prices"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 import type { RealizedPnLEntry } from "@/lib/pnl/types"
-import { deriveTransactionDisplay, formatTxDate } from "./transactionRowModel"
+import {
+  deriveTransactionDisplay,
+  formatTxDate,
+  formatTxQuantity,
+} from "./transactionRowModel"
 import {
   TransactionRowActions,
   TransactionAssetLabel,
+  TransferRoute,
   RealizedPnLLine,
+  isTransferPair,
 } from "./TransactionRowShared"
+import { TRANSFER_PAIR_DISPLAY } from "@/lib/constants/transaction-types"
 
 interface Props {
   transaction: TransactionWithDetails
@@ -26,7 +33,10 @@ export function TransactionRowCard({
 }: Props) {
   const tx = transaction
   const { rates } = useTransactionData()
-  const d = deriveTransactionDisplay(tx, currency, realized ?? null, rates)
+  const transferPair = isTransferPair(tx, linkedChild ?? null)
+  const d = deriveTransactionDisplay(tx, currency, realized ?? null, rates, {
+    transferPair,
+  })
 
   return (
     <div className="rounded-lg border p-3">
@@ -36,15 +46,20 @@ export function TransactionRowCard({
           {formatTxDate(tx.date)}
         </span>
         <div className="flex items-center gap-1">
-          <TransactionTypeBadge type={tx.type} />
-          <TransactionRowActions tx={tx} />
+          <TransactionTypeBadge
+            type={tx.type}
+            display={transferPair ? TRANSFER_PAIR_DISPLAY : undefined}
+          />
+          <TransactionRowActions tx={tx} linkedChild={linkedChild ?? null} />
         </div>
       </div>
 
-      {/* Middle: asset · platform */}
+      {/* Middle: asset · platform (source → destination for a transfer pair) */}
       <div className="mt-2 flex items-center justify-between gap-2">
         <TransactionAssetLabel tx={tx} linkedChild={linkedChild ?? null} />
-        {tx.platforms ? (
+        {transferPair && linkedChild ? (
+          <TransferRoute source={tx} destination={linkedChild} />
+        ) : tx.platforms ? (
           <div className="flex shrink-0 items-center gap-1.5">
             <PlatformDot color={tx.platforms.color} />
             <span className="text-sm">{tx.platforms.name}</span>
@@ -54,16 +69,13 @@ export function TransactionRowCard({
         )}
       </div>
 
-      {/* Bottom: amount · total (+ realized) */}
+      {/* Bottom: quantity · total (+ realized) */}
       <div className="mt-2 flex items-end justify-between gap-2 border-t pt-2">
         <div className="flex flex-col">
-          <span className="text-xs text-muted-foreground">Amount</span>
+          <span className="text-xs text-muted-foreground">Quantity</span>
           <span className={`font-medium tabular-nums ${d.amountColor}`}>
             {d.sign}
-            {new Intl.NumberFormat("en-US", {
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 8,
-            }).format(tx.amount)}
+            {formatTxQuantity(tx.amount)}
           </span>
           <span className="text-xs tabular-nums text-muted-foreground">
             @ {formatCurrency(tx.unit_price, d.nativeCurrency)}

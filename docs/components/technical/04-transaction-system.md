@@ -18,11 +18,17 @@
   dialog: hydrates from edit target / prefill, prefills price from cached market data,
   forces price currency to the asset's native currency, validates balance + funding
   cash (balance-limited types come from `BALANCE_LIMITED_TYPES`; a narrower guard —
-  sell/transfer_out only — shows a "Max" button that fills Amount with the platform
+  sell/transfer_out only — shows a "Max" button that fills Quantity with the platform
   balance on create),
   computes transfer cost basis via FIFO, and on submit builds the payload and
-  (for `transfer_out`) the matching `transfer_in`. "Save & add another" keeps the form
-  open. (Sub-controls `TransactionTypeSelector`, `AssetSearchSelect`,
+  (for `transfer_out`) the matching `transfer_in` with `linked_tx_id` pointing at the
+  just-created parent. On edit the payload carries the editing row's existing
+  `linked_tx_id` through unchanged (never resets it to null). Editing a linked
+  `transfer_out` (`editingTransferPair`, seeded via `fetchLinkedChild`) keeps the
+  Destination Platform select visible — its value is passed as
+  `transferDestPlatformId` so the lockstep child update can move the destination
+  side — and shows a "saving updates both sides" hint. "Save & add another"
+  keeps the form open. (Sub-controls `TransactionTypeSelector`, `AssetSearchSelect`,
   `FundingSourceSelect` live alongside it — see Component 3 / 9.)
 
 ### Bulk-import subsystem — `src/components/transactions/sheet/`
@@ -38,9 +44,10 @@
   transactions for the statement's date range (`fetchTransactions`) and drops
   duplicates via `dedupeImportedRows` (unsaved grid rows passed in as `gridRows`
   count as existing; saved ones don't — they'd double-count with the DB fetch);
-  a failed lookup aborts the import instead of skipping the check. The fetch is
-  parents-only, which already covers the cash-side kinds (interest / dividend /
-  transfer rows carry no `linked_tx_id`), so dedup works unchanged for them.
+  a failed lookup aborts the import instead of skipping the check. The fetch passes
+  `includeLinkedChildren: true`: a `transfer_in` linked to its `transfer_out` must
+  stay in the dedup set or re-imports would duplicate it. Cash legs in that fetch
+  can't false-match — parsed rows never carry `cash_credit`/`cash_debit` types.
 - `dedupeImportedRows.ts` — pure count-based duplicate filter keyed on
   date|asset|type|amount|unitPrice|currency (`bn()`-normalized numbers, sentinel
   assets never match). Vitest: `dedupeImportedRows.test.ts`.
@@ -104,9 +111,10 @@
   description mentions *Stopaj* → `tax`; the statement prints the lump negative,
   the parser stores the magnitude), `MIDAS_SECURITY_TICKER_SEPARATOR`, and
   `midasDividendNote(ticker, gross, withholding)`.
-- `src/lib/queries/transactions.ts` — fetch (parents-only by default; children when an
-  asset is filtered), `fetchLinkedChild(ren)`, single CRUD, and `bulkInsertTransactions`
-  (the RPC wrapper) with `BulkInsertRow`/`BulkInsertResult`.
+- `src/lib/queries/transactions.ts` — fetch (default hides cash-leg children but keeps
+  linked `transfer_in` rows, so a destination-platform filter still matches them; all
+  children included when an asset is filtered), `fetchLinkedChild(ren)`, single CRUD,
+  and `bulkInsertTransactions` (the RPC wrapper) with `BulkInsertRow`/`BulkInsertResult`.
 - `src/lib/pdf/loadPdfjs.ts` — lazy, memoized pdfjs loader (dynamic import + worker URL).
 
 ## Data layer
@@ -118,8 +126,13 @@ Beyond the shared `transactions` / `holdings` / `assets` schema (Component 2):
   every touched holding balance, **all atomic** — any error rolls back the batch. Keep
   `BulkInsertRow` in lockstep with the SQL function.
 - **`linked_tx_id`** foreign key with `ON DELETE CASCADE` pairs a cash leg to its trade
-  (and the two legs of a transfer); deleting a parent removes its cash child. A CHECK
-  constraint enforces that cash legs have a `linked_tx_id` and other rows don't.
+  and a `transfer_in` to its `transfer_out`; deleting a parent removes its child. The
+  CHECK constraint (`linked_tx_allowed`, migration `20260828120000_link_transfer_pairs`)
+  enforces: cash legs **must** carry `linked_tx_id`, `transfer_in` **may** (lone
+  deposits stay unlinked), every other type must not. The same migration backfilled
+  links for pre-existing pairs, matched conservatively on
+  (user, asset, date, amount, different platforms) with exactly one candidate on both
+  sides — ambiguous pairs stayed unlinked.
 - **`holdings`** is an upsert target keyed on `(user_id, asset_id, platform_id)`.
 
 ## Notes & gotchas
@@ -136,6 +149,17 @@ Beyond the shared `transactions` / `holdings` / `assets` schema (Component 2):
   always; buys only when a funding platform is chosen. In the bulk path, **bulk buys
   debit cash on their own platform** (funding = the buy's platform) so totals don't
   inflate; sells auto-credit inside the RPC.
+- **A `transfer_out`'s linked child is its `transfer_in`, not a cash leg.**
+  `useTransactionMutations.editTransaction` reconciles it *before* the cash-side
+  logic: shared fields (asset, date, amount, unit_price, price_currency, total_cost)
+  update in lockstep, the destination platform stays the child's own, and a type
+  change away from `transfer_out` deletes the child. Without this branch the cash
+  reconciliation would delete the transfer_in as an "orphan". The bulk sheet's
+  per-row edit strips `linked_tx_id` from its update payload for the same reason —
+  its insert-shaped payload would otherwise sever an existing link — and the grid
+  **never loads linked `transfer_in` rows** (`isGridEditable`): the destination side
+  is managed through its parent, and showing both sides as independently editable
+  grid rows would let one save silently overwrite the other.
 - **Money precision at every DB boundary.** All math uses `bn(...)`; values written to
   Postgres `numeric` columns go as `.toFixed()` strings (balances in `balance.ts`, cash
   amounts in `cash.ts`, bulk payloads in the grid) because `Number` loses tail digits

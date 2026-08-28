@@ -5,12 +5,19 @@ import { formatCurrency } from "@/lib/prices"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 import type { RealizedPnLEntry } from "@/lib/pnl/types"
-import { deriveTransactionDisplay, formatTxDate } from "./transactionRowModel"
+import {
+  deriveTransactionDisplay,
+  formatTxDate,
+  formatTxQuantity,
+} from "./transactionRowModel"
 import {
   TransactionRowActions,
   TransactionAssetLabel,
+  TransferRoute,
   RealizedPnLLine,
+  isTransferPair,
 } from "./TransactionRowShared"
+import { TRANSFER_PAIR_DISPLAY } from "@/lib/constants/transaction-types"
 
 interface Props {
   transaction: TransactionWithDetails
@@ -27,7 +34,10 @@ export function TransactionRow({
 }: Props) {
   const tx = transaction
   const { rates } = useTransactionData()
-  const d = deriveTransactionDisplay(tx, currency, realized ?? null, rates)
+  const transferPair = isTransferPair(tx, linkedChild ?? null)
+  const d = deriveTransactionDisplay(tx, currency, realized ?? null, rates, {
+    transferPair,
+  })
 
   return (
     <TableRow>
@@ -41,9 +51,11 @@ export function TransactionRow({
         <TransactionAssetLabel tx={tx} linkedChild={linkedChild ?? null} />
       </TableCell>
 
-      {/* Platform */}
+      {/* Platform — a linked transfer pair shows source → destination */}
       <TableCell>
-        {tx.platforms ? (
+        {transferPair && linkedChild ? (
+          <TransferRoute source={tx} destination={linkedChild} />
+        ) : tx.platforms ? (
           <div className="flex items-center gap-1.5">
             <PlatformDot color={tx.platforms.color} />
             <span className="text-sm">{tx.platforms.name}</span>
@@ -55,17 +67,17 @@ export function TransactionRow({
 
       {/* Type */}
       <TableCell>
-        <TransactionTypeBadge type={tx.type} />
+        <TransactionTypeBadge
+          type={tx.type}
+          display={transferPair ? TRANSFER_PAIR_DISPLAY : undefined}
+        />
       </TableCell>
 
-      {/* Amount */}
+      {/* Quantity */}
       <TableCell className={d.amountColor}>
         <span className="font-medium tabular-nums">
           {d.sign}
-          {new Intl.NumberFormat("en-US", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 8,
-          }).format(tx.amount)}
+          {formatTxQuantity(tx.amount)}
         </span>
       </TableCell>
 
@@ -92,7 +104,7 @@ export function TransactionRow({
 
       {/* Actions */}
       <TableCell className="text-right">
-        <TransactionRowActions tx={tx} />
+        <TransactionRowActions tx={tx} linkedChild={linkedChild ?? null} />
       </TableCell>
     </TableRow>
   )
