@@ -47,6 +47,7 @@ not rewrite the findings, they are a dated observation.
 | Feature area | Apps researched | Researched | Feeds |
 |---|---|---|---|
 | [Transfers between platforms](transfers-between-platforms.md) | Delta, Ghostfolio, Kubera, Sharesight, Empower | 2026-08-28 | [04 Transaction System](../components/04-transaction-system.md), [09 Transactions Page](../components/09-transactions-page.md) |
+| [Stablecoin-settled trades](stablecoin-settled-trades.md) | Delta, Ghostfolio, Kubera | 2026-08-28 | [04 Transaction System](../components/04-transaction-system.md), [06 P&L Engine](../components/06-pnl-engine.md) |
 
 ## Related research that lives elsewhere
 
