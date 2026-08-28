@@ -10,6 +10,7 @@ import {
   Settings,
 } from "lucide-react"
 import { CAMPAIGN_COPY } from "@/lib/constants/campaigns"
+import { FEATURES } from "@/lib/features"
 import Logo from "@/components/common/Logo"
 import BuildBadge from "@/components/common/BuildBadge"
 
@@ -17,7 +18,10 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/portfolio", label: "Portfolio", icon: Briefcase },
   { to: "/transactions", label: "Transactions", icon: ArrowLeftRight },
-  { to: "/performance", label: "Performance", icon: TrendingUp },
+  // Performance page is feature-flagged off (frozen) — see lib/features.ts.
+  ...(FEATURES.performancePage
+    ? [{ to: "/performance", label: "Performance", icon: TrendingUp }]
+    : []),
   { to: "/retirement", label: "Retirement", icon: PiggyBank },
   { to: "/budget", label: "Budget", icon: Wallet },
   { to: "/campaigns", label: CAMPAIGN_COPY.navLabel, icon: Megaphone },

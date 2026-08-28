@@ -35,6 +35,12 @@ incomplete — no silent drift between code and docs.
 - Before any UI work, load the `ui-conventions` skill. After UI changes, review with
   the `ux-reviewer` agent.
 
+### Frozen features
+The **Performance page** is feature-flagged off (`FEATURES.performancePage`,
+`src/lib/features.ts`) and **frozen**: its code and docs stay stale by design —
+don't maintain, doc-sync, or extend them until the flag is turned back on.
+Snapshot infrastructure (cron, storage, dashboard reads) is live and not frozen.
+
 ### P&L specifics
 The P&L engine is the pure function `computePortfolioPnL` (`src/lib/pnl/portfolio.ts`);
 `usePnL` is a thin wrapper. Worked numeric behaviour lives in `docs/pnl-test-cases.md`

@@ -6,6 +6,7 @@ import RouteSkeleton from "@/components/layout/RouteSkeleton"
 import DashboardPage from "@/pages/DashboardPage"
 import LoginPage from "@/pages/LoginPage"
 import SignupPage from "@/pages/SignupPage"
+import { FEATURES } from "@/lib/features"
 
 const PortfolioPage = lazy(() => import("@/pages/PortfolioPage"))
 const AssetDetailPage = lazy(() => import("@/pages/AssetDetailPage"))
@@ -41,7 +42,9 @@ export default function App() {
             <Route path="portfolio" element={<Lazy><PortfolioPage /></Lazy>} />
             <Route path="assets/:assetId" element={<Lazy><AssetDetailPage /></Lazy>} />
             <Route path="transactions" element={<Lazy><TransactionsPage /></Lazy>} />
-            <Route path="performance" element={<Lazy><PerformancePage /></Lazy>} />
+            {FEATURES.performancePage && (
+              <Route path="performance" element={<Lazy><PerformancePage /></Lazy>} />
+            )}
             <Route path="retirement" element={<Lazy><RetirementPage /></Lazy>} />
             <Route path="budget" element={<Lazy><BudgetPage /></Lazy>} />
             <Route path="campaigns" element={<Lazy><CampaignsPage /></Lazy>} />
