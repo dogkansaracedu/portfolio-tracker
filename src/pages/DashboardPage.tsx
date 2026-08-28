@@ -134,7 +134,6 @@ export default function DashboardPage() {
           currentValueTry={pnl.totalValueTry}
           totalPnlUsd={pnl.totalPnlUsd}
           totalPnlTry={pnl.totalPnlTry}
-          totalPnlPct={pnl.totalPnlPct}
           usdTry={usdTry}
         />
       </Suspense>

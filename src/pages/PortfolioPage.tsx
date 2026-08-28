@@ -9,7 +9,7 @@ export default function PortfolioPage() {
     totalValueUsd,
     totalValueTry,
     totalPnlUsd,
-    totalPnlPct,
+    totalMwrPct,
     totalUnrealizedPnlUsd,
     totalRealizedPnlUsd,
     totalIncomeUsd,
@@ -41,7 +41,7 @@ export default function PortfolioPage() {
         totalValueUsd={totalValueUsd}
         totalValueTry={totalValueTry}
         totalPnlUsd={totalPnlUsd}
-        totalPnlPct={totalPnlPct}
+        totalMwrPct={totalMwrPct}
         totalUnrealizedPnlUsd={totalUnrealizedPnlUsd}
         totalRealizedPnlUsd={totalRealizedPnlUsd}
         totalIncomeUsd={totalIncomeUsd}
