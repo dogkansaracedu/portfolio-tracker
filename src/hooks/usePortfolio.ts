@@ -25,7 +25,6 @@ export interface EnrichedAsset {
   ticker: string
   category: string
   icon_url: string | null
-  tags: string[]
   totalBalance: number
   holdings: {
     platformId: string
@@ -71,7 +70,7 @@ export interface AssetGroup {
   dailyReturnPct: number | null
 }
 
-export type GroupBy = "platform" | "category" | "tag"
+export type GroupBy = "platform" | "category"
 export type SortBy = "value" | "pnl" | "name"
 export type ReturnMode = "total" | "daily"
 

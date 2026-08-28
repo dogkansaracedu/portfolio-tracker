@@ -45,8 +45,9 @@ snapshot-sourced totals — so the page total equals the dashboard's net worth b
 construction. Assets the latest snapshot does not yet cover fall back to the live
 price.
 
-**Grouping & sorting.** Group by [Platform](GLOSSARY.md#platform), category, or
-tag; each group renders a header with a subtotal followed by its rows. Sort rows
+**Grouping & sorting.** Group by [Platform](GLOSSARY.md#platform) or category
+(the tag grouping was removed 2026-08-28); each group renders a header with a
+subtotal followed by its rows. Sort rows
 by value, return, or name. All grouping/filtering happens over the already-fetched
 asset set.
 
@@ -65,7 +66,7 @@ totals stay whole. **Stocks, non-stablecoin crypto, and gold are not nested** �
 they are not "denominated in" a fiat the way cash, funds, and stablecoins are,
 and they stay as ordinary top-level rows. A cash-equivalent whose currency has no
 matching fiat row stays a top-level row so it never disappears. This nesting
-applies to the **category and tag** groupings; it is **not** applied in the
+applies to the **category** grouping; it is **not** applied in the
 platform group-by, where the relationship doesn't compose.
 
 **Total | Daily return toggle.** A single toggle switches the return figure on
@@ -199,7 +200,7 @@ as the per-asset return %, so the headline and its rows answer the same
 an unrealized/realized split when any realized exists), and the held-asset
 count. **Not** affected by the toggle.
 
-**Funds nested under fiat rows (in-table):** in the category and tag groupings, a
+**Funds nested under fiat rows (in-table):** in the category grouping, a
 fiat currency row that has funds/bonds in it carries a chevron toggle; expanding
 it reveals the funds as **indented child rows** directly beneath the fiat row,
 each with its own value and **after-tax** return. Child rows are expanded by
@@ -244,11 +245,11 @@ zero is neutral; consistent across rows, headers, and the summary bar.
 - [ ] Value = live balance × latest snapshot price; the page total equals the
       dashboard's net worth.
 - [ ] The summary bar shows the lifetime total and does **not** change with the toggle.
-- [ ] Group by platform/category/tag shows headers with correct subtotals; search
+- [ ] Group by platform/category shows headers with correct subtotals; search
       filters by name or ticker; values render in the selected currency.
 - [ ] Mobile renders cards; inactive hidden by default; obfuscation hides amounts
       while percentages stay visible.
-- [ ] In the category/tag groupings, funds and USD stablecoins (USDT/USDC) appear
+- [ ] In the category grouping, funds and USD stablecoins (USDT/USDC) appear
       as **indented child rows** under their fiat currency row (funds under their
       fiat, stablecoins under USD; expandable, expanded by default), each showing
       its value and **after-tax** return; group subtotals include the nested
