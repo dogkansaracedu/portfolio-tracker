@@ -2,6 +2,14 @@
 
 > Layer: behavioral (tech-agnostic). Implementation → [technical/10-snapshots-performance.md](technical/10-snapshots-performance.md)
 
+> ⚠️ **PERFORMANCE PAGE FROZEN (2026-08-28).** The Performance page is disabled
+> via `FEATURES.performancePage` (`src/lib/features.ts`): no route, no nav
+> entry. Its code and the performance-page sections of this doc are
+> **deliberately stale** — exempt from maintenance and the doc-sync rule until
+> the flag is re-enabled. Do not update, extend, or refactor them in passing.
+> **The snapshot system itself (daily cron, storage, dashboard consumption) is
+> live and NOT frozen** — the snapshot sections of this doc still apply.
+
 ## Purpose
 
 Capture the portfolio's value and composition once per day as a frozen [snapshot](GLOSSARY.md#snapshot), and turn that history into performance views: value over time, drawdown, monthly returns, category attribution, a benchmark comparison, and summary metrics. A snapshot is the authoritative record of "what the portfolio was worth on that date".
