@@ -24,6 +24,13 @@ incomplete — no silent drift between code and docs.
 3. **Before committing** — re-read the touched docs and confirm they describe the code
    as shipped.
 
+## Versioning and changelog
+
+Every version bump in `package.json` adds a matching `CHANGELOG.md` entry in the same
+change — a `## [x.y.z] — YYYY-MM-DD` heading and 1–3 plain bullets, newest first.
+Fixes and patches move **only the third digit** (0.9.1 → 0.9.2); the middle digit is
+for features.
+
 ## UI rules (always apply)
 
 - Every UI change must be mobile compatible. When reporting UI work as done, state
