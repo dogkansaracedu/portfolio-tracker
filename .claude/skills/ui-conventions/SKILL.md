@@ -48,6 +48,8 @@ an acceptable value — describe the actual layout behaviour.
 
 ## Verification
 
-`npm run build` (not just typecheck) before declaring done. After the change lands,
-the `ux-reviewer` agent reviews it — write as if that reviewer will screenshot your
-work on a phone viewport, because it will.
+`npm run build` (not just typecheck) before declaring done. After a change that
+alters layout, components, density, or mobile behaviour, the `ux-reviewer` agent
+reviews it — write as if that reviewer will screenshot your work on a phone
+viewport, because it will. Trivial changes (label/copy-only tweaks) skip the
+reviewer: build, tests, and a grep for stale strings are enough.
