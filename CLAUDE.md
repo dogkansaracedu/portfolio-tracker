@@ -32,8 +32,10 @@ incomplete — no silent drift between code and docs.
 - Reuse existing components and shared helpers (shadcn/ui primitives, `gainLossClass`,
   `formatSignedCurrency`, etc.); match the density and idiom of existing pages.
 - No speculative UI: no sections, props, empty states, or options nobody asked for.
-- Before any UI work, load the `ui-conventions` skill. After UI changes, review with
-  the `ux-reviewer` agent.
+- Before any UI work, load the `ui-conventions` skill. After UI changes that alter
+  layout, components, density, or mobile behaviour, review with the `ux-reviewer`
+  agent. Skip the reviewer for trivial changes (label/copy-only tweaks) — build,
+  tests, and a grep for stale strings are enough there.
 
 ### Frozen features
 The **Performance page** is feature-flagged off (`FEATURES.performancePage`,
