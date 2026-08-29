@@ -109,7 +109,10 @@ price, currency) in lockstep, and deleting the source side removes both. Deletin
 the destination side alone removes only that side. Changing the source side's type
 away from a transfer dissolves the pair and removes the destination side. A lone
 `transfer_in`/`transfer_out` (money entering or leaving from outside the tracked
-platforms) has no counterpart and stays a single independent row.
+platforms) has no counterpart and stays a single independent row. In the UI the
+lone kinds are labelled **Deposit** and **Withdrawal**; the label **Transfer** is
+reserved for a linked pair shown as one combined row (see
+[Transaction](GLOSSARY.md#transaction) display labels).
 **A transfer books no [realized](GLOSSARY.md#realized-and-unrealized) P&L** — it carries the position's [cost basis](GLOSSARY.md#fifo-lots-and-cost-basis)
 across, so the moved units keep their original USD cost. The `transfer_in` carries
 the **weighted-average USD cost of the lots consumed** by the move:

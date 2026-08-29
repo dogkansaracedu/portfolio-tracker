@@ -49,7 +49,9 @@ and portfolio views exactly.
   source side is visible in the same filtered list; when a filter matches only the
   destination side (e.g. filtering to the destination platform), that side appears
   as its own directional row so the transfer never disappears. Lone transfers
-  (no counterpart) keep their signed, directional single-row rendering.
+  (no counterpart) keep their signed, directional single-row rendering, labelled
+  **Deposit** (transfer-in) / **Withdrawal** (transfer-out) — a pair side rendered
+  alone under a filter carries the same directional label.
 - **Native + converted.** A row's unit price and total are shown in the
   transaction's native price currency; when the display currency differs, an
   approximate converted figure (using the [exchange rate](GLOSSARY.md#exchange-rate)

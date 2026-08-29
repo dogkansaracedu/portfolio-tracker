@@ -44,6 +44,10 @@ asset — asset-native; defaulted and editable, never a free picker**), `total_c
 `fee`/`fee_currency`, `date`, `related_asset_id`, `linked_tx_id`, `notes`.
 - **Balance effect:** buy / transfer_in / dividend / interest / cash_credit *add*
   to the holding; sell / transfer_out / fee / cash_debit *subtract*.
+- **Display labels:** `transfer_in` shows as **Deposit** and `transfer_out` as
+  **Withdrawal** — value crossing the tracked-portfolio (or, under a platform
+  filter, that platform's) boundary. A linked pair rendered as one combined row
+  shows as **Transfer** — an internal platform-to-platform move.
 - **Linked legs:** `linked_tx_id` pairs a trade with its cash movement (only `buy`
   and `sell` carry a linked cash child) and pairs the two sides of a transfer. The
   cash legs (`cash_credit`/`cash_debit`) are created automatically, not user-picked.
