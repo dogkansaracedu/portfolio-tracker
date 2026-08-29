@@ -44,6 +44,11 @@
   column header/label says "Quantity" (matches Portfolio), not "Amount".
 - `TransactionFilters.tsx` — date presets + two `Calendar` popovers, asset `Select`,
   platform `Select`, and the type chips; pushes changes through `onFiltersChange`.
+  The chips render `FILTERABLE_TYPES` (the user-pickable stored types **plus** the
+  derived `TRANSFER_PAIR_FILTER_TYPE`, placed right after Deposit and Withdrawal) with
+  `FILTER_TYPE_DISPLAY` (= `TRANSACTION_TYPE_DISPLAY` + `TRANSFER_PAIR_DISPLAY`), so
+  the Transfer chip wears exactly the row badge's neutral slate. `USER_PICKABLE_TYPES`
+  stays the editor/sheet's list — the pseudo-type must never be selectable there.
 - `TransactionSummary.tsx` — three stat `Card`s: count, buy volume, sell volume.
 - `TransactionTypeSelector.tsx` — exports **both** `TransactionTypeSelector` (the
   single-pick chip row used by the editor) and `TransactionTypeBadge` (the colored
@@ -57,7 +62,9 @@
   both sides when deleting a linked transfer; `TransactionAssetLabel` subtitle —
   cash legs only, a transfer child renders no subtitle; `TransferRoute`;
   `isTransferPair`; `RealizedPnLLine`), `transactionRowModel.ts`
-  (`deriveTransactionDisplay`, `collapseLinkedTransferIns`, `formatTxDate`),
+  (`deriveTransactionDisplay`, `collapseLinkedTransferIns`, `formatTxDate`, plus the
+  derived-type filter predicates `transferPairParentIds` / `matchesFilterType` /
+  `matchesAnyFilterType`),
   `TransactionRowCard.tsx` (mobile card — same pair rendering as the table row).
 
 **Hooks** (`src/hooks/`)
@@ -73,8 +80,12 @@
   (`useTransactions(serverFilters)`); applies the **type** filter client-side, then
   `collapseLinkedTransferIns` — a linked `transfer_in` whose parent survived the
   filters is folded into the parent's combined row (`AssetDetailPage` applies the
-  same collapse to its asset-filtered slice); builds
-  the `summary` (count + buy/sell volume) by `normalizeToUsd`-ing each row's total.
+  same collapse to its asset-filtered slice). The type filter runs through
+  `matchesAnyFilterType(tx, filters.types, pairParentIds)` (derived-type matching, see
+  gotchas), with `pairParentIds` memoized from `transferPairParentIds(allTransactions)`
+  over the **global** SoT. Builds
+  the `summary` (count + buy/sell volume) by `normalizeToUsd`-ing each row's total —
+  over the same post-filter rows, so the stat cards always agree with the visible list.
 - `useTransactions.ts` — two exports: `useTransactionMutations()` (create/edit/delete
   only, **no fetch**) and `useTransactions(filters)` (server-filtered list + the
   mutations). The split is deliberate (see gotchas). Mutations call
@@ -118,8 +129,26 @@
   the global SoT (so P&L / summary / dashboard update), `bumpTxVersion()` nudges the
   server-filtered slices (`useTransactions`, `useHoldings`). They serve orthogonal
   consumers — keep both.
+- **The type filter matches the derived type, not `type`.** `transactionRowModel.ts`
+  owns three pure helpers: `transferPairParentIds(rows)` → the set of `transfer_out`
+  ids that own a `transfer_in` child; `matchesFilterType(tx, chip, parentIds)`;
+  `matchesAnyFilterType(...)` (union over the active chips). Semantics:
+  `TRANSFER_PAIR_FILTER_TYPE` matches **either** side of a linked pair (the child too,
+  so a destination-platform filter still surfaces the transfer as its own directional
+  row); `transfer_out` matches only a `transfer_out` that is *not* a pair parent;
+  `transfer_in` only one with `linked_tx_id == null`; anything else is a plain
+  `tx.type ===` match. Covered by `transactionRowModel.test.ts`. Only the child row
+  carries the link, so "is this internal?" is unanswerable from the parent alone —
+  hence the parent-id set. **No schema change:** the linkage already encodes it.
+- **Why the pair set comes from the global SoT.** `useTransactionData()` already holds
+  the full unfiltered history in memory, so `transferPairParentIds` needs **no extra
+  request** and no PostgREST `NOT EXISTS` workaround, and the answer can't flip when a
+  date or platform filter drops the other side of a pair out of the fetched slice.
+  Deriving it from `rawTransactions` instead would leak pair parents into "Withdrawal"
+  whenever the destination side fell outside the window.
 - **Server vs client filtering.** Date/asset/platform are pushed into the Postgres
-  query; **type** is filtered in `useMemo` after fetch (it's cheap and multi-select).
+  query; **type** is filtered in `useMemo` after fetch (it's cheap, multi-select, and
+  the pair-parent test isn't expressible in PostgREST).
   There is **no "Load more"** — the date-bounded server slice is rendered whole; the
   default current-year window keeps it small. Filters live in the URL, not React
   state, so they're shareable and survive reload.

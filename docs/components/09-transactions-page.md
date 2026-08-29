@@ -76,6 +76,15 @@ and portfolio views exactly.
 - **Filters.** The user can narrow by date range, [asset](GLOSSARY.md#asset),
   [platform](GLOSSARY.md#platform), and one or more transaction **types** (multi-
   select). Filters compose (all active filters AND together).
+- **The type filter matches the *derived* type, not the stored one.** The three
+  transfer-shaped filters are separate: **Transfer** matches internal linked pairs
+  (shown, as always, as the one combined row), **Withdrawal** matches only a *lone*
+  outgoing transfer, and **Deposit** only a *lone* incoming one. So an internal
+  platform-to-platform move appears under Transfer and **nowhere else** — filtering
+  Withdrawal never surfaces money that never left the portfolio. Every other type
+  filter matches its type directly. Whether a transfer is internal is answered from
+  the full history, so it does not change with the date/asset/platform filters in
+  effect.
 - **Default range.** A fresh visit defaults to the current calendar year rather
   than the entire history, so the first load is bounded. The user can widen to
   "All Time". The active filter set is reflected in the page's address so a
@@ -139,8 +148,10 @@ and portfolio views exactly.
   Type is a color-coded badge per type. Asset cell carries the icon, ticker, and the
   linked-leg subtitle. Empty and loading states are explicit.
 - **Filters.** Date-range presets (Last 7d / Last 30d / This Year / All Time) plus
-  free date pickers; an asset picker; a platform picker; type chips (toggle on/off);
-  a "clear filters" affordance when any filter is active.
+  free date pickers; an asset picker; a platform picker; type chips (toggle on/off) —
+  including a **Transfer** chip carrying the same neutral label and colour as the
+  combined pair row, sitting right after Deposit and Withdrawal; a "clear filters"
+  affordance when any filter is active.
 - **Realized P&L.** Rendered only on sell rows, beneath the total: signed amount +
   `%` of cost basis, colored gain/red-loss by the **USD** sign, with the native
   figure shown when native ≠ USD. Follows the app-wide gain/loss styling
@@ -167,6 +178,8 @@ and portfolio views exactly.
       `source → destination`; filtering to either platform still surfaces the
       transfer; deleting the combined row removes both sides after a confirmation
       that names them.
+- [ ] Filtering to **Withdrawal** shows no internal transfer pair; the pair appears
+      under **Transfer**, and **Deposit** shows only lone incoming transfers.
 - [ ] The activity summary reflects the **filtered** set (count, buy volume, sell
       volume).
 - [ ] Editing a transaction updates the affected [Holding](GLOSSARY.md#holding)

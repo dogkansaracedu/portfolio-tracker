@@ -19,10 +19,10 @@ import { PlatformDot } from "@/components/common/PlatformDot"
 import { AssetIcon } from "@/components/common/AssetIcon"
 import { CalendarIcon, XIcon } from "lucide-react"
 import {
-  TRANSACTION_TYPE_DISPLAY,
-  USER_PICKABLE_TYPES,
+  FILTERABLE_TYPES,
+  FILTER_TYPE_DISPLAY,
+  type TransactionFilterType,
 } from "@/lib/constants/transaction-types"
-import type { TransactionType } from "@/types/database"
 import {
   thisYearStartISO,
   type TransactionLogFilters,
@@ -85,7 +85,7 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
     onFiltersChange({ ...filters, dateFrom, dateTo })
   }
 
-  const toggleType = (type: TransactionType) => {
+  const toggleType = (type: TransactionFilterType) => {
     const current = filters.types ?? []
     const next = current.includes(type)
       ? current.filter((t) => t !== type)
@@ -276,8 +276,8 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
         <span className="flex items-center text-sm font-medium text-muted-foreground">
           Type:
         </span>
-        {USER_PICKABLE_TYPES.map((type) => {
-          const config = TRANSACTION_TYPE_DISPLAY[type]
+        {FILTERABLE_TYPES.map((type) => {
+          const config = FILTER_TYPE_DISPLAY[type]
           const isActive = filters.types?.includes(type) ?? false
           return (
             <button
