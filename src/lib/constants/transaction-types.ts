@@ -92,3 +92,41 @@ export const TRANSACTION_TYPE_DISPLAY: Record<
   cash_credit: { label: "Cash credit", color: "text-green-700", bg: "bg-green-100 border-green-300" },
   cash_debit: { label: "Cash debit", color: "text-red-700", bg: "bg-red-100 border-red-300" },
 }
+
+/** Derived (never stored) type used only by the Transactions page type filter:
+ *  an internal transfer pair — a `transfer_out` whose linked child is a
+ *  `transfer_in`. The database has no such enum value; the linkage alone
+ *  encodes it, so the filter derives it instead of reading `type`. */
+export const TRANSFER_PAIR_FILTER_TYPE = "transfer_pair"
+
+/** What the Transactions page type chips filter on: a stored type, or the
+ *  derived transfer pair. */
+export type TransactionFilterType =
+  | TransactionType
+  | typeof TRANSFER_PAIR_FILTER_TYPE
+
+/** Chips shown in the Transactions page type filter — the user-pickable stored
+ *  types plus the derived Transfer pair, sitting right after the two
+ *  directional transfers it is made of. */
+export const FILTERABLE_TYPES: TransactionFilterType[] = [
+  TRANSACTION_TYPES.BUY,
+  TRANSACTION_TYPES.SELL,
+  TRANSACTION_TYPES.TRANSFER_IN,
+  TRANSACTION_TYPES.TRANSFER_OUT,
+  TRANSFER_PAIR_FILTER_TYPE,
+  TRANSACTION_TYPES.DIVIDEND,
+  TRANSACTION_TYPES.INTEREST,
+  TRANSACTION_TYPES.FEE,
+  TRANSACTION_TYPES.TAX,
+]
+
+/** Label + colors for every filter chip: the per-type display, plus the
+ *  combined-row display for the derived pair (one convention with the row
+ *  badge, so chip and row read the same). */
+export const FILTER_TYPE_DISPLAY: Record<
+  TransactionFilterType,
+  { label: string; color: string; bg: string }
+> = {
+  ...TRANSACTION_TYPE_DISPLAY,
+  [TRANSFER_PAIR_FILTER_TYPE]: TRANSFER_PAIR_DISPLAY,
+}

@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.9.2] — 2026-08-30
+- Transactions type filter now matches the **derived** type: a new **Transfer** chip
+  shows internal linked pairs, and **Withdrawal** / **Deposit** match only lone
+  transfers — an internal move no longer shows up under Withdrawal.
+- Filter-layer fix only: no schema change, no change to balances or P&L.
+
 ## [0.9.1] — 2026-08-30
 - Transaction type labels renamed: "Transfer In" → **Deposit**, "Transfer Out" → **Withdrawal**.
 - The neutral **Transfer** label stays reserved for linked platform-to-platform pairs.

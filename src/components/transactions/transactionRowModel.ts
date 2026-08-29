@@ -1,6 +1,8 @@
 import {
   POSITIVE_TYPES,
   TRANSACTION_TYPES,
+  TRANSFER_PAIR_FILTER_TYPE,
+  type TransactionFilterType,
 } from "@/lib/constants/transaction-types"
 import { isFiatCurrency, type FiatCurrency } from "@/lib/constants/currencies"
 import { convertOnDate, fromUsdOnDate } from "@/lib/pnl/currency"
@@ -134,4 +136,58 @@ export function deriveTransactionDisplay(
     realizedPct,
     nativeIsUsd,
   }
+}
+
+/** Ids of the `transfer_out` rows that own a linked `transfer_in` child — i.e.
+ *  the parents of internal transfer pairs. Only the child carries the link, so
+ *  "is this an internal transfer?" can only be answered by looking at the other
+ *  side; derive the set once from the **full** history so the answer never
+ *  depends on which rows the current date/asset/platform filters fetched. */
+export function transferPairParentIds<
+  T extends Pick<TransactionWithDetails, "type" | "linked_tx_id">,
+>(allTransactions: T[]): Set<string> {
+  const ids = new Set<string>()
+  for (const tx of allTransactions) {
+    if (tx.type === TRANSACTION_TYPES.TRANSFER_IN && tx.linked_tx_id) {
+      ids.add(tx.linked_tx_id)
+    }
+  }
+  return ids
+}
+
+/** Does a row match one type filter chip? Matching is on the **derived** type,
+ *  not the stored enum: an internal transfer pair is its own thing, so
+ *  - Transfer   → either side of a linked pair (both sides so a destination-only
+ *                 filter still surfaces it; when both are visible the collapse
+ *                 folds them into the one combined row),
+ *  - Withdrawal → a lone `transfer_out` (no linked `transfer_in` child),
+ *  - Deposit    → a lone `transfer_in` (not the child of a pair).
+ *  Every other chip is a plain stored-type match. */
+export function matchesFilterType<
+  T extends Pick<TransactionWithDetails, "id" | "type" | "linked_tx_id">,
+>(tx: T, filterType: TransactionFilterType, pairParentIds: Set<string>): boolean {
+  switch (filterType) {
+    case TRANSFER_PAIR_FILTER_TYPE:
+      return (
+        (tx.type === TRANSACTION_TYPES.TRANSFER_OUT && pairParentIds.has(tx.id)) ||
+        (tx.type === TRANSACTION_TYPES.TRANSFER_IN && tx.linked_tx_id != null)
+      )
+    case TRANSACTION_TYPES.TRANSFER_OUT:
+      return tx.type === TRANSACTION_TYPES.TRANSFER_OUT && !pairParentIds.has(tx.id)
+    case TRANSACTION_TYPES.TRANSFER_IN:
+      return tx.type === TRANSACTION_TYPES.TRANSFER_IN && tx.linked_tx_id == null
+    default:
+      return tx.type === filterType
+  }
+}
+
+/** Multi-select variant: a row matches when any active chip matches it. */
+export function matchesAnyFilterType<
+  T extends Pick<TransactionWithDetails, "id" | "type" | "linked_tx_id">,
+>(
+  tx: T,
+  filterTypes: TransactionFilterType[],
+  pairParentIds: Set<string>,
+): boolean {
+  return filterTypes.some((type) => matchesFilterType(tx, type, pairParentIds))
 }

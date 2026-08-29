@@ -3,8 +3,12 @@ import { useSearchParams } from "react-router"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { normalizeToUsd } from "@/lib/pnl/currency"
-import { collapseLinkedTransferIns } from "@/components/transactions/transactionRowModel"
-import type { TransactionType } from "@/types/database"
+import {
+  collapseLinkedTransferIns,
+  matchesAnyFilterType,
+  transferPairParentIds,
+} from "@/components/transactions/transactionRowModel"
+import type { TransactionFilterType } from "@/lib/constants/transaction-types"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 
 export interface TransactionLogFilters {
@@ -12,7 +16,7 @@ export interface TransactionLogFilters {
   dateTo?: string
   assetId?: string
   platformId?: string
-  types?: TransactionType[]
+  types?: TransactionFilterType[]
 }
 
 export interface TransactionLogSummary {
@@ -32,7 +36,7 @@ function defaultFilters(): TransactionLogFilters {
 }
 
 function filtersFromParams(params: URLSearchParams): TransactionLogFilters {
-  const types = params.getAll("types") as TransactionType[]
+  const types = params.getAll("types") as TransactionFilterType[]
   return {
     dateFrom: params.get("dateFrom") ?? undefined,
     dateTo: params.get("dateTo") ?? undefined,
@@ -74,7 +78,7 @@ export function useTransactionLog() {
   }, [searchParams])
   const setFilters = (next: TransactionLogFilters) =>
     setSearchParams(filtersToParams(next), { replace: true })
-  const { rates } = useTransactionData()
+  const { rates, transactions: allTransactions } = useTransactionData()
 
   // Mirror the synchronous default into the URL so filters stay shareable and
   // survive reload. By the time this runs, `filters` already carries the
@@ -102,20 +106,32 @@ export function useTransactionLog() {
   const { transactions: rawTransactions, loading, error, refetch } =
     useTransactions(serverFilters)
 
-  // Client-side filtering for transaction types, then transfer-pair collapse:
-  // a linked transfer_in whose transfer_out parent is visible in the same
-  // filtered list is folded into the parent's combined "A → B" row. When the
-  // parent is filtered out (e.g. the platform filter matches only the
+  // Which transfer_outs own a transfer_in child, derived from the *global*
+  // history rather than the fetched slice — a date or platform filter can drop
+  // the other side of a pair, and "is this an internal transfer?" must not
+  // change with the filter set. No extra request: the SoT is already loaded.
+  const pairParentIds = useMemo(
+    () => transferPairParentIds(allTransactions),
+    [allTransactions],
+  )
+
+  // Client-side filtering on the *derived* transaction type (Transfer matches a
+  // linked pair; Deposit/Withdrawal only the lone ones), then transfer-pair
+  // collapse: a linked transfer_in whose transfer_out parent is visible in the
+  // same filtered list is folded into the parent's combined "A → B" row. When
+  // the parent is filtered out (e.g. the platform filter matches only the
   // destination side), the transfer_in stays as its own row.
   const transactions = useMemo(() => {
     let result: TransactionWithDetails[] = rawTransactions
 
     if (filters.types && filters.types.length > 0) {
-      result = result.filter((tx) => filters.types!.includes(tx.type))
+      result = result.filter((tx) =>
+        matchesAnyFilterType(tx, filters.types!, pairParentIds),
+      )
     }
 
     return collapseLinkedTransferIns(result)
-  }, [rawTransactions, filters.types])
+  }, [rawTransactions, filters.types, pairParentIds])
 
   const summary = useMemo<TransactionLogSummary>(() => {
     let totalBuyVolume = 0
