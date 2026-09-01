@@ -91,7 +91,7 @@ P&L rather than being hidden by the convention.
 | Parent | Cash leg created? | Leg type | Leg sits on | Leg amount |
 |--------|:---:|---|---|---|
 | `buy` — external funding | no | — | — | — |
-| `buy` — funded from a platform | yes | `cash_debit` | (settlement asset, funding platform) | `total_cost + fee` if fee is in the price currency, else `total_cost` |
+| `buy` — funded from its platform | yes | `cash_debit` | (settlement asset, the trade's platform) | `total_cost + fee` if fee is in the price currency, else `total_cost` |
 | `sell` | yes (always) | `cash_credit` | (settlement asset, the trading platform) | `total_cost − fee` if fee is in the price currency, else `total_cost` |
 
 The **settlement asset** defaults to the price-currency fiat; a USD-priced
@@ -169,8 +169,8 @@ cost basis.
 **Input (one transaction):** asset, platform, type, date, quantity (`amount`),
 `unit_price` + `price_currency` (asset-native; for price-bearing types), optional
 `fee` + `fee_currency`, optional notes. A `buy` may also carry a **funding source**
-(external, or a platform to debit). A `transfer_out` also takes a **destination
-platform**.
+(external, or a holding on the trade's own platform to debit). A `transfer_out`
+also takes a **destination platform**.
 
 **Output / effects:**
 
@@ -205,12 +205,14 @@ A type-driven form: choosing the type reveals only the relevant fields.
   `transfer_in`): `unit_price` + `price_currency` (defaulted from the asset, editable)
   and a live **Total** readout.
 - `buy`/`sell`: optional fee + fee currency.
-- `buy`: a **Funding source** selector — "External cash (no deduction)", any
-  platform holding the price-currency fiat, or (USD-priced buys only) any
-  platform with a positive
-  [settlement stablecoin](GLOSSARY.md#settlement-stablecoin) balance, each
-  option showing its available balance; insufficient funds are flagged inline
-  in the funding asset's own units.
+- `buy`: a **Funding source** selector — "External cash (no deduction)" or a
+  holding **on the trade's own platform**: its price-currency fiat, or
+  (USD-priced buys only) a positive
+  [settlement stablecoin](GLOSSARY.md#settlement-stablecoin) balance there.
+  Each option shows its available balance; insufficient funds are flagged
+  inline in the funding asset's own units. Funding from a *different* platform
+  is not offered — cash on another exchange can't settle a trade on this one
+  (changing the trade's platform moves the funding selection with it).
 - `sell`: no funding selector (proceeds always land on the trading platform).
   A USD-priced sell of a **crypto asset** (not of a stablecoin itself) offers a
   **Proceeds credited as** choice — USD cash (default) or a settlement
@@ -287,7 +289,8 @@ and funded buys) or rolls back entirely, after which holding balances are recomp
 ## Acceptance
 
 - [ ] Recording a `buy` increases the holding **and** creates a paired `cash_debit`
-      on the funding platform (or none, if external).
+      on its own platform (or none, if external) — funding is never offered from
+      a different platform.
 - [ ] Recording a `sell` always creates a paired `cash_credit` on the trading platform.
 - [ ] A `sell` / `transfer_out` / `fee` exceeding the platform balance is rejected.
 - [ ] A transfer moves the position across platforms, carries weighted-average cost
