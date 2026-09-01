@@ -229,11 +229,13 @@ describe("P&L cases — taxes", () => {
       prices({ USD: 1 }),
     )
     // Net invested untouched by the tax — the charge is a cost, not a
-    // withdrawal — so the 50 lost surfaces entirely as P&L.
+    // withdrawal — so the 50 lost surfaces entirely as P&L. In fiat mode the
+    // tax consumes lots and books the consumed cost as a realized loss
+    // (docs/pnl-test-cases.md Case 23).
     expect(pnl.totalInvestedUsd.toNumber()).toBe(1000)
     expect(pnl.totalCurrentValueUsd.toNumber()).toBe(950)
-    expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(-50)
-    expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(0)
+    expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(0)
+    expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(-50)
     expect(pnl.totalIncomeUsd.toNumber()).toBe(0)
     expectReconciles(pnl)
   })
@@ -317,6 +319,104 @@ describe("P&L cases — invariant & known gaps", () => {
     expect(
       pnl.totalCurrentValueUsd.minus(pnl.totalInvestedUsd).toNumber(),
     ).toBe(-5)
+    expectReconciles(pnl)
+  })
+})
+
+describe("P&L cases — FIFO on fiat (fiat mode, 0.12.0)", () => {
+  it("C27 — fiat conversion realizes FX gain (EUR→USD)", () => {
+    const pnl = run(
+      [
+        transferIn(100, 1, { price_currency: "EUR", date: "2026-01-01" }),
+        // Conversion outflow: market USD value on the row (never a sell).
+        transferOut(60, 1.2, { price_currency: "USD", date: "2026-02-01" }),
+      ],
+      [holding({ balance: 40, ticker: "EUR", isCurrency: true })],
+      prices({ EUR: 1.25 }),
+      [rate("2026-01-01", { eur_usd: 1.1 })],
+    )
+    expect(pnl.totalInvestedUsd.toNumber()).toBeCloseTo(38, 6) // 110 − 72
+    expect(pnl.totalCurrentValueUsd.toNumber()).toBeCloseTo(50, 6)
+    // FX gain locked by the conversion: 72 − 60 × 1.10.
+    expect(pnl.totalRealizedPnlUsd.toNumber()).toBeCloseTo(6, 6)
+    // Remaining €40 lot at 1.10 → 50 − 44.
+    expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBeCloseTo(6, 6)
+    // The split also lands on the EUR row itself, not just the totals.
+    const eur = pnl.assetPnLs.find((a) => a.ticker === "EUR")!
+    expect(eur.realizedPnlUsd.toNumber()).toBeCloseTo(6, 6)
+    expect(eur.unrealizedPnlUsd.toNumber()).toBeCloseTo(6, 6)
+    expectReconciles(pnl)
+  })
+
+  it("C28 — TRY spent on a platform-funded buy realizes the FX loss", () => {
+    const pnl = run(
+      [
+        transferIn(30000, 1, {
+          asset_id: "try",
+          price_currency: "TRY",
+          date: "2026-01-01",
+        }),
+        buy(10, 1500, {
+          id: "fund-buy",
+          asset_id: "fund",
+          price_currency: "TRY",
+          date: "2026-02-01",
+        }),
+        cashDebit(15000, {
+          asset_id: "try",
+          price_currency: "TRY",
+          linked_tx_id: "fund-buy",
+          date: "2026-02-01",
+        }),
+      ],
+      [
+        holding({ balance: 15000, ticker: "TRY", isCurrency: true, assetId: "try" }),
+        holding({ balance: 10, ticker: "FUND", assetId: "fund" }),
+      ],
+      prices({ TRY: 1 / 30, FUND: 50 }),
+      [rate("2026-01-01", { usd_try: 25 }), rate("2026-02-01", { usd_try: 30 })],
+    )
+    expect(pnl.totalInvestedUsd.toNumber()).toBeCloseTo(1200, 6)
+    expect(pnl.totalCurrentValueUsd.toNumber()).toBeCloseTo(1000, 6)
+    // Debit market $500 − consumed cost $600 (₺15,000 @ 25).
+    expect(pnl.totalRealizedPnlUsd.toNumber()).toBeCloseTo(-100, 6)
+    // Remaining ₺15,000: cost $600, value $500 (fund itself is flat).
+    expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBeCloseTo(-100, 6)
+    expectReconciles(pnl)
+  })
+
+  it("C29 — estimated history: outflow before inflow stays neutral (USD)", () => {
+    const pnl = run(
+      [
+        cashDebit(500, { date: "2026-01-01" }),
+        transferIn(1000, 1, { date: "2026-01-02" }),
+      ],
+      [holding({ balance: 500, ticker: "USD", isCurrency: true })],
+      prices({ USD: 1 }),
+    )
+    expect(pnl.totalInvestedUsd.toNumber()).toBe(500)
+    expect(pnl.totalCurrentValueUsd.toNumber()).toBe(500)
+    // No phantom ±$500 realized/unrealized split from the dry spend.
+    expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(0)
+    expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(0)
+    expectReconciles(pnl)
+  })
+
+  it("C30 — borrowed shortfall repaid at a different rate books the gap", () => {
+    const pnl = run(
+      [
+        cashDebit(15000, { price_currency: "TRY", date: "2026-01-01" }),
+        transferIn(15000, 1, { price_currency: "TRY", date: "2026-02-01" }),
+      ],
+      [holding({ balance: 0, ticker: "TRY", isCurrency: true })],
+      prices({ TRY: 1 / 25 }),
+      [rate("2026-01-01", { usd_try: 30 }), rate("2026-02-01", { usd_try: 25 })],
+    )
+    expect(pnl.totalInvestedUsd.toNumber()).toBeCloseTo(100, 6) // −500 + 600
+    expect(pnl.totalCurrentValueUsd.toNumber()).toBe(0)
+    // Spent cheap TRY (borrowed at $500), restored expensive TRY ($600).
+    expect(pnl.totalRealizedPnlUsd.toNumber()).toBeCloseTo(-100, 6)
+    expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBeCloseTo(0, 6)
     expectReconciles(pnl)
   })
 })

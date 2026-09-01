@@ -18,13 +18,13 @@
 
 | File | Role |
 | --- | --- |
-| `types.ts` | `CostLot`, `ConsumedLot`, `RealizedPnLEntry`, `FIFOResult`, `UnrealizedPnLResult`, `AssetPnL`, `PortfolioPnL`. |
-| `fifo.ts` | `computeFIFOLots(txs, rates)` — oldest-first lot engine (buy/transfer/dividend/interest/cash_credit push, sell/fee consume, transfer_out/cash_debit P&L-neutral; fees capitalized). Cash legs reach FIFO only on settlement-stablecoin holdings (fiat skips the lot engine) and book at the $1 peg. Also `computeTransferCostBasis()` for weighted-avg transfer cost. |
+| `types.ts` | `CostLot`, `ConsumedLot`, `RealizedPnLEntry`, `FIFOResult` (incl. `fiatOwedCostUsd`, the fiat-mode borrowed negative basis), `UnrealizedPnLResult`, `AssetPnL`, `PortfolioPnL`. |
+| `fifo.ts` | `computeFIFOLots(txs, rates, opts?)` — oldest-first lot engine (buy/transfer/dividend/interest/cash_credit push, sell/fee consume, transfer_out/cash_debit P&L-neutral; fees capitalized). On settlement-stablecoin holdings cash legs book at the $1 peg. `opts.fiat` switches on **fiat mode** for currency holdings: transfer_out/cash_debit book realized = market − consumed cost, `tax` books −consumed cost, a standalone `fee` books −fee without consuming, and a dry disposal borrows at market (`fiatOwedCostUsd`), repaid by the next push (only the rate gap books, on the inflow tx). Also `computeTransferCostBasis()` for weighted-avg transfer cost (non-currency transfers only — the modal excludes fiat). |
 | `currency.ts` | `getExchangeRateForDate` (binary search ≤ date, earliest-rate fallback), `normalizeToUsd`, `unitPriceToUsd`, `fromUsdOnDate` (display inverse), `convertOnDate`. |
 | `unrealized.ts` | `computeUnrealizedPnL(lots, currentPriceUsd, balance)` → cost basis, current value, unrealized USD + %. |
-| `realized.ts` | `buildRealizedByTx(txs, rates)` → `Map<txId, RealizedPnLEntry>` over full history; groups per `asset_id|platform_id` (same composite key as `usePnL`). |
+| `realized.ts` | `buildRealizedByTx(txs, rates, currencyAssetIds?)` → `Map<txId, RealizedPnLEntry>` over full history; groups per `asset_id|platform_id` (same composite key as `usePnL`). Groups whose asset id is in `currencyAssetIds` run fiat mode (bare `Transaction`s don't carry `is_currency`), so fiat outflows get entries — the Transactions page's per-row realized annotations on conversions/withdrawals come from here. |
 | `totals.ts` | `summarizePnLTotals({ totalCurrentValueUsd, totalInvestedUsd })` → **canonical money-weighted Total P&L dollars** = value − net invested. Dollars only — the % companion everywhere is `computeLifetimeMwrCumulativePct` (`lib/mwr.ts`); the peak-based pct and `peakInvestedUsd` input were removed 2026-08-28. |
-| `portfolio.ts` | `computePortfolioPnL({ holdings, prices, transactions, rates, snapshots })` → the **pure P&L engine**: per-(asset,platform) FIFO → asset aggregation → portfolio totals (value, unrealized, realized + income over full history, net invested). Also emits per-asset `taxAccrualUsd` and portfolio `totalTaxAccrualUsd` (the additive after-tax overlay — see gotchas). The single source `usePnL` wraps — no other path re-derives portfolio P&L. |
+| `portfolio.ts` | `computePortfolioPnL({ holdings, prices, transactions, rates, snapshots, currencyAssetIds? })` → the **pure P&L engine**: per-(asset,platform) FIFO (fiat mode for `is_currency` holdings — basis = Σ open lots − `fiatOwedCostUsd`, realized from the group's entries) → asset aggregation → portfolio totals (value, unrealized, realized + income over full history, net invested). `currencyAssetIds` (from the asset catalog) covers sold-out currencies with no holdings row; holdings-derived ids are merged in regardless. Also emits per-asset `taxAccrualUsd` and portfolio `totalTaxAccrualUsd` (the additive after-tax overlay — see gotchas). The single source `usePnL` wraps — no other path re-derives portfolio P&L. |
 | `daily.ts` | `computeDailyReturn(input)` + `dailyReturnPct(returnUsd, denomUsd)` — money-weighted day P&L; returns `null` pct when `denom ≤ 0`. Carries `denomUsd` so group rollups sum and call `dailyReturnPct` once. |
 | `foreign-income.ts` | `computeForeignIncomeTry(...)` + `foreignDeclarableAssetIds(...)` — sums non-TRY, non-withheld dividend + interest in TRY by calendar year (the 22k declaration figure); independent of the FIFO/total path. |
 
@@ -35,7 +35,8 @@
   (a cost, never capital movement — and `externalCashFlowUsd` returns 0 for it,
   so XIRR/TWR absorb the charge as performance), transfers
   cancel, `cash_credit`/`cash_debit` cancel their paired trade). The subtrahend in
-  Total P&L $ (`value − this`) and each fiat holding's cost basis.
+  Total P&L $ (`value − this`); fiat holdings' cost bases come from fiat-mode
+  FIFO in `fifo.ts` since 0.12.0, not from here.
 - `computePnLTimeSeries(snapshots, txs, rates)` → historical `{date, totalUsd,
   investedUsd, pnlUsd}` points (`snapshot.total_usd − cumulative invested`); the
   series the chart draws and the "now" anchor must reconcile with.
@@ -57,7 +58,8 @@
 | --- | --- |
 | `usePnL(holdings, prices)` | **Thin wrapper over `computePortfolioPnL`** (the pure engine): supplies transactions/rates/snapshots from context, memoizes, runs the reconciliation assert. Returns `PortfolioPnL` (incl. `totalIncomeUsd` and full-history realized — sold-out positions have no holdings row) **plus `transactions`, `rates`** (so callers don't refetch). Realized + income are computed inside the engine over full history. |
 | `useCostBasis(assetId, platformId)` | Open FIFO lots + total/avg cost for one holding (asset detail views). |
-| `useRealizedPnL()` | `buildRealizedByTx` over full history → `Map<txId, RealizedPnLEntry>` for the Transactions page (join by `tx.id`). |
+| `useRealizedPnL()` | `buildRealizedByTx` over full history (with `useCurrencyAssetIds()` so fiat groups run fiat mode) → `Map<txId, RealizedPnLEntry>` for the Transactions page (join by `tx.id`). |
+| `useCurrencyAssetIds()` | `is_currency` asset-id set from `AssetsContext`; feeds `usePnL` and `useRealizedPnL`. |
 | `usePnLSummary()` | Current-day surface for Dashboard hero + Portfolio summary: feeds `usePnL` totals into `summarizePnLTotals`, adds TRY conversion. The single shared headline dollars (no pct — the peak-based `totalPnlPct` field was removed 2026-08-28). Also surfaces `totalTaxAccrualUsd` and the after-tax totals `totalPnlAfterTaxUsd`/`Try` (= `totalPnlUsd − totalTaxAccrualUsd`) for the net headlines. |
 
 Data arrives via `TransactionDataContext` (transactions + rates), `useSnapshots`,
@@ -85,13 +87,16 @@ worked numeric cases live in `docs/pnl-test-cases.md` (`npm test`).
   total — it makes the live "now" point disagree with the snapshot-derived chart
   line whenever fiat FX is non-trivial. See
   [P&L Methodology](../pnl-methodology.md).
-- **Fiat skips FIFO lots but still carries FX P&L** via the cash-flow invested
-  path (`computeCurrentInvestedUsd` over the holding's own txs in `usePnL`'s fiat
-  branch). In `fifo.ts` a `cash_credit` pushes a lot (unit_price 1 USD — the
-  peg) and a `cash_debit` consumes lots with no realized P&L (the transfer_out
-  branch); these cases only ever fire on settlement-stablecoin holdings
-  (`SETTLEMENT_STABLECOIN_TICKERS`, `src/lib/constants/assets.ts`) because fiat
-  holdings never enter the lot engine. Tests: `cases.test.ts` C24–C26.
+- **Fiat runs FIFO in fiat mode (0.12.0)** — the old net-deployed basis
+  (`computeCurrentInvestedUsd(..., {treatIncomeAsCapital})`) is gone; the
+  option was removed from `applyTxToInvested`. Per fiat holding,
+  `unrealized + realized` decomposes the former single figure exactly, so the
+  usePnL reconciliation invariant is unchanged. `useCurrencyAssetIds()`
+  (`src/hooks/useCurrencyAssetIds.ts`) supplies the `is_currency` id set from
+  `AssetsContext` to both `usePnL` and `useRealizedPnL`. Outside fiat mode,
+  cash legs still only ever fire on settlement-stablecoin holdings
+  (`SETTLEMENT_STABLECOIN_TICKERS`, `src/lib/constants/assets.ts`) and keep
+  the peg convention. Tests: `cases.test.ts` C23, C24–C26, C27–C30.
 - **FIFO is keyed per (asset, platform)**, then aggregated to asset — lots only
   match within a holding. Pass the **full unfiltered** tx set: matching a sell
   against the oldest open lots needs complete prior history, so running over a

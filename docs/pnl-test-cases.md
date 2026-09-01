@@ -40,7 +40,11 @@ Total P&L $   = total value − net invested capital
 Total value − net invested  ==  unrealized + realized + income      (within $0.01)
 ```
 - **unrealized** = value − FIFO cost basis of open lots (`computeUnrealizedPnL`).
-- **realized** = gains booked by sells/fees via FIFO (`buildRealizedByTx`).
+- **realized** = gains booked by sells/fees via FIFO (`buildRealizedByTx`) — plus,
+  since 0.12.0, the FX gain/loss a **fiat** outflow locks in (Cases 27–30): fiat
+  holdings run through the same FIFO engine in a *fiat mode* where cash legs are
+  lots and every outflow (withdrawal / conversion / spend / tax) books
+  `market USD value − consumed lots' cost`.
 - **income** = Σ dividend + interest, in USD (`computeIncomeUsd`).
 
 `usePnL` has a dev assert that `console.warn`s `[usePnL] P&L reconciliation mismatch` if this identity ever breaks. **A silent console = the engine is internally consistent.**
@@ -117,6 +121,8 @@ Format per case: **Inputs** → **Expected** (net invested, value, unrealized / 
 - unrealized (FX) **+$10**, realized $0, income $0.
 - **Total P&L = +$10 = +9.09%** (10 / 110).
 - Reconcile: 10 + 0 + 0 = 10 = 120 − 110. ✓ (EUR appreciating vs USD is a genuine gain — the money-weighted anchor captures it.)
+- Since 0.12.0 this runs through FIFO in fiat mode (the €100 is a lot at $110);
+  with no outflow the figures are identical to the old net-deployed basis.
 
 ### Case 8 — Interest on a foreign-currency balance (the subtle one — no double-count)
 This validates the net-invested vs fiat-cost-basis split. The interest must show as **income**, not as a phantom FX gain.
@@ -182,7 +188,7 @@ This validates the net-invested vs fiat-cost-basis split. The interest must show
 
 ### Case 21 — Standalone fee (KNOWN-FAILING, out of scope)
 **Inputs:** $100 USD cash; standalone `fee` of $5.
-**Correct expected:** Total P&L **−$5**, reconciles. **Current engine:** −$10 (double-count: value −$5 *and* net invested +$5) and reconciliation breaks. Captured as `it.fails` in `cases.test.ts` — a tripwire that flips to a real failure once fixed. Zero occurrences today. See §"Out of scope".
+**Correct expected:** Total P&L **−$5**, reconciles. **Current engine:** −$10 (double-count: value −$5 *and* net invested +$5). Captured as `it.fails` in `cases.test.ts` — a tripwire that flips to a real failure once fixed. Zero occurrences today. See §"Out of scope". Since 0.12.0, fiat mode books a standalone fiat fee as **realized −fee** (lots untouched), so the decomposition at least reconciles with the doubled total; the double-count itself (in `applyTxToInvested`) remains out of scope.
 
 ### Case 22 — PPF (at-source tax)
 Validates the additive after-tax overlay: gross figures untouched, the accrual reported alongside.
@@ -199,8 +205,11 @@ The `tax` type: money the tax office took from a cash balance (e.g. Midas' month
 **Inputs:** transfer_in $1,000 to USD cash; `tax` of $50 on the same cash holding. Price USD = 1.
 **Expected:**
 - Balance 950 → value **$950**. Net invested **$1,000** (tax is a cost, never a flow — it must not shrink invested the way a `transfer_out` would, and it is not an external flow for XIRR/TWR either, so the return engines absorb it as performance).
-- Total P&L **−$50**, surfaced as the cash holding's unrealized (the fiat cost basis keeps the pre-tax figure).
-- Reconciles: 950 − 1,000 = −50 + 0 + 0. ✓
+- Total P&L **−$50**, still entirely on the cash holding. Since 0.12.0 the tax
+  consumes FIFO lots and books a **realized loss = the consumed lots' cost**:
+  realized **−$50**, unrealized **$0** (remaining lots $950 = value). Before
+  0.12.0 the same −$50 surfaced as unrealized; the total is unchanged.
+- Reconciles: 950 − 1,000 = 0 − 50 + 0. ✓
 
 ### Case 24 — Stablecoin-funded buy (USDT settlement)
 A USD-priced buy funded from a USDT holding: the cash leg sits on the stablecoin, at the $1 peg.
@@ -220,6 +229,61 @@ A USD-priced buy funded from a USDT holding: the cash leg sits on the stablecoin
 ### Case 26 — De-peg visibility
 **Inputs:** Case 24 with USDT priced at **$0.98**.
 **Expected:** legs stay booked at the peg, value follows the live price: 500 × 0.98 = $490 against a $500 basis → USDT unrealized **−$10** (total value $990). The peg convention affects only the leg amounts, never the valuation. ✓
+
+### Case 27 — Fiat conversion realizes FX (FIFO on fiat, 0.12.0)
+The Dec-2025 EUR→USD prod case in miniature. A currency conversion is recorded
+as a lone `transfer_out` on the source currency (its market USD value on the
+row) + a `transfer_in` on the destination — never a `sell`. In fiat mode the
+outflow consumes FIFO lots and **books realized = market USD value − consumed
+cost**, so the FX gain earned on the departed cash no longer stays behind in
+the remaining pile's unrealized figure.
+**Inputs:** `transfer_in` €100 when EUR/USD = 1.10 (lot: €100 @ $1.10 = $110).
+Convert €60: `transfer_out` €60 at unit_price **1.20 USD** (market, total $72).
+Live EUR/USD = 1.25; balance €40.
+**Expected:**
+- Net invested = 110 − 72 = **$38**. Value = 40 × 1.25 = **$50**.
+- Realized = 72 − (60 × 1.10) = **+$6** (FX gain locked by the conversion).
+- Remaining lot €40 @ 1.10 = $44 basis → unrealized = 50 − 44 = **+$6**.
+- Total P&L = 50 − 38 = **+$12** — exactly the old single figure, now split.
+- Reconcile: 6 + 6 + 0 = 12 = 50 − 38. ✓
+
+### Case 28 — TRY spent on a buy realizes the FX loss
+A platform-funded buy: the trade's auto `cash_debit` consumes the fiat lots and
+books `market − cost` — for depreciating TRY, a realized FX **loss**.
+**Inputs:** `transfer_in` ₺30,000 at USD/TRY 25 (lot $1,200). Later buy 10 fund
+units @ ₺1,500 (₺15,000) at USD/TRY 30 ($500), funded by a paired `cash_debit`
+of ₺15,000 on the TRY holding. Live: USD/TRY 30 (TRY price 1/30), fund unit $50.
+**Expected:**
+- Net invested = 1,200 + 500 − 500 = **$1,200** (the buy and its leg cancel).
+- TRY: debit market $500 − consumed cost $600 → realized **−$100**; remaining
+  ₺15,000 @ cost $600, value $500 → unrealized **−$100**.
+- Fund: basis $500, value $500 → unrealized $0.
+- Total P&L = 1,000 − 1,200 = **−$200**. Reconcile: −200 = −100 − 100 + 0. ✓
+- USD-cash spends are the degenerate case: cost = market = $1 ⇒ realized $0 —
+  which keeps the Case 24 stablecoin convention's spirit on the anchor currency.
+
+### Case 29 — Estimated cash history: outflow before inflow stays neutral
+Reconciliation-estimated platforms (Midas) have stretches where recorded cash
+outflows precede the recorded inflows. When a fiat disposal finds no lots, the
+shortfall is **borrowed at the disposal's own market rate** (recorded as owed
+negative basis) instead of booking a phantom gain against a $0 cost.
+**Inputs:** `cash_debit` $500 on day 1 (empty USD holding), `transfer_in` $1,000
+on day 2. Balance $500, price 1.
+**Expected:**
+- Net invested = −500 + 1,000 = **$500**. Value **$500**.
+- unrealized **$0**, realized **$0** — no phantom ±$500 split.
+- Reconcile: 0 + 0 + 0 = 0 = 500 − 500. ✓
+
+### Case 30 — Borrowed shortfall repaid at a different rate
+The owed units from Case 29 are repaid by the next inflow; any FX move between
+borrow and repayment books as realized on the inflow (0 on all-USD groups).
+**Inputs:** `cash_debit` ₺15,000 at USD/TRY 30 (borrowed at $500), then
+`transfer_in` ₺15,000 at USD/TRY 25 ($600). Balance ₺0.
+**Expected:**
+- Net invested = −500 + 600 = **$100**. Value **$0**.
+- Realized = 15,000 × (1/30 − 1/25) = **−$100** (spent cheap TRY, restored
+  expensive TRY — a genuine loss on the gap). unrealized $0.
+- Reconcile: 0 − 100 + 0 = −100 = 0 − 100. ✓
 
 ### Case 10 — Reconciliation invariant (master check)
 For **any** mix of the above, the engine must hold:
@@ -316,7 +380,17 @@ from `solveXirrLog1p`) and lands on −10%.
 
 ## Known, intentional behaviors (not bugs)
 - **The headline % is the lifetime cumulative MWR** (`lib/mwr.ts`) — no peak- or current-invested ratio. The **$** uses current net invested (Cases 6, 9).
-- **Fiat FX counts as P&L** (Case 7) — by design (USD anchor).
+- **Fiat FX counts as P&L** (Case 7) — by design (USD anchor). Since 0.12.0 fiat
+  holdings run FIFO in **fiat mode** (Cases 27–30): outflows realize
+  `market − cost`, so departed cash locks its FX gain instead of leaving it in
+  the remaining pile. Per holding, `unrealized + realized` equals the old single
+  `value − net deployed` figure — a pure decomposition; totals and MWR unmoved.
+- **A fiat platform-to-platform transfer also realizes at the move date** — the
+  transfer legs record market-at-date (the currency auto-fill), so the source
+  books its FX gain-to-date and the destination re-bases at market. Totals are
+  unaffected; only the realized/unrealized attribution shifts. (Zero such
+  transfers exist today; if legs ever carry cost like non-currency transfers,
+  the same rule degrades to pure carry: market = cost ⇒ realized $0.)
 - **Income is neutral to net invested** and recognized once, as the `income` term (Cases 2–5, 8).
 - **At-source tax is an additive overlay** (Case 22): an asset with an `at_source_tax_rate` (e.g. PPF 17.5%) reports `taxAccrualUsd` = rate × positive native gain (held + realized); gross figures and the reconciliation invariant are untouched, and after-tax Total P&L = gross − `totalTaxAccrualUsd`. Realized accrual covers held positions only (a sold-out position is not accrued).
 - **Foreign-declarable income** (non-TRY, non-withheld dividend + interest summed in TRY by year, the 22,000 TL threshold) is a reporting figure computed in `src/lib/pnl/foreign-income.ts`, separate from the money-weighted total.

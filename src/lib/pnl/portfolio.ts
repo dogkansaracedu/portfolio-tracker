@@ -33,6 +33,13 @@ export interface PortfolioPnLInput {
   rates: ExchangeRate[]
   /** Latest snapshot supplies per-(ticker, platform) prices; [] → use live. */
   snapshots: Snapshot[]
+  /**
+   * Asset ids with `assets.is_currency` — needed for the full-history realized
+   * total, whose bare transactions include sold-out holdings with no row in
+   * `holdings`. Ids derived from `holdings` are merged in regardless, so
+   * callers without an asset catalog (tests) can omit it.
+   */
+  currencyAssetIds?: ReadonlySet<string>
 }
 
 export const EMPTY_PNL: PortfolioPnL = {
@@ -64,10 +71,14 @@ export const EMPTY_PNL: PortfolioPnL = {
  */
 export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
   const { holdings, prices, transactions, rates, snapshots } = input
+  const currencyAssetIds = new Set(input.currencyAssetIds ?? [])
+  for (const h of holdings) {
+    if (h.assets.is_currency) currencyAssetIds.add(h.asset_id)
+  }
   if (holdings.length === 0) {
     // Income/realized can still be non-zero with no current holdings (fully
     // sold-out book), so compute the full-history terms even on the empty path.
-    const totalRealizedPnlUsd = sumRealized(transactions, rates)
+    const totalRealizedPnlUsd = sumRealized(transactions, rates, currencyAssetIds)
     const totalIncomeUsd = computeIncomeUsd(transactions, rates)
     const totalInvestedUsd = bn(computeCurrentInvestedUsd(transactions, rates))
     return {
@@ -107,16 +118,28 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
     const liveBalanceBn = bn(h.balance)
 
     if (h.assets.is_currency) {
-      // Fiat: USD value = balance × price. Cost basis = net USD deployed to
-      // build this cash pile (income absorbed at received value so earned
-      // foreign cash isn't mislabeled as FX gain). The gap value − deployed is
-      // real FX P&L, surfaced as unrealized so the money-weighted total
-      // reconciles with the per-asset breakdown.
+      // Fiat: USD value = balance × price. Runs the same FIFO engine in fiat
+      // mode (cash legs are lots; outflows realize market − cost), so the FX
+      // gain on departed cash is locked as realized instead of lingering in
+      // the remaining pile's unrealized figure. Per holding,
+      // unrealized + realized equals the former single value − net-deployed
+      // figure — a pure decomposition (docs/pnl-test-cases.md Cases 27–30).
+      const { lots, realized, fiatOwedCostUsd } = computeFIFOLots(
+        grouped[key] ?? [],
+        rates,
+        { fiat: true },
+      )
       const currentValueUsd = liveBalanceBn.times(bn(snapshotPriceUsd))
-      const fiatCostBasisUsd = bn(
-        computeCurrentInvestedUsd(grouped[key] ?? [], rates, {
-          treatIncomeAsCapital: true,
-        }),
+      const fiatCostBasisUsd = lots
+        .reduce(
+          (sum: ReturnType<typeof bn>, lot) =>
+            sum.plus(lot.amount.times(lot.unitPriceUsd)),
+          BN_ZERO,
+        )
+        .minus(fiatOwedCostUsd ?? BN_ZERO)
+      const fiatRealizedUsd = realized.reduce(
+        (sum, r) => sum.plus(r.realizedPnlUsd),
+        BN_ZERO,
       )
       holdingPnLs.push({
         assetId: h.asset_id,
@@ -129,7 +152,7 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
         nativeCurrency: ticker,
         currentValueUsd,
         unrealizedPnlUsd: currentValueUsd.minus(fiatCostBasisUsd),
-        realizedPnlUsd: BN_ZERO,
+        realizedPnlUsd: fiatRealizedUsd,
         taxAccrualUsd: BN_ZERO,
       })
       continue
@@ -311,7 +334,7 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
 
   // Realized & income over the FULL history (incl. sold-out positions, which
   // have no holdings row) — not the held-only per-asset sum.
-  const totalRealizedPnlUsd = sumRealized(transactions, rates)
+  const totalRealizedPnlUsd = sumRealized(transactions, rates, currencyAssetIds)
   const totalIncomeUsd = computeIncomeUsd(transactions, rates)
   const totalInvestedUsd = bn(computeCurrentInvestedUsd(transactions, rates))
 
@@ -331,9 +354,14 @@ export function computePortfolioPnL(input: PortfolioPnLInput): PortfolioPnL {
 function sumRealized(
   transactions: Transaction[],
   rates: ExchangeRate[],
+  currencyAssetIds?: ReadonlySet<string>,
 ): ReturnType<typeof bn> {
   let sum = BN_ZERO
-  for (const entry of buildRealizedByTx(transactions, rates).values()) {
+  for (const entry of buildRealizedByTx(
+    transactions,
+    rates,
+    currencyAssetIds,
+  ).values()) {
     sum = sum.plus(entry.realizedPnlUsd)
   }
   return sum
