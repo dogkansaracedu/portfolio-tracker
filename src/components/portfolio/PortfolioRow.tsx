@@ -95,15 +95,16 @@ export function PortfolioRow({
     currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
   const isDaily = returnMode === "daily"
   const showReturn = !isDaily || dailyReturnAvailable
-  const returnUsd = isDaily ? asset.dailyReturnUsd : asset.unrealizedPnlUsd
-  const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
+  // Total mode: lifetime money-weighted total return (value − net invested),
+  // % = cumulative XIRR — the same lens as the summary bar and Asset Detail.
+  const returnUsd = isDaily ? asset.dailyReturnUsd : asset.totalReturnUsd
+  const returnPct = isDaily ? asset.dailyReturnPct : asset.totalReturnPct
 
   // Net (after-tax) applies only in Total mode — daily return stays gross since
   // tax is on the cumulative gain. Untaxed assets render exactly as gross.
   const taxed = !isDaily && asset.taxAccrualUsd > 0
   const netUsd = taxed ? returnUsd - asset.taxAccrualUsd : returnUsd
-  const netPct =
-    taxed && asset.costBasisUsd > 0 ? (netUsd / asset.costBasisUsd) * 100 : returnPct
+  const netPct = taxed ? asset.totalReturnNetPct : returnPct
   const netIsPositive = netUsd >= 0
 
   return (
@@ -264,14 +265,14 @@ export function PortfolioRowCard({
     currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
   const isDaily = returnMode === "daily"
   const showReturn = !isDaily || dailyReturnAvailable
-  const returnUsd = isDaily ? asset.dailyReturnUsd : asset.unrealizedPnlUsd
-  const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
+  // Total mode: money-weighted total return + XIRR % (see the desktop row).
+  const returnUsd = isDaily ? asset.dailyReturnUsd : asset.totalReturnUsd
+  const returnPct = isDaily ? asset.dailyReturnPct : asset.totalReturnPct
 
   // Net (after-tax) applies only in Total mode — daily return stays gross.
   const taxed = !isDaily && asset.taxAccrualUsd > 0
   const netUsd = taxed ? returnUsd - asset.taxAccrualUsd : returnUsd
-  const netPct =
-    taxed && asset.costBasisUsd > 0 ? (netUsd / asset.costBasisUsd) * 100 : returnPct
+  const netPct = taxed ? asset.totalReturnNetPct : returnPct
   const netIsPositive = netUsd >= 0
 
   return (

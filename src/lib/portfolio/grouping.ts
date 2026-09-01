@@ -2,6 +2,7 @@ import type BigNumber from "bignumber.js"
 import { bn, BN_ZERO, homeDayIso } from "@/lib/config"
 import { assetNativeCurrency, isStablecoin } from "@/lib/constants/assets"
 import { computeCurrentInvestedUsd } from "@/lib/performance"
+import { computeAssetReturnRates } from "@/lib/pnl/assetReturns"
 import { computeDailyReturn, dailyReturnPct } from "@/lib/pnl/daily"
 import type {
   Asset,
@@ -179,6 +180,10 @@ interface EnrichAssetContext {
   prices: Record<string, PriceCache>
   pnlMap: Map<string, AssetPnL>
   holdingsByAsset: Map<string, HoldingWithDetails[]>
+  txByAsset: Map<string, Transaction[]>
+  rates: ExchangeRate[]
+  /** Home-local day (homeDayIso()) — the XIRR solve's "now". */
+  today: string
   snapshotLookups: SnapshotLookups
   dailyReturnLookups: DailyReturnLookups
   /** Portfolio total value (BigNumber) — the allocation-% denominator. */
@@ -198,6 +203,9 @@ export function enrichAsset(
     prices,
     pnlMap,
     holdingsByAsset,
+    txByAsset,
+    rates,
+    today,
     snapshotLookups,
     dailyReturnLookups,
     totalValue,
@@ -235,6 +243,30 @@ export function enrichAsset(
 
   const pnl = pnlMap.get(asset.id)
 
+  // Row headline (Total mode): the lifetime money-weighted total return —
+  // value − net invested into the asset, % = cumulative XIRR of the same
+  // flows. Identical lens to the Asset Detail headline and the summary bar,
+  // so the page never disagrees with itself about what a % means.
+  const assetTxs = txByAsset.get(asset.id) ?? []
+  const returnRates = computeAssetReturnRates(
+    assetTxs,
+    rates,
+    currentValueUsd,
+    today,
+  )
+  // After-tax %: the same solve with the at-source accrual off the terminal
+  // value (a net/cost-basis ratio would reintroduce the banned
+  // shrinking-denominator %).
+  const taxAccrualBn = bn(pnl?.taxAccrualUsd)
+  const netReturnRates = taxAccrualBn.gt(0)
+    ? computeAssetReturnRates(
+        assetTxs,
+        rates,
+        currentValueUsd.minus(taxAccrualBn),
+        today,
+      )
+    : returnRates
+
   const daily = dailyReturnLookups.available
     ? computeDailyReturn({
         currentValueUsd,
@@ -265,6 +297,9 @@ export function enrichAsset(
     nativeCurrency: pnl?.nativeCurrency ?? null,
     unrealizedPnlUsd: bn(pnl?.unrealizedPnlUsd).toNumber(),
     unrealizedPnlPct: bn(pnl?.unrealizedPnlPct).toNumber(),
+    totalReturnUsd: returnRates.totalPnlUsd.toNumber(),
+    totalReturnPct: returnRates.mwrCumulativePct?.toNumber() ?? null,
+    totalReturnNetPct: netReturnRates.mwrCumulativePct?.toNumber() ?? null,
     taxAccrualUsd: bn(pnl?.taxAccrualUsd).toNumber(),
     allocationPct: totalValue.isZero()
       ? 0
@@ -278,10 +313,29 @@ export function enrichAsset(
   }
 }
 
+/** Group the full transaction history per asset (dates stay tx-ordered as
+ *  given; computeAssetReturnRates sorts internally). */
+export function buildTxByAsset(
+  transactions: Transaction[],
+): Map<string, Transaction[]> {
+  const byAsset = new Map<string, Transaction[]>()
+  for (const tx of transactions) {
+    const list = byAsset.get(tx.asset_id)
+    if (list) list.push(tx)
+    else byAsset.set(tx.asset_id, [tx])
+  }
+  return byAsset
+}
+
 export interface BuildEnrichedAssetsContext {
   holdings: HoldingWithDetails[]
   prices: Record<string, PriceCache>
   assetPnLs: AssetPnL[]
+  /** Full transaction history — the per-asset money-weighted returns need it. */
+  transactions: Transaction[]
+  rates: ExchangeRate[]
+  /** Home-local day (homeDayIso()). */
+  today: string
   totalCurrentValueUsd: BigNumber
   snapshotLookups: SnapshotLookups
   dailyReturnLookups: DailyReturnLookups
@@ -296,6 +350,9 @@ export function buildEnrichedAssets(
     holdings,
     prices,
     assetPnLs,
+    transactions,
+    rates,
+    today,
     totalCurrentValueUsd,
     snapshotLookups,
     dailyReturnLookups,
@@ -311,6 +368,7 @@ export function buildEnrichedAssets(
     else holdingsByAsset.set(h.asset_id, [h])
   }
 
+  const txByAsset = buildTxByAsset(transactions)
   const totalValue = bn(totalCurrentValueUsd)
 
   return activeAssets
@@ -319,6 +377,9 @@ export function buildEnrichedAssets(
         prices,
         pnlMap,
         holdingsByAsset,
+        txByAsset,
+        rates,
+        today,
         snapshotLookups,
         dailyReturnLookups,
         totalValue,
@@ -351,7 +412,7 @@ export function sortAssets(
       sorted.sort((a, b) => b.currentValueUsd - a.currentValueUsd)
       break
     case "pnl":
-      sorted.sort((a, b) => b.unrealizedPnlUsd - a.unrealizedPnlUsd)
+      sorted.sort((a, b) => b.totalReturnUsd - a.totalReturnUsd)
       break
     case "name":
       sorted.sort((a, b) => a.name.localeCompare(b.name))
@@ -363,6 +424,11 @@ export function sortAssets(
 // ─── Grouping ───────────────────────────────────────────────────────
 
 export interface GroupContext {
+  /** Full transaction history — platform-scoped rows re-solve their own MWR. */
+  transactions: Transaction[]
+  rates: ExchangeRate[]
+  /** Home-local day (homeDayIso()). */
+  today: string
   snapshotLookups: SnapshotLookups
   dailyReturnLookups: DailyReturnLookups
   totalCurrentValueUsd: BigNumber
@@ -378,6 +444,9 @@ function scopeAssetToPlatform(
   asset: EnrichedAsset,
   holding: EnrichedAsset["holdings"][number],
   holdingPnLByKey: Map<string, HoldingPnL>,
+  txByAssetPlatform: Map<string, Transaction[]>,
+  rates: ExchangeRate[],
+  today: string,
   snapshotLookups: SnapshotLookups,
   dailyReturnLookups: DailyReturnLookups,
 ): EnrichedAsset {
@@ -394,6 +463,26 @@ function scopeAssetToPlatform(
   const platformValueTryBn = platformValueUsdBn.times(
     bn(snapshotLookups.fallbackUsdTry),
   )
+
+  // Same money-weighted headline as the asset-level row, solved over this
+  // holding's own transactions and value (see enrichAsset).
+  const holdingTxs =
+    txByAssetPlatform.get(`${asset.id}|${holding.platformId}`) ?? []
+  const returnRates = computeAssetReturnRates(
+    holdingTxs,
+    rates,
+    platformValueUsdBn,
+    today,
+  )
+  const taxAccrualBn = hp ? hp.taxAccrualUsd : BN_ZERO
+  const netReturnRates = taxAccrualBn.gt(0)
+    ? computeAssetReturnRates(
+        holdingTxs,
+        rates,
+        platformValueUsdBn.minus(taxAccrualBn),
+        today,
+      )
+    : returnRates
 
   const platformDaily = dailyReturnLookups.available
     ? computeDailyReturn({
@@ -422,6 +511,9 @@ function scopeAssetToPlatform(
     unrealizedPnlPct: platformCostBasisBn.gt(0)
       ? platformUnrealizedBn.div(platformCostBasisBn).times(100).toNumber()
       : 0,
+    totalReturnUsd: returnRates.totalPnlUsd.toNumber(),
+    totalReturnPct: returnRates.mwrCumulativePct?.toNumber() ?? null,
+    totalReturnNetPct: netReturnRates.mwrCumulativePct?.toNumber() ?? null,
     taxAccrualUsd: hp ? hp.taxAccrualUsd.toNumber() : 0,
     allocationPct: 0,
     dailyReturnUsd: platformDaily ? platformDaily.dailyReturnUsd.toNumber() : 0,
@@ -458,7 +550,9 @@ function rollupGroup(opts: {
     for (const row of a.children ? [a, ...a.children] : [a]) {
       totalValueUsdBn = totalValueUsdBn.plus(bn(row.currentValueUsd))
       totalValueTryBn = totalValueTryBn.plus(bn(row.currentValueTry))
-      totalPnlUsdBn = totalPnlUsdBn.plus(bn(row.unrealizedPnlUsd))
+      // Subtotal the money-weighted total returns (matching the rows), gross
+      // of any at-source accrual — the net view stays confined to taxed rows.
+      totalPnlUsdBn = totalPnlUsdBn.plus(bn(row.totalReturnUsd))
       dailyReturnUsdBn = dailyReturnUsdBn.plus(bn(row.dailyReturnUsd))
       dailyDenomUsdBn = dailyDenomUsdBn.plus(bn(row.dailyDenomUsd))
     }
@@ -537,12 +631,27 @@ function groupByPlatform(
   holdingPnLs: HoldingPnL[],
   ctx: GroupContext,
 ): AssetGroup[] {
-  const { snapshotLookups, dailyReturnLookups, totalCurrentValueUsd } = ctx
+  const {
+    transactions,
+    rates,
+    today,
+    snapshotLookups,
+    dailyReturnLookups,
+    totalCurrentValueUsd,
+  } = ctx
 
   // Real per-(asset, platform) FIFO P&L from usePnL, keyed for O(1) lookup.
   const holdingPnLByKey = new Map<string, HoldingPnL>()
   for (const hp of holdingPnLs) {
     holdingPnLByKey.set(`${hp.assetId}|${hp.platformId}`, hp)
+  }
+
+  const txByAssetPlatform = new Map<string, Transaction[]>()
+  for (const tx of transactions) {
+    const key = `${tx.asset_id}|${tx.platform_id}`
+    const list = txByAssetPlatform.get(key)
+    if (list) list.push(tx)
+    else txByAssetPlatform.set(key, [tx])
   }
 
   const map = new Map<string, EnrichedAsset[]>()
@@ -557,6 +666,9 @@ function groupByPlatform(
         asset,
         h,
         holdingPnLByKey,
+        txByAssetPlatform,
+        rates,
+        today,
         snapshotLookups,
         dailyReturnLookups,
       )
