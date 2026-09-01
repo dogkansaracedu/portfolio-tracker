@@ -147,6 +147,11 @@ export function validateFundingCash(args: {
    *  edit isn't falsely flagged as overdrawing because of itself. */
   existingChildOffset: string | null
   fundingPlatformName: string
+  /** What the funding balance is denominated in for the error message —
+   *  the settlement asset's ticker (e.g. "USDT") when a stablecoin funds
+   *  the buy; defaults to the price currency. Amounts are 1:1 either way
+   *  (stablecoin settlement books at the $1 peg). */
+  settlementTicker?: string
 }): string | null {
   const sameCurrencyFee =
     args.feeCurrency == null || args.feeCurrency === args.priceCurrency
@@ -156,9 +161,11 @@ export function validateFundingCash(args: {
   const offset = args.existingChildOffset ? bn(args.existingChildOffset) : BN_ZERO
   const available = bn(args.cashOnFunding).plus(offset)
   if (available.lt(required)) {
+    const unit = args.settlementTicker ?? args.priceCurrency
+    // 2dp grouped display — full precision stays in the stored amounts.
     return (
-      `Insufficient ${args.priceCurrency} on ${args.fundingPlatformName} ` +
-      `(${available.toFixed()} available, ${required.toFixed()} needed)`
+      `Insufficient ${unit} on ${args.fundingPlatformName} ` +
+      `(${available.toFormat(2)} available, ${required.toFormat(2)} needed)`
     )
   }
   return null

@@ -29,7 +29,11 @@ export function computeFIFOLots(
       case "buy":
       case "transfer_in":
       case "dividend":
-      case "interest": {
+      case "interest":
+      // A cash_credit reaches FIFO only on a stablecoin settlement holding
+      // (fiat holdings never enter this engine); the leg carries
+      // unit_price = 1 USD, so the lot books at the peg.
+      case "cash_credit": {
         // Capitalize trade fees into the cost basis of the new lot so unrealized
         // P&L reflects the true acquisition cost (industry standard). Without
         // this, fees would silently disappear — neither in cost basis nor in
@@ -140,7 +144,12 @@ export function computeFIFOLots(
         break
       }
 
-      case "transfer_out": {
+      case "transfer_out":
+      // A cash_debit on a stablecoin settlement holding disposes at the $1
+      // peg with ~$1 lots underneath — realized P&L on a stablecoin spend is
+      // zero by convention (see docs/prior-art/stablecoin-settled-trades.md),
+      // so it consumes lots exactly like a transfer_out.
+      case "cash_debit": {
         // Remove lots FIFO but do NOT record P&L.
         // The cost basis will be carried to the destination
         // via the transfer_in's unit_price (set during Component 4).

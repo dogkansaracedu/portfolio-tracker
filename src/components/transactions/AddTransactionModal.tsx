@@ -27,7 +27,7 @@ import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { TransactionTypeSelector } from "./TransactionTypeSelector"
 import { AssetSearchSelect } from "./AssetSearchSelect"
-import { FundingSourceSelect } from "./FundingSourceSelect"
+import { FundingSourceSelect, type FundingSource } from "./FundingSourceSelect"
 import { PlatformDot } from "@/components/common/PlatformDot"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
@@ -43,7 +43,10 @@ import {
   TRANSACTION_TYPES,
   BALANCE_LIMITED_TYPES,
 } from "@/lib/constants/transaction-types"
-import { assetNativeCurrency } from "@/lib/constants/assets"
+import {
+  assetNativeCurrency,
+  isSettlementStablecoin,
+} from "@/lib/constants/assets"
 import {
   CURRENCY_SYMBOLS,
   SUPPORTED_FIAT_CURRENCIES,
@@ -64,6 +67,9 @@ function localDayAsUtcMidnight(d: Date): string {
   const day = String(d.getDate()).padStart(2, "0")
   return `${y}-${m}-${day}T00:00:00Z`
 }
+
+/** Sentinel for the proceeds select's default "fiat cash" choice. */
+const CASH_PROCEEDS_VALUE = "__cash__"
 
 interface Props {
   assets: Asset[]
@@ -97,10 +103,14 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
-  const [fundingPlatformId, setFundingPlatformId] = useState<string | null>(null)
+  const [fundingSource, setFundingSource] = useState<FundingSource | null>(null)
+  // Sell proceeds destination: null = the price-currency fiat cash (default),
+  // an asset id = a settlement stablecoin holding on the trading platform.
+  const [proceedsAssetId, setProceedsAssetId] = useState<string | null>(null)
   const [existingChild, setExistingChild] = useState<{
     amount: string
     platformId: string
+    assetId: string
   } | null>(null)
   // Editing a transfer_out that has a linked transfer_in: the destination
   // select stays visible (seeded from the child) and saving moves both sides.
@@ -135,21 +145,42 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
       ;(async () => {
         if (editing.type === TRANSACTION_TYPES.BUY) {
           setEditingTransferPair(false)
+          setProceedsAssetId(null)
           const child = await fetchLinkedChild(editing.id)
           if (child) {
-            setFundingPlatformId(child.platform_id)
+            setFundingSource({
+              platformId: child.platform_id,
+              assetId: child.asset_id,
+            })
             setExistingChild({
               amount: String(child.amount),
               platformId: child.platform_id,
+              assetId: child.asset_id,
             })
           } else {
-            setFundingPlatformId(null)
+            setFundingSource(null)
             setExistingChild(null)
           }
           return
         }
-        setFundingPlatformId(null)
+        setFundingSource(null)
         setExistingChild(null)
+        // A sell's cash_credit may sit on a settlement stablecoin — seed the
+        // proceeds select from it so re-saving keeps the leg where it is.
+        if (editing.type === TRANSACTION_TYPES.SELL) {
+          setEditingTransferPair(false)
+          const child = await fetchLinkedChild(editing.id)
+          const childAsset = child
+            ? assets.find((a) => a.id === child.asset_id)
+            : undefined
+          setProceedsAssetId(
+            childAsset && isSettlementStablecoin(childAsset)
+              ? childAsset.id
+              : null,
+          )
+          return
+        }
+        setProceedsAssetId(null)
         // A transfer_out may carry a linked transfer_in (the destination side).
         // Surface it so the edit form shows — and can move — the destination.
         if (editing.type === TRANSACTION_TYPES.TRANSFER_OUT) {
@@ -177,7 +208,8 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     setRelatedAssetId("")
     setReceivedAs("units")
     setNotes("")
-    setFundingPlatformId(null)
+    setFundingSource(null)
+    setProceedsAssetId(null)
     setExistingChild(null)
     setEditingTransferPair(false)
     setFundingError(null)
@@ -196,25 +228,27 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const totalCost = parsedAmount.times(parsedPrice)
 
   useEffect(() => {
-    if (type !== TRANSACTION_TYPES.BUY || !fundingPlatformId) {
+    if (type !== TRANSACTION_TYPES.BUY || !fundingSource) {
       setFundingError(null)
       return
     }
-    const fiatAsset = assets.find(
-      (a) => a.category === "fiat" && a.ticker === priceCurrency,
-    )
-    if (!fiatAsset) {
+    const fundingAsset = assets.find((a) => a.id === fundingSource.assetId)
+    if (!fundingAsset) {
       setFundingError(null)
       return
     }
-    const fiatHolding = holdings.find(
-      (h) => h.asset_id === fiatAsset.id && h.platform_id === fundingPlatformId,
+    const fundingHolding = holdings.find(
+      (h) =>
+        h.asset_id === fundingSource.assetId &&
+        h.platform_id === fundingSource.platformId,
     )
-    const cashOnFunding = String(fiatHolding?.balance ?? "0")
+    const cashOnFunding = String(fundingHolding?.balance ?? "0")
     const fundingPlatformName =
-      platforms.find((p) => p.id === fundingPlatformId)?.name ?? "platform"
+      platforms.find((p) => p.id === fundingSource.platformId)?.name ?? "platform"
     const offset =
-      existingChild && existingChild.platformId === fundingPlatformId
+      existingChild &&
+      existingChild.platformId === fundingSource.platformId &&
+      existingChild.assetId === fundingSource.assetId
         ? existingChild.amount
         : null
     const err = validateFundingCash({
@@ -225,11 +259,14 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
       priceCurrency,
       existingChildOffset: offset,
       fundingPlatformName,
+      // A stablecoin funding balance is denominated in the coin, not the
+      // price currency (amounts stay 1:1 at the peg).
+      settlementTicker: fundingAsset.ticker,
     })
     setFundingError(err)
   }, [
     type,
-    fundingPlatformId,
+    fundingSource,
     priceCurrency,
     amount,
     unitPrice,
@@ -240,6 +277,43 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     existingChild,
     holdings,
   ])
+
+  const settlementCoins = assets.filter((a) => isSettlementStablecoin(a))
+  // What a sell's proceeds are denominated in — the chosen settlement
+  // stablecoin's ticker, else the price currency (fiat cash).
+  const proceedsTicker = proceedsAssetId
+    ? (assets.find((a) => a.id === proceedsAssetId)?.ticker ?? priceCurrency)
+    : priceCurrency
+
+  // Keep settlement selections consistent when the price currency changes:
+  // a fiat funding source follows the new currency's fiat row; stablecoin
+  // funding/proceeds are USD-pegged and reset when the trade leaves USD.
+  useEffect(() => {
+    if (fundingSource) {
+      const a = assets.find((x) => x.id === fundingSource.assetId)
+      const stale = a
+        ? isSettlementStablecoin(a)
+          ? priceCurrency !== DEFAULT_CURRENCY
+          : a.ticker !== priceCurrency
+        : false
+      if (stale) {
+        // Same gesture, same outcome for both funding kinds: keep the
+        // platform, remap to the new currency's fiat row (never a silent
+        // reset to external, which would delete the cash leg on save).
+        const fiat = assets.find(
+          (x) => x.category === "fiat" && x.ticker === priceCurrency,
+        )
+        setFundingSource(
+          fiat
+            ? { platformId: fundingSource.platformId, assetId: fiat.id }
+            : null,
+        )
+      }
+    }
+    if (proceedsAssetId && priceCurrency !== DEFAULT_CURRENCY) {
+      setProceedsAssetId(null)
+    }
+  }, [priceCurrency, fundingSource, proceedsAssetId, assets])
 
   const showPriceFields =
     ["buy", "sell", "dividend", "interest"].includes(type) ||
@@ -388,6 +462,14 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         notes: notes || null,
       }
 
+      // Which asset the cash leg sits on: a sell follows the proceeds choice,
+      // a buy follows the funding source; null = the price-currency fiat row.
+      const settlementAssetId =
+        type === TRANSACTION_TYPES.SELL
+          ? proceedsAssetId
+          : (fundingSource?.assetId ?? null)
+      const fundingPlatformId = fundingSource?.platformId ?? null
+
       if (isEdit && editing) {
         await editTransaction(
           editing.id,
@@ -395,13 +477,17 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           { assetId: editing.asset_id, platformId: editing.platform_id },
           {
             fundingPlatformId,
+            settlementAssetId,
             transferDestPlatformId:
               editingTransferPair && destPlatformId ? destPlatformId : undefined,
           },
         )
         toast.success("Transaction updated")
       } else {
-        const created = await addTransaction(payload, { fundingPlatformId })
+        const created = await addTransaction(payload, {
+          fundingPlatformId,
+          settlementAssetId,
+        })
 
         // For transfer_out, create the matching transfer_in on the destination
         // platform, linked to its parent (linked_tx_id) so the pair renders as
@@ -769,13 +855,14 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             <div className="space-y-2">
               <Label>Funding source</Label>
               <FundingSourceSelect
-                value={fundingPlatformId}
-                onChange={setFundingPlatformId}
+                value={fundingSource}
+                onChange={setFundingSource}
                 assets={assets}
                 platforms={platforms}
                 priceCurrency={priceCurrency}
                 existingChildAmount={existingChild?.amount ?? null}
                 existingChildPlatformId={existingChild?.platformId ?? null}
+                existingChildAssetId={existingChild?.assetId ?? null}
               />
               {fundingError && (
                 <p className="text-xs text-destructive">{fundingError}</p>
@@ -783,17 +870,55 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             </div>
           )}
 
-          {/* Sale proceeds confirmation (sell only) */}
+          {/* Proceeds destination — only where stablecoin settlement is real:
+              a USD-priced sell of a crypto asset (not of a stablecoin itself),
+              or an edit whose existing leg already sits on one. A stock sell
+              on a broker never sees this field. */}
+          {type === TRANSACTION_TYPES.SELL &&
+            priceCurrency === DEFAULT_CURRENCY &&
+            settlementCoins.length > 0 &&
+            (proceedsAssetId !== null ||
+              (selectedAsset?.category === "crypto" &&
+                !isSettlementStablecoin(selectedAsset))) && (
+              <div className="space-y-2">
+                <Label>Proceeds credited as</Label>
+                <Select
+                  value={proceedsAssetId ?? CASH_PROCEEDS_VALUE}
+                  onValueChange={(v) =>
+                    v && setProceedsAssetId(v === CASH_PROCEEDS_VALUE ? null : v)
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={CASH_PROCEEDS_VALUE}>
+                      {DEFAULT_CURRENCY} cash
+                    </SelectItem>
+                    {settlementCoins.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.ticker}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+          {/* Sale proceeds confirmation (sell only). Symbol follows the
+              settlement asset, matching the transaction-row subtitle: fiat
+              gets its symbol, a stablecoin ticker renders bare. */}
           {type === TRANSACTION_TYPES.SELL && parsedAmount.gt(0) && parsedPrice.gt(0) && (
             <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-              Sale proceeds: {CURRENCY_SYMBOLS[priceCurrency as FiatCurrency] ?? ""}
+              Sale proceeds:{" "}
+              {CURRENCY_SYMBOLS[proceedsTicker as FiatCurrency] ?? ""}
               {totalCost.minus(parsedFee).toNumber().toLocaleString(
                 undefined,
                 { minimumFractionDigits: 2, maximumFractionDigits: 2 },
               )}{" "}
               → credited to{" "}
               {platforms.find((p) => p.id === platformId)?.name ?? "the trading platform"}{" "}
-              {priceCurrency}
+              {proceedsTicker}
             </div>
           )}
 

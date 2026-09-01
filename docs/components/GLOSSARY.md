@@ -181,6 +181,19 @@ Fiat / cash holdings (`is_currency = true`) are **not zero-P&L**: their cost bas
 is the net USD deployed into that currency, so `value − cost basis` is the real
 FX gain/loss vs. the [USD anchor](#usd-anchor). Surfaced as unrealized P&L.
 
+### Settlement stablecoin
+A USD-pegged stablecoin (currently **USDT**) that can settle a USD-priced
+trade's cash leg — a buy's funding source or a sell's proceeds destination —
+through the same paired-leg machinery fiat uses. It stays a crypto
+[Asset](#asset) with [FIFO lots](#fifo-lots-and-cost-basis), but its legs book
+at the **$1 peg** (one coin per dollar) and spending it books **no realized
+P&L**; because the holding's value follows the live market price, a real
+de-peg surfaces as unrealized P&L. Trades between the portfolio's assets stay
+internal: the paired legs cancel in
+[net invested capital](#net-invested-capital), so a stablecoin-settled buy or
+sell never reads as external money. A curated set, not a heuristic — see the
+decision record in `docs/prior-art/stablecoin-settled-trades.md`.
+
 ### At-source tax
 A withholding taken automatically on an asset's gains (e.g. a Turkish PPF, 17.5%);
 modeled per-asset as `at_source_tax_rate`. Drives the [tax accrual](#after-tax-pl)
