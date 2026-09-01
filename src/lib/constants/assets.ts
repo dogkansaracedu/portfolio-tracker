@@ -72,6 +72,25 @@ export function isStablecoin(asset: {
   )
 }
 
+/** Stablecoins usable as a trade's settlement asset — a buy's funding source
+ *  or a sell's proceeds destination, via the same linked cash-leg machinery
+ *  fiat uses. Settlement books the leg at the $1 peg (`unit_price = 1`,
+ *  USD); the holding's *value* still follows the live price, so a real
+ *  de-peg surfaces as P&L. Narrower than {@link STABLECOIN_TICKERS} (display
+ *  nesting) on purpose — extend deliberately, per coin. */
+export const SETTLEMENT_STABLECOIN_TICKERS = new Set(["USDT"])
+
+/** Whether an asset can settle a USD-priced trade's cash leg. */
+export function isSettlementStablecoin(asset: {
+  category: string
+  ticker: string
+}): boolean {
+  return (
+    asset.category === "crypto" &&
+    SETTLEMENT_STABLECOIN_TICKERS.has(asset.ticker.toUpperCase())
+  )
+}
+
 /**
  * The currency an asset's price is natively quoted in. Decides which
  * `price_cache` column a row shows as its primary figure; anything non-USD

@@ -193,7 +193,14 @@ Explicitly rejected:
 - **Balance-adjustment auto-fixes** (Delta): papering over missing legs corrupts
   cost basis.
 
-Once shipped, behaviour is owned by
+**Shipped 2026-09-01 (v0.10.0), USDT only** — per the owner's call, USDC was
+left out of the settlement set (`SETTLEMENT_STABLECOIN_TICKERS`) and the $1 peg
+is assumed for leg amounts. Two divergences from the proposal, both smaller in
+scope than planned: USDT stays a FIFO crypto asset rather than flipping to
+currency-like (the FIFO engine gained `cash_credit` push-at-peg /
+`cash_debit` consume-without-P&L cases instead — economically identical, no
+UI/category side effects), and bulk import keeps fiat-only settlement (the
+modal is the only entry point). Behaviour is owned by
 [04 Transaction System](../components/04-transaction-system.md) and
-[06 P&L Engine](../components/06-pnl-engine.md); update this section with the
-ship date and any divergence from the proposal.
+[06 P&L Engine](../components/06-pnl-engine.md); worked numbers are
+`docs/pnl-test-cases.md` Cases 24–26.

@@ -19,7 +19,7 @@
 | File | Role |
 | --- | --- |
 | `types.ts` | `CostLot`, `ConsumedLot`, `RealizedPnLEntry`, `FIFOResult`, `UnrealizedPnLResult`, `AssetPnL`, `PortfolioPnL`. |
-| `fifo.ts` | `computeFIFOLots(txs, rates)` — oldest-first lot engine (buy/transfer/dividend/interest push, sell/fee consume, transfer_out P&L-neutral; fees capitalized; cash legs ignored). Also `computeTransferCostBasis()` for weighted-avg transfer cost. |
+| `fifo.ts` | `computeFIFOLots(txs, rates)` — oldest-first lot engine (buy/transfer/dividend/interest/cash_credit push, sell/fee consume, transfer_out/cash_debit P&L-neutral; fees capitalized). Cash legs reach FIFO only on settlement-stablecoin holdings (fiat skips the lot engine) and book at the $1 peg. Also `computeTransferCostBasis()` for weighted-avg transfer cost. |
 | `currency.ts` | `getExchangeRateForDate` (binary search ≤ date, earliest-rate fallback), `normalizeToUsd`, `unitPriceToUsd`, `fromUsdOnDate` (display inverse), `convertOnDate`. |
 | `unrealized.ts` | `computeUnrealizedPnL(lots, currentPriceUsd, balance)` → cost basis, current value, unrealized USD + %. |
 | `realized.ts` | `buildRealizedByTx(txs, rates)` → `Map<txId, RealizedPnLEntry>` over full history; groups per `asset_id|platform_id` (same composite key as `usePnL`). |
@@ -87,7 +87,11 @@ worked numeric cases live in `docs/pnl-test-cases.md` (`npm test`).
   [P&L Methodology](../pnl-methodology.md).
 - **Fiat skips FIFO lots but still carries FX P&L** via the cash-flow invested
   path (`computeCurrentInvestedUsd` over the holding's own txs in `usePnL`'s fiat
-  branch). `fifo.ts` itself ignores `cash_credit`/`cash_debit`.
+  branch). In `fifo.ts` a `cash_credit` pushes a lot (unit_price 1 USD — the
+  peg) and a `cash_debit` consumes lots with no realized P&L (the transfer_out
+  branch); these cases only ever fire on settlement-stablecoin holdings
+  (`SETTLEMENT_STABLECOIN_TICKERS`, `src/lib/constants/assets.ts`) because fiat
+  holdings never enter the lot engine. Tests: `cases.test.ts` C24–C26.
 - **FIFO is keyed per (asset, platform)**, then aggregated to asset — lots only
   match within a holding. Pass the **full unfiltered** tx set: matching a sell
   against the oldest open lots needs complete prior history, so running over a

@@ -14,6 +14,7 @@ import {
 import { recalculateBalance } from "@/lib/balance"
 import { resolveFiatAsset, buildChildRow, shouldCreateChild } from "@/lib/cash"
 import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
+import { DEFAULT_CURRENCY } from "@/lib/constants/currencies"
 import { ensureHistoricalRate } from "@/lib/queries/exchangeRates"
 import type { TransactionInsert, TransactionUpdate } from "@/types/database"
 
@@ -41,7 +42,13 @@ export function useTransactionMutations() {
 
   const addTransaction = async (
     data: Omit<TransactionInsert, "user_id">,
-    options?: { fundingPlatformId?: string | null },
+    options?: {
+      fundingPlatformId?: string | null
+      /** Asset the cash leg sits on. Omitted/null → the price-currency fiat
+       *  row (the default). A settlement stablecoin's asset id (USDT) makes
+       *  a buy spend / a sell credit that holding instead, at the $1 peg. */
+      settlementAssetId?: string | null
+    },
   ) => {
     if (!user) throw new Error("Not authenticated")
 
@@ -59,7 +66,9 @@ export function useTransactionMutations() {
 
     const fundingPlatformId = options?.fundingPlatformId ?? null
     if (shouldCreateChild(parent.type, fundingPlatformId)) {
-      const cashAssetId = await resolveFiatAsset(parent.price_currency, user.id)
+      const cashAssetId =
+        options?.settlementAssetId ??
+        (await resolveFiatAsset(parent.price_currency, user.id))
       const child = buildChildRow({
         parent,
         parentId: parent.id,
@@ -87,6 +96,12 @@ export function useTransactionMutations() {
     original: { assetId: string; platformId: string },
     options?: {
       fundingPlatformId?: string | null
+      /** Asset the cash leg should sit on after the edit. Explicit null
+       *  means "the price-currency fiat row" (the modal's USD-cash choice);
+       *  omitted (the bulk-sheet path, which has no settlement UI) keeps a
+       *  USD-priced trade's existing child on its current asset so an
+       *  in-place edit doesn't silently move a USDT leg back to USD cash. */
+      settlementAssetId?: string | null
       /** For a linked transfer pair: where the destination side should sit
        *  after the edit. Omitted (the bulk-sheet path) keeps the child's
        *  current platform. */
@@ -168,7 +183,20 @@ export function useTransactionMutations() {
     }
 
     if (needsChild) {
-      const cashAssetId = await resolveFiatAsset(updated.price_currency, user.id)
+      // Same precedence as fundingPlatformId above: an explicit option (the
+      // modal) wins — null meaning the fiat default; with no option (the
+      // bulk sheet) a USD-priced trade keeps its child's current asset so a
+      // stablecoin-settled leg survives in-place edits. A currency change
+      // away from USD always re-resolves to that currency's fiat row
+      // (stablecoin settlement is USD-only).
+      const explicitSettlement = options?.settlementAssetId
+      const cashAssetId =
+        explicitSettlement ??
+        (explicitSettlement === undefined &&
+        existingChild &&
+        updated.price_currency === DEFAULT_CURRENCY
+          ? existingChild.asset_id
+          : await resolveFiatAsset(updated.price_currency, user.id))
       const childPayload = buildChildRow({
         parent: updated,
         parentId: updated.id,

@@ -13,6 +13,8 @@ import {
   interestCash,
   dividendCash,
   dividendUnits,
+  cashCredit,
+  cashDebit,
   holding,
   prices,
   rate,
@@ -315,6 +317,83 @@ describe("P&L cases — invariant & known gaps", () => {
     expect(
       pnl.totalCurrentValueUsd.minus(pnl.totalInvestedUsd).toNumber(),
     ).toBe(-5)
+    expectReconciles(pnl)
+  })
+})
+
+describe("P&L cases — stablecoin-settled trades (USDT at the $1 peg)", () => {
+  // Cash legs on a stablecoin holding: the debit consumes FIFO lots with no
+  // realized P&L (docs/pnl-test-cases.md Case 24/25); the credit adds a $1 lot.
+  const usdtBtc = (extra: Transaction[] = []) => [
+    // Buy 1,000 USDT with external cash — $1,000 deployed.
+    buy(1000, 1, { asset_id: "usdt", date: "2026-01-01" }),
+    // Buy 0.01 BTC for $500, funded from the USDT holding.
+    buy(0.01, 50000, { id: "btc-buy", asset_id: "btc", date: "2026-01-02" }),
+    cashDebit(500, {
+      asset_id: "usdt",
+      linked_tx_id: "btc-buy",
+      date: "2026-01-02",
+    }),
+    ...extra,
+  ]
+
+  it("C24 — buy funded from USDT: net invested unchanged at trade time", () => {
+    const pnl = run(
+      usdtBtc(),
+      [
+        holding({ balance: 500, assetId: "usdt", ticker: "USDT" }),
+        holding({ balance: 0.01, assetId: "btc", ticker: "BTC" }),
+      ],
+      prices({ USDT: 1, BTC: 50000 }),
+    )
+    // The paired legs cancel: only the original $1,000 counts as deployed.
+    expect(pnl.totalInvestedUsd.toNumber()).toBe(1000)
+    expect(pnl.totalCurrentValueUsd.toNumber()).toBe(1000)
+    expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(0)
+    // No realized P&L on the USDT spend (peg convention).
+    expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(0)
+    expectReconciles(pnl)
+  })
+
+  it("C25 — round trip: sell BTC into USDT, realized stays on BTC only", () => {
+    const pnl = run(
+      usdtBtc([
+        sell(0.01, 60000, {
+          id: "btc-sell",
+          asset_id: "btc",
+          date: "2026-01-03",
+        }),
+        cashCredit(600, {
+          asset_id: "usdt",
+          linked_tx_id: "btc-sell",
+          date: "2026-01-03",
+        }),
+      ]),
+      [holding({ balance: 1100, assetId: "usdt", ticker: "USDT" })],
+      prices({ USDT: 1, BTC: 60000 }),
+    )
+    expect(pnl.totalInvestedUsd.toNumber()).toBe(1000)
+    expect(pnl.totalCurrentValueUsd.toNumber()).toBe(1100)
+    // The $100 gain is realized on BTC; the USDT lots (500 remaining + 600
+    // credited, all at $1) match the balance exactly → zero unrealized.
+    expect(pnl.totalRealizedPnlUsd.toNumber()).toBe(100)
+    expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBe(0)
+    expectReconciles(pnl)
+  })
+
+  it("C26 — a de-peg surfaces as unrealized P&L on the USDT holding", () => {
+    const pnl = run(
+      usdtBtc(),
+      [
+        holding({ balance: 500, assetId: "usdt", ticker: "USDT" }),
+        holding({ balance: 0.01, assetId: "btc", ticker: "BTC" }),
+      ],
+      prices({ USDT: 0.98, BTC: 50000 }),
+    )
+    // Legs book at the $1 peg, but value follows the live price:
+    // 500 × 0.98 = $490 against a $500 basis → −$10 unrealized.
+    expect(pnl.totalCurrentValueUsd.toNumber()).toBeCloseTo(990, 6)
+    expect(pnl.totalUnrealizedPnlUsd.toNumber()).toBeCloseTo(-10, 6)
     expectReconciles(pnl)
   })
 })

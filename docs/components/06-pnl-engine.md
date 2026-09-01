@@ -57,9 +57,15 @@ holding's transactions oldest-first:
   platform move is P&L-neutral.
 - **fee** (standalone) → consume lots FIFO **and** book a realized loss equal to
   the fee's current market value.
-- **cash legs** (`cash_credit` / `cash_debit`) → **ignored by FIFO**. Cash is a
-  medium of exchange, not a tradeable lot; including it would mint meaningless
-  lots on USD/TRY/EUR. (It still matters for *net invested* — see rule 3.)
+- **cash legs** (`cash_credit` / `cash_debit`) → on a **fiat** holding they never
+  reach the lot engine (currency holdings skip FIFO entirely). On a
+  [settlement stablecoin](GLOSSARY.md#settlement-stablecoin) holding — the leg
+  of a stablecoin-settled trade — a `cash_credit` **pushes a lot at the $1
+  peg** and a `cash_debit` **consumes lots FIFO with no P&L** (like a
+  transfer_out): spending a stablecoin never books realized P&L; a real de-peg
+  surfaces as *unrealized* P&L on the holding, because the legs book at the peg
+  while the holding's value follows the live price. (Legs still matter for
+  *net invested* — see rule 3.)
 
 **Worked example.** Buy 2 @ $100, later buy 3 @ $110, then sell 4:
 
