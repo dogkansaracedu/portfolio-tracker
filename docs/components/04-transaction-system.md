@@ -80,13 +80,23 @@ A one-sided trade would corrupt cash tracking: a sell removes shares but conjure
 cash; a buy adds shares but draws from nowhere. So a trade's cash movement is
 captured as a **separate, automatically-created cash leg** paired to the trade. The
 pairing is recorded with `linked_tx_id` and the cash leg sits on the fiat
-[Asset](GLOSSARY.md#asset) for the trade's price currency.
+[Asset](GLOSSARY.md#asset) for the trade's price currency — or, for a
+**USD-priced trade**, on a
+[settlement stablecoin](GLOSSARY.md#settlement-stablecoin) holding (USDT) the
+user picked as the buy's funding source or the sell's proceeds destination.
+Stablecoin legs book at the **$1 peg** (one coin settles one dollar); the
+holding's *value* still follows the live price, so a real de-peg surfaces as
+P&L rather than being hidden by the convention.
 
 | Parent | Cash leg created? | Leg type | Leg sits on | Leg amount |
 |--------|:---:|---|---|---|
 | `buy` — external funding | no | — | — | — |
-| `buy` — funded from a platform | yes | `cash_debit` | (price-currency fiat, funding platform) | `total_cost + fee` if fee is in the price currency, else `total_cost` |
-| `sell` | yes (always) | `cash_credit` | (price-currency fiat, the trading platform) | `total_cost − fee` if fee is in the price currency, else `total_cost` |
+| `buy` — funded from a platform | yes | `cash_debit` | (settlement asset, funding platform) | `total_cost + fee` if fee is in the price currency, else `total_cost` |
+| `sell` | yes (always) | `cash_credit` | (settlement asset, the trading platform) | `total_cost − fee` if fee is in the price currency, else `total_cost` |
+
+The **settlement asset** defaults to the price-currency fiat; a USD-priced
+trade may settle on a stablecoin holding instead (chosen per trade, never
+implied). Stablecoin legs carry amounts 1:1 with the USD figures (the peg).
 | `transfer_in` / `transfer_out` | no | — | — | — |
 | `dividend` / `interest` | no | — | — | — |
 | `fee` (standalone) | no | — | — | — |
@@ -195,10 +205,21 @@ A type-driven form: choosing the type reveals only the relevant fields.
   `transfer_in`): `unit_price` + `price_currency` (defaulted from the asset, editable)
   and a live **Total** readout.
 - `buy`/`sell`: optional fee + fee currency.
-- `buy`: a **Funding source** selector — "External cash (no deduction)" or any
-  platform holding the price-currency fiat; insufficient cash is flagged inline.
-- `sell`: no funding selector (cash always lands on the trading platform); a
-  confirmation line shows `Sale proceeds: <amount> → credited to {platform} {currency}`.
+- `buy`: a **Funding source** selector — "External cash (no deduction)", any
+  platform holding the price-currency fiat, or (USD-priced buys only) any
+  platform with a positive
+  [settlement stablecoin](GLOSSARY.md#settlement-stablecoin) balance, each
+  option showing its available balance; insufficient funds are flagged inline
+  in the funding asset's own units.
+- `sell`: no funding selector (proceeds always land on the trading platform).
+  A USD-priced sell of a **crypto asset** (not of a stablecoin itself) offers a
+  **Proceeds credited as** choice — USD cash (default) or a settlement
+  stablecoin; a stock or fund sell never sees the field (the choice also stays
+  visible when editing a sell whose leg already sits on a stablecoin). The
+  confirmation line shows
+  `Sale proceeds: <amount> → credited to {platform} {settlement asset}`, with
+  the currency symbol following the settlement asset (fiat gets its symbol, a
+  stablecoin ticker renders bare — same notation as the transaction row).
 - `transfer_out`: a **destination platform**; the cost-basis line is shown read-only
   (auto-computed). Editing a linked transfer keeps the destination platform visible
   and changeable, with a note that saving updates both sides.
@@ -277,6 +298,12 @@ and funded buys) or rolls back entirely, after which holding balances are recomp
       sells; % omitted when cost basis is zero).
 - [ ] A trade's price currency is **defaulted from the asset and editable**, never a
       free picker decoupled from the asset.
+- [ ] A USD-priced buy can be funded from a settlement stablecoin holding and a
+      USD-priced sell can credit one: the leg sits on that holding at the $1 peg,
+      and [net invested capital](GLOSSARY.md#net-invested-capital) is unchanged at
+      trade time (the paired legs cancel, same as fiat settlement).
+- [ ] Spending a stablecoin books **no realized P&L** on it; editing a
+      stablecoin-settled trade keeps its leg on the stablecoin holding.
 - [ ] Importing a broker PDF yields editable, validated grid rows for **all** of its
       sections — trades, cash deposits/withdrawals, interest on idle cash, and cash
       dividends; rows that moved nothing and unrecognised rows are skipped and counted.

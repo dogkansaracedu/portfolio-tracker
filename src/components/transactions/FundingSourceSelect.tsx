@@ -1,32 +1,55 @@
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
 import { PlatformDot } from "@/components/common/PlatformDot"
 import { useHoldings } from "@/hooks/useHoldings"
+import { isSettlementStablecoin } from "@/lib/constants/assets"
+import { DEFAULT_CURRENCY } from "@/lib/constants/currencies"
+import { formatAmount } from "@/lib/prices"
+import { bn } from "@/lib/config"
 
 import type { Asset, Platform } from "@/types/database"
 
 export const EXTERNAL_CASH_VALUE = "__external__"
 
+/** A buy's funding source: which platform's holding of which settlement
+ *  asset (price-currency fiat, or a settlement stablecoin) gets debited. */
+export interface FundingSource {
+  platformId: string
+  assetId: string
+}
+
+const encode = (s: FundingSource) => `${s.platformId}::${s.assetId}`
+const decode = (v: string): FundingSource => {
+  const [platformId, assetId] = v.split("::")
+  return { platformId, assetId }
+}
+
 interface Props {
-  value: string | null
+  value: FundingSource | null
   /** Pass null to mean "external cash" (no deduction). */
-  onChange: (platformId: string | null) => void
-  /** All seeded assets — used to find the fiat asset row for `priceCurrency`. */
+  onChange: (source: FundingSource | null) => void
+  /** All seeded assets — used to find the fiat asset row for `priceCurrency`
+   *  and the settlement stablecoins (USDT). */
   assets: Asset[]
   /** All user platforms. */
   platforms: Platform[]
-  /** The buy's price_currency — drives which fiat asset we look up balances for. */
+  /** The buy's price_currency — drives which fiat asset we look up balances
+   *  for; stablecoin options appear only for USD-priced buys. */
   priceCurrency: string
   /** When editing, the existing child's amount (so we credit it back into the
    *  available figure shown next to the platform). */
   existingChildAmount?: string | null
-  /** When editing, the existing child's platform — used with existingChildAmount. */
+  /** When editing, the existing child's platform + asset — the offset applies
+   *  only to that same funding lens. */
   existingChildPlatformId?: string | null
+  existingChildAssetId?: string | null
 }
 
 export function FundingSourceSelect({
@@ -37,49 +60,115 @@ export function FundingSourceSelect({
   priceCurrency,
   existingChildAmount,
   existingChildPlatformId,
+  existingChildAssetId,
 }: Props) {
   const { holdings } = useHoldings()
   const fiatAsset = assets.find(
     (a) => a.category === "fiat" && a.ticker === priceCurrency,
   )
+  // Settlement stablecoins are USD-pegged, so they can only fund USD-priced buys.
+  const stablecoinAssets =
+    priceCurrency === DEFAULT_CURRENCY
+      ? assets.filter((a) => isSettlementStablecoin(a))
+      : []
 
-  // Build per-platform balance lookup for the fiat asset.
-  const platformBalances = new Map<string, string>()
-  if (fiatAsset) {
-    for (const h of holdings) {
-      if (h.asset_id === fiatAsset.id) {
-        platformBalances.set(h.platform_id, String(h.balance ?? "0"))
-      }
-    }
+  const balanceFor = (assetId: string, platformId: string): string => {
+    const h = holdings.find(
+      (x) => x.asset_id === assetId && x.platform_id === platformId,
+    )
+    return String(h?.balance ?? "0")
   }
 
-  const offsetForPlatform = (platformId: string): string => {
+  const offsetFor = (source: FundingSource): string => {
     if (
-      existingChildPlatformId &&
-      existingChildAmount &&
-      existingChildPlatformId === platformId
+      existingChildPlatformId === source.platformId &&
+      existingChildAssetId === source.assetId &&
+      existingChildAmount
     ) {
       return existingChildAmount
     }
     return "0"
   }
 
+  interface Option {
+    source: FundingSource
+    ticker: string
+    category: string
+  }
+
+  // Fiat options for every platform (as before); a stablecoin option per
+  // (platform, coin) only where a positive balance exists — no clutter.
+  const fiatOptions: Option[] = fiatAsset
+    ? platforms.map((p) => ({
+        source: { platformId: p.id, assetId: fiatAsset.id },
+        ticker: priceCurrency,
+        category: fiatAsset.category,
+      }))
+    : []
+  const coinOptions: Option[] = []
+  for (const p of platforms) {
+    for (const sc of stablecoinAssets) {
+      const editLens =
+        existingChildPlatformId === p.id && existingChildAssetId === sc.id
+      if (bn(balanceFor(sc.id, p.id)).gt(0) || editLens) {
+        coinOptions.push({
+          source: { platformId: p.id, assetId: sc.id },
+          ticker: sc.ticker,
+          category: sc.category,
+        })
+      }
+    }
+  }
+
+  const renderOption = ({ source, ticker, category }: Option) => {
+    const p = platforms.find((x) => x.id === source.platformId)
+    if (!p) return null
+    const base = formatAmount(
+      bn(balanceFor(source.assetId, source.platformId)).toNumber(),
+      category,
+    )
+    // For the dropdown's display, show the offset so the user can see the
+    // existing child's amount that would be freed if they kept editing on
+    // this same funding lens.
+    const offset = offsetFor(source)
+    return (
+      <SelectItem key={encode(source)} value={encode(source)}>
+        <span className="flex items-center gap-2">
+          <PlatformDot color={p.color} />
+          {p.name} — {base} {ticker}
+          {offset !== "0" && (
+            <span className="text-xs text-muted-foreground">
+              {" "}(+{offset} from this edit)
+            </span>
+          )}
+        </span>
+      </SelectItem>
+    )
+  }
+
   return (
     <Select
-      value={value ?? EXTERNAL_CASH_VALUE}
-      onValueChange={(v) => onChange(v === EXTERNAL_CASH_VALUE ? null : v)}
+      value={value ? encode(value) : EXTERNAL_CASH_VALUE}
+      onValueChange={(v) =>
+        onChange(!v || v === EXTERNAL_CASH_VALUE ? null : decode(v))
+      }
     >
       <SelectTrigger className="w-full">
         <SelectValue>
-          {(value: string) => {
-            if (!value) return "Select funding source..."
-            if (value === EXTERNAL_CASH_VALUE) return "External cash (no deduction)"
-            const p = platforms.find((x) => x.id === value)
+          {(v: string) => {
+            if (!v) return "Select funding source..."
+            if (v === EXTERNAL_CASH_VALUE) return "External cash (no deduction)"
+            const s = decode(v)
+            const p = platforms.find((x) => x.id === s.platformId)
             if (!p) return "Select funding source..."
+            // Resolve from the catalog, not the (balance-filtered) option
+            // list — a selection must never be relabeled by a refresh.
+            const ticker =
+              assets.find((a) => a.id === s.assetId)?.ticker ?? priceCurrency
             return (
               <span className="flex items-center gap-2">
                 <PlatformDot color={p.color} />
-                {p.name}
+                {p.name} — {ticker}
               </span>
             )
           }}
@@ -89,26 +178,18 @@ export function FundingSourceSelect({
         <SelectItem value={EXTERNAL_CASH_VALUE}>
           External cash (no deduction)
         </SelectItem>
-        {platforms.map((p) => {
-          const base = platformBalances.get(p.id) ?? "0"
-          // For the dropdown's display, show the offset so the user can see
-          // the existing child's amount that would be freed if they kept
-          // editing on this same platform.
-          const offset = offsetForPlatform(p.id)
-          return (
-            <SelectItem key={p.id} value={p.id}>
-              <span className="flex items-center gap-2">
-                <PlatformDot color={p.color} />
-                {p.name} — {base} {priceCurrency}
-                {offset !== "0" && (
-                  <span className="text-xs text-muted-foreground">
-                    {" "}(+{offset} from this edit)
-                  </span>
-                )}
-              </span>
-            </SelectItem>
-          )
-        })}
+        {fiatOptions.length > 0 && (
+          <SelectGroup>
+            <SelectLabel>Cash</SelectLabel>
+            {fiatOptions.map(renderOption)}
+          </SelectGroup>
+        )}
+        {coinOptions.length > 0 && (
+          <SelectGroup>
+            <SelectLabel>Stablecoin</SelectLabel>
+            {coinOptions.map(renderOption)}
+          </SelectGroup>
+        )}
       </SelectContent>
     </Select>
   )

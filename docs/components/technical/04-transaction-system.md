@@ -98,7 +98,13 @@
   `ADD_TYPES − SUBTRACT_TYPES` over a holding's transactions and upserts `holdings`.
 - `src/lib/cash.ts` — cash-leg pairing: `resolveFiatAsset`, `computeCashAmount`
   (`total − fee` sell / `total + fee` buy, same-currency only), `shouldCreateChild`,
-  `buildChildRow`, `validateFundingCash`.
+  `buildChildRow` (takes the settlement asset's id — fiat or stablecoin — as
+  `cashAssetId`; legs always carry `unit_price: 1` in the parent's price
+  currency, which *is* the $1 peg when the leg sits on USDT),
+  `validateFundingCash` (with `settlementTicker` for the error message's unit).
+- `src/lib/constants/assets.ts` — `SETTLEMENT_STABLECOIN_TICKERS` (USDT) +
+  `isSettlementStablecoin`: the curated set of stablecoins eligible as a
+  settlement asset. Distinct from `STABLECOIN_TICKERS` (display nesting).
 - `src/lib/constants/transaction-types.ts` — type enum + `ADD_TYPES`/`SUBTRACT_TYPES`,
   `TYPES_WITH_LINKED_CHILD`, `USER_PICKABLE_TYPES`, display labels/colours.
 - `src/lib/constants/midas-pdf.ts` — Midas header aliases (all three tables),
@@ -148,7 +154,25 @@ Beyond the shared `transactions` / `holdings` / `assets` schema (Component 2):
 - **Only `buy`/`sell` carry a linked cash child** (`TYPES_WITH_LINKED_CHILD`). Sells
   always; buys only when a funding platform is chosen. In the bulk path, **bulk buys
   debit cash on their own platform** (funding = the buy's platform) so totals don't
-  inflate; sells auto-credit inside the RPC.
+  inflate; sells auto-credit inside the RPC. Bulk settlement is **fiat-only** —
+  stablecoin settlement exists only in the single add/edit modal.
+- **Stablecoin settlement plumbing.** `FundingSourceSelect` carries a
+  `FundingSource` ({platformId, assetId}) — fiat options for every platform plus
+  a USDT option per platform with a positive balance (USD-priced buys only).
+  `useTransactionMutations.addTransaction/editTransaction` take
+  `options.settlementAssetId`: explicit id = that asset, explicit `null` = the
+  price-currency fiat, omitted (bulk-sheet edits) = keep a USD-priced trade's
+  existing child on its current asset so an in-place edit doesn't silently move
+  a USDT leg back to USD cash (a currency change away from USD always
+  re-resolves to fiat). The modal's sell form adds a "Proceeds credited as"
+  select (`proceedsAssetId`, `null` = fiat), gated to USD-priced sells of
+  crypto assets that aren't settlement coins themselves (or an edit already
+  seeded from a stablecoin leg); it seeds from the sell's linked child on
+  edit. A price-currency change re-maps any funding selection to the new
+  currency's fiat row on the same platform and clears a stablecoin proceeds
+  choice. Funding options are grouped (Cash / Stablecoin `SelectGroup`s) with
+  balances through `formatAmount`; the collapsed trigger resolves its ticker
+  from the catalog, never from the balance-filtered option list.
 - **A `transfer_out`'s linked child is its `transfer_in`, not a cash leg.**
   `useTransactionMutations.editTransaction` reconciles it *before* the cash-side
   logic: shared fields (asset, date, amount, unit_price, price_currency, total_cost)

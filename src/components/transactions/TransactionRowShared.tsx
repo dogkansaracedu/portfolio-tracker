@@ -191,9 +191,20 @@ export function TransactionAssetLabel({
           // Cash-leg subtitle only — a transfer pair's direction lives in the
           // platform column (source → destination), not here.
           <span className="truncate text-xs italic text-muted-foreground">
-            {linkedChild.type === TRANSACTION_TYPES.CASH_CREDIT
-              ? `${CURRENCY_SYMBOLS[linkedChild.price_currency as FiatCurrency] ?? ""}${Number(linkedChild.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${linkedChild.price_currency} → ${linkedChild.platforms?.name ?? "platform"}`
-              : `-${CURRENCY_SYMBOLS[linkedChild.price_currency as FiatCurrency] ?? ""}${Number(linkedChild.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${linkedChild.price_currency} from ${linkedChild.platforms?.name ?? "platform"}`}
+            {(() => {
+              // The leg's amount is in units of the asset it sits on — the
+              // price-currency fiat row, or a settlement stablecoin (USDT).
+              const unit = linkedChild.assets?.ticker ?? linkedChild.price_currency
+              const sym = CURRENCY_SYMBOLS[unit as FiatCurrency] ?? ""
+              const amt = Number(linkedChild.amount).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+              const platform = linkedChild.platforms?.name ?? "platform"
+              return linkedChild.type === TRANSACTION_TYPES.CASH_CREDIT
+                ? `${sym}${amt} ${unit} → ${platform}`
+                : `-${sym}${amt} ${unit} from ${platform}`
+            })()}
           </span>
         )}
         {tx.type === TRANSACTION_TYPES.BUY && !linkedChild && (

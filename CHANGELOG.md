@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.10.0] — 2026-09-01
+- Buy crypto with USDT: a USD-priced buy can be funded from a USDT holding and a
+  USD-priced sell can credit one ("Proceeds credited as"), through the same
+  linked cash-leg pairing fiat uses — net invested and MWR unchanged at trade time.
+- Stablecoin legs book at the $1 peg; spending USDT books no realized P&L, and a
+  real de-peg surfaces as unrealized P&L on the USDT holding (worked cases 24–26
+  in docs/pnl-test-cases.md).
+
 ## [0.9.2] — 2026-08-30
 - Transactions type filter now matches the **derived** type: a new **Transfer** chip
   shows internal linked pairs, and **Withdrawal** / **Deposit** match only lone

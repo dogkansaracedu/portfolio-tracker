@@ -202,6 +202,25 @@ The `tax` type: money the tax office took from a cash balance (e.g. Midas' month
 - Total P&L **−$50**, surfaced as the cash holding's unrealized (the fiat cost basis keeps the pre-tax figure).
 - Reconciles: 950 − 1,000 = −50 + 0 + 0. ✓
 
+### Case 24 — Stablecoin-funded buy (USDT settlement)
+A USD-priced buy funded from a USDT holding: the cash leg sits on the stablecoin, at the $1 peg.
+**Inputs:** Buy 1,000 USDT @ $1 (external cash). Buy 0.01 BTC @ $50,000 ($500) with a paired `cash_debit` of 500 on the USDT holding. Prices: USDT $1, BTC $50,000.
+**Expected:**
+- Net invested **$1,000** — the buy and its leg cancel; funding from USDT is an internal shuffle, not new money.
+- Value $500 (USDT) + $500 (BTC) = **$1,000**; unrealized $0; realized **$0** — spending USDT books no realized P&L (the debit consumes lots like a transfer_out).
+- Reconciles: 1,000 − 1,000 = 0 + 0 + 0. ✓
+
+### Case 25 — Round trip: sell BTC into USDT
+**Inputs:** Case 24, then sell 0.01 BTC @ $60,000 with a paired `cash_credit` of 600 on the USDT holding (lot at $1).
+**Expected:**
+- Net invested still **$1,000**; value = 1,100 USDT × $1 = **$1,100**.
+- Realized **+$100**, attributed to BTC only. USDT lots (500 remaining + 600 credited, all @ $1) equal the balance → USDT unrealized $0.
+- Reconciles: 1,100 − 1,000 = 0 + 100 + 0. ✓
+
+### Case 26 — De-peg visibility
+**Inputs:** Case 24 with USDT priced at **$0.98**.
+**Expected:** legs stay booked at the peg, value follows the live price: 500 × 0.98 = $490 against a $500 basis → USDT unrealized **−$10** (total value $990). The peg convention affects only the leg amounts, never the valuation. ✓
+
 ### Case 10 — Reconciliation invariant (master check)
 For **any** mix of the above, the engine must hold:
 ```
