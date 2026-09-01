@@ -5,13 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
-## [0.11.0] — 2026-09-01
-- Portfolio rows' Total mode now shows the lifetime money-weighted total return
-  (value − net invested, % = cumulative XIRR) — the same lens as the summary bar
-  and Asset Detail — replacing the unrealized-over-cost-basis ratio, whose
-  denominator shrank on withdrawals. Group subtotals and the P&L sort follow.
-- After-tax row %s are the same solve with the tax accrual off the terminal
-  value.
+## [0.11.1] — 2026-09-01
+- Revert 0.11.0: portfolio rows go back to the unrealized (value − cost basis)
+  figure. Lifetime scope pulled closed round-trips into rows (a re-entered
+  position showed its old trades' P&L) — against the current-position convention
+  on portfolio screens. The fiat % distortion (e.g. EUR +16% after a conversion
+  withdrawal) is real but will be fixed for fiat specifically, guided by
+  prior-art research.
+
+## [0.11.0] — 2026-09-01 *(reverted in 0.11.1)*
+- Portfolio rows' Total mode showed the lifetime money-weighted total return
+  (value − net invested, % = cumulative XIRR); group subtotals and P&L sort
+  followed.
 
 ## [0.10.2] — 2026-09-01
 - Asset detail no longer lists trades' auto-generated cash legs

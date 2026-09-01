@@ -131,15 +131,10 @@ export function useAssetDetail(assetId: string | undefined): UseAssetDetailRetur
     if (assetPnL) pnlMap.set(assetPnL.assetId, assetPnL)
     const holdingsByAsset = new Map<string, HoldingWithDetails[]>()
     holdingsByAsset.set(asset.id, assetHoldings)
-    const txByAsset = new Map<string, Transaction[]>()
-    txByAsset.set(asset.id, assetTxs)
     return enrichAsset(asset, {
       prices,
       pnlMap,
       holdingsByAsset,
-      txByAsset,
-      rates: txRates,
-      today: homeDayIso(),
       snapshotLookups,
       dailyReturnLookups,
       totalValue: bn(totalCurrentValueUsd),
@@ -148,8 +143,6 @@ export function useAssetDetail(assetId: string | undefined): UseAssetDetailRetur
     asset,
     assetPnL,
     assetHoldings,
-    assetTxs,
-    txRates,
     prices,
     snapshotLookups,
     dailyReturnLookups,
