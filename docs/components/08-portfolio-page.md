@@ -23,8 +23,8 @@ between **lifetime total** and **today's** change.
 - [Platform](GLOSSARY.md#platform) — one grouping axis; also the per-platform price/value scope
 - [Snapshot](GLOSSARY.md#snapshot) — source of prices and the daily baseline
 - [Snapshot price / live quantity](GLOSSARY.md#snapshot-price-and-live-quantity) — how Value is computed
-- [Realized and unrealized](GLOSSARY.md#realized-and-unrealized) — the Total return shown is unrealized
-- [Money-weighted](GLOSSARY.md#money-weighted) — the basis for the daily figure
+- [Total P&L](GLOSSARY.md#total-pl) / [MWR](GLOSSARY.md#money-weighted-return-mwr--xirr) — the Total return shown per row (value − net invested, % = cumulative XIRR)
+- [Money-weighted](GLOSSARY.md#money-weighted) — the basis for both the Total and daily figures
 - [Daily return](GLOSSARY.md#daily-return) — the "Today" figure ([formula](GLOSSARY.md#daily-return-formula))
 - [Allocation](GLOSSARY.md#allocation) — share of total portfolio value
 
@@ -32,7 +32,7 @@ between **lifetime total** and **today's** change.
 
 **Enrichment.** For each active, currently-held asset, combine its holdings,
 prices, and P&L into: total balance, current unit price, current value, cost
-basis, unrealized return (amount + %), [allocation](GLOSSARY.md#allocation), and a
+basis, total return (amount + %), [allocation](GLOSSARY.md#allocation), and a
 daily return (amount + %). Only assets with a positive total balance appear as
 rows.
 
@@ -73,9 +73,16 @@ platform group-by, where the relationship doesn't compose.
 **both group headers and asset rows** between two modes. It does **not** touch any
 other column, and it does **not** affect the summary bar.
 
-- **Total** (default): lifetime
-  [unrealized](GLOSSARY.md#realized-and-unrealized) return = current value − cost
-  basis, shown as amount + %.
+- **Total** (default): the position's lifetime **money-weighted total return** —
+  amount = current value − net USD invested into the position (realized P&L and
+  income included), % = the **cumulative
+  [money-weighted (XIRR) return](GLOSSARY.md#money-weighted-return-mwr--xirr)**
+  of the same flows. This is the identical lens as the summary bar's headline %
+  and the Asset Detail total-return card, so the page never disagrees with
+  itself about what a % means. "—" when the solver has no answer. (An
+  unrealized-over-cost-basis ratio is banned here: its denominator shrinks on
+  every withdrawal — e.g. a currency position partially converted away would
+  read 16% where the money-weighted truth is 11%.)
 - **Daily** ("Today"): the [money-weighted](GLOSSARY.md#money-weighted) change
   since the previous [snapshot](GLOSSARY.md#snapshot), shown as amount + %. Per the
   [daily-return formula](GLOSSARY.md#daily-return-formula):
@@ -97,8 +104,9 @@ an asset that carries an at-source tax rate, the **Total** return on the **asset
 row** is shown **after tax** as the headline figure: `net = gross − tax`, where tax
 is the at-source accrual on the position's positive native gain (see Component 6
 rule 7). The **gross** figure and the tax deducted are shown beside it as a
-muted annotation, so nothing is hidden. The percent is recomputed on the net
-amount over the same cost basis. **Group headers and the summary bar stay gross
+muted annotation, so nothing is hidden. The net percent is the same
+money-weighted solve with the accrual taken off the position's terminal value
+(never a net-over-cost-basis ratio). **Group headers and the summary bar stay gross
 of the accrual** — the after-tax view is deliberately confined to the rows, so
 aggregate figures everywhere are the plain money-weighted totals.
 Consequently a group holding a taxed asset reads slightly **above** the sum of
@@ -227,7 +235,10 @@ zero is neutral; consistent across rows, headers, and the summary bar.
 
 - [ ] The Total | Daily toggle flips the return figure on **both** group headers
       and asset rows; default is **Total**.
-- [ ] In Total mode, the return is lifetime unrealized (value − cost basis), amount + %.
+- [ ] In Total mode, the return is the lifetime money-weighted total (value −
+      net invested, realized and income included), % = cumulative XIRR ("—"
+      when unsolvable) — never an unrealized-over-cost-basis ratio, whose
+      denominator shrinks on withdrawal.
 - [ ] In Total mode, a taxed position's **row** shows the **after-tax (net)** return
       as the headline, with **gross** and the deducted tax annotated beside it;
       untaxed positions show plain gross figures. **Group headers and the summary

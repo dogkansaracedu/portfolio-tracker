@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.11.0] — 2026-09-01
+- Portfolio rows' Total mode now shows the lifetime money-weighted total return
+  (value − net invested, % = cumulative XIRR) — the same lens as the summary bar
+  and Asset Detail — replacing the unrealized-over-cost-basis ratio, whose
+  denominator shrank on withdrawals. Group subtotals and the P&L sort follow.
+- After-tax row %s are the same solve with the tax accrual off the terminal
+  value.
+
 ## [0.10.2] — 2026-09-01
 - Asset detail no longer lists trades' auto-generated cash legs
   (`cash_credit`/`cash_debit`) — drilling into a cash holding (USD/TRY) shows
