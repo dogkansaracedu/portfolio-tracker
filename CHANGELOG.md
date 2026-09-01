@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.10.2] — 2026-09-01
+- Asset detail no longer lists trades' auto-generated cash legs
+  (`cash_credit`/`cash_debit`) — drilling into a cash holding (USD/TRY) shows
+  only deposits, withdrawals, income, and fees. The full audit trail, cash legs
+  included, stays on the Transactions page.
+
 ## [0.10.1] — 2026-09-01
 - Buy funding is now same-platform-only: "External cash" or a holding on the
   trade's own platform (fiat/USDT). Cross-platform funding removed — all 139

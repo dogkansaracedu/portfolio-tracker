@@ -47,6 +47,13 @@ export const BALANCE_LIMITED_TYPES = new Set<TransactionType>([
   TRANSACTION_TYPES.FEE,
 ])
 
+/** Auto-generated cash legs of a trade. Never user-picked: they exist only as
+ *  the linked child of a buy/sell, booked against the fiat asset. */
+export const CASH_LEG_TYPES = new Set<TransactionType>([
+  TRANSACTION_TYPES.CASH_CREDIT,
+  TRANSACTION_TYPES.CASH_DEBIT,
+])
+
 /** Parent types that may carry a linked child row. */
 export const TYPES_WITH_LINKED_CHILD = new Set<TransactionType>([
   TRANSACTION_TYPES.BUY,

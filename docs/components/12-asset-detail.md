@@ -150,10 +150,20 @@ USD-normalized at its transaction date:
 Cards render only when nonzero — an asset with no income and no costs shows
 nothing rather than a row of zeros.
 
-**Transaction history inline.** The asset's complete transaction list, newest
-first, with the same columns, type badges, linked cash-leg presentation, and
-realized-P&L annotations as the Transactions page. Read-only here; editing goes
-through the transaction editor link or the record-transaction action.
+**Transaction history inline.** The asset's transaction list, newest first, with
+the same columns, type badges, linked cash-leg presentation, and realized-P&L
+annotations as the Transactions page. Read-only here; editing goes through the
+transaction editor link or the record-transaction action.
+
+**Trade cash legs are omitted from this list.** A buy's or sell's auto-generated
+cash leg is booked against the *fiat* asset, not the traded one, so drilling
+into a cash position would otherwise show a wall of rows that name no trade.
+This screen leaves them out: a fiat holding's history then shows what moved
+money in and out from outside the trading loop (deposits, withdrawals, income,
+fees), and a trade's cash side stays visible where it has context — as the
+subtitle on the trade's own row. **Accepted consequence:** on a fiat holding the
+visible rows no longer sum to the balance shown above them. The complete audit
+trail, cash legs included, remains on the Transactions page.
 
 **Consistency rules.** Display-currency toggle and amount obfuscation apply
 exactly as on the Portfolio page (percentages stay visible when amounts are
@@ -200,7 +210,8 @@ session: selected time range, price-series visibility (neither persisted).
   Responsive; on small screens the chart stacks above the tables.
 - **Income & costs:** small labeled cards (income / taxes / fees), only the
   nonzero ones.
-- **Transactions:** the shared transaction table/cards, newest first.
+- **Transactions:** the shared transaction table/cards, newest first, with the
+  trades' cash legs filtered out.
 - **States:** loading skeletons; not-found state with a back link; "not enough
   history" hint under 2 chart points.
 
@@ -233,6 +244,9 @@ session: selected time range, price-series visibility (neither persisted).
       zero-valued cards are omitted.
 - [ ] The inline transaction list matches the Transactions page presentation
       (type badges, linked legs, realized annotations), newest first.
+- [ ] No `cash_credit` / `cash_debit` row appears on this screen for any asset;
+      drilling into a fiat holding shows only its non-cash-leg activity, while
+      the Transactions page still lists every cash leg.
 - [ ] A sold-out asset renders fully (realized headline, chart, income/costs,
       transactions); an unknown asset id shows the not-found state.
 - [ ] Display currency, obfuscation (percentages stay visible), and gain/loss

@@ -50,7 +50,13 @@
 
 - `TransactionList` + `useRealizedPnL` + `fetchLinkedChildrenForParents`
   (childMap) — identical composition to `TransactionsPage`, filtered to the
-  asset, newest first.
+  asset, newest first. The rows are piped through
+  `collapseLinkedTransferIns` then `dropCashLegs`
+  (`src/components/transactions/transactionRowModel.ts`) before rendering:
+  transfer pairs fold into one row, and the trades' auto-generated
+  `cash_credit`/`cash_debit` children are removed. `dropCashLegs` filters on
+  `CASH_LEG_TYPES` (`src/lib/constants/transaction-types.ts`); the ordering
+  matters only for readability — the two filters are disjoint.
 - `TimeRangeSelector`, `AssetIcon`, `gainLossClass` / `formatSignedCurrency` /
   `formatSignedPercent` / `formatCurrency` / `obfuscate` from `@/lib/prices`,
   `assetNativeCurrency`.
@@ -79,6 +85,15 @@
 - **Taxes card ≠ tax accrual.** The card sums booked `tax` transactions
   (stopaj already taken); `taxAccrualUsd` (pending at-source accrual) appears
   only inside the return annotation, as on the Portfolio row.
+- **Cash legs are dropped for display only.** `dropCashLegs` touches nothing
+  but the rendered list — `useAssetDetail`, the P&L engine, `computeIncomeUsd`
+  and `computeAssetCostsUsd` all still see the unfiltered `rawTransactions`, so
+  no figure on the page moves. The visible consequence, accepted 2026-08-30: a
+  fiat holding's rows no longer reconcile to its balance
+  (`src/lib/balance.ts` counts `cash_credit`/`cash_debit`). Do not "fix" that by
+  filtering the balance too.
+- **`childMap` is unaffected.** Its effect selects parents
+  (`linked_tx_id == null`); cash legs are children, so they were never in it.
 - **Daily figures are USD-only**, matching the Portfolio page's return column.
 - **Sold-out assets**: `AssetPnL` exists only for assets with holdings entries;
   a fully-exited asset may have no `assetPnLs` row — realized P&L then comes
