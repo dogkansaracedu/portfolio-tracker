@@ -1,4 +1,5 @@
 import {
+  CASH_LEG_TYPES,
   POSITIVE_TYPES,
   TRANSACTION_TYPES,
   TRANSFER_PAIR_FILTER_TYPE,
@@ -28,6 +29,17 @@ export function collapseLinkedTransferIns<
         visibleIds.has(tx.linked_tx_id)
       ),
   )
+}
+
+/** Drop the auto-generated cash legs of trades (`cash_credit`/`cash_debit`).
+ *  Used by the single-asset view: drilling into a fiat holding otherwise shows
+ *  a wall of context-free cash rows, because a trade's cash leg is booked
+ *  against the fiat asset while the trade itself lives on the traded asset.
+ *  The Transactions page keeps them — that is the full audit trail. */
+export function dropCashLegs<T extends Pick<TransactionWithDetails, "type">>(
+  rows: T[],
+): T[] {
+  return rows.filter((tx) => !CASH_LEG_TYPES.has(tx.type))
 }
 
 const QUANTITY_FORMAT = new Intl.NumberFormat("en-US", {
