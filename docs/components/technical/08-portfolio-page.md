@@ -33,13 +33,11 @@
   "something of this is earning" cue, tinted by *status* (amber/red), never by
   `gainLossClass`; it renders `null` for an asset with no open position. See
   [technical/16-interest.md](16-interest.md). Each picks
-  `totalReturnUsd`/`totalReturnPct` (total — the money-weighted lifetime figures,
-  see the `usePortfolio` section) vs `dailyReturnUsd`/`dailyReturnPct` (daily).
-  In **Total** mode, taxed rows (`asset.taxAccrualUsd > 0`) show
-  `netUsd = returnUsd − taxAccrualUsd` as the headline with
-  `netPct = totalReturnNetPct` (the same XIRR solved with the accrual off the
-  terminal value — never a ratio over cost basis), and a muted
-  `gross … · −… tax` annotation (desktop) / `· gross …` suffix (mobile). Shared `CurrentPrice` + `formatQuantity` helpers; asset cell links
+  `unrealizedPnlUsd`/`unrealizedPnlPct` (total) vs `dailyReturnUsd`/`dailyReturnPct`
+  (daily). In **Total** mode, taxed rows (`asset.taxAccrualUsd > 0`) show
+  `netUsd = returnUsd − taxAccrualUsd` as the headline (percent recomputed over
+  `costBasisUsd`), with a muted `gross … · −… tax` annotation (desktop) / `· gross …`
+  suffix (mobile). Shared `CurrentPrice` + `formatQuantity` helpers; asset cell links
   to `/assets/:assetId` (Component 12). The desktop row also renders nested fund
   children (chevron + recursive `nested` render — see the funds-nested-under-fiat
   entry below).
@@ -76,9 +74,8 @@
   - `rollupGroup` (same file) iterates `a.children ? [a, ...a.children] : [a]` so
     nested children are summed into the group's value/`totalPnlUsd`/
     `totalTaxAccrualUsd`/daily totals — the header stays equal to the sum of every
-    visible row. `totalPnlUsd` sums the rows' `totalReturnUsd` (gross,
-    money-weighted). Per child the after-tax figure reuses the row's
-    `totalReturnUsd − taxAccrualUsd` (rendered in `PortfolioRow`, no new math).
+    visible row. Per child the after-tax figure reuses the row's
+    `unrealizedPnlUsd − taxAccrualUsd` (rendered in `PortfolioRow`, no new math).
 - `src/hooks/usePortfolio.ts` — the engine (below).
 - `src/lib/constants/portfolio.ts` — `RETURN_MODE_LABELS` (`{ total: "Total",
   daily: "Daily" }`), `RETURN_COLUMN_LABEL_TOTAL = "P&L"`,
@@ -108,21 +105,6 @@
 - Per `EnrichedAsset`: `computeDailyReturn({ currentValueUsd, prevValueUsd,
   periodInvestedUsd })`; stores `dailyReturnUsd`, `dailyReturnPct: number | null`,
   `dailyDenomUsd`. When `!available` → `0 / null / 0`.
-- **Total-mode row figures** (2026-09-01, 0.11.0): `enrichAsset` calls
-  `computeAssetReturnRates(txByAsset.get(asset.id), rates, currentValueUsd, today)`
-  (`src/lib/pnl/assetReturns.ts` — the same helper behind the Asset Detail
-  headline) and stores `totalReturnUsd` (value − net invested, realized + income
-  included), `totalReturnPct` (cumulative XIRR, `null` → "—"), and
-  `totalReturnNetPct` (a second solve with `taxAccrualUsd` off the terminal
-  value; equals the gross % when untaxed). `buildTxByAsset(transactions)` groups
-  the full history per asset; `usePortfolio` plumbs `transactions`/`txRates`/
-  `homeDayIso()` into both `buildEnrichedAssets` and `groupAssets` contexts.
-  `scopeAssetToPlatform` re-solves the same figures over the holding's own txs
-  (`txByAssetPlatform`, built in `groupByPlatform`) against `hp.currentValueUsd`.
-  `sortAssets("pnl")` orders on `totalReturnUsd`. The engine's
-  `unrealizedPnlUsd`/`unrealizedPnlPct` stay on the model (Asset Detail's
-  platform table and summary read the engine directly) but are no longer
-  rendered by `PortfolioRow`. Tests: `grouping-total-return.test.ts`.
 - `groupBy === "platform"` branch re-scopes per (ticker, platform): platform value
   from the per-(ticker, platform) snapshot entry × that holding's balance, prev
   value from the prev snapshot's per-(ticker, platform) entry, period capital from
