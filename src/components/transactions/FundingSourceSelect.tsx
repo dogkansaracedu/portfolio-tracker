@@ -38,8 +38,13 @@ interface Props {
   /** All seeded assets — used to find the fiat asset row for `priceCurrency`
    *  and the settlement stablecoins (USDT). */
   assets: Asset[]
-  /** All user platforms. */
+  /** All user platforms (for names/colors). */
   platforms: Platform[]
+  /** The buy's own platform. Funding is external or **on this platform** —
+   *  cross-platform funding was removed 2026-09-01 (never used in practice;
+   *  cash on another exchange can't settle a trade on this one). Empty until
+   *  the user picks a platform → only "External cash" is offered. */
+  platformId: string
   /** The buy's price_currency — drives which fiat asset we look up balances
    *  for; stablecoin options appear only for USD-priced buys. */
   priceCurrency: string
@@ -57,6 +62,7 @@ export function FundingSourceSelect({
   onChange,
   assets,
   platforms,
+  platformId,
   priceCurrency,
   existingChildAmount,
   existingChildPlatformId,
@@ -96,27 +102,48 @@ export function FundingSourceSelect({
     category: string
   }
 
-  // Fiat options for every platform (as before); a stablecoin option per
-  // (platform, coin) only where a positive balance exists — no clutter.
-  const fiatOptions: Option[] = fiatAsset
-    ? platforms.map((p) => ({
-        source: { platformId: p.id, assetId: fiatAsset.id },
-        ticker: priceCurrency,
-        category: fiatAsset.category,
-      }))
-    : []
+  // Options exist only for the trade's own platform: its fiat cash, plus a
+  // stablecoin option per coin with a positive balance there. A legacy edit
+  // whose child sits elsewhere still shows that lens so the form tells the
+  // truth (zero such rows in practice — guarded, not offered).
+  const fiatOptions: Option[] = []
   const coinOptions: Option[] = []
-  for (const p of platforms) {
+  if (platformId && fiatAsset) {
+    fiatOptions.push({
+      source: { platformId, assetId: fiatAsset.id },
+      ticker: priceCurrency,
+      category: fiatAsset.category,
+    })
+  }
+  if (platformId) {
     for (const sc of stablecoinAssets) {
       const editLens =
-        existingChildPlatformId === p.id && existingChildAssetId === sc.id
-      if (bn(balanceFor(sc.id, p.id)).gt(0) || editLens) {
+        existingChildPlatformId === platformId && existingChildAssetId === sc.id
+      if (bn(balanceFor(sc.id, platformId)).gt(0) || editLens) {
         coinOptions.push({
-          source: { platformId: p.id, assetId: sc.id },
+          source: { platformId, assetId: sc.id },
           ticker: sc.ticker,
           category: sc.category,
         })
       }
+    }
+  }
+  if (
+    existingChildPlatformId &&
+    existingChildAssetId &&
+    existingChildPlatformId !== platformId
+  ) {
+    const legacyAsset = assets.find((a) => a.id === existingChildAssetId)
+    if (legacyAsset) {
+      const opt: Option = {
+        source: {
+          platformId: existingChildPlatformId,
+          assetId: existingChildAssetId,
+        },
+        ticker: legacyAsset.ticker,
+        category: legacyAsset.category,
+      }
+      ;(legacyAsset.category === "fiat" ? fiatOptions : coinOptions).push(opt)
     }
   }
 

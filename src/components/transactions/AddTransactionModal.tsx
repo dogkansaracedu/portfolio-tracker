@@ -315,6 +315,29 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     }
   }, [priceCurrency, fundingSource, proceedsAssetId, assets])
 
+  // Funding is same-platform-only: when the trade's platform changes, the
+  // funding selection follows it (a stablecoin choice resets to external if
+  // the new platform holds none). Editing a legacy child that sits on another
+  // platform is left where it is — the form must tell the truth.
+  useEffect(() => {
+    if (!fundingSource || !platformId) return
+    if (fundingSource.platformId === platformId) return
+    if (existingChild && existingChild.platformId === fundingSource.platformId)
+      return
+    const a = assets.find((x) => x.id === fundingSource.assetId)
+    if (a && isSettlementStablecoin(a)) {
+      const hasBalance = holdings.some(
+        (h) =>
+          h.asset_id === a.id &&
+          h.platform_id === platformId &&
+          bn(h.balance).gt(0),
+      )
+      setFundingSource(hasBalance ? { platformId, assetId: a.id } : null)
+    } else {
+      setFundingSource({ platformId, assetId: fundingSource.assetId })
+    }
+  }, [platformId, fundingSource, existingChild, assets, holdings])
+
   const showPriceFields =
     ["buy", "sell", "dividend", "interest"].includes(type) ||
     (type === "transfer_in" && !!selectedAsset && !selectedAsset.is_currency)
@@ -859,6 +882,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
                 onChange={setFundingSource}
                 assets={assets}
                 platforms={platforms}
+                platformId={platformId}
                 priceCurrency={priceCurrency}
                 existingChildAmount={existingChild?.amount ?? null}
                 existingChildPlatformId={existingChild?.platformId ?? null}
