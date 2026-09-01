@@ -609,8 +609,8 @@ export function computePerformanceMetrics(
  *   transfer_in    -> +total         (cost basis carried in — opening
  *                                     balance or platform-to-platform move)
  *   transfer_out   -> -total         (cost basis carried out — symmetric)
- *   dividend       -> 0  (income: neutral to net invested; +total only under
- *   interest       -> 0   treatIncomeAsCapital, for a fiat holding's cost basis)
+ *   dividend       -> 0  (income: neutral to net invested)
+ *   interest       -> 0
  *   fee            -> +fee || +total (standalone fee — pure cost)
  *   tax            -> 0              (tax charged to cash — a cost, never
  *                                     capital in/out; the balance drop
@@ -639,21 +639,10 @@ export function computePerformanceMetrics(
  * (cash implicitly left the system); modern sells get a paired cash_credit
  * that cancels the subtraction (cash stays on-platform).
  */
-interface InvestedOptions {
-  /**
-   * When true, dividend/interest income ADDS to the figure at its received USD
-   * value. Used for a fiat holding's "deployed cash" cost basis, so earned
-   * foreign cash (EUR/TRY) isn't later mislabeled as an FX gain. When false
-   * (the global net-invested = external-capital sense), income is neutral.
-   */
-  treatIncomeAsCapital?: boolean
-}
-
 export function applyTxToInvested(
   tx: Transaction,
   rates: ExchangeRate[],
   cum: ReturnType<typeof bn>,
-  opts: InvestedOptions = {},
 ): ReturnType<typeof bn> {
   const totalUsd = normalizeToUsd(
     tx.total_cost ?? 0,
@@ -676,10 +665,10 @@ export function applyTxToInvested(
       return cum.minus(totalUsd)
     case "dividend":
     case "interest":
-      // Income, not external capital → neutral to net invested. The fiat
-      // cost-basis caller opts in to absorb the received cash so it doesn't
-      // surface as a phantom FX gain.
-      return opts.treatIncomeAsCapital ? cum.plus(totalUsd) : cum
+      // Income, not external capital → neutral to net invested. (A fiat
+      // holding's cost basis absorbs received cash via its FIFO lot instead,
+      // so income never surfaces as a phantom FX gain.)
+      return cum
     case "fee":
       return cum.plus(feeUsd.isZero() ? totalUsd : feeUsd)
     case "tax":
@@ -763,11 +752,10 @@ export function computePnLTimeSeries(
 export function computeCurrentInvestedUsd(
   transactions: Transaction[],
   rates: ExchangeRate[],
-  opts: InvestedOptions = {},
 ): number {
   let cum = bn(0)
   for (const tx of transactions) {
-    cum = applyTxToInvested(tx, rates, cum, opts)
+    cum = applyTxToInvested(tx, rates, cum)
   }
   return cum.toNumber()
 }

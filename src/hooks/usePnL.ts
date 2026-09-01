@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { useSnapshots } from "@/hooks/useSnapshots"
+import { useCurrencyAssetIds } from "@/hooks/useCurrencyAssetIds"
 import { computePortfolioPnL, EMPTY_PNL } from "@/lib/pnl/portfolio"
 import type { PriceCache } from "@/types/database"
 import type { HoldingWithDetails } from "@/lib/queries/holdings"
@@ -18,6 +19,7 @@ export function usePnL(
 ) {
   const { transactions, rates, loading } = useTransactionData()
   const { snapshots } = useSnapshots()
+  const currencyAssetIds = useCurrencyAssetIds()
 
   const result = useMemo(() => {
     if (loading) return EMPTY_PNL
@@ -27,8 +29,9 @@ export function usePnL(
       transactions,
       rates,
       snapshots,
+      currencyAssetIds,
     })
-  }, [transactions, rates, holdings, prices, loading, snapshots])
+  }, [transactions, rates, holdings, prices, loading, snapshots, currencyAssetIds])
 
   // Dev-time invariant: the canonical money-weighted total must equal the
   // decomposition. Fires loudly (not DEV-gated — we test on prod) if a future

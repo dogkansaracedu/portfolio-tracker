@@ -117,13 +117,16 @@ its old trades' P&L.
   as 0.11.1 — validated by this research: rows stay **current-position
   unrealized** (value − cost basis of held lots), matching the broker
   convention; lifetime MWR stays on Asset Detail and the summary bar.
-- **Proposed for fiat (pending):** adopt the IBKR FX-position model in the P&L
-  engine — fiat holdings carry an **average cost** basis; conversions and
-  withdrawals consume at average cost and **book realized FX P&L**
-  (market − avg cost) at that moment, so the fiat row's unrealized % is the
-  held pile vs its cost (no more shrinking-denominator distortion), and the
-  invariant `unrealized + realized = value − net deployed` is preserved by
-  construction. Open design points: whether a buy's `cash_debit` also realizes
-  (consistent, and automatically zero for USD/USDT at peg), and carrying basis
-  (not realizing) across linked platform-to-platform fiat transfers.
-  Owned by [06 P&L Engine](../components/06-pnl-engine.md) once shipped.
+- **2026-09-01 (decided, shipped in 0.12.0):** fiat holdings run the existing
+  **FIFO** lot engine in a fiat mode (user chose FIFO over the IBKR
+  average-cost pool, to reuse the one engine — totals are identical either
+  way). Conversions, withdrawals, spends (`cash_debit`) and tax charges
+  consume lots and **book realized FX P&L** (market − consumed cost) at that
+  moment, so the fiat row's unrealized % is the held pile vs its cost (no more
+  shrinking-denominator distortion), and the invariant
+  `unrealized + realized = value − net deployed` is preserved by construction.
+  The open points resolved: a buy's `cash_debit` realizes too (automatically
+  zero for USD); linked platform-to-platform fiat transfers realize at the
+  move date because their legs record market-at-date (pure carry emerges if
+  legs ever record cost — zero such transfers exist). Owned by
+  [06 P&L Engine](../components/06-pnl-engine.md).

@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
+import { useCurrencyAssetIds } from "@/hooks/useCurrencyAssetIds"
 import { buildRealizedByTx } from "@/lib/pnl/realized"
 import type { RealizedPnLEntry } from "@/lib/pnl/types"
 
@@ -12,9 +13,10 @@ import type { RealizedPnLEntry } from "@/lib/pnl/types"
  */
 export function useRealizedPnL(): Map<string, RealizedPnLEntry> {
   const { transactions, rates, loading } = useTransactionData()
+  const currencyAssetIds = useCurrencyAssetIds()
 
   return useMemo(() => {
     if (loading) return new Map<string, RealizedPnLEntry>()
-    return buildRealizedByTx(transactions, rates)
-  }, [transactions, rates, loading])
+    return buildRealizedByTx(transactions, rates, currencyAssetIds)
+  }, [transactions, rates, loading, currencyAssetIds])
 }

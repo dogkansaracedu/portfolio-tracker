@@ -177,9 +177,18 @@ cost basis of holdings still held. Both are **sub-views** of the money-weighted
 total (`unrealized = total − realized`).
 
 ### Fiat FX P&L
-Fiat / cash holdings (`is_currency = true`) are **not zero-P&L**: their cost basis
-is the net USD deployed into that currency, so `value − cost basis` is the real
-FX gain/loss vs. the [USD anchor](#usd-anchor). Surfaced as unrealized P&L.
+Fiat / cash holdings (`is_currency = true`) are **not zero-P&L**: they run
+through the same [FIFO lot engine](#fifo-lots-and-cost-basis) in a **fiat
+mode** — every cash inflow (deposit, sale proceeds, income) is a lot at its
+dated USD value, and every outflow (withdrawal, currency conversion, cash spent
+on a buy, tax) consumes lots oldest-first and **books realized P&L = the
+outflow's market USD value − the consumed lots' cost**. So the FX gain vs. the
+[USD anchor](#usd-anchor) splits into **realized** (locked in by departed cash)
+and **unrealized** (on the remaining pile); their sum equals the holding's
+`value − net USD deployed` — a pure decomposition of the same total. Spending
+the anchor currency itself (USD) realizes $0 by construction (cost = market).
+An outflow recorded before its funding inflow (estimated histories) is borrowed
+at its own market rate and repaid by the next inflow, staying P&L-neutral.
 
 ### Settlement stablecoin
 A USD-pegged stablecoin (currently **USDT**) that can settle a USD-priced

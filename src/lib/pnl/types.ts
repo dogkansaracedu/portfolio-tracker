@@ -44,6 +44,12 @@ export interface FIFOResult {
   lots: CostLot[]
   /** Realized P&L entries from sells */
   realized: RealizedPnLEntry[]
+  /**
+   * Fiat mode only: cost of units still "borrowed" (disposed while no lots
+   * were open — estimated cash histories). Negative basis: subtract it from
+   * the open lots' cost when computing the holding's cost basis.
+   */
+  fiatOwedCostUsd?: BigNumber
 }
 
 export interface UnrealizedPnLResult {
