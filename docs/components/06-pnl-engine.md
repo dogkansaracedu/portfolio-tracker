@@ -57,14 +57,14 @@ holding's transactions oldest-first:
   platform move is P&L-neutral.
 - **fee** (standalone) → consume lots FIFO **and** book a realized loss equal to
   the fee's current market value.
-- **cash legs** (`cash_credit` / `cash_debit`) → on a **fiat** holding they never
-  reach the lot engine (currency holdings skip FIFO entirely). On a
+- **cash legs** (`cash_credit` / `cash_debit`) → on a
   [settlement stablecoin](GLOSSARY.md#settlement-stablecoin) holding — the leg
   of a stablecoin-settled trade — a `cash_credit` **pushes a lot at the $1
   peg** and a `cash_debit` **consumes lots FIFO with no P&L** (like a
   transfer_out): spending a stablecoin never books realized P&L; a real de-peg
   surfaces as *unrealized* P&L on the holding, because the legs book at the peg
-  while the holding's value follows the live price. (Legs still matter for
+  while the holding's value follows the live price. On a **fiat** holding the
+  legs run the lot engine's **fiat mode** — see rule 5. (Legs still matter for
   *net invested* — see rule 3.)
 
 **Worked example.** Buy 2 @ $100, later buy 3 @ $110, then sell 4:
@@ -125,29 +125,50 @@ date and cannot inflate the figure.
 
 See [realized and unrealized](GLOSSARY.md#realized-and-unrealized).
 
-- **Realized** = FIFO gains locked in by sells (and the fee losses), summed over
-  the **full** history — including positions fully sold out.
+- **Realized** = FIFO gains locked in by sells (and the fee losses), plus the
+  FX gains/losses fiat outflows lock in (rule 5), summed over the **full**
+  history — including positions fully sold out.
 - **Unrealized** = current value − cost basis of lots still held.
 - They are sub-views of the canonical total: **unrealized = total − realized**.
 
-### 5. Fiat FX P&L
+### 5. Fiat FX P&L (fiat-mode FIFO)
 
 See [Fiat FX P&L](GLOSSARY.md#fiat-fx-pl). Fiat/cash holdings are **not**
-zero-P&L. They **skip the FIFO lot engine** (cash isn't a tradeable position)
-but carry an FX gain/loss via the cash-flow path:
+zero-P&L. They run the **same lot engine as every other asset, in a fiat
+mode**: each cash inflow (deposit, sale proceeds, income) pushes a lot at its
+dated USD value, and each outflow — withdrawal, currency conversion, cash
+spent on a buy, or a tax charge — consumes lots oldest-first and **books
+realized P&L**:
 
 ```
-fiat cost basis = net USD deployed into that currency  (rule 3, scoped to the holding)
-fiat FX P&L     = current USD value − fiat cost basis   → surfaced as unrealized
+outflow realized = outflow's market USD value − consumed lots' cost
+                   (a tax charge has no proceeds: realized = − consumed cost)
+fiat unrealized  = current USD value − remaining lots' cost
 ```
 
-So EUR/TRY swings vs the USD anchor count, and the per-asset breakdown reconciles
-with the money-weighted total. The native count doesn't move (€X in, €X held);
-the gain is purely the USD anchor shifting.
+Per holding, `unrealized + realized` equals `value − net USD deployed` — the
+former single figure, now decomposed: the FX gain earned on departed cash is
+locked as realized instead of staying behind in the remaining pile (which used
+to inflate its % over a shrunken basis). Spending the anchor currency (USD)
+realizes zero by construction (cost = market = 1), preserving the stablecoin
+spirit on the anchor. Two edges:
 
-**Worked example.** Buy €12,547 worth of euros; the same euros are worth $13,449
-today → fiat FX P&L = 13,449 − 12,547 = **+$902** (a real gain, native EUR
-unchanged).
+- A fiat platform-to-platform transfer's legs record market-at-date, so the
+  source realizes its FX gain-to-date and the destination re-bases — totals
+  unchanged, attribution shifts to the move date. (Legs carrying cost would
+  degrade the same rule to pure carry: market = cost ⇒ zero realized.)
+- An outflow recorded before its funding inflow (estimated cash histories) is
+  **borrowed at its own market rate** and repaid by the next inflow — no
+  phantom gain against a $0 cost; only the rate gap between borrow and
+  repayment books (zero on all-USD groups).
+
+The native count doesn't move (€X in, €X held); the gain is purely the USD
+anchor shifting.
+
+**Worked example.** Deposit €100 at EUR/USD 1.10 (lot $110). Convert €60 at
+1.20 (market $72): realized = 72 − 66 = **+$6**. The remaining €40 lot ($44)
+at a live 1.25 is worth $50 → unrealized **+$6**. Total +$12 — identical to
+`value − net deployed` (50 − 38); only the split is new.
 
 ### 6. Daily return
 
@@ -247,8 +268,13 @@ any cash added or removed along the way.
 - [ ] **Total P&L = current value − net invested capital** (money-weighted), and
       the live "now" figure equals the snapshot-derived value at every snapshot
       (period deltas are the true value change).
-- [ ] **Fiat holdings report FX P&L** (current USD value − net USD deployed into
-      that currency), reconciling with the money-weighted total.
+- [ ] **Fiat holdings report FX P&L** split by fiat-mode FIFO: an outflow books
+      realized = market USD value − consumed lots' cost; per holding
+      `unrealized + realized` equals current USD value − net USD deployed into
+      that currency, reconciling with the money-weighted total.
+- [ ] A fiat outflow recorded before its funding inflow books no phantom gain
+      (borrowed at market, repaid by the next inflow); an all-USD cash pile
+      books zero realized on spends.
 - [ ] Realized + unrealized reconcile to the total (`unrealized = total − realized`).
 - [ ] Daily return = Δ(value − invested) since the most recent snapshot before today
       (home-local day); a ≤ 0 base returns no value rather than 0% / NaN.

@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.12.0] — 2026-09-01
+- Fiat holdings now run the FIFO lot engine in a fiat mode: currency
+  conversions, withdrawals, cash spends, and tax charges book realized FX P&L
+  (market − consumed cost), so the FX gain on departed cash no longer inflates
+  the remaining pile's unrealized % (the EUR +16.19% distortion becomes
+  realized ~+$471 + unrealized ~+$421 ≈ +7%). Totals, net invested, and MWR
+  are unchanged — a pure realized/unrealized decomposition.
+- Outflows recorded before their funding inflows (estimated cash histories)
+  stay P&L-neutral: the shortfall is borrowed at market and repaid by the next
+  inflow instead of booking a phantom gain.
+
 ## [0.11.1] — 2026-09-01
 - Revert 0.11.0: portfolio rows go back to the unrealized (value − cost basis)
   figure. Lifetime scope pulled closed round-trips into rows (a re-entered

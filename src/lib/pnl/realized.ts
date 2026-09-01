@@ -15,10 +15,16 @@ import { computeFIFOLots } from "./fifo"
  * by `tx.id`.
  *
  * Each entry's `realizedPnlUsd` is already net of fees and denominated in USD.
+ *
+ * `currencyAssetIds` marks which asset ids are currencies (`assets.is_currency`)
+ * — bare `Transaction`s don't carry it. Their groups run FIFO in fiat mode, so
+ * fiat outflows (conversions, withdrawals, cash spends, tax) get realized
+ * entries too (docs/pnl-test-cases.md Cases 27–30).
  */
 export function buildRealizedByTx(
   transactions: Transaction[],
   rates: ExchangeRate[],
+  currencyAssetIds?: ReadonlySet<string>,
 ): Map<string, RealizedPnLEntry> {
   const groups = new Map<string, Transaction[]>()
   for (const tx of transactions) {
@@ -30,7 +36,8 @@ export function buildRealizedByTx(
 
   const byTx = new Map<string, RealizedPnLEntry>()
   for (const group of groups.values()) {
-    const { realized } = computeFIFOLots(group, rates)
+    const fiat = currencyAssetIds?.has(group[0].asset_id) ?? false
+    const { realized } = computeFIFOLots(group, rates, { fiat })
     for (const entry of realized) {
       byTx.set(entry.transactionId, entry)
     }
