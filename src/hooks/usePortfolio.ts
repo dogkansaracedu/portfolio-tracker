@@ -43,18 +43,8 @@ export interface EnrichedAsset {
   nativeCurrency: string | null
   unrealizedPnlUsd: number
   unrealizedPnlPct: number
-  /** Lifetime money-weighted total return: value − net USD invested into this
-   *  position (realized P&L and income included) — the same figure as the
-   *  Asset Detail headline. The row's Total-mode dollars. */
-  totalReturnUsd: number
-  /** Cumulative money-weighted (XIRR) % of the same flows — the row's
-   *  Total-mode %. Null when the solver has no answer (rendered "—"). */
-  totalReturnPct: number | null
-  /** After-tax %: the same XIRR solve with the at-source accrual off the
-   *  terminal value. Equals totalReturnPct when untaxed. */
-  totalReturnNetPct: number | null
   /** At-source tax accrued on this position's gain, in USD (0 unless the asset
-   *  has at_source_tax_rate). After-tax P&L = totalReturnUsd − this. */
+   *  has at_source_tax_rate). After-tax P&L = unrealizedPnlUsd − this. */
   taxAccrualUsd: number
   allocationPct: number
   /** Money-weighted daily return in USD (current − prev-snapshot − period cash). */
@@ -171,9 +161,6 @@ export function usePortfolio(): UsePortfolioReturn {
         holdings,
         prices,
         assetPnLs,
-        transactions,
-        rates: txRates,
-        today: homeDayIso(),
         totalCurrentValueUsd,
         snapshotLookups,
         dailyReturnLookups,
@@ -183,8 +170,6 @@ export function usePortfolio(): UsePortfolioReturn {
       holdings,
       prices,
       assetPnLs,
-      transactions,
-      txRates,
       totalCurrentValueUsd,
       snapshotLookups,
       dailyReturnLookups,
@@ -215,9 +200,6 @@ export function usePortfolio(): UsePortfolioReturn {
   const groups = useMemo(
     () =>
       groupAssets(groupBy, sortedAssets, holdingPnLs, {
-        transactions,
-        rates: txRates,
-        today: homeDayIso(),
         snapshotLookups,
         dailyReturnLookups,
         totalCurrentValueUsd,
@@ -226,8 +208,6 @@ export function usePortfolio(): UsePortfolioReturn {
       groupBy,
       sortedAssets,
       holdingPnLs,
-      transactions,
-      txRates,
       snapshotLookups,
       dailyReturnLookups,
       totalCurrentValueUsd,
