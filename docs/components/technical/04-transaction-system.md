@@ -157,8 +157,16 @@ Beyond the shared `transactions` / `holdings` / `assets` schema (Component 2):
   inflate; sells auto-credit inside the RPC. Bulk settlement is **fiat-only** —
   stablecoin settlement exists only in the single add/edit modal.
 - **Stablecoin settlement plumbing.** `FundingSourceSelect` carries a
-  `FundingSource` ({platformId, assetId}) — fiat options for every platform plus
-  a USDT option per platform with a positive balance (USD-priced buys only).
+  `FundingSource` ({platformId, assetId}) and is **same-platform-only** (takes
+  the trade's `platformId`): the trade platform's fiat option plus a USDT
+  option when it has a positive balance there (USD-priced buys only).
+  Cross-platform funding was removed 2026-09-01 — prod had 139 funded buys,
+  all same-platform, zero cross-platform. A legacy child on another platform
+  still renders as an edit-lens option, and the modal leaves such a selection
+  alone; otherwise changing the trade's platform re-maps the funding selection
+  to the new platform (a stablecoin choice resets to external if the new
+  platform holds none). The data model is unchanged — the constraint is
+  UI-level (`fundingPlatformId` still flows through `useTransactionMutations`).
   `useTransactionMutations.addTransaction/editTransaction` take
   `options.settlementAssetId`: explicit id = that asset, explicit `null` = the
   price-currency fiat, omitted (bulk-sheet edits) = keep a USD-priced trade's

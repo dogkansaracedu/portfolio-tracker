@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.10.1] — 2026-09-01
+- Buy funding is now same-platform-only: "External cash" or a holding on the
+  trade's own platform (fiat/USDT). Cross-platform funding removed — all 139
+  recorded funded buys were same-platform; the data model is unchanged.
+
 ## [0.10.0] — 2026-09-01
 - Buy crypto with USDT: a USD-priced buy can be funded from a USDT holding and a
   USD-priced sell can credit one ("Proceeds credited as"), through the same
