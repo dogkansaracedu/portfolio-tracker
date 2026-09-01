@@ -12,7 +12,10 @@ import { AssetIncomeCosts } from "@/components/asset-detail/AssetIncomeCosts"
 import { AssetInterestSection } from "@/components/asset-detail/AssetInterestSection"
 import { AssetHistoryChart } from "@/components/charts/LazyChart"
 import { TransactionList } from "@/components/transactions/TransactionList"
-import { collapseLinkedTransferIns } from "@/components/transactions/transactionRowModel"
+import {
+  collapseLinkedTransferIns,
+  dropCashLegs,
+} from "@/components/transactions/transactionRowModel"
 import {
   fetchLinkedChildrenForParents,
   type TransactionWithDetails,
@@ -29,9 +32,11 @@ export default function AssetDetailPage() {
   const { transactions: rawTransactions, loading: txLoading } =
     useTransactions(txFilters)
   // Fold linked transfer pairs into one combined row (both sides share this
-  // asset, so the asset filter always fetches both).
+  // asset, so the asset filter always fetches both), then drop the trades'
+  // auto-generated cash legs — on a fiat holding they are the bulk of the list
+  // and carry no context about the trade that produced them.
   const transactions = useMemo(
-    () => collapseLinkedTransferIns(rawTransactions),
+    () => dropCashLegs(collapseLinkedTransferIns(rawTransactions)),
     [rawTransactions],
   )
   const [childMap, setChildMap] = useState<Map<string, TransactionWithDetails>>(
