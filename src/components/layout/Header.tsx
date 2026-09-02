@@ -51,6 +51,7 @@ export default function Header() {
                 variant="ghost"
                 size="icon-sm"
                 onClick={toggleObfuscated}
+                aria-label={obfuscated ? "Show values" : "Hide values"}
               />
             }
           >

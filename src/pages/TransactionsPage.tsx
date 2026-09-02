@@ -9,6 +9,7 @@ import { TransactionFilters } from "@/components/transactions/TransactionFilters
 import { TransactionList } from "@/components/transactions/TransactionList"
 import { Button } from "@/components/ui/button"
 import { PlusIcon, TableIcon } from "lucide-react"
+import { BULK_ADD_ROUTE } from "@/lib/constants/app"
 import {
   fetchLinkedChildrenForParents,
   type TransactionWithDetails,
@@ -56,7 +57,7 @@ export default function TransactionsPage() {
           <Button
             variant="outline"
             nativeButton={false}
-            render={<Link to="/transactions/edit" />}
+            render={<Link to={BULK_ADD_ROUTE} />}
           >
             <TableIcon className="size-4" />
             Bulk add
