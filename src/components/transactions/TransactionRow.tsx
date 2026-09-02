@@ -73,31 +73,33 @@ export function TransactionRow({
         />
       </TableCell>
 
-      {/* Quantity */}
-      <TableCell className={d.amountColor}>
+      {/* Quantity — magnitudes compare down the column, so every numeric
+          column is right-aligned and tabular (the Portfolio row's template). */}
+      <TableCell className="text-right">
         <span className="font-medium tabular-nums">
           {d.sign}
           {formatTxQuantity(tx.amount)}
         </span>
       </TableCell>
 
-      {/* Unit Price */}
-      <TableCell className="tabular-nums text-muted-foreground">
+      {/* Unit Price — the approximate display-currency equivalent sits on its
+          own second line so it never pushes the primary figure off the edge. */}
+      <TableCell className="text-right tabular-nums text-muted-foreground">
         {formatCurrency(tx.unit_price, d.nativeCurrency)}
         {d.convertedUnitPrice !== null && (
-          <span className="ml-1 text-xs font-normal text-muted-foreground">
+          <div className="text-xs font-normal text-muted-foreground">
             (~{formatCurrency(d.convertedUnitPrice, currency)})
-          </span>
+          </div>
         )}
       </TableCell>
 
       {/* Total */}
-      <TableCell className="tabular-nums font-medium">
+      <TableCell className="text-right tabular-nums font-medium">
         {formatCurrency(tx.total_cost, d.nativeCurrency)}
         {d.convertedTotal !== null && (
-          <span className="ml-1 text-xs font-normal text-muted-foreground">
+          <div className="text-xs font-normal text-muted-foreground">
             (~{formatCurrency(d.convertedTotal, currency)})
-          </span>
+          </div>
         )}
         <RealizedPnLLine display={d} />
       </TableCell>

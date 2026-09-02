@@ -147,20 +147,35 @@ and portfolio views exactly.
   page's wording, never "Amount"); a stacked card list on narrow screens.
   Type is a color-coded badge per type. Asset cell carries the icon, ticker, and the
   linked-leg subtitle. Empty and loading states are explicit.
+- **Numeric columns are right-aligned and figure-aligned** (Quantity, Unit Price,
+  Total) so magnitudes compare straight down the column — the same typography the
+  Portfolio table uses. Where a figure is shown in its native currency, the
+  approximate display-currency equivalent sits on its own second line under it,
+  right-aligned, never trailing the primary figure.
+- **The gain/loss palette is reserved for realized P&L on this page.** Quantities
+  carry direction with their sign alone (the Type badge already colours buy vs
+  sell), and the activity summary's buy/sell volumes are turnover, not profit —
+  they render in the default foreground.
 - **Filters.** Date-range presets (Last 7d / Last 30d / This Year / All Time) plus
   free date pickers; an asset picker; a platform picker; type chips (toggle on/off) —
   including a **Transfer** chip carrying the same neutral label and colour as the
   combined pair row, sitting right after Deposit and Withdrawal; a "clear filters"
   affordance when any filter is active.
 - **Realized P&L.** Rendered only on sell rows, beneath the total: signed amount +
-  `%` of cost basis, colored gain/red-loss by the **USD** sign, with the native
+  `%` of cost basis (a return %, so **two decimals** — the app-wide precision for
+  return percentages), colored gain/red-loss by the **USD** sign, with the native
   figure shown when native ≠ USD. Follows the app-wide gain/loss styling
   conventions (canonical palette, ASCII minus, no sign at zero).
 - **Edit / delete.** Each row exposes an actions menu → Edit (opens the pre-filled
   single-entry editor) and Delete (confirmation dialog naming the affected
   transaction and warning that holdings will be recalculated).
 - **Import entry.** A "bulk add" action in the page header opens the bulk editor;
-  the cancel/return path from that editor comes back to this page.
+  the return path from that editor comes back to this page.
+- **The bulk editor is this app.** Its full-viewport chrome sits on the app's own
+  surface and border tones (not an inverted bar), so every control in it — the
+  import triggers above all — is legible in both themes; its save is the page's
+  one primary action and its column heads are Title Case, like every other table.
+  It offers exactly **one** exit, next to Save in the footer.
 
 ## Acceptance
 
@@ -188,3 +203,7 @@ and portfolio views exactly.
 - [ ] Deleting a transaction asks for confirmation and recalculates balances.
 - [ ] The log paginates/scrolls **without per-row refetching** the whole table.
 - [ ] The "bulk add" entry point opens the bulk-import surface (Component 4).
+- [ ] Quantity / Unit Price / Total are right-aligned; no quantity or volume is
+      painted in the gain/loss palette.
+- [ ] Both import triggers in the bulk editor are visible in light **and** dark
+      mode, and the editor offers a single exit path.

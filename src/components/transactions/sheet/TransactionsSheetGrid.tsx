@@ -479,34 +479,31 @@ export function TransactionsSheetGrid({
       <TableHeader className="sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_var(--border)]">
         <TableRow className="hover:bg-transparent">
           <TableHead className="w-10 px-2 py-3 text-right text-xs font-normal text-muted-foreground" />
-          <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <TableHead className="px-2 py-3 text-xs font-medium text-muted-foreground">
             Ticker / Company
           </TableHead>
-          <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Transaction type
+          <TableHead className="px-2 py-3 text-xs font-medium text-muted-foreground">
+            Transaction Type
           </TableHead>
-          <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <TableHead className="px-2 py-3 text-xs font-medium text-muted-foreground">
             Date
-            <span className="ml-1 normal-case text-muted-foreground/60">
-              YYYY-MM-DD
-            </span>
           </TableHead>
-          <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <TableHead className="px-2 py-3 text-right text-xs font-medium text-muted-foreground">
             Shares / Qty
           </TableHead>
-          <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <TableHead className="px-2 py-3 text-right text-xs font-medium text-muted-foreground">
             Price
           </TableHead>
-          <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <TableHead className="px-2 py-3 text-xs font-medium text-muted-foreground">
             Currency
           </TableHead>
-          <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Total cost
+          <TableHead className="px-2 py-3 text-right text-xs font-medium text-muted-foreground">
+            Total Cost
           </TableHead>
-          <TableHead className="px-2 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <TableHead className="px-2 py-3 text-right text-xs font-medium text-muted-foreground">
             Fee
           </TableHead>
-          <TableHead className="px-2 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <TableHead className="px-2 py-3 text-xs font-medium text-muted-foreground">
             Platform
           </TableHead>
           <TableHead className="w-10" />

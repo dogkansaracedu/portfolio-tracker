@@ -9,6 +9,7 @@ import {
 } from "@/components/transactions/sheet/TransactionsSheetGrid"
 import { ImportPopover } from "@/components/transactions/sheet/ImportPopover"
 import { MidasPdfImportButton } from "@/components/transactions/sheet/MidasPdfImportButton"
+import { ADD_ROW_LABEL } from "@/lib/constants/transaction-types"
 import { useAssets } from "@/hooks/useAssets"
 import { usePlatforms } from "@/hooks/usePlatforms"
 
@@ -18,9 +19,12 @@ import { usePlatforms } from "@/hooks/usePlatforms"
  *    /transactions/edit/:assetId   → per-asset, existing rows visible + editable,
  *                                    asset column locked
  *
- *  Layout: dark header bar (flex item, no sticky math needed) → scrollable
+ *  Layout: header bar (flex item, no sticky math needed) → scrollable
  *  spreadsheet area (overflow-auto, owns the only Y scroll on the page) →
- *  dark footer bar. The grid's <thead> sticks to the top of the scroll area. */
+ *  footer bar. The grid's <thead> sticks to the top of the scroll area.
+ *  Both bars sit on the app's own surface tokens (`bg-card` + a hairline), so
+ *  the editor reads as this app in both themes — an inverted zinc chrome made
+ *  its outline buttons invisible in light mode. */
 export default function TransactionsEditPage() {
   const { assetId } = useParams<{ assetId?: string }>()
   const { assets, refetch: refetchAssets } = useAssets()
@@ -36,23 +40,25 @@ export default function TransactionsEditPage() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
-      {/* Dark header (flex item — height auto, no sticky needed) */}
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-zinc-900 px-4 py-4 text-zinc-100 md:gap-4 md:px-6">
+      {/* Header (flex item — height auto, no sticky needed) */}
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-card px-4 py-4 md:gap-4 md:px-6">
         <div className="flex flex-wrap items-center gap-2 md:gap-4">
-          <h1 className="text-xl font-medium">{title}</h1>
+          <h1 className="text-lg font-medium sm:text-xl">{title}</h1>
           {asset && (
-            <span className="text-sm text-zinc-400">{asset.name}</span>
+            <span className="text-sm text-muted-foreground">{asset.name}</span>
           )}
           {controls && (
             <>
+              {/* Labels collapse below `sm` so the header stays one row on a
+                  phone — the icon plus an accessible name carries it. */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={controls.addBlankRow}
-                className="border-zinc-700 bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
+                aria-label={ADD_ROW_LABEL}
               >
                 <Plus className="size-3.5" />
-                Add row
+                <span className="hidden sm:inline">{ADD_ROW_LABEL}</span>
               </Button>
               <ImportPopover
                 assets={assets}
@@ -71,15 +77,6 @@ export default function TransactionsEditPage() {
             </>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          nativeButton={false}
-          render={<Link to={assetId ? "/portfolio" : "/transactions"} />}
-          className="text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
-        >
-          Cancel
-        </Button>
       </header>
 
       {/* The single Y-scroll container on the page. The grid's thead sticks
@@ -96,24 +93,21 @@ export default function TransactionsEditPage() {
         />
       </main>
 
-      {/* Dark footer */}
-      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-zinc-900 px-4 py-4 text-zinc-100 md:gap-4 md:px-6">
+      {/* Footer — the two terminal actions sit together, as in every dialog
+          footer in the app: discard on the left, Save on the right. */}
+      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-card px-4 py-4 md:gap-4 md:px-6">
         <Button
           variant="ghost"
           size="sm"
           nativeButton={false}
           render={<Link to={assetId ? "/portfolio" : "/transactions"} />}
-          className="text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
         >
           Discard and go back
         </Button>
 
         <div className="flex items-center gap-4">
           {controls && (
-            <Badge
-              variant="secondary"
-              className="bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
-            >
+            <Badge variant="secondary" className="px-3 py-1.5 text-xs">
               <span className="font-semibold tabular-nums">
                 {controls.counts.new + controls.counts.dirty}
               </span>{" "}
@@ -126,7 +120,7 @@ export default function TransactionsEditPage() {
               </span>{" "}
               transactions ready
               {controls.counts.invalid > 0 && (
-                <span className="ml-2 text-red-400">
+                <span className="ml-2 text-destructive">
                   · {controls.counts.invalid} invalid
                 </span>
               )}
@@ -136,7 +130,7 @@ export default function TransactionsEditPage() {
             size="sm"
             onClick={controls?.save}
             disabled={!controls?.hasChanges || controls?.saving}
-            className="bg-amber-400 px-6 text-zinc-900 hover:bg-amber-300"
+            className="px-6"
           >
             {controls?.saving ? "Saving…" : "Save"}
           </Button>
