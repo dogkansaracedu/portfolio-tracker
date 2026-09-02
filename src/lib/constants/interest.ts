@@ -8,7 +8,11 @@
  * one 7 in the codebase.
  */
 
-import { DEADLINE_SOON_DAYS, type AprKind } from "@/lib/constants/campaigns"
+import {
+  DEADLINE_SOON_DAYS,
+  ENDS_SOON_TONE_CLASS,
+  type AprKind,
+} from "@/lib/constants/campaigns"
 
 /** Re-exported so interest code doesn't reach into the campaigns module for a
  *  vocabulary the two components genuinely share (fixed / variable / up to). */
@@ -58,7 +62,7 @@ export const INTEREST_DAYS_PER_YEAR = 365
 
 export const INTEREST_STATUS_CLASSES: Record<InterestStatus, string> = {
   expired: "border-red-500/40 text-red-600 dark:text-red-400",
-  ends_soon: "border-amber-500/40 text-amber-700 dark:text-amber-300",
+  ends_soon: ENDS_SOON_TONE_CLASS,
   active: "border-border text-muted-foreground",
   flexible: "border-border text-muted-foreground",
 }
