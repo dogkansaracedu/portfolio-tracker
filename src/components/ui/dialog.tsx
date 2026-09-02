@@ -52,8 +52,15 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
+        // Two shapes, one component. On a phone the dialog is a full-height
+        // sheet measured in `dvh`, so it follows the keyboard and its footer
+        // stays pinned to the bottom of the visible viewport. From `sm` up it
+        // is the centred card. A column either way: pair it with `DialogBody`
+        // and the fields scroll while header and footer hold still.
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed inset-0 z-50 flex h-[100dvh] w-full max-w-none flex-col gap-4 overflow-y-auto bg-popover p-4 text-sm text-popover-foreground duration-100 outline-none",
+          "sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[90dvh] sm:max-w-sm sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:ring-1 sm:ring-foreground/10",
+          "data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 sm:data-open:zoom-in-95 sm:data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -84,7 +91,21 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      className={cn("shrink-0 flex flex-col gap-2", className)}
+      {...props}
+    />
+  )
+}
+
+/** The scrolling middle of a dialog. Everything long goes in here: the header
+ *  and the footer then stay put, so the submit is always on screen (phone
+ *  sheet and desktop card alike). The negative inline margin lets a focus ring
+ *  inside the body breathe against the dialog's own padding. */
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn("-mx-4 min-h-0 flex-1 overflow-y-auto px-4", className)}
       {...props}
     />
   )
@@ -102,7 +123,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "-mx-4 -mb-4 shrink-0 flex flex-col-reverse gap-2 border-t bg-muted/50 p-4 sm:flex-row sm:justify-end sm:rounded-b-xl",
         className
       )}
       {...props}
@@ -148,6 +169,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

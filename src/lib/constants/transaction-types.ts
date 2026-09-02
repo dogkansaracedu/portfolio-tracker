@@ -127,6 +127,19 @@ export const FILTERABLE_TYPES: TransactionFilterType[] = [
   TRANSACTION_TYPES.TAX,
 ]
 
+/** The bulk editor's header actions — labels double as accessible names when
+ *  the visible text collapses on a phone. */
+export const ADD_ROW_LABEL = "Add row"
+export const IMPORT_LABEL = "Import"
+export const MIDAS_IMPORT_LABEL = "Import from Midas"
+
+/** What the Add-transaction form's Type row offers. Deliberately the SAME
+ *  vocabulary as the log's filter chips, so the form can record everything the
+ *  log can show: the user-pickable stored types plus the derived internal
+ *  **Transfer** (which records a `transfer_out` and its paired `transfer_in`).
+ *  A lone `transfer_out` stays "Withdrawal" — no destination. */
+export const PICKABLE_TYPE_CHOICES: TransactionFilterType[] = FILTERABLE_TYPES
+
 /** Label + colors for every filter chip: the per-type display, plus the
  *  combined-row display for the derived pair (one convention with the row
  *  badge, so chip and row read the same). */
