@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -42,6 +43,8 @@ import { bn } from "@/lib/config"
 import {
   TRANSACTION_TYPES,
   BALANCE_LIMITED_TYPES,
+  TRANSFER_PAIR_FILTER_TYPE,
+  type TransactionFilterType,
 } from "@/lib/constants/transaction-types"
 import {
   assetNativeCurrency,
@@ -71,6 +74,18 @@ function localDayAsUtcMidnight(d: Date): string {
 /** Sentinel for the proceeds select's default "fiat cash" choice. */
 const CASH_PROCEEDS_VALUE = "__cash__"
 
+/** Why the form can't be saved yet, in the order the fields are laid out. The
+ *  submit buttons stay live; a click that can't save says what is missing
+ *  instead of silently doing nothing. */
+const VALIDATION_MESSAGES = {
+  asset: "Pick an asset first.",
+  platform: "Pick a platform first.",
+  quantity: "Enter a quantity greater than zero.",
+  unitPrice: "Enter a unit price greater than zero.",
+  destination: "Pick a destination platform (it must differ from the source).",
+  overBalance: "Quantity is more than the balance on this platform.",
+} as const
+
 interface Props {
   assets: Asset[]
   platforms: Platform[]
@@ -88,7 +103,9 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const editing = modalState.editingTransaction
   const isEdit = Boolean(editing)
 
-  const [type, setType] = useState<TransactionType>("buy")
+  const [typeChoice, setTypeChoice] = useState<TransactionFilterType>(
+    TRANSACTION_TYPES.BUY,
+  )
   const [assetId, setAssetId] = useState<string>("")
   const [platformId, setPlatformId] = useState<string>("")
   const [date, setDate] = useState<Date>(new Date())
@@ -116,8 +133,22 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   // select stays visible (seeded from the child) and saving moves both sides.
   const [editingTransferPair, setEditingTransferPair] = useState(false)
   const [fundingError, setFundingError] = useState<string | null>(null)
+  // A submit attempt that could not save — gates the "what's missing" line.
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  // Whether the user has touched the funding select. Until they do, a buy
+  // defaults its funding to the platform's cash when that cash covers the
+  // trade; after they do, their choice (including "External cash") stands.
+  const [fundingTouched, setFundingTouched] = useState(false)
   const lastPrefilledTickerRef = useRef<string | null>(null)
   const amountInputRef = useRef<HTMLInputElement>(null)
+
+  // "Transfer" is a picker-level choice, not a stored type: it records a
+  // `transfer_out` **and** its paired `transfer_in`, so it is the only choice
+  // that asks for a destination. A lone `transfer_out` stays "Withdrawal".
+  const isPairedTransfer = typeChoice === TRANSFER_PAIR_FILTER_TYPE
+  const type: TransactionType = isPairedTransfer
+    ? TRANSACTION_TYPES.TRANSFER_OUT
+    : typeChoice
 
   // Hydrate form from edit target / prefill / defaults whenever the modal opens.
   // Prior implementation only handled prefilledAssetId on its own effect, which
@@ -125,7 +156,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   useEffect(() => {
     if (!modalState.isOpen) return
     if (editing) {
-      setType(editing.type)
+      setTypeChoice(editing.type)
       setAssetId(editing.asset_id)
       setPlatformId(editing.platform_id)
       setDate(new Date(editing.date))
@@ -188,6 +219,8 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           if (child?.type === TRANSACTION_TYPES.TRANSFER_IN) {
             setDestPlatformId(child.platform_id)
             setEditingTransferPair(true)
+            // A transfer_out with a linked transfer_in IS the Transfer chip.
+            setTypeChoice(TRANSFER_PAIR_FILTER_TYPE)
             return
           }
         }
@@ -195,7 +228,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
       })()
       return
     }
-    setType("buy")
+    setTypeChoice(TRANSACTION_TYPES.BUY)
     setAssetId(modalState.prefilledAssetId ?? "")
     setPlatformId(modalState.prefilledPlatformId ?? "")
     setDate(new Date())
@@ -213,6 +246,8 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     setExistingChild(null)
     setEditingTransferPair(false)
     setFundingError(null)
+    setSubmitAttempted(false)
+    setFundingTouched(false)
   }, [
     modalState.isOpen,
     editing,
@@ -275,6 +310,42 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     assets,
     platforms,
     existingChild,
+    holdings,
+  ])
+
+  // Funding default (buy only, until the user touches the select): the trade's
+  // own platform's price-currency cash, when that balance covers the whole
+  // trade. Otherwise external cash — the previous blanket "external" default
+  // silently inflated net invested on every platform-funded buy.
+  useEffect(() => {
+    if (isEdit || fundingTouched) return
+    if (type !== TRANSACTION_TYPES.BUY || !platformId) return
+    const fiat = assets.find(
+      (a) => a.category === "fiat" && a.ticker === priceCurrency,
+    )
+    if (!fiat) {
+      setFundingSource(null)
+      return
+    }
+    const cash = holdings.find(
+      (h) => h.asset_id === fiat.id && h.platform_id === platformId,
+    )
+    const needed = bn(amount).times(bn(unitPrice)).plus(
+      fee && feeCurrency === priceCurrency ? bn(fee) : 0,
+    )
+    const covers = needed.gt(0) && bn(cash?.balance ?? 0).gte(needed)
+    setFundingSource(covers ? { platformId, assetId: fiat.id } : null)
+  }, [
+    isEdit,
+    fundingTouched,
+    type,
+    platformId,
+    priceCurrency,
+    amount,
+    unitPrice,
+    fee,
+    feeCurrency,
+    assets,
     holdings,
   ])
 
@@ -342,7 +413,6 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     ["buy", "sell", "dividend", "interest"].includes(type) ||
     (type === "transfer_in" && !!selectedAsset && !selectedAsset.is_currency)
   const showFeeFields = ["buy", "sell"].includes(type)
-  const isTransfer = type === "transfer_out"
   const isTransferEither = type === "transfer_out" || type === "transfer_in"
   const isCurrencyAsset = !!selectedAsset?.is_currency
 
@@ -365,7 +435,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   // and the auto-created transfer_in.
   useEffect(() => {
     if (
-      type !== "transfer_out" ||
+      type !== TRANSACTION_TYPES.TRANSFER_OUT ||
       !selectedAsset ||
       selectedAsset.is_currency ||
       !platformId ||
@@ -422,6 +492,15 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     }
   }, [modalState.isOpen])
 
+  // Platform default: when the asset is held on exactly ONE platform there is
+  // nothing to choose, so choose it. Only fills an empty platform — never
+  // overrides a prefilled or user-picked one, and never on an edit.
+  useEffect(() => {
+    if (isEdit || !assetId || platformId) return
+    const held = getHoldingsForAsset(assetId).filter((h) => bn(h.balance).gt(0))
+    if (held.length === 1) setPlatformId(held[0].platform_id)
+  }, [isEdit, assetId, platformId, getHoldingsForAsset])
+
   // Get the balance for the selected asset on the selected platform
   const holdingsForAsset = assetId ? getHoldingsForAsset(assetId) : []
   const selectedHolding = holdingsForAsset.find(
@@ -444,23 +523,33 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
     (type === TRANSACTION_TYPES.SELL || type === TRANSACTION_TYPES.TRANSFER_OUT) &&
     bn(selectedPlatformBalance).gt(0)
 
-  const canSubmit =
-    assetId &&
-    platformId &&
-    parsedAmount.gt(0) &&
-    !isOverBalance &&
-    !fundingError &&
-    !submitting &&
-    (showPriceFields ? parsedPrice.gt(0) : true) &&
-    (isTransfer && (!isEdit || editingTransferPair)
-      ? destPlatformId && destPlatformId !== platformId
-      : true)
+  // Why this form cannot be saved yet — the first blocking problem, in field
+  // order. Null = ready. The submit buttons stay enabled either way (C-23):
+  // a click that can't save renders this line instead of doing nothing.
+  const validationMessage: string | null = !assetId
+    ? VALIDATION_MESSAGES.asset
+    : !platformId
+      ? VALIDATION_MESSAGES.platform
+      : !parsedAmount.gt(0)
+        ? VALIDATION_MESSAGES.quantity
+        : showPriceFields && !parsedPrice.gt(0)
+          ? VALIDATION_MESSAGES.unitPrice
+          : isPairedTransfer &&
+              (!destPlatformId || destPlatformId === platformId)
+            ? VALIDATION_MESSAGES.destination
+            : isOverBalance
+              ? VALIDATION_MESSAGES.overBalance
+              : fundingError
 
   // `keepOpen` powers "Save & add another": record the tx but leave the modal
   // open with type/asset/platform/date/currency/funding/notes intact, clearing
   // only the amount and unit price so the next entry is a couple keystrokes.
   const handleSubmit = async ({ keepOpen = false }: { keepOpen?: boolean } = {}) => {
-    if (!user || !canSubmit) return
+    if (!user || submitting) return
+    if (validationMessage) {
+      setSubmitAttempted(true)
+      return
+    }
     setSubmitting(true)
 
     try {
@@ -517,7 +606,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         // one combined row and edit/delete keep the two sides in lockstep
         // (useTransactionMutations handles the reconciliation on edit; the DB
         // cascade handles delete).
-        if (isTransfer && destPlatformId) {
+        if (isPairedTransfer && destPlatformId) {
           const selectedPlatform = platforms.find((p) => p.id === platformId)
           await addTransaction({
             asset_id: assetId,
@@ -565,16 +654,19 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
 
   return (
     <Dialog open={modalState.isOpen} onOpenChange={(open) => !open && closeTransactionModal()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[500px]">
-        <DialogHeader>
+      {/* Header and footer are fixed rows, only the field list scrolls — so
+          the submit buttons are on screen at every window height and for every
+          transaction type (and above the keyboard on the phone sheet). */}
+      <DialogContent className="gap-0 sm:max-w-[500px]">
+        <DialogHeader className="pb-4">
           <DialogTitle>{isEdit ? "Edit Transaction" : "Add Transaction"}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <DialogBody className="space-y-4 py-2">
           {/* Transaction Type */}
           <div className="space-y-2">
             <Label>Type</Label>
-            <TransactionTypeSelector value={type} onChange={setType} />
+            <TransactionTypeSelector value={typeChoice} onChange={setTypeChoice} />
           </div>
 
           {/* Asset Selection (global) */}
@@ -624,9 +716,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           {/* Platform Selection */}
           <div className="space-y-2">
             <Label>
-              {isTransfer && (!isEdit || editingTransferPair)
-                ? "Source Platform"
-                : "Platform"}
+              {isPairedTransfer ? "Source Platform" : "Platform"}
             </Label>
             <Select
               value={platformId}
@@ -667,7 +757,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           {/* Transfer destination platform — on create it drives the paired
               transfer_in; when editing a linked pair it shows (and can move)
               the destination side. */}
-          {isTransfer && (!isEdit || editingTransferPair) && (
+          {isPairedTransfer && (
             <div className="space-y-2">
               <Label>Destination Platform</Label>
               <Select
@@ -879,7 +969,10 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
               <Label>Funding source</Label>
               <FundingSourceSelect
                 value={fundingSource}
-                onChange={setFundingSource}
+                onChange={(next) => {
+                  setFundingTouched(true)
+                  setFundingSource(next)
+                }}
                 assets={assets}
                 platforms={platforms}
                 platformId={platformId}
@@ -956,9 +1049,13 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
               rows={2}
             />
           </div>
-        </div>
+        </DialogBody>
 
-        <DialogFooter>
+        {submitAttempted && validationMessage && (
+          <p className="pt-3 text-xs text-destructive">{validationMessage}</p>
+        )}
+
+        <DialogFooter className="mt-4">
           <Button variant="outline" onClick={closeTransactionModal}>
             Cancel
           </Button>
@@ -966,12 +1063,12 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
             <Button
               variant="secondary"
               onClick={() => handleSubmit({ keepOpen: true })}
-              disabled={!canSubmit}
+              disabled={submitting}
             >
               {submitting ? "Saving..." : "Save & add another"}
             </Button>
           )}
-          <Button onClick={() => handleSubmit()} disabled={!canSubmit}>
+          <Button onClick={() => handleSubmit()} disabled={submitting}>
             {submitting
               ? "Saving..."
               : isEdit

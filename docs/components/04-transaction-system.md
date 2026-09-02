@@ -112,8 +112,9 @@ in [net invested capital](GLOSSARY.md#net-invested-capital).
 ### Transfers move cost basis, book no P&L
 
 A transfer relocates a position from one [Platform](GLOSSARY.md#platform) to another.
-Recording a `transfer_out` of an asset also produces a matching `transfer_in` on the
-destination platform, and the two sides are **durably linked as one pair**: editing
+The two moves are recorded by **one** choice: picking **Transfer** records the
+`transfer_out` **and** a matching `transfer_in` on the destination platform, and
+the two sides are **durably linked as one pair**: editing
 the source side keeps the destination side's shared fields (asset, date, quantity,
 price, currency) in lockstep, and deleting the source side removes both. Deleting
 the destination side alone removes only that side. Changing the source side's type
@@ -122,7 +123,10 @@ away from a transfer dissolves the pair and removes the destination side. A lone
 platforms) has no counterpart and stays a single independent row. In the UI the
 lone kinds are labelled **Deposit** and **Withdrawal**; the label **Transfer** is
 reserved for a linked pair shown as one combined row (see
-[Transaction](GLOSSARY.md#transaction) display labels).
+[Transaction](GLOSSARY.md#transaction) display labels). Those three labels are
+also what the entry form offers, so anything the log can show can be recorded:
+**Withdrawal** records money leaving for the outside world (no destination),
+**Transfer** records an internal move (a destination is required).
 **A transfer books no [realized](GLOSSARY.md#realized-and-unrealized) P&L** — it carries the position's [cost basis](GLOSSARY.md#fifo-lots-and-cost-basis)
 across, so the moved units keep their original USD cost. The `transfer_in` carries
 the **weighted-average USD cost of the lots consumed** by the move:
@@ -148,29 +152,31 @@ renders as a loss). FIFO is computed over the asset's **complete** prior history
 a filtered view, so a sell shown under a date/type filter still reports the correct
 cost basis.
 
-- USD-priced sell → one line: `$50.00 (20.0%)` — gains render bare (direction is
-  carried by the gain/loss colour), losses with a leading minus.
+- USD-priced sell → one line: `$50.00 (20.00%)` — gains render bare (direction is
+  carried by the gain/loss colour), losses with a leading minus. A **return
+  percentage carries two decimals everywhere in the app**, this row included.
 - Non-USD sell → native primary (no %) plus a USD secondary with the %:
-  `₺1,000.00` and `~$13.33 (66.7%)`.
+  `₺1,000.00` and `~$13.33 (66.67%)`.
 - Sell with no prior lots (cost basis 0) → show the dollar figure, omit the % (no
   divide-by-zero). Sign/colour follow the USD result.
 
 > Worked example — realized P&L. Buy 1 unit @ $250, then buy 2 @ $262, then sell 1 @
 > $300. FIFO consumes the oldest lot ($250 basis): gain `$300 − $250 = $50.00`, i.e.
-> `50 / 250 = +20.0%` (minus any sell fee). The sell row shows **$50.00 (20.0%)**
+> `50 / 250 = +20.00%` (minus any sell fee). The sell row shows **$50.00 (20.00%)**
 > in the gain colour.
 
 > Worked example — FX makes native ≠ USD. Day 1 (USD/TRY 50) buy ₺1,000 → $20 basis.
 > Day 30 (USD/TRY 60) sell for ₺2,000 → $33.33 proceeds. Native return looks like
-> +100%, but the real USD return is `$13.33 / $20 = +66.7%`. The row binds to +66.7%.
+> +100%, but the real USD return is `$13.33 / $20 = +66.67%`. The row binds to
+> +66.67%.
 
 ## Contract (I/O)
 
 **Input (one transaction):** asset, platform, type, date, quantity (`amount`),
 `unit_price` + `price_currency` (asset-native; for price-bearing types), optional
 `fee` + `fee_currency`, optional notes. A `buy` may also carry a **funding source**
-(external, or a holding on the trade's own platform to debit). A `transfer_out`
-also takes a **destination platform**.
+(external, or a holding on the trade's own platform to debit). An internal
+**Transfer** also takes a **destination platform**; a lone Withdrawal does not.
 
 **Output / effects:**
 
@@ -200,13 +206,23 @@ also takes a **destination platform**.
 A type-driven form: choosing the type reveals only the relevant fields.
 
 - All types: asset, platform, date (defaults to today, past dates allowed), amount,
-  notes.
+  notes. The type is picked from a chip row carrying **every type the log can
+  show** — the recordable types plus the internal **Transfer**.
+- **Platform is defaulted** when there is nothing to choose: an asset held on
+  exactly one platform pre-selects it (an explicitly passed or user-picked
+  platform is never overridden).
 - Price-bearing types (`buy`, `sell`, `dividend`, `interest`, and a lone non-currency
   `transfer_in`): `unit_price` + `price_currency` (defaulted from the asset, editable)
   and a live **Total** readout.
 - `buy`/`sell`: optional fee + fee currency.
-- `buy`: a **Funding source** selector — "External cash (no deduction)" or a
-  holding **on the trade's own platform**: its price-currency fiat, or
+- `buy`: a **Funding source** selector, **defaulted to the trade platform's
+  price-currency cash whenever that balance covers the whole trade** (fee
+  included when charged in the price currency), else to external cash — an
+  external default on a platform-funded buy silently overstates
+  [net invested capital](GLOSSARY.md#net-invested-capital). The default gives
+  way permanently once the user picks anything. Options are "External cash (no
+  deduction)" or a holding **on the trade's own platform**: its price-currency
+  fiat, or
   (USD-priced buys only) a positive
   [settlement stablecoin](GLOSSARY.md#settlement-stablecoin) balance there.
   Each option shows its available balance; insufficient funds are flagged
@@ -222,9 +238,11 @@ A type-driven form: choosing the type reveals only the relevant fields.
   `Sale proceeds: <amount> → credited to {platform} {settlement asset}`, with
   the currency symbol following the settlement asset (fiat gets its symbol, a
   stablecoin ticker renders bare — same notation as the transaction row).
-- `transfer_out`: a **destination platform**; the cost-basis line is shown read-only
-  (auto-computed). Editing a linked transfer keeps the destination platform visible
-  and changeable, with a note that saving updates both sides.
+- **Transfer**: a **destination platform** (required, and different from the
+  source); the cost-basis line is shown read-only (auto-computed). Editing a
+  linked transfer keeps the destination platform visible and changeable, with a
+  note that saving updates both sides. **Withdrawal** shows no destination
+  field — it is the lone `transfer_out`.
 - Sell / transfer-out / fee are blocked when the amount exceeds the current balance on
   that platform. Next to the amount, sell and transfer-out offer a **Max** action that
   fills in the platform's full balance (shown only when creating and the balance is
@@ -232,6 +250,14 @@ A type-driven form: choosing the type reveals only the relevant fields.
   intent.
 - "Save & add another" records the entry and keeps the form open with type / asset /
   platform / date / currency / funding / notes intact, clearing only amount and price.
+- **The form's actions are always on screen.** The field list scrolls inside the
+  form; the action row does not, so the submit is reachable at any window height
+  and for every type.
+- **Validation happens on submit, not by disabling the button.** The actions stay
+  live; a submit that cannot save names the first thing that is missing or wrong
+  (asset → platform → quantity → unit price → destination → balance → funding),
+  in one line beside the actions. Field-level errors (over-balance, insufficient
+  funding cash) still show at their own field as they are typed.
 
 ### Bulk import
 
@@ -295,6 +321,14 @@ and funded buys) or rolls back entirely, after which holding balances are recomp
 - [ ] A `sell` / `transfer_out` / `fee` exceeding the platform balance is rejected.
 - [ ] A transfer moves the position across platforms, carries weighted-average cost
       basis, and books **no realized P&L**.
+- [ ] The entry form can record every type the log can show, including a lone
+      **Withdrawal** (no destination) and an internal **Transfer** (destination
+      required).
+- [ ] An asset held on exactly one platform pre-selects that platform.
+- [ ] A buy on a platform whose cash covers the trade defaults to funding from
+      that cash, not external cash.
+- [ ] The submit actions are visible without scrolling for every type, and a
+      submit that cannot save says what is missing.
 - [ ] A platform-to-platform transfer's two sides are linked: editing the source
       updates the destination's shared fields; deleting the source removes both.
 - [ ] A `sell` row shows its FIFO realized P&L (USD-anchored; native + USD for non-USD
