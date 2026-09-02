@@ -52,9 +52,9 @@ export function TransactionList({
               <TableHead>Asset</TableHead>
               <TableHead>Platform</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead>Unit Price</TableHead>
-              <TableHead>Total</TableHead>
+              <TableHead className="text-right">Quantity</TableHead>
+              <TableHead className="text-right">Unit Price</TableHead>
+              <TableHead className="text-right">Total</TableHead>
               <TableHead className="w-12 text-right" />
             </TableRow>
           </TableHeader>
