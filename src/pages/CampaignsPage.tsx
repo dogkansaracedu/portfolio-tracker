@@ -5,7 +5,6 @@ import {
   CalendarClock,
   ExternalLink,
   Lock,
-  RefreshCw,
   TriangleAlert,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -38,6 +37,7 @@ import {
 import { bn, homeDayIso } from "@/lib/config"
 import {
   CAMPAIGN_COPY,
+  ENDS_SOON_TONE_CLASS,
   EXTERNAL_LINK_REL,
   EXTERNAL_LINK_TARGET,
   PROGRAM_TYPE_LABELS,
@@ -75,7 +75,7 @@ function formatDay(value: string): string {
 }
 
 export default function CampaignsPage() {
-  const { run, campaigns, loading, error, refresh } = useCampaignsContext()
+  const { run, campaigns, loading, error } = useCampaignsContext()
   const { holdings } = useHoldingsContext()
   const { platforms } = usePlatformsContext()
   const { prices } = usePricesContext()
@@ -156,10 +156,6 @@ export default function CampaignsPage() {
               {CAMPAIGN_COPY.lastRefreshedPrefix} {formatDay(run.ran_at)}
             </span>
           )}
-          <Button variant="ghost" size="sm" onClick={() => void refresh()}>
-            <RefreshCw className="size-3.5" />
-            {CAMPAIGN_COPY.refresh}
-          </Button>
         </div>
       </div>
 
@@ -363,7 +359,11 @@ function CampaignCard({
           <Badge variant="outline">
             {PROGRAM_TYPE_LABELS[campaign.program_type]}
           </Badge>
-          {endsSoon && <Badge variant="secondary">{CAMPAIGN_COPY.endsSoon}</Badge>}
+          {endsSoon && (
+            <Badge variant="outline" className={ENDS_SOON_TONE_CLASS}>
+              {CAMPAIGN_COPY.endsSoon}
+            </Badge>
+          )}
           {expired && <Badge variant="ghost">{CAMPAIGN_COPY.expired}</Badge>}
         </CardDescription>
         <CardAction>

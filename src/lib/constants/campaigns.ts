@@ -59,6 +59,15 @@ export const CAMPAIGN_STALENESS_DAYS = 10
 /** A deadline this many days out (or nearer) gets the "ends soon" cue. */
 export const DEADLINE_SOON_DAYS = 7
 
+/**
+ * The one tone for an "ends soon" cue, wherever a 7-day deadline is warned
+ * about — a campaign badge, an interest position's status. Amber is a STATUS
+ * colour, never the gain/loss palette: a deadline is neither a gain nor a loss.
+ * Applied on top of an outline badge / border, so it carries border + text.
+ */
+export const ENDS_SOON_TONE_CLASS =
+  "border-amber-500/40 text-amber-700 dark:text-amber-300"
+
 /** Decimals used when *rendering* an APR (the ingest side stores 4). */
 export const APR_DISPLAY_DECIMALS = 2
 
@@ -75,7 +84,6 @@ export const CAMPAIGN_COPY = {
   pageSubtitle:
     "Earn, staking and reward programs found on the public web — where idle coins could sit.",
   navLabel: "Campaigns",
-  refresh: "Refresh",
   lastRefreshedPrefix: "Data from",
   stale: `This research is more than ${CAMPAIGN_STALENESS_DAYS} days old — treat every rate as out of date until the next run.`,
   empty: "No campaign data yet — the weekly research hasn't run.",

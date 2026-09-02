@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { formatCurrency, obfuscate } from "@/lib/prices"
+import { CURRENCY_CHART_COLORS } from "@/lib/constants/currencies"
 import type { AllocationNode } from "@/lib/dashboard/allocation"
 
 // Asset-class slices (inner ring + the outer ring's pass-through segments).
@@ -22,24 +23,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   stock_bist: "BIST Stocks",
 }
 
-// Fiat currencies (outer ring, the fiat slice's children): a green→teal→cyan
-// "cash family" ramp — cool enough to read as one block, distinct enough to
-// tell the currencies apart (and friendlier to colour-vision deficiency than
-// five near-identical greens).
-const CURRENCY_COLORS: Record<string, string> = {
-  TRY: "#16a34a", // green-600
-  USD: "#0d9488", // teal-600
-  EUR: "#0891b2", // cyan-600
-  USDC: "#2dd4bf", // teal-400
-  USDT: "#67e8f9", // cyan-300
-}
-
 const FALLBACK_COLOR = "#94a3b8" // slate-400
 const DIM_OPACITY = 0.28
 
 const labelFor = (key: string) => CATEGORY_LABELS[key] ?? key
 const colorFor = (key: string) =>
-  CATEGORY_COLORS[key] ?? CURRENCY_COLORS[key] ?? FALLBACK_COLOR
+  CATEGORY_COLORS[key] ?? CURRENCY_CHART_COLORS[key] ?? FALLBACK_COLOR
 
 interface AllocationChartProps {
   byAllocation: AllocationNode[]
