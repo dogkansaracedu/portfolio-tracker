@@ -19,8 +19,17 @@ export const DECIMALS = {
   stockAmount: 2,
   /** Fiat quantity display: 1,500 */
   fiatAmount: 0,
-  /** Percentage display: 12.34% */
+  /**
+   * Percentage display: 12.34%. One precision per figure type, app-wide:
+   * a **return %** (unrealized, realized, daily, MWR cumulative) is always
+   * 2 dp — never 1 dp on one surface and 2 dp on the next.
+   */
   percentage: 2,
+  /**
+   * Percentage display for a **rate or a gap**: %/yr (annualized XIRR) and
+   * "pts" (you − index) are 1 dp — they are coarser readings than a return.
+   */
+  percentageRate: 1,
   /** Price display for crypto in USD: $84,500.12 */
   priceUsd: 2,
   /** Price display for crypto in TRY: ₺1,234,567.89 */
@@ -55,6 +64,15 @@ export function getAmountDecimals(category: string): number {
 
 // ─── Currency Formatting ────────────────────────────────────────────
 
+/**
+ * The number-formatting rule, one place:
+ * - **Currency amounts** follow the currency's own locale for grouping and
+ *   decimal separators (USD `en-US`, TRY `tr-TR`, EUR `de-DE`). The symbol is
+ *   always prefixed and the minus sign always leads, so amounts in different
+ *   currencies keep one shape down a column (see `formatCurrency`).
+ * - **Quantities and percentages** are always `en-US` — they carry no
+ *   currency, so they must not shift separators with the display currency.
+ */
 export const CURRENCY_CONFIG = {
   USD: { symbol: "$", locale: "en-US", decimals: DECIMALS.fiat },
   TRY: { symbol: "₺", locale: "tr-TR", decimals: DECIMALS.fiat },

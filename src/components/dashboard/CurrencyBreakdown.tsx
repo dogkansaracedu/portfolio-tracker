@@ -1,19 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { formatCurrency, obfuscate } from "@/lib/prices"
+import {
+  CURRENCY_CHART_COLORS,
+  CURRENCY_CHART_FALLBACK_COLOR,
+} from "@/lib/constants/currencies"
 import type { CurrencyAllocation } from "@/hooks/useDashboard"
 
 interface CurrencyBreakdownProps {
   byCurrency: CurrencyAllocation[]
 }
-
-// Distinct hues per currency, deliberately NOT the gain/loss emerald/red.
-const CURRENCY_COLORS: Record<string, string> = {
-  USD: "#3b82f6", // blue-500
-  TRY: "#f59e0b", // amber-500
-  EUR: "#8b5cf6", // violet-500
-}
-const FALLBACK_COLOR = "#64748b" // slate-500
 
 export default function CurrencyBreakdown({
   byCurrency,
@@ -42,7 +38,8 @@ export default function CurrencyBreakdown({
       <CardContent className="space-y-3">
         {byCurrency.map((c) => {
           const value = currency === "USD" ? c.valueUsd : c.valueTry
-          const color = CURRENCY_COLORS[c.currency] ?? FALLBACK_COLOR
+          const color =
+            CURRENCY_CHART_COLORS[c.currency] ?? CURRENCY_CHART_FALLBACK_COLOR
           return (
             <div key={c.currency} className="space-y-1">
               <div className="flex items-center justify-between text-sm">

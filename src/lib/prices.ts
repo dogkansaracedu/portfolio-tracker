@@ -9,22 +9,25 @@ export function obfuscate(value: string, isObfuscated: boolean): string {
 }
 
 /**
- * Format a numeric value as currency.
- * - USD: $1,234.56 (en-US locale)
- * - TRY: ₺1.234,56 (tr-TR locale: . for thousands, , for decimal)
- * - EUR: 1.234,56 € (de-DE locale)
+ * Format a numeric value as currency. Grouping and decimal separators follow
+ * the currency's own locale (see `CURRENCY_CONFIG`); the symbol is always
+ * PREFIXED and the minus sign always leads, so a row mixing currencies reads
+ * with one shape:
+ * - USD: $1,234.56 (en-US grouping)
+ * - TRY: ₺1.234,56 (tr-TR grouping: . for thousands, , for decimal)
+ * - EUR: €1.234,56 (de-DE grouping, symbol moved to the front)
  */
 export function formatCurrency(
   value: number,
   currency: FiatCurrency
 ): string {
   const cfg = CURRENCY_CONFIG[currency]
-  return new Intl.NumberFormat(cfg.locale, {
-    style: "currency",
-    currency,
+  const sign = value < 0 ? "-" : ""
+  const digits = new Intl.NumberFormat(cfg.locale, {
     minimumFractionDigits: cfg.decimals,
     maximumFractionDigits: cfg.decimals,
-  }).format(value)
+  }).format(Math.abs(value))
+  return `${sign}${cfg.symbol}${digits}`
 }
 
 /**
@@ -35,6 +38,27 @@ export function formatCurrency(
  */
 export function gainLossClass(positive: boolean): string {
   return positive ? "text-emerald-600" : "text-red-500"
+}
+
+/** The neutral tone: a figure that is neither a gain nor a loss. */
+export const NEUTRAL_FIGURE_CLASS = "text-muted-foreground"
+
+/**
+ * Below this a figure is flat, not a gain: half a cent (and half of the last
+ * displayed percent digit), so anything that renders as "0.00" / "0.00%" is
+ * coloured neutral instead of green.
+ */
+const FLAT_EPSILON = 0.005
+
+/**
+ * Tri-state companion to {@link gainLossClass}: gain / loss / **neutral at
+ * zero**. Use this wherever a figure can legitimately be flat (a cash row, a
+ * period with no movement, a window with no starting base) — `gainLossClass`
+ * alone paints every zero as a gain.
+ */
+export function gainLossToneClass(value: number): string {
+  if (Math.abs(value) < FLAT_EPSILON) return NEUTRAL_FIGURE_CLASS
+  return gainLossClass(value > 0)
 }
 
 /**
