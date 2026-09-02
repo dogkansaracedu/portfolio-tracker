@@ -73,7 +73,7 @@ export function TransactionRowCard({
       <div className="mt-2 flex items-end justify-between gap-2 border-t pt-2">
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground">Quantity</span>
-          <span className={`font-medium tabular-nums ${d.amountColor}`}>
+          <span className="font-medium tabular-nums">
             {d.sign}
             {formatTxQuantity(tx.amount)}
           </span>

@@ -27,7 +27,11 @@
 - `src/pages/TransactionsEditPage.tsx` — the **bulk-import / spreadsheet** page (full
   viewport, rendered outside the app layout). `/transactions/edit` = blank bulk-add
   canvas; `/transactions/edit/:assetId` = that asset's existing rows, editable, asset
-  column locked. This is the **import entry surface**, owned by Component 4 — it hosts
+  column locked. Header and footer sit on `bg-card` + a `border-b`/`border-t`
+  hairline (the old `bg-zinc-900` chrome made the outline import triggers
+  invisible in light mode); Save is a plain primary `Button`, and the only exit is
+  the footer's "Discard and go back" beside it. On `< sm` the header's actions are
+  icon-only so it stays one row. This is the **import entry surface**, owned by Component 4 — it hosts
   `sheet/TransactionsSheetGrid` plus `sheet/ImportPopover` and
   `sheet/MidasPdfImportButton`. (NB: single-transaction edits do **not** happen here —
   they use the modal; see gotchas.)
@@ -36,7 +40,10 @@
 - `TransactionList.tsx` — branches desktop `Table` vs mobile card list; maps rows,
   joining `childMap.get(tx.id)` and `realizedByTx.get(tx.id)` per row.
 - `TransactionRow.tsx` — one desktop table row; calls `deriveTransactionDisplay(...)`
-  for sign/color/converted/realized, then renders cells. A linked transfer pair
+  for sign/converted/realized, then renders cells. Quantity / Unit Price / Total
+  cells and their `TableHead`s carry `text-right` + `tabular-nums`; the `(~…)`
+  display-currency equivalent renders as a `div` (its own second line), not an
+  inline span. A linked transfer pair
   (`isTransferPair(tx, linkedChild)` — transfer_out parent + transfer_in child)
   renders combined: `TransferRoute` (source → destination with platform dots) in the
   platform cell, the `TRANSFER_PAIR_DISPLAY` "Transfer" badge, and a neutral quantity
@@ -50,9 +57,14 @@
   the Transfer chip wears exactly the row badge's neutral slate. `USER_PICKABLE_TYPES`
   stays the editor/sheet's list — the pseudo-type must never be selectable there.
 - `TransactionSummary.tsx` — three stat `Card`s: count, buy volume, sell volume.
+  All three render in the default foreground: volumes are turnover, so they never
+  go through `gainLossClass`.
 - `TransactionTypeSelector.tsx` — exports **both** `TransactionTypeSelector` (the
-  single-pick chip row used by the editor) and `TransactionTypeBadge` (the colored
-  per-row badge); config from `@/lib/constants/transaction-types`.
+  single-pick chip row used by the add/edit modal) and `TransactionTypeBadge` (the
+  colored per-row badge); config from `@/lib/constants/transaction-types`. The chip
+  row renders `PICKABLE_TYPE_CHOICES` (an alias of `FILTERABLE_TYPES`) with
+  `FILTER_TYPE_DISPLAY`, so the form offers the same nine choices the log filters
+  by — including the derived `TRANSFER_PAIR_FILTER_TYPE` "Transfer" chip.
 - `AssetSearchSelect.tsx` — searchable `Command` asset picker (used by the editor;
   the *filter* uses a plain `Select`, not this).
 - `FundingSourceSelect.tsx` — funding-source `Select` for buys (platform-deduct vs
@@ -62,7 +74,10 @@
   both sides when deleting a linked transfer; `TransactionAssetLabel` subtitle —
   cash legs only, a transfer child renders no subtitle; `TransferRoute`;
   `isTransferPair`; `RealizedPnLLine`), `transactionRowModel.ts`
-  (`deriveTransactionDisplay`, `collapseLinkedTransferIns`, `formatTxDate`, plus the
+  (`deriveTransactionDisplay` — no `amountColor` any more; the realized line's
+  colour comes from `gainLossClass` and its `%` from
+  `formatSignedPercent(…, DECIMALS.percentage)`; `collapseLinkedTransferIns`,
+  `formatTxDate`, plus the
   derived-type filter predicates `transferPairParentIds` / `matchesFilterType` /
   `matchesAnyFilterType`),
   `TransactionRowCard.tsx` (mobile card — same pair rendering as the table row).

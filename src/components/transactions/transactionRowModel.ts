@@ -7,7 +7,8 @@ import {
 } from "@/lib/constants/transaction-types"
 import { isFiatCurrency, type FiatCurrency } from "@/lib/constants/currencies"
 import { convertOnDate, fromUsdOnDate } from "@/lib/pnl/currency"
-import { BN_HUNDRED } from "@/lib/config"
+import { BN_HUNDRED, DECIMALS } from "@/lib/config"
+import { formatSignedPercent, gainLossClass } from "@/lib/prices"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 import type { RealizedPnLEntry } from "@/lib/pnl/types"
 import type { ExchangeRate } from "@/types/database"
@@ -63,7 +64,6 @@ export function formatTxDate(dateStr: string): string {
 
 export interface TransactionDisplay {
   sign: string
-  amountColor: string
   nativeCurrency: FiatCurrency
   convertedTotal: number | null
   convertedUnitPrice: number | null
@@ -89,13 +89,11 @@ export function deriveTransactionDisplay(
    *  neutral quantity, no sign, no gain/loss color. */
   opts?: { transferPair?: boolean },
 ): TransactionDisplay {
+  // The quantity carries direction with its ASCII sign only — never the
+  // gain/loss palette. A sale is not a loss, and on this page the palette is
+  // reserved for the realized P&L sub-line.
   const isPositive = POSITIVE_TYPES.includes(tx.type)
   const sign = opts?.transferPair ? "" : isPositive ? "" : "-"
-  const amountColor = opts?.transferPair
-    ? ""
-    : isPositive
-      ? "text-green-600"
-      : "text-red-600"
 
   const nativeCurrency: FiatCurrency = isFiatCurrency(tx.price_currency)
     ? tx.price_currency
@@ -112,7 +110,7 @@ export function deriveTransactionDisplay(
   const realizedPnlUsd = realized?.realizedPnlUsd ?? null
   const usdIsGain = realizedPnlUsd ? realizedPnlUsd.gte(0) : false
   const usdSign = usdIsGain ? "" : "-"
-  const realizedColor = usdIsGain ? "text-green-600" : "text-red-600"
+  const realizedColor = gainLossClass(usdIsGain)
   const realizedUsdAbs = realizedPnlUsd ? realizedPnlUsd.abs().toNumber() : 0
 
   const nativePnlBn =
@@ -128,14 +126,15 @@ export function deriveTransactionDisplay(
     realized && realized.costBasisUsd.gt(0)
       ? realized.realizedPnlUsd.div(realized.costBasisUsd).times(BN_HUNDRED)
       : null
+  // A return %, so it carries the app-wide 2 dp — the same precision the
+  // Portfolio and Asset Detail returns use.
   const realizedPct = realizedPctBn
-    ? `${usdSign}${realizedPctBn.abs().toFixed(1)}%`
+    ? formatSignedPercent(realizedPctBn.toNumber(), DECIMALS.percentage)
     : null
   const nativeIsUsd = nativeCurrency === "USD"
 
   return {
     sign,
-    amountColor,
     nativeCurrency,
     convertedTotal,
     convertedUnitPrice,

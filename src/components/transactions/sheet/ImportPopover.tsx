@@ -8,6 +8,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import { IMPORT_LABEL } from "@/lib/constants/transaction-types"
 import { ClipboardPaste } from "lucide-react"
 import { parseClipboard, type ParseSummary } from "./parseImport"
 import type { Asset, Platform } from "@/types/database"
@@ -71,9 +72,9 @@ export function ImportPopover({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" aria-label={IMPORT_LABEL}>
             <ClipboardPaste className="size-3.5" />
-            Import
+            <span className="hidden sm:inline">{IMPORT_LABEL}</span>
           </Button>
         }
       />

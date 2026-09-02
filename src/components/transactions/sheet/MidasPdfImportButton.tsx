@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
+import { MIDAS_IMPORT_LABEL } from "@/lib/constants/transaction-types"
 import { parseMidasPdf } from "./parseMidasPdf"
 import { dedupeImportedRows, type DedupCandidate } from "./dedupeImportedRows"
 import type { ParseSummary } from "./parseImport"
@@ -123,9 +124,9 @@ export function MidasPdfImportButton({ assets, platforms, gridRows, onAppend }: 
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
         render={
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" aria-label={MIDAS_IMPORT_LABEL}>
             <FileText className="size-3.5" />
-            Import from Midas
+            <span className="hidden sm:inline">{MIDAS_IMPORT_LABEL}</span>
           </Button>
         }
       />
