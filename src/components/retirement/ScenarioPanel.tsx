@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency, obfuscate } from "@/lib/prices"
+import { formatMoney } from "@/lib/prices"
+import { DEFAULT_CURRENCY } from "@/lib/constants/currencies"
 import {
   WITHDRAWAL_STRATEGY,
   type ComparisonOption,
@@ -99,10 +100,7 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
   const usesLiveValue = inputs.startingAmountUsd === null
   // One formatted string for the live value: the read-only field and the
   // caption under it show the same money, through the same money edge.
-  const liveValueLabel = obfuscate(
-    formatCurrency(liveValueUsd.toNumber(), "USD"),
-    obfuscated,
-  )
+  const liveValueLabel = formatMoney(liveValueUsd.toNumber(), DEFAULT_CURRENCY, obfuscated)
   // Fields are remounted (so their typing buffers re-seed) when the loaded
   // scenario changes.
   const fieldKey = activeScenario?.id ?? "unsaved"
@@ -123,7 +121,7 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
   // the answer land in the first screen; from `sm` up the panel is always open
   // and the trigger is gone.
   const phoneSummary = [
-    `${obfuscate(formatCurrency(inputs.monthlyContributionUsd, "USD"), obfuscated)}${SCENARIO_SUMMARY.perMonthSuffix}`,
+    `${formatMoney(inputs.monthlyContributionUsd, DEFAULT_CURRENCY, obfuscated)}${SCENARIO_SUMMARY.perMonthSuffix}`,
     `${SCENARIO_SUMMARY.retireAt} ${inputs.retirementAge}`,
     `${inputs.safeWithdrawalRatePct}${SCENARIO_SUMMARY.swrSuffix}`,
   ].join(SCENARIO_SUMMARY.separator)

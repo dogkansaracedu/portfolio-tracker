@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/table"
 import { useBudgetContext } from "@/contexts/BudgetContext"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency, formatSignedPercent, obfuscate } from "@/lib/prices"
+import { formatMoney, formatSignedPercent } from "@/lib/prices"
 import { CURRENCY_SYMBOLS, type FiatCurrency } from "@/lib/constants/currencies"
 import type { MonthlyBudgetRow } from "@/lib/budget"
 import type { CashflowEntry } from "@/types/database"
@@ -87,7 +87,7 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
   const money = (value: ReturnType<typeof legFor>) =>
     value === null
       ? NO_DATA_PLACEHOLDER
-      : obfuscate(formatCurrency(value.toNumber(), currency), obfuscated)
+      : formatMoney(value.toNumber(), currency, obfuscated)
 
   const startEditing = (row: MonthlyBudgetRow) => {
     const monthEntries = entriesByMonth.get(row.month) ?? []
