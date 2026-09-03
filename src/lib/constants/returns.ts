@@ -1,9 +1,9 @@
 /**
- * The vocabulary for return figures — one term, one hint, app-wide.
+ * The vocabulary for return and P&L figures — one term, one hint, app-wide.
  *
  * Every cumulative percentage this app shows beside a money figure is
  * money-weighted (XIRR). It is called **MWR** everywhere: the dashboard hero's
- * chip, the Portfolio summary bar, the Asset Detail total return. The `/yr`
+ * chip, the Portfolio summary bar, the Asset Detail Total P&L. The `/yr`
  * suffix is reserved for the annualised reading — never on a cumulative one.
  */
 export const MWR_LABEL = "MWR"
@@ -21,3 +21,16 @@ export const MWR_PER_YEAR_HINT =
 
 /** Time-weighted return — the hero's alternative measure. */
 export const TWR_LABEL = "TWR"
+
+/** The money figure `value − net invested` — GLOSSARY.md#total-pl. */
+export const TOTAL_PNL_LABEL = "Total P&L"
+
+/** Its two sub-views. Short (no "P&L") so they fit a column header. */
+export const UNREALIZED_LABEL = "Unrealized"
+export const REALIZED_LABEL = "Realized"
+
+/** The daily return — GLOSSARY.md#daily-return. */
+export const DAILY_RETURN_LABEL = "Today"
+
+/** The FIFO cost of the lots still held — GLOSSARY.md#fifo-lots-and-cost-basis. */
+export const COST_BASIS_LABEL = "Cost basis"

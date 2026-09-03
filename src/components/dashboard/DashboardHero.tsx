@@ -45,8 +45,10 @@ import {
   MWR_LABEL,
   MWR_PER_YEAR_HINT,
   MWR_PER_YEAR_SUFFIX,
+  TOTAL_PNL_LABEL,
   TWR_LABEL,
 } from "@/lib/constants/returns"
+import { TOTAL_VALUE_LABEL } from "@/lib/constants/portfolio"
 import { cn } from "@/lib/utils"
 import {
   BENCHMARKS,
@@ -115,7 +117,7 @@ const WHAT_IF_LABEL_SUFFIX = " (same flows)"
 /** The one name for net invested capital — the Value-mode subtitle, the
  *  Performance subtitle, the dashed reference series and its tooltip row all
  *  say this. "Cost basis" stays reserved for the FIFO figures (Portfolio
- *  "Bought", Asset Detail "Cost Basis"). */
+ *  "Bought", Asset Detail "Cost basis"). */
 const NET_INVESTED_LABEL = "Net invested"
 
 /** Wording for a window with no real starting base: the delta is measured from
@@ -504,7 +506,7 @@ export default function DashboardHero({
         <div className="space-y-1">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {viewMode === "value"
-              ? "Total Value"
+              ? TOTAL_VALUE_LABEL
               : `Performance · ${RANGE_LABELS[timeRange]}`}
           </p>
           <p
@@ -594,7 +596,7 @@ export default function DashboardHero({
           ) : (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className="text-muted-foreground">
-                Total{" "}
+                {TOTAL_PNL_LABEL}{" "}
                 <span className={cn("font-medium", totalPnlColor)}>
                   {formatSignedMoney(
                     currency === "USD" ? totalPnlUsdNow : totalPnlTryNow,

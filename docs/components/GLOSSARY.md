@@ -22,7 +22,8 @@ A tradable or held thing, **global: one row per ticker, shared by every user and
 curated by the [Admin](#admin)** (no platform on the asset itself — balances live on
 [Holdings](#holding)). Non-admin users read the catalog read-only. Fields: `ticker`
 (display symbol), `name`, `category` (free-form text — `fiat`, `crypto`, `gold`,
-`stock_us`, `stock_bist`, `vehicle`, …), `tags[]` (cross-cutting allocation labels,
+`stock_us`, `stock_bist`, `vehicle`, …; each has **one** display label, used by
+every badge, group header and chart), `tags[]` (cross-cutting allocation labels,
 e.g. `["crypto","usd"]`), `price_source` (which feed prices it — `yahoo` for
 equities, crypto and tokenized gold, `tcmb` for fiat FX and gram gold, `tefas`
 for Turkish funds, `manual` for hand-entered prices), `price_id` (the identifier that feed uses, e.g. `BTC-USD`,
@@ -199,7 +200,8 @@ used.
 ### Realized and unrealized
 **Realized** = P&L locked in by sells (FIFO). **Unrealized** = current value −
 cost basis of holdings still held. Both are **sub-views** of the money-weighted
-total (`unrealized = total − realized`).
+total (`unrealized = total − realized`). On screen they are labeled **Unrealized**
+and **Realized**, with no "P&L" suffix, so the pair fits a column header.
 
 ### Fiat FX P&L
 Fiat / cash holdings (`is_currency = true`) are **not zero-P&L**: they run
@@ -250,6 +252,11 @@ The money-weighted change **since the most recent [snapshot](#snapshot) before t
 (the portfolio's home-local day): `value_now − prev_snapshot_value − period_invested`.
 Subtracting capital deployed during the period removes principal, leaving only
 price/FX movement. See the [formula](#daily-return-formula).
+
+### Total value
+The portfolio's current market value — every holding at its latest price.
+**"Total Value" is the one user-facing name**: the dashboard hero's headline and
+the Portfolio summary bar.
 
 ### Allocation
 An asset's (or group's) **current value ÷ total portfolio value**, as a percent.
@@ -479,7 +486,9 @@ State-only here; the rationale lives in [P&L Methodology](../pnl-methodology.md)
 Total P&L (USD) = current value − net invested capital
 ```
 Money-weighted, USD-anchored. `realized` and `unrealized` are sub-views; fiat
-carries its FX gain as unrealized.
+carries its FX gain as unrealized. **"Total P&L" is the one user-facing name for
+this amount** — the dashboard hero, the Portfolio summary bar and Asset Detail —
+never "Total return".
 → [P&L Methodology](../pnl-methodology.md).
 
 ### Total P&L %
@@ -489,7 +498,7 @@ against the live value today, then de-annualize over the book's own span —
 `(1+r)^years − 1`. The same lens as the per-asset return %. Shown on the
 Portfolio summary bar and the Performance page's All-Time Return; the dashboard
 hero shows the Total P&L dollar alone. **The label is `MWR` everywhere** —
-Portfolio summary bar, Asset Detail total return, and the hero's lifetime chip
+Portfolio summary bar, Asset Detail's Total P&L, and the hero's lifetime chip
 (which appends `/yr`, the only place the annualised reading is shown). Its
 explainer is reachable by hover **and** tap. "XIRR" is the method's name in this
 glossary and in code, not a UI label. "—"/absent when

@@ -24,6 +24,7 @@ import { formatCurrency } from "@/lib/prices"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionMutations } from "@/hooks/useTransactions"
 import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
+import { REALIZED_LABEL } from "@/lib/constants/returns"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 import {
   formatTxDate,
@@ -222,14 +223,14 @@ export function RealizedPnLLine({ display }: { display: TransactionDisplay }) {
           {usdSign}
           {formatCurrency(realizedUsdAbs, "USD")}
           {realizedPct && ` (${realizedPct})`}
-          <span className="ml-1 text-muted-foreground">P&L</span>
+          <span className="ml-1 text-muted-foreground">{REALIZED_LABEL}</span>
         </span>
       ) : (
         <>
           <div>
             {nativeSign}
             {formatCurrency(realizedNativeAbs, nativeCurrency)}
-            <span className="ml-1 text-muted-foreground">P&L</span>
+            <span className="ml-1 text-muted-foreground">{REALIZED_LABEL}</span>
           </div>
           <div className="text-muted-foreground">
             ~{usdSign}
