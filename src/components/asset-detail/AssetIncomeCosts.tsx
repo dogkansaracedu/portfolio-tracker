@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card"
-import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency, gainLossClass, obfuscate } from "@/lib/prices"
+import { useDisplayMoney } from "@/hooks/useDisplayMoney"
+import { gainLossClass } from "@/lib/prices"
 
 interface Props {
   incomeUsd: number
@@ -11,23 +11,24 @@ interface Props {
 /** Lifetime income (dividends + interest), taxes withheld, and fees paid on
  *  this asset — booked sums over its transactions. Zero cards are omitted. */
 export function AssetIncomeCosts({ incomeUsd, taxesUsd, feesUsd }: Props) {
-  const { obfuscated } = useDisplayCurrency()
-  const o = (v: string) => obfuscate(v, obfuscated)
+  // USD-anchored sums, rendered in the display currency like every other
+  // money figure on this page.
+  const { money } = useDisplayMoney()
 
   const cards = [
     incomeUsd !== 0 && {
       label: "Income (dividends + interest)",
-      value: formatCurrency(incomeUsd, "USD"),
+      value: money(incomeUsd),
       className: gainLossClass(true),
     },
     taxesUsd !== 0 && {
       label: "Taxes withheld",
-      value: `-${formatCurrency(taxesUsd, "USD")}`,
+      value: `-${money(taxesUsd)}`,
       className: "text-muted-foreground",
     },
     feesUsd !== 0 && {
       label: "Fees paid",
-      value: `-${formatCurrency(feesUsd, "USD")}`,
+      value: `-${money(feesUsd)}`,
       className: "text-muted-foreground",
     },
   ].filter(Boolean) as { label: string; value: string; className: string }[]
@@ -41,7 +42,7 @@ export function AssetIncomeCosts({ incomeUsd, taxesUsd, feesUsd }: Props) {
           <CardContent>
             <p className="text-xs text-muted-foreground">{c.label}</p>
             <p className={`mt-1 tabular-nums text-sm font-semibold ${c.className}`}>
-              {o(c.value)}
+              {c.value}
             </p>
           </CardContent>
         </Card>

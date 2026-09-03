@@ -1,6 +1,9 @@
+import { SegmentedControl } from "@/components/common/SegmentedControl"
 import type { TimeRange } from "@/lib/performance"
 
-const ranges: TimeRange[] = ["1M", "3M", "6M", "YTD", "1Y", "ALL"]
+const RANGES: { id: TimeRange; label: string }[] = (
+  ["1M", "3M", "6M", "YTD", "1Y", "ALL"] as TimeRange[]
+).map((id) => ({ id, label: id }))
 
 interface Props {
   value: TimeRange
@@ -9,20 +12,12 @@ interface Props {
 
 export function TimeRangeSelector({ value, onChange }: Props) {
   return (
-    <div className="flex flex-wrap gap-1">
-      {ranges.map((range) => (
-        <button
-          key={range}
-          onClick={() => onChange(range)}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            value === range
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-        >
-          {range}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      ariaLabel="Time range"
+      value={value}
+      options={RANGES}
+      onChange={onChange}
+      size="sm"
+    />
   )
 }

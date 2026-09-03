@@ -135,42 +135,7 @@ export function NumberField({
   )
 }
 
-interface SegmentedControlProps<T extends string> {
-  value: T
-  options: { id: T; label: string }[]
-  onChange: (next: T) => void
-  size?: "sm" | "default"
-  className?: string
-}
-
-export function SegmentedControl<T extends string>({
-  value,
-  options,
-  onChange,
-  size = "default",
-  className,
-}: SegmentedControlProps<T>) {
-  return (
-    <div className={cn("flex flex-wrap gap-1", className)}>
-      {options.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          onClick={() => onChange(option.id)}
-          className={cn(
-            "rounded-md font-medium transition-colors",
-            size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm",
-            value === option.id
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80",
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
-}
+export { SegmentedControl } from "@/components/common/SegmentedControl"
 
 export function StatTile({
   label,
