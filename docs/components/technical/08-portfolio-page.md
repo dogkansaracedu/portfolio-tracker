@@ -54,7 +54,8 @@
   with unrealized/realized split, held count). `grid-cols-2 sm:grid-cols-3`: below
   `sm` the held-count card is `hidden` and its figure becomes a caption under P&L
   (`HELD_ASSETS_LABEL`), while the unrealized/realized and income captions are
-  `hidden … sm:inline`. **No `returnMode` prop** — by
+  `hidden … sm:inline`. The MWR chip is a `HintPopover` (hover *and* tap).
+  **No `returnMode` prop** — by
   construction unaffected by the toggle. The P&L **headline** is the gross
   `totalPnlUsd`; no after-tax figures here.
 - `src/components/portfolio/PortfolioFilters.tsx` — search `Input`, the
