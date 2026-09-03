@@ -8,6 +8,7 @@ import {
 import { isFiatCurrency, type FiatCurrency } from "@/lib/constants/currencies"
 import { convertOnDate, fromUsdOnDate } from "@/lib/pnl/currency"
 import { BN_HUNDRED, DECIMALS } from "@/lib/config"
+import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import { formatSignedPercent, gainLossClass } from "@/lib/prices"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 import type { RealizedPnLEntry } from "@/lib/pnl/types"
@@ -43,7 +44,7 @@ export function dropCashLegs<T extends Pick<TransactionWithDetails, "type">>(
   return rows.filter((tx) => !CASH_LEG_TYPES.has(tx.type))
 }
 
-const QUANTITY_FORMAT = new Intl.NumberFormat("en-US", {
+const QUANTITY_FORMAT = new Intl.NumberFormat(DISPLAY_LOCALE, {
   minimumFractionDigits: 0,
   maximumFractionDigits: 8,
 })
@@ -55,7 +56,7 @@ export function formatTxQuantity(amount: number): string {
 
 export function formatTxDate(dateStr: string): string {
   const date = new Date(dateStr)
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString(DISPLAY_LOCALE, {
     month: "short",
     day: "numeric",
     year: "numeric",

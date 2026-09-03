@@ -15,6 +15,7 @@ import {
 } from "@/lib/prices"
 import type { EnrichedAsset, ReturnMode } from "@/hooks/usePortfolio"
 import { assetNativeCurrency } from "@/lib/constants/assets"
+import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import { AssetIcon } from "@/components/common/AssetIcon"
 import { InterestBadge } from "@/components/interest/InterestBadge"
 
@@ -29,11 +30,11 @@ interface PortfolioRowProps {
 function formatQuantity(balance: number, category: string): string {
   if (category === "crypto") return formatCryptoAmount(balance)
   if (category === "fiat")
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat(DISPLAY_LOCALE, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(balance)
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(DISPLAY_LOCALE, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(balance)

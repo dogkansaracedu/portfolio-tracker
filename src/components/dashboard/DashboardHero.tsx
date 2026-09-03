@@ -449,11 +449,11 @@ export default function DashboardHero({
               obfuscated,
             )}
             <span className="text-muted-foreground"> · </span>
-            {formatSignedPercent(point.twrPct, 2)}
+            {formatSignedPercent(point.twrPct, DECIMALS.percentage)}
           </span>
           <span className="text-muted-foreground">{benchmarkLabel}</span>
           <span className="text-right font-medium">
-            {formatSignedPercent(point.benchmarkPct, 2)}
+            {formatSignedPercent(point.benchmarkPct, DECIMALS.percentage)}
           </span>
         </div>
       </div>
@@ -523,7 +523,7 @@ export default function DashboardHero({
           >
             {viewMode === "pnl" ? (
               <>
-                {formatSignedPercent(twrEnd, 2)}
+                {formatSignedPercent(twrEnd, DECIMALS.percentage)}
                 {/* Period money gain (window-rebased delta — same figure the
                     tooltip's "Now" row shows), smaller beside the %. Colored
                     by its own sign, not the %'s: a mid-window deposit can flip
