@@ -58,7 +58,11 @@ export function InterestBadge({ assetId }: { assetId: string }) {
               event.stopPropagation()
             }}
             className={cn(
+              // The one control on this row that *must* be tapped, so it carries
+              // the same 40px box the rest of the pass got — pulled back
+              // with a negative margin so the pill itself stays a pill.
               "inline-flex shrink-0 items-center gap-0.5 rounded-full border px-1.5 py-px text-[10px] leading-4 font-medium tabular-nums",
+              "max-sm:-my-2.5 max-sm:min-h-10",
               INTEREST_STATUS_CLASSES[summary.status],
             )}
           />

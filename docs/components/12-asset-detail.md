@@ -204,9 +204,9 @@ session: selected time range, price-series visibility (neither persisted).
   exists to answer — **value, total return and the daily return** — are set
   larger and come **first**; quantity, average unit cost and allocation are the
   supporting tier beneath. Every card keeps the same height so the two tiers do
-  not stagger the grid, and where the grid is two columns wide (a phone) the
-  three promoted figures fill their own rows — a promoted figure never sits
-  beside a supporting one. Total return carries its money-weighted %, and the
+  not stagger the grid. Where the grid is two columns wide (a phone) the three
+  promoted figures come first and the odd one out spans the full width, so a
+  promoted figure never sits beside a supporting one. Total return carries its money-weighted %, and the
   measure's name (**MWR**) sits inline after it on the same line as the muted
   ≈%/yr reading — never a third line — with one app-wide explainer reachable by
   **hover and tap** (a hover-only hint is invisible on a phone). Unrealized
@@ -217,7 +217,9 @@ session: selected time range, price-series visibility (neither persisted).
   value, return — rendered only when there is at least one nonzero slice. On a
   phone the five columns compress until value clips and the return leaves the
   screen, so each platform becomes a stacked block instead: the platform line,
-  then quantity · value · return under it. Nothing is dropped.
+  then quantity · value · return under it. Cost basis is the one figure that
+  does not survive the narrowing — it is the supporting number of the five, and
+  the position summary above already carries the average unit cost.
 - **Chart:** area for value, step line for cost basis on the same axis, line
   for unit price on a secondary axis; tooltip showing date, value, cost basis,
   and price; a range selector above in the app's pick-one control idiom, with

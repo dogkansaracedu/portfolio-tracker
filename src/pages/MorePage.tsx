@@ -5,7 +5,9 @@ import { secondaryNavItems } from "@/components/layout/Sidebar"
 export default function MorePage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">More</h1>
+      {/* The phone header already names this hub, and the hub is only ever
+          seen at phone widths — the heading exists for wider viewports. */}
+      <h1 className="hidden text-2xl font-bold md:block">More</h1>
       <nav className="w-full max-w-md divide-y overflow-hidden rounded-lg border">
         {secondaryNavItems.map((item) => (
           <Link

@@ -161,7 +161,8 @@ and portfolio views exactly.
 - **Phone.** The page title and subtitle are dropped (the phone header names the
   screen), the activity summary condenses to one strip of count · buy volume ·
   sell volume, and the filters collapse behind a single "Filters (n)" trigger
-  that names how many are active — so the first transaction is on screen without
+  that counts what the user actually narrowed (the default date window does not
+  count towards it) — so the first transaction is on screen without
   scrolling. From the medium width up the title returns; from the small width up
   the summary is three cards and the filters are always open.
 - **Filters.** Date-range presets (Last 7d / Last 30d / This Year / All Time) plus
