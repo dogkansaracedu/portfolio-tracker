@@ -290,8 +290,8 @@
   Total figure as `· MWR {formatSignedPercent(lifetimeXirrPct, DECIMALS.percentageRate)}{"/yr"}`
   (`MWR_LABEL` + `MWR_PER_YEAR_SUFFIX` from `lib/constants/returns.ts`, shared
   with the Portfolio summary bar and Asset Detail), colored by `xirrColor`
-  (`gainLossToneClass`). The explainer is a `HintTooltip`, not a bare `title`
-  (a `title` never fires on touch). Rendered **only when
+  (`gainLossToneClass`). The explainer is a `HintPopover`, not a bare
+  `title` (a `title` never fires on touch) — it opens on hover *and* on tap. Rendered **only when
   `lifetimeXirrPct != null`** — no "—" placeholder, no fabricated 0. It is a
   percent, so it is deliberately **not** wrapped in `obfuscate`.
 - **"Total" subtitle (P&L mode):** the dollar figure is rendered from the gross
