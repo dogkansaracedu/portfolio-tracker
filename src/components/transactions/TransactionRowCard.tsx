@@ -1,43 +1,23 @@
 import { TransactionTypeBadge } from "@/components/transactions/TransactionTypeSelector"
 import { PlatformDot } from "@/components/common/PlatformDot"
 import { formatCurrency } from "@/lib/prices"
-import { useTransactionData } from "@/contexts/TransactionDataContext"
-import type { TransactionWithDetails } from "@/lib/queries/transactions"
-import type { RealizedPnLEntry } from "@/lib/pnl/types"
 import {
-  deriveTransactionDisplay,
   formatTxDate,
   formatTxQuantity,
+  type TransactionRowProps,
 } from "./transactionRowModel"
 import {
   TransactionRowActions,
   TransactionAssetLabel,
   TransferRoute,
   RealizedPnLLine,
-  isTransferPair,
+  useTransactionRowDisplay,
 } from "./TransactionRowShared"
 import { TRANSFER_PAIR_DISPLAY } from "@/lib/constants/transaction-types"
-import type { DisplayCurrency } from "@/lib/constants/currencies"
 
-interface Props {
-  transaction: TransactionWithDetails
-  linkedChild?: TransactionWithDetails | null
-  currency: DisplayCurrency
-  realized?: RealizedPnLEntry | null
-}
-
-export function TransactionRowCard({
-  transaction,
-  linkedChild,
-  currency,
-  realized,
-}: Props) {
-  const tx = transaction
-  const { rates } = useTransactionData()
-  const transferPair = isTransferPair(tx, linkedChild ?? null)
-  const d = deriveTransactionDisplay(tx, currency, realized ?? null, rates, {
-    transferPair,
-  })
+export function TransactionRowCard(props: TransactionRowProps) {
+  const { transaction: tx, linkedChild, currency } = props
+  const { transferPair, display: d } = useTransactionRowDisplay(props)
 
   return (
     <div className="rounded-lg border p-3">
