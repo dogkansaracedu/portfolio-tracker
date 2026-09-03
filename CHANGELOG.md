@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.14.0] — 2026-09-03
+- Phone pass: dialogs land their submit on one 40px row that survives the
+  keyboard, the first holding and the first transaction sit in the first screen,
+  and the Settings, By-platform and Budget tables get real phone layouts instead
+  of a silent sideways scroll.
+- Every glossary explainer now opens on a tap as well as a hover (retirement
+  hints, MWR labels, the interest badge — which also links into the asset's
+  Earning section); controls the owner touches daily are 40px, and the phone
+  header shows how stale the prices are.
+- The bulk editor opens import-first on a phone with its row number and ticker
+  pinned; charts gained plot width from compact money ticks, and the tab bar,
+  content and footers clear the home indicator.
+
 ## [0.13.0] — 2026-09-02
 - UI/UX pass over the whole app: P&L, cost and subtotals now follow the display
   currency (a row never mixes ₺ and $), zero is neutral instead of green, every
