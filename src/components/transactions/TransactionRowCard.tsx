@@ -17,11 +17,12 @@ import {
   isTransferPair,
 } from "./TransactionRowShared"
 import { TRANSFER_PAIR_DISPLAY } from "@/lib/constants/transaction-types"
+import type { DisplayCurrency } from "@/lib/constants/currencies"
 
 interface Props {
   transaction: TransactionWithDetails
   linkedChild?: TransactionWithDetails | null
-  currency: "USD" | "TRY"
+  currency: DisplayCurrency
   realized?: RealizedPnLEntry | null
 }
 

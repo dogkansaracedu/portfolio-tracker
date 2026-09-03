@@ -4,6 +4,16 @@ export const SUPPORTED_FIAT_CURRENCIES = ["USD", "TRY", "EUR"] as const
 
 export type FiatCurrency = (typeof SUPPORTED_FIAT_CURRENCIES)[number]
 
+/**
+ * What the display toggle can be set to — deliberately NARROWER than
+ * {@link FiatCurrency}: the app holds EUR-priced assets, but every total it
+ * presents is either the USD anchor or TRY. Anything that takes "the currency
+ * the user is looking at" is this type, not `FiatCurrency`.
+ */
+export const DISPLAY_CURRENCIES = ["USD", "TRY"] as const satisfies readonly FiatCurrency[]
+
+export type DisplayCurrency = (typeof DISPLAY_CURRENCIES)[number]
+
 /** Currency symbols re-projected from {@link CURRENCY_CONFIG} so the
  *  symbol mapping stays single-sourced. */
 export const CURRENCY_SYMBOLS: Record<FiatCurrency, string> = {

@@ -9,11 +9,12 @@ import { TransactionRow } from "@/components/transactions/TransactionRow"
 import { TransactionRowCard } from "@/components/transactions/TransactionRowCard"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 import type { RealizedPnLEntry } from "@/lib/pnl/types"
+import type { DisplayCurrency } from "@/lib/constants/currencies"
 
 interface Props {
   transactions: TransactionWithDetails[]
   loading: boolean
-  currency: "USD" | "TRY"
+  currency: DisplayCurrency
   childMap?: Map<string, TransactionWithDetails>
   realizedByTx?: Map<string, RealizedPnLEntry>
 }
