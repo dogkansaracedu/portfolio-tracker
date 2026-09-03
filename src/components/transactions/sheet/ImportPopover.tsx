@@ -41,6 +41,16 @@ export function ImportPopover({
   const [summary, setSummary] = useState<ParseSummary | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Clearing the file input's value is what lets the SAME file be picked
+  // again: a re-pick of an unchanged value fires no change event, so without
+  // this the second attempt at one CSV does nothing at all. Same reset the
+  // Midas PDF import runs.
+  const reset = () => {
+    setText("")
+    setSummary(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
   const handleParse = (raw: string) => {
     const s = parseClipboard(raw, assets, platforms, { lockedAssetId })
     setSummary(s)
@@ -68,13 +78,17 @@ export function ImportPopover({
       .filter(Boolean)
       .join(" · ")
     toast.success(msg)
-    setText("")
-    setSummary(null)
+    reset()
     setOpen(false)
   }
 
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) reset()
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
         render={
           <Button
@@ -186,10 +200,7 @@ export function ImportPopover({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setSummary(null)
-                  setText("")
-                }}
+                onClick={reset}
               >
                 Cancel
               </Button>
