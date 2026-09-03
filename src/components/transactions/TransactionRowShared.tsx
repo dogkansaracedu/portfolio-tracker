@@ -26,52 +26,12 @@ import { useTransactionMutations } from "@/hooks/useTransactions"
 import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 import {
-  deriveTransactionDisplay,
   formatTxDate,
   formatTxQuantity,
+  isTransferPair,
   type TransactionDisplay,
-  type TransactionRowProps,
 } from "./transactionRowModel"
-import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { formatSettlementAmount } from "@/components/transactions/settlementAmount"
-
-/**
- * The display model both layouts render from: whether this row is a folded
- * transfer pair, and the figures derived for it. The rates come from the shared
- * transaction store, so neither layout fetches its own.
- */
-export function useTransactionRowDisplay({
-  transaction,
-  linkedChild,
-  currency,
-  realized,
-}: TransactionRowProps) {
-  const { rates } = useTransactionData()
-  const transferPair = isTransferPair(transaction, linkedChild ?? null)
-  return {
-    transferPair,
-    display: deriveTransactionDisplay(
-      transaction,
-      currency,
-      realized ?? null,
-      rates,
-      { transferPair },
-    ),
-  }
-}
-
-// A linked transfer pair (transfer_out parent + its transfer_in child) renders
-// as one combined row: neutral quantity, "Transfer" badge, source → destination
-// in the platform slot, and a delete that names both sides.
-export function isTransferPair(
-  tx: Pick<TransactionWithDetails, "type">,
-  linkedChild: Pick<TransactionWithDetails, "type"> | null,
-): boolean {
-  return (
-    tx.type === TRANSACTION_TYPES.TRANSFER_OUT &&
-    linkedChild?.type === TRANSACTION_TYPES.TRANSFER_IN
-  )
-}
 
 // Source → destination platform readout for a combined transfer row. Wraps on
 // narrow cells; each platform keeps its dot + name together.

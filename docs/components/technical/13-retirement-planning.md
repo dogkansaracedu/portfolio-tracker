@@ -64,7 +64,7 @@ Pure modules; `index.ts` re-exports them all. Beyond the long-standing
 | File | Role |
 | --- | --- |
 | `src/App.tsx` | `<Route path="retirement">` (lazy, inside `AppLayout`). |
-| `src/components/layout/Sidebar.tsx` | One `navItems` entry (`PiggyBank`); `MobileNav` reuses the same array. |
+| `src/lib/constants/navigation.ts` | One `navItems` entry (`PiggyBank`); `Sidebar` and `MobileNav` reuse the same array. |
 | `src/components/charts/LazyChart.tsx` | Registers `RetirementPlanChart`, `RetirementCompareChart`, `RetirementCoastChart` so Recharts stays code-split. |
 
 ### Page + state

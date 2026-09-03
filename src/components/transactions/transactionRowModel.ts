@@ -33,6 +33,19 @@ export function collapseLinkedTransferIns<
   )
 }
 
+/** A linked transfer pair (transfer_out parent + its transfer_in child) renders
+ *  as one combined row: neutral quantity, "Transfer" badge, source → destination
+ *  in the platform slot, and a delete that names both sides. */
+export function isTransferPair(
+  tx: Pick<TransactionWithDetails, "type">,
+  linkedChild: Pick<TransactionWithDetails, "type"> | null,
+): boolean {
+  return (
+    tx.type === TRANSACTION_TYPES.TRANSFER_OUT &&
+    linkedChild?.type === TRANSACTION_TYPES.TRANSFER_IN
+  )
+}
+
 /** Drop the auto-generated cash legs of trades (`cash_credit`/`cash_debit`).
  *  Used by the single-asset view: drilling into a fiat holding otherwise shows
  *  a wall of context-free cash rows, because a trade's cash leg is booked

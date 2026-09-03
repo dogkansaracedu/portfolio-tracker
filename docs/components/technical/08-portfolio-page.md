@@ -32,8 +32,9 @@
 - `src/components/portfolio/PortfolioGroupHeader.tsx` — the group row as **real
   cells**: label (`colSpan={2}`), an empty `colSpan={3}` over
   Quantity/Bought/Price, the subtotal in Value, the return in the return column,
-  an empty `colSpan={2}` over Alloc + the row action. Exports `useGroupFigures`
-  (value / return / "—" rule) so the card list cannot drift from it. Picks
+  an empty `colSpan={2}` over Alloc + the row action. Reads its figures from
+  `src/hooks/useGroupFigures.ts` (value / return / "—" rule), which the card
+  list shares so the two cannot drift. The hook picks
   `group.totalPnlUsd` (total) vs `group.dailyReturnUsd` + `dailyReturnPct`
   (daily). Both modes stay **gross** — the after-tax treatment lives only in
   `PortfolioRow`.
