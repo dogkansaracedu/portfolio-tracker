@@ -43,6 +43,7 @@ Build in order — each builds on the previous.
 | 14 | Budgeting | [spec](14-budgeting.md) | [tech](technical/14-budgeting.md) | Partial — monthly view done, plan-vs-actual & expense ledger designed but not built |
 | 15 | Campaigns | [spec](15-campaigns.md) | [tech](technical/15-campaigns.md) | Done |
 | 16 | Interest Positions | [spec](16-interest.md) | [tech](technical/16-interest.md) | Done |
+| 17 | Vehicle | [spec](17-vehicle.md) | [tech](technical/17-vehicle.md) | Done |
 
 ## Dependency graph
 
@@ -64,6 +65,9 @@ Build in order — each builds on the previous.
 15 Campaigns              → 2, 3, 5         (global web-researched dataset; reads holdings/prices for grouping only)
 16 Interest Positions     → 2, 3, 5, +15    (per-user notes on committed assets; READS campaigns for prefill/cross-link,
                                              never writes them; surfaces on 7, 8, 12; never writes holdings or P&L)
+17 Vehicle                → 2, 5, 6         (cost of ownership + maintenance schedule; reads historical rates and the
+                                             portfolio's lifetime rate, writes neither; surfaces on 7; the car is NOT
+                                             an asset and never enters holdings, net worth or P&L)
 ```
 
 (6 and 10 are mutually referential at runtime: snapshots store the values the P&L
@@ -90,15 +94,18 @@ Detailed, per-component stack lives in each `technical/` doc. In summary:
 - **Edge functions:** `fetch-prices` (consolidated price + FX orchestrator — no
   separate per-source functions), `fetch-historical-rate`, `fetch-benchmark-history`,
   `resolve-tickers`, `take-snapshots`, `backfill-snapshots`.
-- **Tests:** Vitest, scoped to the P&L engine (`src/lib/pnl/*.test.ts`); the rest
-  of the app relies on types and small functions rather than automated tests.
+- **Tests:** Vitest over the pure computation modules — the P&L engine
+  (`src/lib/pnl/*.test.ts`), MWR/TWR/XIRR, cash, interest, campaigns, budgeting
+  and vehicle (`src/lib/vehicle/*.test.ts`). UI relies on types rather than
+  automated tests.
 
 ## Implementation notes
 
 - **Assets are global** (one per ticker per user); per-platform balances live in
   `holdings`. See [GLOSSARY: Asset](GLOSSARY.md#asset) / [Holding](GLOSSARY.md#holding).
-- **Category** is free-form text (not an enum): `fiat`, `crypto`, `gold`,
-  `stock_us`, `stock_bist`, `vehicle`, … **Tags** are a cross-cutting array.
+- **Category** is free-form text (not an enum): `fiat`, `crypto`, `gold`, `fund`,
+  `stock_us`, `stock_bist`, … **Tags** are a cross-cutting array. (A car is
+  deliberately **not** an asset category — see Component 17.)
 - **`price_source`** routes pricing (`yahoo`, `tcmb`, `tefas`, `manual`);
   **`price_id`** is the provider's fetch identifier (falls back to `ticker`).
 - **Signup seeding** auto-creates **8 platforms** for a new user; assets are not

@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.16.0] — 2026-09-04
+- New **Vehicle** page: what your car has really cost since you bought it — cash
+  out **plus** the value it lost — quoted as a fixed cost per month and a
+  variable cost per km, with the capital tied up in it priced at your own
+  portfolio return. Purchase price and current value are each converted at their
+  own date's rate, so a car whose lira price merely kept up with inflation stops
+  reading as a gain.
+- A **periodic maintenance chart**: per-item intervals in km, months, or
+  whichever comes first, anchored on the last time each was actually done — log
+  the drive belt at 130,000 km and it tells you when it is next due, bundles
+  what to do at your next service, and warns on the dashboard when something is
+  overdue or within 10% of due. Starts from an editable Turkish default plan.
+- Fuel economy measured properly (between two full tanks only), and nothing on
+  the page touches your portfolio: no transaction, no balance, no net worth, no
+  P&L.
+
 ## [0.15.0] — 2026-09-03
 - One name per figure, everywhere: the money you are up or down is **Total P&L**
   on the dashboard, the Portfolio bar and an asset page (it used to be "Total",
