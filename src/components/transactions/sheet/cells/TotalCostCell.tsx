@@ -30,7 +30,7 @@ export function TotalCostCell({ amount, unitPrice, currency }: Props) {
           <span className="text-muted-foreground">
             {settlementSymbol(currency)}
           </span>
-          {formatSettlementDigits(total.toNumber())}
+          {formatSettlementDigits(total.toNumber(), currency)}
         </span>
       ) : (
         <span className="text-muted-foreground">—</span>
