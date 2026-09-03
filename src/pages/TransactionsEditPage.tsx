@@ -162,8 +162,16 @@ export default function TransactionsEditPage() {
       </main>
 
       {/* Footer — the two terminal actions sit together, as in every dialog
-          footer in the app: discard on the left, Save on the right. */}
+          footer in the app: discard on the left, Save on the right. A batch
+          refusal's reason gets its own full-width line above them: an atomic
+          insert fails once for every row at once, so its reason belongs beside
+          the Save that produced it, not repeated under each row. */}
       <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-card px-4 py-4 pb-safe-4 md:gap-4 md:px-6 md:pb-4">
+        {controls?.batchError && (
+          <p className="w-full text-xs text-destructive">
+            {controls.batchError}
+          </p>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -180,12 +188,11 @@ export default function TransactionsEditPage() {
                 {controls.counts.new + controls.counts.dirty}
               </span>{" "}
               /{" "}
-              <span className="tabular-nums">
-                {controls.counts.new +
-                  controls.counts.dirty +
-                  controls.counts.clean +
-                  controls.counts.deleted}
-              </span>{" "}
+              {/* The denominator is every row in the buffer, `rowCount` —
+                  it used to omit `invalid`, so two filled rows the server had
+                  just refused were reported as "0 / 0 transactions ready"
+                  while the badge's own suffix counted them. */}
+              <span className="tabular-nums">{rowCount}</span>{" "}
               transactions ready
               {controls.counts.invalid > 0 && (
                 <span className="ml-2 text-destructive">

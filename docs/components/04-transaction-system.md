@@ -269,12 +269,14 @@ A type-driven form: choosing the type reveals only the relevant fields.
 
 A **spreadsheet-style editable grid** with one typed cell per field (asset picker,
 type, date, quantity, price, currency, derived read-only total, fee, platform). Each
-row carries a status (clean / new / dirty / invalid) and per-cell validation whose
-reason is printed under the offending cell — readable without hovering or tapping,
-so it works the same on a phone. A row the **server** refuses on save is different:
-its reason belongs to no single cell, so it is printed on the row itself, and stays
-on screen when the grid is scrolled sideways. Rows can be added blank, or
-**imported** three ways:
+row carries a status — marked by a coloured bar down its leading edge — and per-cell
+validation. A failing cell is ringed; the **reasons** are printed together on one
+line under the row, readable without hovering or tapping, so a phone works like a
+desktop, and they stay on screen when the grid is scrolled sideways. A row the
+**server** refuses on save adds its reason to that same line. A refusal of the whole
+batch is different: the save is all-or-nothing, so it is one reason for every row at
+once — the rows are marked, and the reason is stated once, beside Save. Rows can be
+added blank, or **imported** three ways:
 
 1. **Paste** tab-separated rows copied from a spreadsheet (header row auto-detected,
    else positional columns). Locale-tolerant date and number parsing.
@@ -332,8 +334,12 @@ and funded buys) or rolls back entirely, after which holding balances are recomp
 - [ ] Recording a `sell` always creates a paired `cash_credit` on the trading platform.
 - [ ] The sell form's proceeds preview equals the `cash_credit` that gets booked —
       including when the fee is in a different currency from the trade.
-- [ ] A bulk-editor cell that fails validation shows its reason without any hover or
-      tap; a row the server refuses shows the server's own reason on the row.
+- [ ] A bulk-editor cell that fails validation is ringed and its reason readable
+      without any hover or tap; a row the server refuses adds the server's own
+      reason to that row's line; a refusal of the whole batch states its reason
+      once, not once per row.
+- [ ] Every row the save could not write carries a visible status marker — the
+      "review highlighted rows" prompt always points at something highlighted.
 - [ ] Picking the same CSV twice imports it twice.
 - [ ] A `sell` / `transfer_out` / `fee` exceeding the platform balance is rejected.
 - [ ] A transfer moves the position across platforms, carries weighted-average cost
