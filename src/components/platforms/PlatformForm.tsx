@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { Platform } from "@/types/database";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -97,55 +98,58 @@ export function PlatformForm({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="platform-name">Name</Label>
-            <Input
-              id="platform-name"
-              placeholder="Platform name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
-            {!isEditing && (
-              <div className="flex flex-wrap gap-1.5">
-                {PRESET_NAMES.map((preset) => (
+        {/* `contents` keeps the form out of the sheet's flex column, so the
+            body scrolls between a fixed header and a pinned footer. */}
+        <form onSubmit={handleSubmit} className="contents">
+          <DialogBody className="grid gap-4 py-1">
+            <div className="grid gap-2">
+              <Label htmlFor="platform-name">Name</Label>
+              <Input
+                id="platform-name"
+                placeholder="Platform name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+              />
+              {!isEditing && (
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESET_NAMES.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setName(preset)}
+                      className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.map((c) => (
                   <button
-                    key={preset}
+                    key={c}
                     type="button"
-                    onClick={() => setName(preset)}
-                    className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  >
-                    {preset}
-                  </button>
+                    onClick={() => setColor(c)}
+                    className="size-7 rounded-full border-2 transition-transform hover:scale-110"
+                    style={{
+                      backgroundColor: c,
+                      borderColor: color === c ? "white" : "transparent",
+                      boxShadow:
+                        color === c
+                          ? `0 0 0 2px ${c}`
+                          : "none",
+                    }}
+                    aria-label={`Select color ${c}`}
+                  />
                 ))}
               </div>
-            )}
-          </div>
-
-          <div className="grid gap-2">
-            <Label>Color</Label>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className="size-7 rounded-full border-2 transition-transform hover:scale-110"
-                  style={{
-                    backgroundColor: c,
-                    borderColor: color === c ? "white" : "transparent",
-                    boxShadow:
-                      color === c
-                        ? `0 0 0 2px ${c}`
-                        : "none",
-                  }}
-                  aria-label={`Select color ${c}`}
-                />
-              ))}
             </div>
-          </div>
-
+          </DialogBody>
           {error && (
             <p className="text-sm text-destructive">{error}</p>
           )}

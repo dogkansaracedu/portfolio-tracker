@@ -72,7 +72,7 @@ function DialogContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-2 right-2"
+                className="absolute top-2 right-2 max-sm:size-10"
                 size="icon-sm"
               />
             }
@@ -123,7 +123,11 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 shrink-0 flex flex-col-reverse gap-2 border-t bg-muted/50 p-4 sm:flex-row sm:justify-end sm:rounded-b-xl",
+        // One row at every width. On the phone sheet it is the footer of a
+        // full-height sheet, so it carries the home-indicator inset and its
+        // buttons stretch to a 40px tap target; the desktop card keeps the
+        // right-aligned, naturally-sized pair.
+        "-mx-4 -mb-4 shrink-0 flex flex-row items-center justify-end gap-2 border-t bg-muted/50 p-4 sm:rounded-b-xl max-sm:pt-3 max-sm:pb-safe-3 max-sm:*:min-h-10 max-sm:*:flex-1",
         className
       )}
       {...props}
