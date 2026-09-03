@@ -4,11 +4,13 @@
 
 ## Purpose
 
-The owner-facing control panel. Holds two things that don't belong on any data
-page: **display preferences** (how amounts are shown everywhere) and **data
-portability** (getting data in/out, plus a control to (re)build historical
-[snapshots](GLOSSARY.md#snapshot)). It also hosts the management surfaces for
-platforms and assets (owned by Component 3) as tabs.
+The owner-facing control panel. It hosts the management surfaces for platforms
+and assets (owned by Component 3) as tabs, owns **data portability** (a pointer
+to where data comes in, plus a control to (re)build historical
+[snapshots](GLOSSARY.md#snapshot)), and documents the app's **display
+preferences** — which are *operated* from the global header, not from this page,
+because they change how every screen reads and must be reachable from all of
+them.
 
 ## Depends on
 
@@ -27,7 +29,10 @@ platforms and assets (owned by Component 3) as tabs.
 
 ## Behaviors / rules
 
-**Display preferences (persisted per browser, survive reload):**
+**Display preferences — operated from the global header (persisted per browser,
+survive reload).** They live in the app chrome, not on this page: each one
+re-renders every screen, so it must be adjustable while looking at the screen it
+affects. This component only defines their behaviour.
 
 - **Display currency** — toggle between **USD** and **TRY**. Changing it
   re-denominates every money amount across the whole app immediately; it is a
@@ -89,12 +94,12 @@ platforms and assets (owned by Component 3) as tabs.
 
 ## UI contract
 
-- **Preferences** — a control to pick **display currency** (USD/TRY) and a control
-  to pick **theme** (light/dark). These also appear in the app's global chrome so
-  they're reachable everywhere, not only on this page. A value-privacy toggle
-  masks amounts on demand.
-- **Import** — surfaced via **Component 4** (grid / CSV / broker PDF). Not
-  re-presented here beyond a pointer.
+- **Preferences** — the display-currency (USD/TRY), theme (light/dark) and
+  value-privacy controls live in the app's **global header only**. The Settings
+  page does not duplicate them.
+- **Import** — surfaced via **Component 4** (grid / CSV / broker PDF). Settings
+  carries a single muted line under a small heading linking to it — a pointer,
+  not a card, and never a second import UI.
 - **Export status** — **not built**; show nothing actionable, or an explicit
   "not available yet" affordance. Never imply a download exists.
 - **Snapshot backfill control** — granularity selector, an overwrite toggle with
@@ -112,4 +117,7 @@ platforms and assets (owned by Component 3) as tabs.
 - [ ] Overwrite-on visibly warns that existing snapshots will be replaced;
       overwrite-off reconciles in place without duplicating dates.
 - [ ] Data **export is explicitly absent** — nothing on the page claims to export.
-- [ ] Import is reachable/cross-referenced via Component 4 (not duplicated here).
+- [ ] Import is reachable from Settings as a one-line link to Component 4's bulk
+      surface (not duplicated here).
+- [ ] The Settings page carries **no** display-preference controls; they are in
+      the global header.

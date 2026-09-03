@@ -114,7 +114,7 @@ default.**
   them in percentage points** (your TWR − the index), plus the **dollar lifetime
   Total P&L** (the same [money-weighted](GLOSSARY.md#money-weighted) total the
   Portfolio page reports — the dollar alone, no percent companion; the % lenses
-  here are the headline TWR and the XIRR chip, and the cumulative money-weighted
+  here are the headline TWR and the MWR chip, and the cumulative money-weighted
   % lives on the [Portfolio page](08-portfolio-page.md)) and the period's
   delta percent. Time-weighting means deposits and withdrawals are removed, so
   the comparison is fair: it is the holdings' performance against the index, not
@@ -146,15 +146,37 @@ default.**
   "approximate" marker**. The toggle is hidden in the 1-day range (intraday is
   always the simple intraday change) and in value mode. The selected measure
   persists like the view mode.
-- **Lifetime XIRR chip:** the Performance-mode subtitle's lifetime Total P&L also
-  carries the **lifetime annualized [XIRR](GLOSSARY.md#money-weighted-return-mwr--xirr)**
-  ("+X.X%/yr") once the transaction history spans at least a year — the rigorous
+- **Lifetime MWR chip:** the Performance-mode subtitle's lifetime Total P&L also
+  carries the **lifetime annualized [money-weighted return](GLOSSARY.md#money-weighted-return-mwr--xirr)**
+  ("MWR +X.X%/yr") once the transaction history spans at least a year — the rigorous
   "what did each of my dollars earn per year" companion to the Total P&L
   dollars. Hidden (not zeroed) when the history is shorter or the solver has no
   solution.
 - **Value mode:** headline = current total value; an area line of value over the
   range; period delta = ΔValue (end − start) with its percent; a secondary
-  reference line for cost basis.
+  reference line for **net invested**.
+- **A window with no real starting base shows no gain.** When the range reaches
+  back before the portfolio existed (or starts at a synthetic zero), the period
+  percent is already hidden — the **amount follows the same rule**: it renders
+  in the neutral tone (never the gain/loss palette) and is labelled
+  "since first deposit", because it is the whole portfolio measured against
+  nothing, not a period gain. The same applies to the tooltip's period row.
+- **One name for net invested.** The Value-mode subtitle, the Performance
+  subtitle, the dashed reference series and its tooltip row all call it
+  **"Net invested"**. "Cost basis" is a different glossary term and stays
+  reserved for the FIFO figures (the Portfolio table's Bought column, Asset
+  Detail's Cost Basis).
+- **Both chart lines are named where they are read.** The index line is a solid
+  line in its own neutral (not a hairline — the card's whole point is the
+  comparison), and each line's colour is carried as a dot on the subtitle chip
+  that names it, so no separate legend row is needed at any width. The names
+  follow the measure switch exactly as the tooltip does: "You (TWR)" /
+  "You (MWR)", and the index becomes "<index> (same flows)" under MWR.
+- **Axis ticks land on round numbers.** The percent gridlines step in round
+  increments (0.5 / 1 / 2 / 5 …), never at whatever the money ticks happened to
+  divide into.
+- **The hero speaks the app's language.** Axis and tooltip dates render in the
+  app's display locale, and the live right-edge point is labelled "Now".
 
 **Lifetime total stays gross of the tax accrual.** The subtitle's lifetime total
 P&L (a dollar figure only) carries no
@@ -192,7 +214,7 @@ is hidden in the 1-day range.
   lives on the Portfolio page as the MWR headline). No fallback denominator
   exists — peak-invested calculations were removed app-wide (2026-08-28).
 - Performance mode never renders this delta percent (its % lenses are the
-  TWR/MWR measure headline and the XIRR chip).
+  TWR/MWR measure headline and the MWR chip).
 
 **Privacy / obfuscation toggle.** A global toggle hides monetary amounts (net
 worth, breakdown values, hero figures, tooltips) by masking them — but
@@ -256,7 +278,10 @@ display state.
   clockwise — inner ring = the top categories (Fiat as one wedge), outer ring =
   the same order with Fiat split into its currencies and every other category
   passing through unchanged. The fiat currencies share one colour family so the
-  cash wedge still reads as a single block. The center shows the portfolio total
+  cash wedge still reads as a single block, and that family is **the same one
+  the Currencies card uses** — a currency is one colour app-wide. The family is
+  deliberately one no platform colour uses, so a currency dot can never be
+  mistaken for a platform dot. The center shows the portfolio total
   at rest and the hovered slice's name/value/percent on hover; hovering a slice
   or legend row highlights it and dims the rest (chart and legend in sync). A
   caption notes "inner: asset class · outer: fiat by currency". The legend lists
@@ -266,6 +291,7 @@ display state.
   proportional bar (largest first).
 - **Currency breakdown:** ranked rows — color dot, native currency code, percent,
   value, and a proportional bar (largest first); empty-state copy when none.
+  Colours come from the shared currency palette (see Allocation).
 - **Foreign-income heads-up:** a "Foreign income · <year>" card — YTD TRY amount,
   the threshold, the percent reached, and a progress bar (default → amber at ≥ 80 %
   → red once crossed); a one-shot notification on the first crossing of the tax year.
@@ -281,10 +307,11 @@ display state.
   hidden in 1D and in value mode, persisted) re-draws the race money-weighted: the
   portfolio's cumulative window XIRR vs the same-flows what-if index, headline and
   gap following the selected measure, with no "approximate" marker in MWR. The
-  subtitle also shows the **lifetime annualized XIRR** ("+X.X%/yr") when the
+  subtitle also shows the **lifetime annualized MWR** ("+X.X%/yr") when the
   history spans ≥ 1 year. In **value mode** the chart is the value
-  area with a cost-basis reference line and a ΔValue delta (amount + percent). A row
-  of time-range buttons including **2Y**; the portfolio line is colored green when
+  area with a **net invested** reference line and a ΔValue delta (amount +
+  percent). A row of time-range choices including **2Y**, in the app's single
+  pick-one control idiom (the same one the view and measure switches use); the portfolio line is colored green when
   up / red when down for the period, keyed to whatever that line plots — the
   selected return measure (TWR or MWR) in Performance mode, the period ΔValue in
   value mode — so the line always agrees with the headline; a "not enough data"
@@ -333,7 +360,7 @@ display state.
       the **cumulative window money-weighted (XIRR) return**, the index line is the
       **same-flows what-if index**, the headline and gap-in-points follow the selected
       measure, and **no "approximate" marker** is shown.
-- [ ] The Performance-mode subtitle shows the **lifetime annualized XIRR** ("+X.X%/yr")
+- [ ] The Performance-mode subtitle shows the **lifetime annualized MWR** ("+X.X%/yr")
       only when the transaction history spans ≥ 1 year and the solver has a solution;
       otherwise the chip is absent (never a fabricated 0).
 - [ ] In the vs-market view, the subtitle's dollar lifetime **Total** P&L is
@@ -344,3 +371,14 @@ display state.
       %, period %, total %, benchmark %).
 - [ ] With < 2 points in the chosen range the hero shows a "not enough data"
       placeholder; with no assets the page shows the welcome/empty state.
+- [ ] A range with no real starting base shows its delta **in the neutral tone**,
+      labelled "since first deposit" — never in the gain colour.
+- [ ] The figure the Value subtitle, the dashed series and its tooltip row name is
+      called **"Net invested"** in all three places.
+- [ ] Both chart lines are identified by a coloured dot on the subtitle chip that
+      names them, and the index line reads as a line, not a hairline.
+- [ ] Percent gridlines land on round steps.
+- [ ] Every hero date, and the live right-edge label ("Now"), renders in the app's
+      display locale — no Turkish strings.
+- [ ] A currency has the same colour in the Allocation donut and the Currencies
+      card, and that colour is used by no platform.

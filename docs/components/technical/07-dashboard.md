@@ -29,10 +29,13 @@
   warning banners (expired / ends-soon interest positions), rendered above the
   hero and dismissable for the browser session. Owned by Component 16; see
   [technical/16-interest.md](16-interest.md).
-- `src/components/dashboard/DashboardHero.tsx` — the hero card: Value|P&L tabs,
-  the TWR|MWR measure switch, time-range buttons, benchmark `DropdownMenu`, the
-  Recharts `AreaChart`, and the headline/delta/subtitle. Owns axis-tick math (`niceStep`/`niceTicks`,
-  `compactCurrency`) and the dual-axis calibration.
+- `src/components/dashboard/DashboardHero.tsx` — the hero card: the Value|P&L,
+  TWR|MWR and time-range switches (all three are
+  `components/common/SegmentedControl`, the app's single pick-one control),
+  benchmark `DropdownMenu`, the Recharts `AreaChart`, and the
+  headline/delta/subtitle. Owns axis-tick math (`niceStep`/`niceTicks`,
+  `compactCurrency`) and the dual-axis calibration. The shadcn `Tooltip` is
+  imported **aliased as `HintTooltip`** — Recharts exports a `Tooltip` too.
 - `src/components/dashboard/NetWorthCard.tsx` — net worth: primary + secondary
   currency. (Defined and exported; **not currently mounted** by the page — the
   hero's headline shows total value. See gotchas.)
@@ -41,8 +44,10 @@
   top categories, outer `Pie` = leaves in the same order (fiat → its currencies,
   others pass through), both `paddingAngle={0}` and `startAngle={90}
   endAngle={-270}` (12 o'clock, clockwise) so the rings stay radially aligned.
-  Local `CATEGORY_COLORS`/`CATEGORY_LABELS` + a `CURRENCY_COLORS` green→teal→cyan
-  ramp for the fiat children; `labelFor`/`colorFor` resolve a node's key.
+  Local `CATEGORY_COLORS`/`CATEGORY_LABELS` + the shared
+  `CURRENCY_CHART_COLORS` (`lib/constants/currencies.ts`) for the fiat children
+  — the same map `CurrencyBreakdown` reads, so a currency is one colour app-wide;
+  `labelFor`/`colorFor` resolve a node's key.
   **Interaction is driven by local `activeKey` state** (not Recharts'
   `activeShape`/`activeIndex` — `activeIndex` was dropped in Recharts 3, where
   active state is Tooltip-bound; there is no `<Tooltip>` here): `onMouseEnter` on
@@ -60,8 +65,8 @@
 - `src/components/dashboard/PlatformBreakdown.tsx` — ranked platform list with
   percent bars (plain divs, not Recharts).
 - `src/components/dashboard/CurrencyBreakdown.tsx` — ranked native-currency list
-  with percent bars; local `CURRENCY_COLORS` map (USD blue / TRY amber / EUR
-  violet) + `FALLBACK_COLOR` slate. Mirrors `PlatformBreakdown` exactly.
+  with percent bars; colours from the shared `CURRENCY_CHART_COLORS` /
+  `CURRENCY_CHART_FALLBACK_COLOR`. Mirrors `PlatformBreakdown` exactly.
 - `src/components/dashboard/ForeignIncomeCard.tsx` — the "Foreign income · <year>"
   heads-up: reads `useForeignIncomeYtd()`, renders the YTD-vs-threshold line + a
   progress bar (`bg-primary` → `bg-amber-500` at `pct >= 80` → `bg-red-500` once
@@ -136,7 +141,7 @@
   `|startUsd| ≥ 1` — otherwise **null**, and the hero hides the percent. No
   fallback denominator exists: peak-invested calculations and
   `lib/dashboard/heroPercent.ts` were removed 2026-08-28. P&L mode never
-  renders this percent (its % lenses are the TWR/MWR measure and XIRR chip).
+  renders this percent (its % lenses are the TWR/MWR measure and the MWR chip).
 - `pnlDenom` = portfolio value at the visible start; the hero uses it to calibrate
   the left (currency) axis to the right (%) axis.
 - Benchmark overlay (P&L mode, **`measure === "twr"` only**): `closesAtOrBefore`
@@ -169,8 +174,9 @@
   currentValueUsd, today)` in P&L mode (null in value mode). Range-independent,
   so it is computed once above the 1D branch and returned by both branches.
 - `xTicks`: one tick per unique formatted label (avoids the same month string
-  repeating for dense daily snapshots); last label forced to the literal `"Şimdi"`
-  (Turkish for "Now" — the UI string in `DashboardHero`/`intraday.ts`).
+  repeating for dense daily snapshots); last label forced to `NOW_LABEL`
+  (`"Now"`, `lib/constants/app.ts` — shared with `intraday.ts`). Date labels are
+  formatted with `DISPLAY_LOCALE` (`en-US`), not `tr-TR`.
 - **1D intraday branch:** `DashboardHero` passes `intradaySnapshots` (from
   `useSnapshots` via `useDashboard`) into the hook; when `timeRange === "1D"` the
   series is built from those hourly totals by the pure `buildIntradaySeries`
@@ -236,14 +242,15 @@
   an intraday line); the 1D series comes from `buildIntradaySeries` (see the
   `useDashboardHero` 1D branch above) and the tooltip shows HH:mm times.
 - Left (currency) axis in P&L mode is still drawn for scale, calibrated so the
-  percent lines aren't clipped: `niceTicks` are taken over the TWR/benchmark
-  percent extent, and `chartData` carries a derived `pnlUsd = (twrPct / 100) ×
-  denom` purely so the left USD/TRY axis stays aligned with the right (%) axis the
-  lines actually plot on. The axis pad floor is `denom × 1%` for multi-range views
+  percent lines aren't clipped. **The round step is picked in percent**:
+  `niceTicks` runs over the *percent* extent (giving 0.5 / 1 / 2 / 5 … steps on
+  the axis both lines actually plot on) and the left axis's money ticks are
+  derived from it as `(pct / 100) × denom` — the inverse of the old order, which
+  produced gridlines at 2.1% / 8.7%. The axis pad floor is `denom × 1%` for multi-range views
   but `denom × 0.1%` for `1D`, so a sub-1% intraday day fills the chart instead of
   collapsing into a sliver. Tooltip rows show **You (TWR)** / **You (MWR)**
-  (`You ({activeMeasure.label})` — the label comes from `MEASURES`, not a second
-  string map) and the index (`benchmarkLabel`). The **You** row shows the
+  (`youLabel`, built once from `MEASURES` and reused by the legend dot's row —
+  one label source, not a second string map) and the index (`benchmarkLabel`). The **You** row shows the
   money gained since the window start beside the percent — the hovered point's
   `valueUsd`/`valueTry` from `displayChartData` (already rebased to 0 at the
   window's first point), via `formatSignedCurrency` wrapped in `obfuscate`,
@@ -254,14 +261,14 @@
   (`gainLossClass(twrEnd > 0)`, muted when exactly flat), followed by the period's
   money gain in a smaller inline span (`text-lg sm:text-xl md:text-2xl` vs the
   percent's `2xl…4xl`): `formatSignedCurrency(periodDeltaValue, currency)` wrapped
-  in `obfuscate` — the same window-rebased delta the tooltip's "Şimdi" row shows.
+  in `obfuscate` — the same window-rebased delta the tooltip's "Now" row shows.
   It is colored by `periodColor` (its own sign, keyed off `delta.usd`), not
   `twrColor` — a mid-window deposit can flip the two signs apart. Its sub-label
   comes from
   `MEASURE_SUBLABELS[effectiveMeasure]` — TWR: "Growth vs market — time-weighted,
   deposits/withdrawals removed"; MWR: "Your money's growth — money-weighted,
   deposit timing included". The subtitle row shows the
-  dollar lifetime **Total** P&L (+ %), the lifetime XIRR chip (below), and the
+  dollar lifetime **Total** P&L (+ %), the lifetime MWR chip (below), and the
   benchmark dropdown label (`benchmarkLabel` = `activeBenchmark.label` +
   `WHAT_IF_LABEL_SUFFIX` `" (same flows)"` under MWR, so the user can tell the grey
   line changed meaning) with `formatSignedPercent(benchmarkEnd, 2)` and the gap
@@ -269,25 +276,31 @@
   (`gainLossClass(gapPts > 0)` — green when ahead of the market). An
   **"approximate"** badge renders next to the headline when `approximate` is true —
   which the hook never sets under MWR, so no extra gate is needed here. The row
-  closes with the **Invested** amount.
-- **Lifetime XIRR chip (P&L mode):** rendered in the subtitle right after the
-  Total figure as `· XIRR {formatSignedPercent(lifetimeXirrPct, 1)}{"/yr"}`
-  (`XIRR_LABEL` + `XIRR_PER_YEAR_SUFFIX`), colored by `xirrColor`
-  (`gainLossClass(lifetimeXirrPct > 0)`, muted at 0). Rendered **only when
+  closes with the **`NET_INVESTED_LABEL`** amount ("Net invested" — the same
+  string the Value subtitle, the dashed series and its tooltip row use).
+  The benchmark chip carries a `SeriesDot` in `BENCHMARK_STROKE`, and the
+  measure sub-label carries one in `strokeColor`: those two dots ARE the chart
+  legend (no separate legend row at any width).
+- **Lifetime MWR chip (P&L mode):** rendered in the subtitle right after the
+  Total figure as `· MWR {formatSignedPercent(lifetimeXirrPct, DECIMALS.percentageRate)}{"/yr"}`
+  (`MWR_LABEL` + `MWR_PER_YEAR_SUFFIX` from `lib/constants/returns.ts`, shared
+  with the Portfolio summary bar and Asset Detail), colored by `xirrColor`
+  (`gainLossToneClass`). The explainer is a `HintTooltip`, not a bare `title`
+  (a `title` never fires on touch). Rendered **only when
   `lifetimeXirrPct != null`** — no "—" placeholder, no fabricated 0. It is a
   percent, so it is deliberately **not** wrapped in `obfuscate`.
 - **"Total" subtitle (P&L mode):** the dollar figure is rendered from the gross
   `totalPnlUsd`/`Try` props (usePnLSummary); colour/sign use
-  `gainLossClass(totalPnlUsdNow > 0)`. **No percent companion** — the peak-based
+  `gainLossToneClass(totalPnlUsdNow)`. **No percent companion** — the peak-based
   `totalPnlPct` prop was removed (2026-08-28); the money-weighted % surfaces as
-  the XIRR chip here and as the Portfolio summary bar's cumulative MWR %. No
+  the MWR chip here and as the Portfolio summary bar's cumulative MWR %. No
   after-tax figures are rendered or plumbed here — the engine's tax accrual
   surfaces only on the Portfolio page's taxed rows (component 8).
 
 ### MWR / XIRR measure (implementation contract)
 
 The Performance mode's TWR | MWR measure switch (behavioral spec: measure toggle +
-lifetime XIRR chip) is built on a dedicated engine module:
+lifetime MWR chip) is built on a dedicated engine module:
 
 - **`src/lib/xirr.ts`** — the **solver leaf module**, and the app's single
   money-weighted mathematical core. Imports nothing from `lib/performance.ts` or
@@ -392,7 +405,7 @@ lifetime XIRR chip) is built on a dedicated engine module:
   when `viewMode === "pnl" && timeRange !== "1D"`; headline sub-label from
   `MEASURE_SUBLABELS`; tooltip lead row label follows the measure ("You (TWR)" /
   "You (MWR)") and the benchmark label gains `" (same flows)"` under MWR; the
-  Total subtitle appends the lifetime XIRR chip ("+X.X%/yr") when
+  Total subtitle appends the lifetime MWR chip ("+X.X%/yr") when
   `lifetimeXirrPct` is non-null (percent — stays visible under obfuscation).
 
 ## Notes & gotchas

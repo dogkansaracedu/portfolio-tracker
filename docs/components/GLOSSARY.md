@@ -96,7 +96,19 @@ the rate on (or just before) its date.
 All P&L is measured in **USD**, regardless of an asset's native currency. A holding
 is tracked in its native units, but its gain/loss is always the change in USD value.
 
+**Anchoring is not display.** The display-currency toggle re-denominates every
+money figure on screen — value *and* P&L, cost basis, realized/unrealized,
+income, daily return, subtotals — at today's rate, so a row never shows two
+currencies at once. The anchor never moves: conversion happens at the edge, on
+the way to the screen. The exception is a **per-unit price**, which is
+asset-native by definition and shows its USD equivalent alongside.
+
 ### Net invested capital
+**"Net invested" is the one user-facing name for this figure** — the dashboard
+hero's Value and Performance subtitles, its dashed reference series and that
+series' tooltip row all use it. Never "Cost basis" (a different term, below) and
+never a bare "Invested".
+
 The **net USD actually deployed** into a position or the portfolio. Deposits and the
 cash legs of trades net out — a sell and its paired `cash_credit` cancel — so this
 reflects capital at work, not cash sloshing in and out. Total P&L $ is `value − net
@@ -170,6 +182,19 @@ participate at its first available level.
 Buys stack as **lots**; a sell consumes the **oldest lots first** (FIFO) and books
 realized P&L per consumed lot. **Cost basis** = the USD cost of the remaining lots.
 Transfers move cost basis across platforms without booking P&L.
+
+**"Cost basis" is reserved for this FIFO figure** — the Portfolio table's Bought
+column and Asset Detail's Cost Basis. The dashboard hero's reference series is
+[net invested](#net-invested-capital), which is a different quantity and is
+never called cost basis.
+
+### Zero is neutral
+The gain/loss palette is for figures that **moved**. A figure that is flat — a
+cash row that did not move today, a period with no starting base to measure
+against, a $0.00 volume — renders in the neutral (muted) tone, never green.
+Green on a zero reads as a gain that did not happen. Direction on a signed
+figure is carried by its ASCII minus and its colour; a leading "+" is never
+used.
 
 ### Realized and unrealized
 **Realized** = P&L locked in by sells (FIFO). **Unrealized** = current value −
@@ -462,8 +487,12 @@ The lifetime **cumulative [money-weighted return](#money-weighted-return-xirr-fo
 solve the XIRR of every external flow (at its real date, opening value 0)
 against the live value today, then de-annualize over the book's own span —
 `(1+r)^years − 1`. The same lens as the per-asset return %. Shown on the
-Portfolio summary bar (labelled MWR) and the Performance page's All-Time
-Return; the dashboard hero shows the Total P&L dollar alone. "—"/absent when
+Portfolio summary bar and the Performance page's All-Time Return; the dashboard
+hero shows the Total P&L dollar alone. **The label is `MWR` everywhere** —
+Portfolio summary bar, Asset Detail total return, and the hero's lifetime chip
+(which appends `/yr`, the only place the annualised reading is shown). Its
+explainer is reachable by hover **and** tap. "XIRR" is the method's name in this
+glossary and in code, not a UI label. "—"/absent when
 the solver has no answer. (The former peak-net-invested ratio was removed
 2026-08-28 along with all peak calculations; a current-net-invested ratio is
 equally banned — it shrinks on withdrawal and explodes near zero.)
