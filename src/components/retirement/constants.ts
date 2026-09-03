@@ -85,7 +85,15 @@ export const EARLIEST_RETIREMENT_LINE_LABEL = (age: string) =>
   `Earliest retirement: ${age}`
 
 export const RETIREMENT_AGE_LINE_LABEL = (age: string) => `Retirement age ${age}`
-export const RETIREMENT_TARGET_LINE_LABEL = "Retirement target"
+
+/** The target line carries its own value — an unlabelled dashed rule at an
+ *  arbitrary height says nothing about how far away the target is. */
+export const RETIREMENT_TARGET_LINE_LABEL = (value: string) =>
+  `Retirement target ${value}`
+
+/** A projection spent to zero: said in the cell, the tooltip and on the chart
+ *  as a marker, because a floored 0 alone reads as "no data". */
+export const DEPLETED_AT_LABEL = (age: string) => `Depleted at age ${age}`
 
 export const COAST_CHART_TITLE = "Coast FIRE number vs. projected portfolio"
 export const COAST_DATE_MARKER_LABEL = "Coast date"

@@ -346,6 +346,7 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
           milestones={milestones}
           projections={projections}
           startingAmountUsd={startingAmountUsd}
+          currentAge={inputs.currentAge}
           display={display}
         />
       )}

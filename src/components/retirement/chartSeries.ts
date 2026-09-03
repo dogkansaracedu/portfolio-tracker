@@ -34,6 +34,31 @@ export function ageAt(currentAge: number, monthsFromNow: number): number {
   return currentAge + monthsFromNow / MONTHS_PER_YEAR
 }
 
+/**
+ * A plan that overspends runs negative in the maths — deliberately, so the
+ * solvers can see how far short it falls. A **portfolio value** of −$2.16M is
+ * not a thing anyone owns, so everything DISPLAYED is floored at zero: the
+ * chart line, the band and the milestone figures. The floor is display-only;
+ * `projectGrowth` and every solver keep the unfloored series.
+ */
+export function floorForDisplay(value: number): number {
+  return Math.max(0, value)
+}
+
+/**
+ * The age a projection is spent to zero by — the first month whose value is
+ * not positive — or null while it stays solvent. Read from the SAME projection
+ * the chart draws, so the marker and the flooring can never disagree.
+ */
+export function depletionAge(
+  projection: Projection,
+  currentAge: number,
+): number | null {
+  const index = projection.months.findIndex((m) => m.valueUsd.lte(0))
+  if (index === -1) return null
+  return ageAt(currentAge, index + 1)
+}
+
 export interface BandPoint {
   age: number
   monthsFromNow: number
@@ -69,8 +94,11 @@ export function buildBandPoints({
     return {
       age: ageAt(currentAge, monthsFromNow),
       monthsFromNow,
-      base: at(PROJECTION_BAND.base),
-      range: [Math.min(low, high), Math.max(low, high)] as [number, number],
+      base: floorForDisplay(at(PROJECTION_BAND.base)),
+      range: [
+        floorForDisplay(Math.min(low, high)),
+        floorForDisplay(Math.max(low, high)),
+      ] as [number, number],
     }
   })
 }

@@ -35,5 +35,17 @@ export const DEFAULT_INCOME_LABEL = "default"
 /** How many months the table shows before "Show all". */
 export const DEFAULT_VISIBLE_MONTHS = 12
 
+/** Copy for the income cell's editors. A month with several entries opens the
+ *  list editor instead of a single amount input — the cell's total is not any
+ *  one entry's amount, so it cannot be typed over. */
+export const INCOME_EDIT_COPY = {
+  singleHint: "Click to edit this month's income",
+  multiHint: "Several income entries this month — click to edit them",
+  listTitle: "Income entries",
+  amountLabel: "Amount",
+  deleteLabel: "Delete entry",
+  defaultNote: "Falls back to the salary default when every entry is removed.",
+} as const
+
 /** Inline-created income entries are salary-like: TRY unless edited elsewhere. */
 export const INCOME_ENTRY_DEFAULT_CURRENCY = "TRY" as const

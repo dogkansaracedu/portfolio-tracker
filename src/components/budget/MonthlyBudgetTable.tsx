@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,6 +21,7 @@ import type { CashflowEntry } from "@/types/database"
 import {
   DEFAULT_INCOME_LABEL,
   DEFAULT_VISIBLE_MONTHS,
+  INCOME_EDIT_COPY,
   INCOME_ENTRY_DEFAULT_CURRENCY,
   IN_PROGRESS_LABEL,
   NO_DATA_PLACEHOLDER,
@@ -68,7 +70,6 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
 
   const startEditing = (row: MonthlyBudgetRow) => {
     const monthEntries = entriesByMonth.get(row.month) ?? []
-    if (monthEntries.length > 1) return
     setEditingMonth(row.month)
     setDraft(monthEntries.length === 1 ? String(monthEntries[0].amount) : "")
   }
@@ -133,7 +134,14 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {editing ? (
+                      {editing && monthEntries.length > 1 ? (
+                        <MultiEntryEditor
+                          entries={monthEntries}
+                          onClose={() => setEditingMonth(null)}
+                          onUpdate={updateEntry}
+                          onRemove={removeEntry}
+                        />
+                      ) : editing ? (
                         <span className="inline-flex items-center justify-end gap-1">
                           <span className="text-xs text-muted-foreground">
                             {CURRENCY_SYMBOLS[entryCurrency as FiatCurrency] ??
@@ -155,12 +163,11 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                       ) : (
                         <button
                           type="button"
-                          className="cursor-pointer underline-offset-4 hover:underline disabled:cursor-default disabled:no-underline"
-                          disabled={monthEntries.length > 1}
+                          className="cursor-pointer underline-offset-4 hover:underline"
                           title={
                             monthEntries.length > 1
-                              ? "Several income entries this month — edit them individually"
-                              : "Click to edit this month's income"
+                              ? INCOME_EDIT_COPY.multiHint
+                              : INCOME_EDIT_COPY.singleHint
                           }
                           onClick={() => startEditing(row)}
                         >
@@ -204,5 +211,95 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
         )}
       </CardContent>
     </Card>
+  )
+}
+
+// ─── Multi-entry income editor ──────────────────────────────────────
+
+/**
+ * A month with several income entries: the cell shows their TOTAL, which is
+ * nobody's amount — so it opens this list instead of a typed-over cell. One row
+ * per entry (its own date and currency), each editable or deletable on the
+ * spot. Removing the last one falls the month back to the salary default.
+ */
+function MultiEntryEditor({
+  entries,
+  onClose,
+  onUpdate,
+  onRemove,
+}: {
+  entries: CashflowEntry[]
+  onClose: () => void
+  onUpdate: (id: string, patch: { amount: number }) => Promise<unknown>
+  onRemove: (id: string) => Promise<unknown>
+}) {
+  return (
+    <div className="ml-auto flex w-56 flex-col gap-2 rounded-md border bg-popover p-2 text-left">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium">{INCOME_EDIT_COPY.listTitle}</span>
+        <Button variant="ghost" size="xs" onClick={onClose}>
+          Done
+        </Button>
+      </div>
+      {entries.map((entry) => (
+        <EntryRow
+          key={entry.id}
+          entry={entry}
+          onUpdate={onUpdate}
+          onRemove={onRemove}
+        />
+      ))}
+      <p className="text-[11px] text-muted-foreground">
+        {INCOME_EDIT_COPY.defaultNote}
+      </p>
+    </div>
+  )
+}
+
+function EntryRow({
+  entry,
+  onUpdate,
+  onRemove,
+}: {
+  entry: CashflowEntry
+  onUpdate: (id: string, patch: { amount: number }) => Promise<unknown>
+  onRemove: (id: string) => Promise<unknown>
+}) {
+  const [value, setValue] = useState(String(entry.amount))
+
+  const commit = async () => {
+    const amount = Number(value.trim())
+    if (!Number.isFinite(amount) || amount <= 0 || amount === entry.amount) return
+    await onUpdate(entry.id, { amount })
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <span className="w-10 shrink-0 text-[11px] text-muted-foreground">
+        {entry.date.slice(8, 10)}/{entry.date.slice(5, 7)}
+      </span>
+      <span className="shrink-0 text-xs text-muted-foreground">
+        {CURRENCY_SYMBOLS[entry.currency as FiatCurrency] ?? entry.currency}
+      </span>
+      <Input
+        type="number"
+        aria-label={INCOME_EDIT_COPY.amountLabel}
+        className="h-7 min-w-0 flex-1 text-right"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void commit()
+        }}
+      />
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label={INCOME_EDIT_COPY.deleteLabel}
+        onClick={() => void onRemove(entry.id)}
+      >
+        <Trash2 className="size-3.5" />
+      </Button>
+    </div>
   )
 }
