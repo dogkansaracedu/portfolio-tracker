@@ -22,8 +22,9 @@
   `{ transactions, loading, filters, setFilters, summary }` from `useTransactionLog`,
   the `transaction → realized` map from `useRealizedPnL`, and the modal opener from
   `TransactionContext`. Header has **Add Transaction** (opens modal) and **Bulk add**
-  (links to `/transactions/edit`); the `h1`/subtitle block is `hidden md:block`
-  so the phone header is the only page title. It separately fetches the linked-child map for the
+  (links to `/transactions/edit`); its title block is the shared `PageHeading`
+  (`src/components/common/PageHeading.tsx`, `hidden md:block`) so the phone
+  header is the only page title. It separately fetches the linked-child map for the
   visible parents (`fetchLinkedChildrenForParents`) and threads it to the list.
 - `src/pages/TransactionsEditPage.tsx` — the **bulk-import / spreadsheet** page (full
   viewport, rendered outside the app layout). `/transactions/edit` = blank bulk-add

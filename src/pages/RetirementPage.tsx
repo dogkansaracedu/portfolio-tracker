@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { PageHeading } from "@/components/common/PageHeading"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRetirementPlanner } from "@/hooks/useRetirementPlanner"
 import { CompareTab } from "@/components/retirement/CompareTab"
@@ -48,15 +49,10 @@ export default function RetirementPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        {/* The phone header already names the page — the title block only
-            exists from `md` up (same rule as Portfolio and Transactions). */}
-        <div className="hidden md:block">
-          <h1 className="text-2xl font-bold">Retirement</h1>
-          <p className="text-muted-foreground">
-            Ask your plan when you can retire, when you can stop contributing,
-            how much to put in — and compare the options.
-          </p>
-        </div>
+        <PageHeading
+          title="Retirement"
+          subtitle="Ask your plan when you can retire, when you can stop contributing, how much to put in — and compare the options."
+        />
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             Value view

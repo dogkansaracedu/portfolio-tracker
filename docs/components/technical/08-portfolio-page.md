@@ -18,8 +18,9 @@
 - `src/pages/PortfolioPage.tsx` — page shell. Pulls everything from
   `usePortfolio`, renders summary bar → filters → table; threads `returnMode` +
   `dailyReturnAvailable` to the table and `returnMode`/`onReturnModeChange` to the
-  filters. The `h1`/subtitle block is `hidden md:block` — on a phone the app
-  header is the only page title.
+  filters. Its title block is the shared `PageHeading`
+  (`src/components/common/PageHeading.tsx`, `hidden md:block`) — on a phone the
+  app header is the only page title.
 - `src/components/portfolio/PortfolioTable.tsx` — the 9-column `Table` (shown
   from `xl`, i.e. 1280px, where the 240px sidebar still leaves a container the
   table's ~992px fits) + the card list (`xl:hidden`, every width below it —
