@@ -27,6 +27,7 @@ function rowFromTx(tx: TransactionWithDetails): SheetRow {
     status: "clean",
     original: snap,
     errors: {},
+    saveError: null,
   }
 }
 
@@ -90,6 +91,7 @@ function blankRow(defaults: BlankRowDefaults = {}): SheetRow {
     status: "new",
     original: null,
     errors: {},
+    saveError: null,
   }
 }
 
@@ -140,7 +142,9 @@ function reduce(state: SheetState, action: Action): SheetState {
             nextStatus = "dirty"
           }
         }
-        return { ...patched, status: nextStatus, errors: {} }
+        // Editing the row answers the previous save's complaint about it —
+        // keeping a stale server message beside changed values would lie.
+        return { ...patched, status: nextStatus, errors: {}, saveError: null }
       })
       return { ...state, rows: next }
     }
@@ -164,7 +168,7 @@ function reduce(state: SheetState, action: Action): SheetState {
               ? "clean"
               : "dirty"
         }
-        return { ...patched, status: nextStatus, errors: {} }
+        return { ...patched, status: nextStatus, errors: {}, saveError: null }
       })
       return { ...state, rows: next }
     }
@@ -184,6 +188,7 @@ function reduce(state: SheetState, action: Action): SheetState {
           status: "new" as RowStatus,
           original: null,
           errors: {},
+          saveError: null,
         }
       })
       return { ...state, rows: [...state.rows, ...made] }
@@ -219,6 +224,7 @@ function reduce(state: SheetState, action: Action): SheetState {
             ...r.original,
             status: "clean" as RowStatus,
             errors: {},
+            saveError: null,
           }
         })
       // pendingDeletes need to come back as clean rows. The component will
@@ -233,7 +239,9 @@ function reduce(state: SheetState, action: Action): SheetState {
         const errors = validateRow(r)
         const hasError = Object.keys(errors).length > 0
         const nextStatus: RowStatus = hasError ? "invalid" : r.status === "invalid" ? (r.txId ? "dirty" : "new") : r.status
-        return { ...r, errors, status: nextStatus }
+        // A fresh Save attempt starts from a clean slate: the previous
+        // attempt's server message must not outlive the retry.
+        return { ...r, errors, status: nextStatus, saveError: null }
       })
       return { ...state, rows: next }
     }
@@ -248,6 +256,7 @@ function reduce(state: SheetState, action: Action): SheetState {
           status: "clean" as RowStatus,
           original: snap,
           errors: {},
+          saveError: null,
         }
       })
       return { ...state, rows: next }
@@ -259,7 +268,9 @@ function reduce(state: SheetState, action: Action): SheetState {
           ? {
               ...r,
               status: "invalid" as RowStatus,
-              errors: { ...r.errors, notes: action.message },
+              // Row-level: `notes` has no column in the grid, so an error
+              // parked there highlighted a row whose reason nothing rendered.
+              saveError: action.message,
             }
           : r,
       )
