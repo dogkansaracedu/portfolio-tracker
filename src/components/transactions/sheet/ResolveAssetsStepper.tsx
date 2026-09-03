@@ -157,10 +157,14 @@ export function ResolveAssetsStepper({
         .split(",")
         .map((t) => t.trim().toLowerCase())
         .filter(Boolean)
+      // Every ticker-shaped field comes off `trimmedTicker`, never off
+      // `form.ticker` again: a trailing space that reached `price_id` broke
+      // every later price fetch for the asset while `ticker` itself looked
+      // clean, so the two must not be read from different places.
       const created = await addAsset({
         category: form.category,
         ticker: trimmedTicker,
-        price_id: form.ticker,
+        price_id: trimmedTicker,
         name: trimmedName,
         tags,
         price_source: form.priceSource,
