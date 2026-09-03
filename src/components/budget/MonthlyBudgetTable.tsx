@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/table"
 import { HintPopover } from "@/components/common/HintPopover"
 import { useBudgetContext } from "@/contexts/BudgetContext"
+import { useReportedWrite } from "@/hooks/useReportedWrite"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { formatCurrency, formatMoney, formatSignedPercent } from "@/lib/prices"
 import { CURRENCY_SYMBOLS, type FiatCurrency } from "@/lib/constants/currencies"
@@ -40,6 +41,7 @@ import type { MonthlyBudgetRow } from "@/lib/budget"
 import type { CashflowEntry } from "@/types/database"
 import {
   BUDGET_SERIES_LABELS,
+  BUDGET_WRITE_FAILED,
   DEFAULT_INCOME_LABEL,
   DEFAULT_VISIBLE_MONTHS,
   INCOME_EDIT_COPY,
@@ -68,6 +70,7 @@ interface Props {
 export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
   const { entries, createEntry, updateEntry, removeEntry } = useBudgetContext()
   const { obfuscated } = useDisplayCurrency()
+  const { error, reported } = useReportedWrite(BUDGET_WRITE_FAILED)
   const [showAll, setShowAll] = useState(false)
   const [editingMonth, setEditingMonth] = useState<string | null>(null)
   const [draft, setDraft] = useState("")
@@ -97,29 +100,36 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
   }
 
   const commit = async (month: string) => {
-    setEditingMonth(null)
     const monthEntries = entriesByMonth.get(month) ?? []
     const trimmed = draft.trim()
     const amount = Number(trimmed)
+    const valid = Number.isFinite(amount) && amount > 0
+    const single = monthEntries.length === 1 ? monthEntries[0] : null
 
-    if (monthEntries.length === 1) {
-      const entry = monthEntries[0]
-      if (trimmed === "") {
-        await removeEntry(entry.id)
-      } else if (Number.isFinite(amount) && amount > 0 && amount !== entry.amount) {
-        await updateEntry(entry.id, { amount })
-      }
-      return
-    }
-    if (trimmed !== "" && Number.isFinite(amount) && amount > 0) {
-      await createEntry({
+    // What this commit writes, if anything.
+    let write: Promise<unknown> | null = null
+    if (single && trimmed === "") write = removeEntry(single.id)
+    else if (single && valid && amount !== single.amount)
+      write = updateEntry(single.id, { amount })
+    else if (!single && trimmed !== "" && valid)
+      write = createEntry({
         date: `${month}-01`,
         type: "income",
         amount,
         currency: INCOME_ENTRY_DEFAULT_CURRENCY,
         note: null,
       })
+
+    // Nothing to write (unchanged, or unparseable) → just leave the editor.
+    if (!write) {
+      setEditingMonth(null)
+      return
     }
+    // The editor closes only once the write LANDS. It used to close before the
+    // await and swallow the rejection, so a refused edit was indistinguishable
+    // from one the user reverted; now the typed amount stays put and the
+    // reason appears under the table.
+    if (await reported(write)) setEditingMonth(null)
   }
 
   return (
@@ -242,6 +252,7 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
               })}
             </TableBody>
         </Table>
+        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
         {rows.length > DEFAULT_VISIBLE_MONTHS && (
           <Button
             variant="ghost"
@@ -284,6 +295,9 @@ function MultiEntryDialog({
   onUpdate: (id: string, patch: { amount: number }) => Promise<unknown>
   onRemove: (id: string) => Promise<unknown>
 }) {
+  // The dialog reports its own rows' failures — it covers the table's error
+  // line, so a report left behind there would be unreadable until it closes.
+  const { error, reported } = useReportedWrite(BUDGET_WRITE_FAILED)
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-sm">
@@ -297,14 +311,15 @@ function MultiEntryDialog({
             <EntryRow
               key={entry.id}
               entry={entry}
-              onUpdate={onUpdate}
-              onRemove={onRemove}
+              onUpdate={(id, patch) => reported(onUpdate(id, patch))}
+              onRemove={(id) => reported(onRemove(id))}
             />
           ))}
           <p className="text-xs text-muted-foreground">
             {INCOME_EDIT_COPY.defaultNote}
           </p>
         </DialogBody>
+        {error && <p className="pt-2 text-sm text-destructive">{error}</p>}
         <DialogFooter>
           <Button onClick={onClose}>{INCOME_EDIT_COPY.done}</Button>
         </DialogFooter>
@@ -319,8 +334,9 @@ function EntryRow({
   onRemove,
 }: {
   entry: CashflowEntry
-  onUpdate: (id: string, patch: { amount: number }) => Promise<unknown>
-  onRemove: (id: string) => Promise<unknown>
+  /** Both resolve `true` only when the write landed — the dialog reports. */
+  onUpdate: (id: string, patch: { amount: number }) => Promise<boolean>
+  onRemove: (id: string) => Promise<boolean>
 }) {
   const [value, setValue] = useState(String(entry.amount))
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -388,8 +404,11 @@ function EntryRow({
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
-                void onRemove(entry.id)
-                setConfirmOpen(false)
+                // Closes only once the delete lands; a refused delete keeps
+                // the confirmation up and the dialog says why.
+                void onRemove(entry.id).then((ok) => {
+                  if (ok) setConfirmOpen(false)
+                })
               }}
             >
               {INCOME_EDIT_COPY.deleteConfirm}
