@@ -133,6 +133,13 @@ export const ADD_ROW_LABEL = "Add row"
 export const IMPORT_LABEL = "Import"
 export const MIDAS_IMPORT_LABEL = "Import from Midas"
 
+/** The bulk editor's phone entry screen: importing a statement is the only
+ *  thing this page is used for on a phone, so it leads with the imports and
+ *  the grid appears once there are rows. */
+export const BULK_EDITOR_PHONE_INTRO =
+  "Import a statement or a copied table — the rows appear here for review before you save."
+export const BULK_EDITOR_PHONE_ADD_BY_HAND = "…or add a row by hand"
+
 /** What the Add-transaction form's Type row offers. Deliberately the SAME
  *  vocabulary as the log's filter chips, so the form can record everything the
  *  log can show: the user-pickable stored types plus the derived internal

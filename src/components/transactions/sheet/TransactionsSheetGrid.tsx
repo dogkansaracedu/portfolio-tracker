@@ -90,6 +90,17 @@ function localDayAsUtcMidnight(date: string): string {
 
 const COL_COUNT = 10
 
+/**
+ * The first two columns are pinned on a phone: without them a sideways scroll
+ * of a 690px grid inside 390px loses which row you are editing. Row number is
+ * `w-10` (40px), so the ticker column pins at `left-10`. Both need an opaque
+ * background — the columns they scroll over would otherwise show through.
+ */
+const PINNED_ROW_NUMBER_CLASS =
+  "max-sm:sticky max-sm:left-0 max-sm:w-10 max-sm:min-w-10 max-sm:bg-background"
+const PINNED_TICKER_CLASS =
+  "max-sm:sticky max-sm:left-10 max-sm:w-[7.5rem] max-sm:bg-background"
+
 export function TransactionsSheetGrid({
   assetId,
   assets,
@@ -478,8 +489,18 @@ export function TransactionsSheetGrid({
     <table className="w-full caption-bottom border-separate border-spacing-0 text-sm">
       <TableHeader className="sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_var(--border)]">
         <TableRow className="hover:bg-transparent">
-          <TableHead className="w-10 px-2 py-3 text-right text-xs font-normal text-muted-foreground" />
-          <TableHead className="px-2 py-3 text-xs font-medium text-muted-foreground">
+          <TableHead
+            className={cn(
+              "w-10 px-2 py-3 text-right text-xs font-normal text-muted-foreground max-sm:z-30",
+              PINNED_ROW_NUMBER_CLASS,
+            )}
+          />
+          <TableHead
+            className={cn(
+              "px-2 py-3 text-xs font-medium text-muted-foreground max-sm:z-30",
+              PINNED_TICKER_CLASS,
+            )}
+          >
             Ticker / Company
           </TableHead>
           <TableHead className="px-2 py-3 text-xs font-medium text-muted-foreground">
@@ -528,10 +549,16 @@ export function TransactionsSheetGrid({
               className={cn("border-b last:border-b", ROW_STATUS_TINT[row.status])}
               data-status={row.status}
             >
-              <TableCell className="w-10 px-2 py-2 text-right align-middle text-xs text-muted-foreground tabular-nums">
+              <TableCell
+                className={cn(
+                  "w-10 px-2 py-2 text-right align-middle text-xs text-muted-foreground tabular-nums max-sm:z-10",
+                  PINNED_ROW_NUMBER_CLASS,
+                )}
+              >
                 {idx + 1}
               </TableCell>
               <AssetCell
+                className={cn("max-sm:z-10", PINNED_TICKER_CLASS)}
                 value={row.assetId}
                 assets={assets}
                 error={row.errors.assetId}
