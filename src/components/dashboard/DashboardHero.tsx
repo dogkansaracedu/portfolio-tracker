@@ -538,7 +538,7 @@ export default function DashboardHero({
               <>
                 {formatSignedPercent(twrEnd, 2)}
                 {/* Period money gain (window-rebased delta — same figure the
-                    tooltip's "Şimdi" row shows), smaller beside the %. Colored
+                    tooltip's "Now" row shows), smaller beside the %. Colored
                     by its own sign, not the %'s: a mid-window deposit can flip
                     money-weighted delta and TWR apart. */}
                 <span
