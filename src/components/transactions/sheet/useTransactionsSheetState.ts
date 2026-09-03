@@ -110,7 +110,7 @@ type Action =
   | { kind: "discardAll" }
   | { kind: "validateAll" }
   | { kind: "commitSaveSuccess"; rowKey: string; txId: string }
-  | { kind: "markSaveError"; rowKey: string; message: string }
+  | { kind: "markSaveError"; rowKey: string; message: string | null }
   | {
       kind: "resolveAssetSentinel"
       sentinel: string
@@ -346,9 +346,16 @@ export function useTransactionsSheetState() {
     dispatch({ kind: "commitSaveSuccess", rowKey, txId })
   }, [])
 
-  const markSaveError = useCallback((rowKey: string, message: string) => {
-    dispatch({ kind: "markSaveError", rowKey, message })
-  }, [])
+  /** Mark a row as refused. `message` is the reason to print on the row; pass
+   *  `null` when the reason is not this row's own — an atomic batch insert
+   *  fails once, for every row at once, and its reason is shown by the page
+   *  chrome rather than repeated under each row. */
+  const markSaveError = useCallback(
+    (rowKey: string, message: string | null) => {
+      dispatch({ kind: "markSaveError", rowKey, message })
+    },
+    [],
+  )
 
   const resolveAssetSentinel = useCallback(
     (sentinel: string, realAssetId: string, priceCurrency: string) => {
