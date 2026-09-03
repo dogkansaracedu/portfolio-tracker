@@ -34,7 +34,7 @@ import {
 import { HintPopover } from "@/components/common/HintPopover"
 import { useBudgetContext } from "@/contexts/BudgetContext"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatMoney, formatSignedPercent } from "@/lib/prices"
+import { formatCurrency, formatMoney, formatSignedPercent } from "@/lib/prices"
 import { CURRENCY_SYMBOLS, type FiatCurrency } from "@/lib/constants/currencies"
 import type { MonthlyBudgetRow } from "@/lib/budget"
 import type { CashflowEntry } from "@/types/database"
@@ -322,16 +322,19 @@ function EntryRow({
   onUpdate: (id: string, patch: { amount: number }) => Promise<unknown>
   onRemove: (id: string) => Promise<unknown>
 }) {
-  const { obfuscated } = useDisplayCurrency()
   const [value, setValue] = useState(String(entry.amount))
   const [confirmOpen, setConfirmOpen] = useState(false)
-  // The entry's own currency, never the display one: this is the amount that
-  // was typed, and the confirmation names the row being deleted. Grouped and
-  // masked like every other money figure — the same edge the cells use.
-  const amountLabel = formatMoney(
+  // Grouped, and in the entry's OWN currency (this is the amount that was
+  // typed, never re-denominated) — it used to be `${symbol}${amount}`.
+  //
+  // Deliberately NOT masked, the one exception on this page: this list edits
+  // raw amounts in text inputs, which cannot mask, so the figure is already on
+  // screen in the clear two rows up. Masking it here would buy no privacy and
+  // would cost a non-undoable confirmation the only field that says WHICH of
+  // the month's entries is about to go.
+  const amountLabel = formatCurrency(
     entry.amount,
     entry.currency as FiatCurrency,
-    obfuscated,
   )
 
   const commit = async () => {

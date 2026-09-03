@@ -92,7 +92,10 @@ export function ScenarioNameDialog({
         {/* `contents` keeps the form out of the sheet's flex column, so the
             body scrolls between a fixed header and a pinned footer. */}
         <form onSubmit={handleSubmit} className="contents">
-          <DialogBody className="grid gap-4 py-1">
+          {/* `content-start`: `DialogBody` is `flex-1`, so on a phone (a
+              full-height sheet) a one-field grid stretched its rows apart and
+              pushed the error line a screen below the field it explains. */}
+          <DialogBody className="grid content-start gap-4 py-1">
             <div className="grid gap-2">
               <Label htmlFor="scenario-name">
                 {SCENARIO_NAME_DIALOG_COPY.nameLabel}

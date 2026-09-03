@@ -80,14 +80,21 @@ A top-level page alongside Dashboard / Portfolio / Retirement:
   effective-from month), appendable and deletable.
 - The page follows the **app-wide display currency** (USD/TRY); derived figures
   are normalized using each transaction's or entry's own date rate.
-- Every money figure on the page — table cells, the chart's **axis ticks and
-  tooltip**, the salary schedule's amounts, and the amount named in the
-  delete-entry confirmation — is hidden by the **privacy toggle**, and every one
-  is grouped by its currency's own conventions. An unmasked chart axis would
-  hand the hidden figures straight back, since the bars are still to scale; the
-  bar *shape* stays visible, for the same reason percentages do. Amounts that
-  belong to a single entry (a schedule row, the entry being deleted) render in
-  **that entry's own currency**, never re-denominated.
+- Every money figure on the page is grouped by its currency's own conventions,
+  and hidden by the **privacy toggle**: table cells, the trend chart, and the
+  salary schedule's amounts. An unmasked chart axis would hand the hidden
+  figures straight back, since the bars are still to scale — so with amounts
+  hidden the axis **keeps its scale and drops its labels** entirely rather than
+  printing a masked placeholder per tick; the bar *shape* stays visible, for the
+  same reason percentages do. The tooltip masks.
+- The **income entry list is the page's one privacy exception**, by
+  construction: it edits raw amounts in text fields, which cannot mask. So the
+  amount named in its delete confirmation is shown in the clear too — masking it
+  would buy no privacy against the fields directly above it, while costing a
+  non-undoable confirmation the only field that says *which* of the month's
+  entries is about to go.
+- Amounts that belong to a single entry (a schedule row, the entry being
+  deleted) render in **that entry's own currency**, never re-denominated.
 - Spending is not a loss: the page uses a neutral palette, not the gain/loss
   colors.
 
