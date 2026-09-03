@@ -166,10 +166,13 @@ and portfolio views exactly.
   sell volume, and the filters collapse behind a single "Filters (n)" trigger
   that counts what the user actually narrowed (the default date window does not
   count towards it) — so the first transaction is on screen without
-  scrolling. From the medium width up the title returns and the filters are always
-  open. The summary keeps its one-strip form until the **large** width, because the
-  navigation rail appears before that and leaves three cards too little room for a
-  converted lira volume; from the large width up it is three stat cards.
+  scrolling. In that strip the count column takes only the width its digits need,
+  so the two volumes keep the rest — a converted lira figure is far wider than the
+  dollar one it replaced. From the medium width up the title returns; from the small
+  width up the summary is three cards and the filters are always open. In the band
+  where the navigation rail has appeared but the content beside it is still narrow,
+  the cards keep their shape and the **figure** steps down a size rather than the
+  cards giving way to the strip.
 - **Filters.** Date-range presets (Last 7d / Last 30d / This Year / All Time) plus
   free date pickers; an asset picker; a platform picker; type chips (toggle on/off) —
   including a **Transfer** chip carrying the same neutral label and colour as the
