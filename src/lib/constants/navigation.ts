@@ -6,10 +6,12 @@ import {
   PiggyBank,
   Wallet,
   Megaphone,
+  Car,
   Settings,
   Ellipsis,
 } from "lucide-react"
 import { CAMPAIGN_COPY } from "@/lib/constants/campaigns"
+import { VEHICLE_COPY, VEHICLE_ROUTE } from "@/lib/constants/vehicle"
 import { FEATURES } from "@/lib/features"
 
 // The app's navigation entries and the path-matching rules both shells use.
@@ -29,6 +31,7 @@ export const secondaryNavItems = [
   { to: "/retirement", label: "Retirement", icon: PiggyBank },
   { to: "/budget", label: "Budget", icon: Wallet },
   { to: "/campaigns", label: CAMPAIGN_COPY.navLabel, icon: Megaphone },
+  { to: VEHICLE_ROUTE, label: VEHICLE_COPY.navLabel, icon: Car },
   { to: "/settings", label: "Settings", icon: Settings },
 ]
 

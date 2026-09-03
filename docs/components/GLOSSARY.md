@@ -13,8 +13,10 @@ The nouns of the system. Fields are named conceptually; relationships are listed
 at the end.
 
 ### Platform
-Where assets are held — a broker, exchange, bank, or "physical" bucket (e.g. cash,
-vehicle). Fields: `name`, `color` (a display color used across charts and dots).
+Where assets are held — a broker, exchange, bank, or "physical" bucket (e.g.
+cash in hand, a safe). Fields: `name`, `color` (a display color used across
+charts and dots). A [vehicle](#vehicle) is **not** held on a platform: it is not
+an asset at all.
 Platforms are per-user.
 
 ### Asset
@@ -22,7 +24,7 @@ A tradable or held thing, **global: one row per ticker, shared by every user and
 curated by the [Admin](#admin)** (no platform on the asset itself — balances live on
 [Holdings](#holding)). Non-admin users read the catalog read-only. Fields: `ticker`
 (display symbol), `name`, `category` (free-form text — `fiat`, `crypto`, `gold`,
-`stock_us`, `stock_bist`, `vehicle`, …; each has **one** display label, used by
+`fund`, `stock_us`, `stock_bist`, …; each has **one** display label, used by
 every badge, group header and chart), `tags[]` (cross-cutting allocation labels,
 e.g. `["crypto","usd"]`), `price_source` (which feed prices it — `yahoo` for
 equities, crypto and tokenized gold, `tcmb` for fiat FX and gram gold, `tefas`
@@ -476,6 +478,147 @@ from its end date alone and never stored: **flexible** (no end date), **active**
 7-day horizon a campaign [deadline](#campaign) uses — today and the boundary day
 both count), and **expired** (the end date has passed). "Ends soon" and
 "expired" are the two states that warn on the dashboard.
+
+### Vehicle
+A car the owner keeps but does **not** hold as an investment. It records what it
+is (name, plate, make, model, year), what it cost (purchase date, price in the
+currency actually paid, and the odometer at purchase — a used car does not start
+at zero), its hand-entered current market value with the date that value was
+read, and the latest odometer reading with its date. A sold car can be
+**archived**, which keeps it as history.
+
+A vehicle is **informational only**, the same boundary
+[interest positions](#interest-position) keep. It creates no
+[transaction](#transaction), changes no [holding](#holding) or balance, and is
+absent from [total value](#total-value), [allocation](#allocation) and every
+[P&L](#total-pl) figure. A car is consumption with a resale value, not a
+position: counting it as one would distort the allocation view and read its
+purchase as [invested](#invested-monthly) rather than spent.
+
+Its market value is always typed by the owner, never fetched. No free
+machine-readable valuation source exists for the Turkish market — the insurers'
+reference list is a monthly file download and the classified sites refuse
+automated access — so the value follows the same `manual` convention an
+unpriced [asset](#asset) does.
+
+### Cost entry
+One outlay recorded against a [vehicle](#vehicle): a date, a
+[cost category](#cost-category), an amount **in the currency it was paid in**,
+optionally an odometer reading, and — for fuel — litres and whether the tank was
+filled. A cost entry may also close one or more
+[maintenance items](#maintenance-item), which is what resets their intervals.
+
+The **amount is optional**. An entry with no amount records that work was done
+at a price no longer known; it contributes nothing to any total (it is not zero
+spend) but still resets whatever items it closes.
+
+Deliberately *not* called an expense: a [cash-flow entry](#cash-flow-entry)
+reserves that word for the budgeting ledger, and the two must not be confused.
+A cost entry never becomes a cash-flow entry, and never changes
+[spent](#spent-residual) — car spending is already inside that residual, so the
+vehicle ledger explains part of it rather than adding to it.
+
+### Cost category
+What a [cost entry](#cost-entry) was for: fuel, maintenance, insurance, tax
+(MTV), inspection (muayene), tyres, fine, parking & tolls, other. Each has
+**one** display label, used by the entry form, the ledger and the breakdown.
+
+Categories are additionally split **fixed** vs **variable**, which is what lets
+[cost of ownership](#cost-of-ownership) quote two denominators. Variable costs
+scale with distance (fuel, maintenance, tyres); fixed costs accrue with time
+whether or not the car moves (insurance, tax, inspection, fines, parking,
+other), and [depreciation](#depreciation-vehicle) joins them.
+
+### Maintenance item
+One recurring service item in a [vehicle](#vehicle)'s plan: a name, an interval
+in distance, an interval in time, and a note. **Either interval may be absent,
+and absence means that dimension is not tracked** — distance-only for a drive
+belt, time-only for brake fluid or an inspection, both for an oil change
+(whichever comes first), neither for a dormant item that never becomes due.
+There is no separate "track by" setting; the blank *is* the instruction.
+
+Intervals are the owner's own figures. No free source of manufacturer service
+schedules exists, so the app seeds a plan of typical intervals for the local
+market and treats the car's own service book as the authority.
+
+### Interval used
+How much of a [maintenance item](#maintenance-item)'s interval has been
+consumed, as a percentage, taken from **whichever tracked dimension is furthest
+along**. Distance uses `(current odometer − last done odometer) ÷ distance
+interval`; time uses elapsed days over the same calendar span the item's due
+date spans. Derived on every read, never stored.
+
+An item is anchored on **the last time it was actually done** — the most recent
+[cost entry](#cost-entry) naming it, breaking a same-day tie by the higher
+odometer. With nothing ever recorded it falls back to the purchase point, and
+says so: for a used car that is a floor, not a fact.
+
+### Maintenance status ladder
+The states a [maintenance item](#maintenance-item) can be in, derived from
+[interval used](#interval-used) alone and never stored: **overdue** (at or past
+100%), **due soon** (within 10% of due, i.e. at or past 90%), **OK** (anything
+earlier), and **not tracked** (a dormant item, which never warns).
+
+The threshold is a *proportion* of the interval rather than a fixed distance or
+number of days, so one rule behaves correctly at every scale: a 10,000 km item
+warns 1,000 km out, a 100,000 km item 10,000 km out. "Overdue" and "due soon"
+are the two states that warn on the dashboard. Display order everywhere:
+overdue first, then due-soon, then by interval used descending, dormant last.
+
+### Depreciation (vehicle)
+A [vehicle](#vehicle)'s purchase price minus its current value, **each
+converted to the USD anchor at its own date's rate**. Positive means value
+lost. Null — never zero — when no current value has been recorded, since a zero
+would understate the largest component of ownership cost.
+
+Per-date conversion is the whole point rather than a detail. A car whose lira
+price merely kept pace with inflation reads as a *gain* in nominal lira while
+having lost a large share of its real value; measured in the anchor, the loss
+is visible. This is the same convention [invested (monthly)](#invested-monthly)
+uses, and the reason [total P&L](#total-pl) is anchored at all.
+
+Unlike an [asset](#asset)'s unrealized P&L, vehicle depreciation is **not P&L**:
+it appears in no return figure and on no portfolio surface.
+
+### Cost of ownership
+What a [vehicle](#vehicle) has really cost since purchase: the sum of every
+[cost entry](#cost-entry) (each at its own date's rate) **plus**
+[depreciation](#depreciation-vehicle). Cash and capital are shown side by side
+and then summed; the total is null whenever depreciation is.
+
+Quoted in **two denominators**, because its two halves accrue differently:
+fixed costs (plus depreciation) per **month**, variable costs per **km**. A
+single blended per-km figure is also offered, last, and never without the
+distance it assumes — the same figure moves by roughly a third on the mileage
+assumption alone, so it describes the driving as much as the car.
+
+Distinct from [total P&L](#total-pl) in kind: this is a cost, not a return, and
+it never enters any portfolio figure.
+
+### Foregone return
+What a [vehicle](#vehicle)'s purchase price would have earned had it stayed in
+the portfolio instead, compounding at the owner's own lifetime annualized
+[money-weighted return](#money-weighted-return-xirr-formula) over the holding
+period. Added to [cost of ownership](#cost-of-ownership) it gives the car's full
+economic cost.
+
+Not money spent — money not made. It is shown apart from the cash figures for
+that reason, and is null (never zero) when the portfolio is too young for a
+rate to be annualized, since a zero would claim the capital would have earned
+nothing.
+
+### Fuel economy
+Litres per 100 km for a [vehicle](#vehicle), measurable **only between two full
+tanks**: the distance between two fills that both filled the tank, over the
+litres added across that span. The opening fill's own litres belong to the
+previous span and are never counted twice.
+
+A partial fill contributes its litres to the span it falls inside but produces
+no reading of its own; the first full tank is a baseline only, and the most
+recent one has not been burned yet. A span containing a fill with no litres
+recorded, or bounded by a full tank with no odometer reading, yields **no
+figure at all** rather than an under-reported one — and wherever a figure is
+withheld the reason is stated, not left as a bare dash.
 
 ## Canonical formulas
 
