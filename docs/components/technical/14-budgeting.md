@@ -66,7 +66,7 @@ toggle.
 | `src/components/budget/constants.ts` | Series order/labels, per-theme chart palette (validated light AND dark — dark is its own steps), placeholders, `DEFAULT_VISIBLE_MONTHS`, inline-entry default currency (TRY). |
 | `src/components/budget/display.ts` | `monthLabel("YYYY-MM")`, `legFor(row, field, currency)` — the USD/TRY leg picker. |
 | `src/components/budget/BudgetTrendChart.tsx` | Grouped Recharts bars, theme-aware colors; null legs omitted, not drawn as zero; one axis (no rate line). |
-| `src/components/budget/MonthlyBudgetTable.tsx` | The monthly table + inline income editing (0 entries → create on the 1st; 1 → update amount / clear deletes; **>1 → the `MultiEntryEditor` list**, an `EntryRow` per entry with its own amount input and a delete button, since the cell's figure is their total). Copy in `INCOME_EDIT_COPY` (`components/budget/constants.ts`). |
+| `src/components/budget/MonthlyBudgetTable.tsx` | The monthly table + inline income editing (0 entries → create on the 1st; 1 → update amount / clear deletes; **>1 → the `MultiEntryDialog`**, an `EntryRow` per entry with its own amount input and a delete guarded by an `AlertDialog`, since the cell's figure is their total; a `Dialog` rather than an in-cell panel because the table is `overflow-x-auto` on a phone). Copy in `INCOME_EDIT_COPY` (`components/budget/constants.ts`). |
 | `src/components/budget/SalaryScheduleCard.tsx` | `income_defaults` list + append/delete. |
 
 ## Reserved, not built

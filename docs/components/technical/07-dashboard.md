@@ -280,7 +280,10 @@
   string the Value subtitle, the dashed series and its tooltip row use).
   The benchmark chip carries a `SeriesDot` in `BENCHMARK_STROKE`, and the
   measure sub-label carries one in `strokeColor`: those two dots ARE the chart
-  legend (no separate legend row at any width).
+  legend (no separate legend row at any width). Chips are separated by
+  `CHIP_SEPARATOR`, a `::before` middle dot on the FOLLOWING chip (a separator
+  as its own flex child dangles at the end of a wrapped line) and only from
+  `sm` up, where the subtitle is one line.
 - **Lifetime MWR chip (P&L mode):** rendered in the subtitle right after the
   Total figure as `· MWR {formatSignedPercent(lifetimeXirrPct, DECIMALS.percentageRate)}{"/yr"}`
   (`MWR_LABEL` + `MWR_PER_YEAR_SUFFIX` from `lib/constants/returns.ts`, shared

@@ -252,7 +252,10 @@ A type-driven form: choosing the type reveals only the relevant fields.
   platform / date / currency / funding / notes intact, clearing only amount and price.
 - **The form's actions are always on screen.** The field list scrolls inside the
   form; the action row does not, so the submit is reachable at any window height
-  and for every type.
+  and for every type. On a narrow screen the form fills the viewport and its
+  actions sit above the keyboard; there the explicit **Cancel** is dropped —
+  the form's own close control is the one exit, and a third full-width button
+  would cost a third of the visible fields.
 - **Validation happens on submit, not by disabling the button.** The actions stay
   live; a submit that cannot save names the first thing that is missing or wrong
   (asset → platform → quantity → unit price → destination → balance → funding),

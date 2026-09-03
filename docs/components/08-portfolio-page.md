@@ -219,9 +219,11 @@ platform grouping shows no nesting.
 **Cards (below the table's width).** The table needs its full column set to be
 readable, so below that width each group renders as a header line — name, asset
 count, **and the same value subtotal and mode-dependent return the desktop
-header puts in its columns** — followed by its assets as cards (icon + ticker,
-price, platforms, value, and the mode-dependent return amount + % inline). Same
-toggle, same "—" rules.
+header puts in its columns** — followed by its assets as cards. A card carries
+**every figure the table row does**, since it is the only layout at those
+widths: ticker, current price, quantity **and cost per unit**, allocation,
+platforms, value, and the mode-dependent return amount + % inline. Same toggle,
+same "—" rules.
 
 **Inactive / zero-balance.** Inactive assets hidden by default; zero-balance
 positions are not shown as active rows.

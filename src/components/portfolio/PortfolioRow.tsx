@@ -264,8 +264,9 @@ export function PortfolioRowCard({
   returnMode,
   dailyReturnAvailable,
 }: PortfolioRowProps) {
-  const { currency, signedMoney, display } = useDisplayMoney()
+  const { currency, signedMoney, display, obfuscated } = useDisplayMoney()
   const { openTransactionModal } = useTransactionModal()
+  const o = (v: string) => obfuscate(v, obfuscated)
 
   const displayValue =
     currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
@@ -279,6 +280,21 @@ export function PortfolioRowCard({
   const netUsd = taxed ? returnUsd - asset.taxAccrualUsd : returnUsd
   const netPct =
     taxed && asset.costBasisUsd > 0 ? (netUsd / asset.costBasisUsd) * 100 : returnPct
+
+  // The card is the only layout below the table's width, so it carries the
+  // table's whole column set — quantity and cost per unit included. Without
+  // them the reader cannot tell how much they hold or what they paid, and the
+  // bare price under the ticker reads as a cost basis.
+  const showNativeCost = assetNativeCurrency(asset) === "TRY"
+  const costUsdPerUnit =
+    asset.totalBalance > 0 ? asset.costBasisUsd / asset.totalBalance : null
+  const costNativePerUnit =
+    showNativeCost &&
+    asset.costBasisNative != null &&
+    asset.nativeCurrency === "TRY" &&
+    asset.totalBalance > 0
+      ? asset.costBasisNative / asset.totalBalance
+      : null
 
   return (
     <Card size="sm">
@@ -295,7 +311,21 @@ export function PortfolioRowCard({
           <span className="tabular-nums text-sm">
             <CurrentPrice asset={asset} />
           </span>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+            <span className="tabular-nums">
+              {o(formatQuantity(asset.totalBalance, asset.category))} @{" "}
+              {costUsdPerUnit == null
+                ? "—"
+                : costNativePerUnit != null
+                  ? formatCurrency(costNativePerUnit, "TRY")
+                  : formatCurrency(costUsdPerUnit, "USD")}
+            </span>
+            <span>·</span>
+            <span className="tabular-nums">
+              {asset.allocationPct.toFixed(1)}%
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             {asset.holdings.map((h) => (
               <span key={h.platformId} className="flex items-center gap-1">
                 <span
