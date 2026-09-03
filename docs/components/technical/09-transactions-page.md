@@ -32,7 +32,12 @@
   hairline (the old `bg-zinc-900` chrome made the outline import triggers
   invisible in light mode); Save is a plain primary `Button`, and the only exit is
   the footer's "Discard and go back" beside it. On `< sm` the header's actions are
-  icon-only so it stays one row. This is the **import entry surface**, owned by Component 4 — it hosts
+  icon-only so it stays one row, the footer carries `pb-safe-4`, and while the
+  grid holds no real rows (`counts.new + dirty + clean + deleted === 0`) the
+  `<main>` is `max-sm:hidden` behind an import-first panel — `BULK_EDITOR_PHONE_INTRO`,
+  a `labelled` `ImportPopover` and `MidasPdfImportButton`, and a ghost
+  "…or add a row by hand" calling `controls.addBlankRow`. The grid stays
+  mounted throughout: it is what publishes `controls`. This is the **import entry surface**, owned by Component 4 — it hosts
   `sheet/TransactionsSheetGrid` plus `sheet/ImportPopover` and
   `sheet/MidasPdfImportButton`. (NB: single-transaction edits do **not** happen here —
   they use the modal; see gotchas.)
@@ -53,6 +58,11 @@
   platform cell, the `TRANSFER_PAIR_DISPLAY` "Transfer" badge, and a neutral quantity
   (`deriveTransactionDisplay`'s `transferPair` option drops sign + colour). Quantity
   column header/label says "Quantity" (matches Portfolio), not "Amount".
+- `sheet/TransactionsSheetGrid.tsx` — below `sm` the row-number and Ticker cells
+  carry `PINNED_ROW_NUMBER_CLASS` / `PINNED_TICKER_CLASS` (`sticky`, `left-0` /
+  `left-10`, an opaque `bg-background`, and a fixed `w-10` on the row number so
+  the ticker's offset matches it exactly); `AssetCell` takes a `className` for
+  this. Header copies sit above the body cells (`z-30` vs `z-10`).
 - `TransactionFilters.tsx` — date presets + two `Calendar` popovers, asset `Select`,
   platform `Select`, and the type chips; pushes changes through `onFiltersChange`.
   The three rows sit inside the shared `common/Disclosure` with

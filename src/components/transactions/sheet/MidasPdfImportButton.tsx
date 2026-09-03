@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { MIDAS_IMPORT_LABEL } from "@/lib/constants/transaction-types"
 import { parseMidasPdf } from "./parseMidasPdf"
 import { dedupeImportedRows, type DedupCandidate } from "./dedupeImportedRows"
@@ -26,9 +27,18 @@ interface Props {
    *  overlapping PDFs imported in one session don't double up. */
   gridRows: SheetRow[]
   onAppend: (rows: Partial<SheetSnapshot>[]) => void
+  /** Show the label at every width and fill the row — the phone's
+   *  import-first screen, where this is a primary action, not a header icon. */
+  labelled?: boolean
 }
 
-export function MidasPdfImportButton({ assets, platforms, gridRows, onAppend }: Props) {
+export function MidasPdfImportButton({
+  assets,
+  platforms,
+  gridRows,
+  onAppend,
+  labelled,
+}: Props) {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [parsing, setParsing] = useState(false)
@@ -124,9 +134,14 @@ export function MidasPdfImportButton({ assets, platforms, gridRows, onAppend }: 
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
         render={
-          <Button variant="outline" size="sm" aria-label={MIDAS_IMPORT_LABEL}>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={MIDAS_IMPORT_LABEL}
+            className={cn("max-sm:min-h-10", labelled && "w-full justify-start")}
+          >
             <FileText className="size-3.5" />
-            <span className="hidden sm:inline">{MIDAS_IMPORT_LABEL}</span>
+            <span className={labelled ? undefined : "hidden sm:inline"}>{MIDAS_IMPORT_LABEL}</span>
           </Button>
         }
       />

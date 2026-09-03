@@ -184,6 +184,12 @@ and portfolio views exactly.
   import triggers above all — is legible in both themes; its save is the page's
   one primary action and its column heads are Title Case, like every other table.
   It offers exactly **one** exit, next to Save in the footer.
+- **On a phone the bulk editor is import-first.** Bringing in a broker
+  statement is the only reason to open it there, so it opens on the import
+  actions (with a way to start a row by hand) and the grid appears once there
+  are rows to review. When the grid is showing, the row number and the
+  ticker column stay pinned while the rest scrolls sideways, so it is never
+  ambiguous which row a cell belongs to.
 
 ## Acceptance
 

@@ -9,7 +9,12 @@ import {
 } from "@/components/transactions/sheet/TransactionsSheetGrid"
 import { ImportPopover } from "@/components/transactions/sheet/ImportPopover"
 import { MidasPdfImportButton } from "@/components/transactions/sheet/MidasPdfImportButton"
-import { ADD_ROW_LABEL } from "@/lib/constants/transaction-types"
+import {
+  ADD_ROW_LABEL,
+  BULK_EDITOR_PHONE_ADD_BY_HAND,
+  BULK_EDITOR_PHONE_INTRO,
+} from "@/lib/constants/transaction-types"
+import { cn } from "@/lib/utils"
 import { useAssets } from "@/hooks/useAssets"
 import { usePlatforms } from "@/hooks/usePlatforms"
 
@@ -32,6 +37,15 @@ export default function TransactionsEditPage() {
   const [controls, setControls] = useState<TransactionsSheetControls | null>(null)
 
   const asset = assetId ? assets.find((a) => a.id === assetId) : null
+  // How many real rows the grid holds (loaded or added) — the blank
+  // placeholders don't count. On a phone the grid only appears once there is
+  // something in it.
+  const rowCount = controls
+    ? controls.counts.new +
+      controls.counts.dirty +
+      controls.counts.clean +
+      controls.counts.deleted
+    : 0
   const isBulkAdd = !assetId
   const placeholderRows = isBulkAdd ? 12 : 6
   const title = asset
@@ -56,6 +70,7 @@ export default function TransactionsEditPage() {
                 size="sm"
                 onClick={controls.addBlankRow}
                 aria-label={ADD_ROW_LABEL}
+                className="max-sm:min-h-10"
               >
                 <Plus className="size-3.5" />
                 <span className="hidden sm:inline">{ADD_ROW_LABEL}</span>
@@ -81,7 +96,48 @@ export default function TransactionsEditPage() {
 
       {/* The single Y-scroll container on the page. The grid's thead sticks
        *  to the top of this element via `sticky top-0`. */}
-      <main className="min-h-0 flex-1 overflow-auto bg-background">
+      {/* Import-first on a phone: bringing in a broker statement is the only
+          reason to open this page there, and an empty 690px spreadsheet is a
+          poor thing to land on. The grid stays mounted (it owns `controls`),
+          just hidden until it holds rows. */}
+      {rowCount === 0 && controls && (
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4 sm:hidden">
+          <p className="text-sm text-muted-foreground">
+            {BULK_EDITOR_PHONE_INTRO}
+          </p>
+          <ImportPopover
+            assets={assets}
+            platforms={platforms}
+            lockedAssetId={assetId}
+            onAppend={controls.appendRows}
+            labelled
+          />
+          {!assetId && (
+            <MidasPdfImportButton
+              assets={assets}
+              platforms={platforms}
+              gridRows={controls.rows}
+              onAppend={controls.appendRows}
+              labelled
+            />
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-h-10 self-start"
+            onClick={controls.addBlankRow}
+          >
+            {BULK_EDITOR_PHONE_ADD_BY_HAND}
+          </Button>
+        </div>
+      )}
+
+      <main
+        className={cn(
+          "min-h-0 flex-1 overflow-auto bg-background",
+          rowCount === 0 && controls && "max-sm:hidden",
+        )}
+      >
         <TransactionsSheetGrid
           assetId={assetId}
           assets={assets}
