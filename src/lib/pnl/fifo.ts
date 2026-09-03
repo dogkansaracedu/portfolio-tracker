@@ -114,6 +114,7 @@ export function computeFIFOLots(
       // A cash_credit reaches FIFO on a stablecoin settlement holding (leg
       // carries unit_price = 1 USD, so the lot books at the peg) and, in fiat
       // mode, on the currency holding a sale's proceeds land on.
+      // falls through
       case "cash_credit": {
         // Capitalize trade fees into the cost basis of the new lot so unrealized
         // P&L reflects the true acquisition cost (industry standard). Without
@@ -224,6 +225,7 @@ export function computeFIFOLots(
       // peg with ~$1 lots underneath — realized P&L on a stablecoin spend is
       // zero by convention (see docs/prior-art/stablecoin-settled-trades.md),
       // so it consumes lots exactly like a transfer_out.
+      // falls through
       case "cash_debit": {
         if (!fiat) {
           // Remove lots FIFO but do NOT record P&L.
