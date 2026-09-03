@@ -272,3 +272,28 @@ export const SCENARIO_SUMMARY = {
   separator: " · ",
   edit: "Edit",
 } as const
+
+/**
+ * The name dialog's copy, keyed by what it is naming. Held as a map so the
+ * dialog can latch the mode it opened in — the panel drops its "which dialog"
+ * state on close, and a live lookup rewrote the heading mid-exit-animation.
+ */
+export const SCENARIO_NAME_DIALOG_COPY = {
+  create: {
+    title: "Save as new scenario",
+    description: "Saves the current inputs as a new retirement scenario.",
+  },
+  rename: {
+    title: "Rename scenario",
+    description: "Renames the active retirement scenario.",
+  },
+  nameLabel: "Name",
+  cancel: "Cancel",
+  save: "Save",
+  saving: "Saving…",
+} as const
+
+/** Fallback report when a scenario write fails without a message of its own —
+ *  shared by the panel's error line and the name dialog's. */
+export const SCENARIO_WRITE_FAILED = "Could not save the scenario"
+
