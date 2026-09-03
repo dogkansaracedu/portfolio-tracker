@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { HintPopover } from "@/components/common/HintPopover"
 import { useBudgetContext } from "@/contexts/BudgetContext"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { formatMoney, formatSignedPercent } from "@/lib/prices"
@@ -137,7 +138,18 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Month</TableHead>
-                <TableHead className="text-right">Income</TableHead>
+                {/* The column's own explainer: the cells are editable, and a
+                    cell's tap starts that edit — so the "how" needs a trigger
+                    of its own, once, rather than per row. */}
+                <TableHead className="text-right">
+                  <span className="inline-flex items-center gap-1">
+                    Income
+                    <HintPopover
+                      text={INCOME_EDIT_COPY.columnHint}
+                      align="end"
+                    />
+                  </span>
+                </TableHead>
                 <TableHead className="hidden text-right sm:table-cell">
                   {BUDGET_SERIES_LABELS.invested}
                 </TableHead>
@@ -199,11 +211,6 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                         <button
                           type="button"
                           className="cursor-pointer underline-offset-4 hover:underline"
-                          title={
-                            monthEntries.length > 1
-                              ? INCOME_EDIT_COPY.multiHint
-                              : INCOME_EDIT_COPY.singleHint
-                          }
                           onClick={() => startEditing(row)}
                         >
                           {money(legFor(row, "income", currency))}
@@ -315,8 +322,17 @@ function EntryRow({
   onUpdate: (id: string, patch: { amount: number }) => Promise<unknown>
   onRemove: (id: string) => Promise<unknown>
 }) {
+  const { obfuscated } = useDisplayCurrency()
   const [value, setValue] = useState(String(entry.amount))
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // The entry's own currency, never the display one: this is the amount that
+  // was typed, and the confirmation names the row being deleted. Grouped and
+  // masked like every other money figure — the same edge the cells use.
+  const amountLabel = formatMoney(
+    entry.amount,
+    entry.currency as FiatCurrency,
+    obfuscated,
+  )
 
   const commit = async () => {
     const amount = Number(value.trim())
@@ -360,7 +376,7 @@ function EntryRow({
             <AlertDialogDescription>
               {INCOME_EDIT_COPY.deleteBody(
                 formatEntryDay(entry.date),
-                `${CURRENCY_SYMBOLS[entry.currency as FiatCurrency] ?? entry.currency}${entry.amount}`,
+                amountLabel,
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>

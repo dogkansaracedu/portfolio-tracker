@@ -11,7 +11,8 @@ import {
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTheme } from "@/contexts/ThemeContext"
-import { formatCompactCurrency, formatCurrency } from "@/lib/prices"
+import { useDisplayCurrency } from "@/contexts/DisplayContext"
+import { formatCompactCurrency, formatMoney, obfuscate } from "@/lib/prices"
 import type { FiatCurrency } from "@/lib/constants/currencies"
 import type { MonthlyBudgetRow } from "@/lib/budget"
 import {
@@ -38,9 +39,16 @@ const SERIES_ORDER: BudgetSeries[] = [
  * Grouped monthly bars for income / invested / spent in the display currency.
  * Unknown legs (months with no income data) are omitted from the chart rather
  * than drawn as zero; the savings rate lives in the table — one axis only.
+ *
+ * Both money surfaces here — the axis ticks and the tooltip — go through the
+ * privacy toggle like the table beside them. An unmasked axis would hand the
+ * hidden amounts straight back: the bars are still to scale, so a labelled
+ * axis is the table's masked figures readable off a ruler. The bar SHAPE stays
+ * (the same reason percentages stay visible under the toggle).
  */
 export function BudgetTrendChart({ rows, currency }: Props) {
   const { theme } = useTheme()
+  const { obfuscated } = useDisplayCurrency()
   const colors = BUDGET_CHART_COLORS[theme]
 
   const data = useMemo(
@@ -68,12 +76,14 @@ export function BudgetTrendChart({ rows, currency }: Props) {
               className="text-xs"
               tick={{ fontSize: 11 }}
               // Compact: a quarter of the phone chart used to go to ".00".
-              tickFormatter={(v: number) => formatCompactCurrency(v, currency)}
+              tickFormatter={(v: number) =>
+                obfuscate(formatCompactCurrency(v, currency), obfuscated)
+              }
               width={56}
             />
             <Tooltip
               formatter={(value, name) => [
-                formatCurrency(Number(value), currency),
+                formatMoney(Number(value), currency, obfuscated),
                 BUDGET_SERIES_LABELS[name as BudgetSeries],
               ]}
             />

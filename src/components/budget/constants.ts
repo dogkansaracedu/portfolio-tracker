@@ -37,10 +37,15 @@ export const DEFAULT_VISIBLE_MONTHS = 12
 
 /** Copy for the income cell's editors. A month with several entries opens the
  *  list editor instead of a single amount input — the cell's total is not any
- *  one entry's amount, so it cannot be typed over. */
+ *  one entry's amount, so it cannot be typed over.
+ *
+ *  `columnHint` explains the whole column once, from the Income head: the
+ *  explainer needs a trigger of its own (a cell's own tap already starts the
+ *  edit), and twelve info glyphs down the app's densest table is worse than
+ *  one sentence covering both the single- and several-entry cases. */
 export const INCOME_EDIT_COPY = {
-  singleHint: "Click to edit this month's income",
-  multiHint: "Several income entries this month — click to edit them",
+  columnHint:
+    "Select a month's income to edit it — a month with several entries opens its full list instead.",
   listTitle: "Income entries",
   amountLabel: "Amount",
   deleteLabel: "Delete entry",
