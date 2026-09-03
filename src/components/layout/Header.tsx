@@ -40,10 +40,14 @@ export default function Header() {
   const { obfuscated, toggleObfuscated } = useDisplayCurrency()
 
   return (
-    <header className="flex h-14 items-center justify-between border-b px-4 md:px-6">
-      <h1 className="text-lg font-semibold md:hidden">{title}</h1>
+    <header className="flex h-14 items-center justify-between gap-1 border-b px-4 sm:gap-2 md:px-6">
+      <h1 className="truncate text-base font-semibold sm:text-lg md:hidden">
+        {title}
+      </h1>
       <div className="hidden md:block" />
-      <div className="flex items-center gap-2">
+      {/* Tight gaps below `sm`: the five controls are 40px tap targets there
+          (M-07) and the row still has to hold the page title beside them. */}
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
         <Tooltip>
           <TooltipTrigger
             render={
@@ -52,6 +56,7 @@ export default function Header() {
                 size="icon-sm"
                 onClick={toggleObfuscated}
                 aria-label={obfuscated ? "Show values" : "Hide values"}
+                className="max-sm:size-10"
               />
             }
           >

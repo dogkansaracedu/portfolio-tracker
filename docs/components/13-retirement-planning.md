@@ -272,8 +272,9 @@ are always recomputed from inputs.
   an Edit affordance), so the question tabs and their answer are on screen
   without scrolling past a dozen inputs; from the small width up the panel is
   always open.
-- Every advanced term surfaces its one-line glossary explainer inline
-  (tooltip or caption).
+- Every advanced term surfaces its one-line glossary explainer inline, from an
+  affordance that answers to a pointer **and** to a touch (never hover-only) and
+  whose tap area is comfortable on a phone.
 - An input that the loaded withdrawal strategy does not use is shown but not
   editable, with an explainer saying why: under capital depletion the safe
   withdrawal rate drives nothing (the target is the spending to the depletion

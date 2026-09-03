@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils"
 
 interface SegmentedControlProps<T extends string> {
   value: T
-  options: { id: T; label: string; hint?: string }[]
+  options: { id: T; label: string }[]
   onChange: (next: T) => void
   size?: "sm" | "default"
   disabled?: boolean
@@ -20,6 +20,10 @@ interface SegmentedControlProps<T extends string> {
  * the Retirement question and view chips, Asset Detail's range, the Settings
  * granularity. Solid `bg-primary` is reserved for the one primary *action* on
  * a page, so a mode switch can never read as a call to action.
+ *
+ * A hover-only `title` is deliberately not part of this API — an explainer
+ * that a finger cannot reach is no explainer. Put a `HintPopover` beside the
+ * group instead.
  *
  * (The Transactions type chips and the Add form's Type row are deliberately
  * NOT this: they are a colour-coded categorical picker mirroring the log's
@@ -52,7 +56,6 @@ export function SegmentedControl<T extends string>({
           key={option.id}
           value={option.id}
           disabled={disabled}
-          title={option.hint}
         >
           {option.label}
         </ToggleGroupItem>

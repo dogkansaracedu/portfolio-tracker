@@ -305,7 +305,7 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
               key={type}
               type="button"
               onClick={() => toggleType(type)}
-              className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors max-sm:min-h-10 ${
                 isActive
                   ? `${config.bg} ${config.color}`
                   : "border-border bg-background text-muted-foreground hover:bg-muted"

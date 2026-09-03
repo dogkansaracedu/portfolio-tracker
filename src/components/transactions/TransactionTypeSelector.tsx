@@ -26,7 +26,7 @@ export function TransactionTypeSelector({ value, onChange }: Props) {
             type="button"
             onClick={() => onChange(type)}
             aria-pressed={value === type}
-            className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors max-sm:min-h-10 ${
               value === type
                 ? `${config.bg} ${config.color}`
                 : "border-border bg-background text-muted-foreground hover:bg-muted"

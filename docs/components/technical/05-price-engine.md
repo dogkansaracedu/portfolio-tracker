@@ -31,7 +31,8 @@
 | `src/lib/queries/prices.ts` | `fetchPrices()` (→ map keyed by fetch-key), `fetchPrice(key)`. |
 | `src/lib/queries/exchangeRates.ts` | `fetchLatestRates`, `fetchRateForDate` (nearest ≤ date), `ensureHistoricalRate`, `ensureHistoricalRatesForDates`. |
 | `src/components/prices/PriceDisplay.tsx` | Price + colored staleness dot + tooltip. |
-| `src/components/prices/PriceRefreshButton.tsx` | "Updated 5m ago" label + spinner; calls `refreshPrices`. |
+| `src/components/prices/PriceRefreshButton.tsx` | "Updated 5m ago" label from `sm` up + spinner; calls `refreshPrices`. Below `sm` it renders the compact age instead (`formatCompactAge` — "2m"/"3h"/"2d", `NO_PRICE_DATA_AGE` when there is nothing), toned by `getStalenessLevel` through `PRICE_STALENESS_TONE_CLASS`. |
+| `src/lib/constants/prices.ts` | `PRICE_STALENESS_TONE_CLASS` (fresh/warning/stale — status tones, not the gain/loss palette) + `NO_PRICE_DATA_AGE`. |
 
 ## Data layer — edge functions, price cache, rates tables
 
