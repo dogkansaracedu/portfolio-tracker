@@ -1,7 +1,6 @@
 import { bn } from "@/lib/config"
 import { USER_PICKABLE_TYPES } from "@/lib/constants/transaction-types"
 import { SUPPORTED_FIAT_CURRENCIES } from "@/lib/constants/currencies"
-import { isNewAssetSentinel } from "./sentinel"
 import type { SheetField, SheetRow } from "./types"
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -28,9 +27,8 @@ export function validateField(
     }
     case "assetId":
       if (!value) return "Asset is required"
-      // Sentinel `new:TICKER` is a valid intermediate — the save flow will
-      // resolve it via the stepper before committing.
-      if (isNewAssetSentinel(value)) return null
+      // A sentinel `new:TICKER` passes too — it is a valid intermediate that
+      // the save flow resolves via the stepper before committing.
       return null
     case "platformId":
       return value ? null : "Platform is required"

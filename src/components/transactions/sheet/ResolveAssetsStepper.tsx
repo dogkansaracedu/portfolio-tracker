@@ -343,7 +343,7 @@ export function ResolveAssetsStepper({
               ? "Registering…"
               : isLast
                 ? "Register & continue save"
-                : `Register & next →`}
+                : "Register & next →"}
           </Button>
         </DialogFooter>
       </DialogContent>

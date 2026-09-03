@@ -472,10 +472,8 @@ export function TransactionsSheetGrid({
     assets,
   ])
 
-  // Empty placeholder rows. Clicking any of them adds a real new row.
-  // Rendered ABOVE the existing data so the "you can add here" affordance
-  // is the first thing the user sees — otherwise they'd have to scroll past
-  // all existing transactions to find it.
+  // Empty placeholder rows, rendered after the real ones and numbered as if
+  // they continued the list. Clicking any of them adds a real new row.
   const placeholders = Array.from(
     { length: Math.max(0, placeholderRowCount) },
     (_, i) => i,
