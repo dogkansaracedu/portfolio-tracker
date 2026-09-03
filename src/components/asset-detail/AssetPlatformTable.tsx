@@ -7,13 +7,11 @@ import {
   TableCell,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useDisplayCurrency } from "@/contexts/DisplayContext"
+import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import {
-  formatCurrency,
   formatAmount,
-  formatSignedCurrency,
   formatSignedPercent,
-  gainLossClass,
+  gainLossToneClass,
   obfuscate,
 } from "@/lib/prices"
 import type { AssetPlatformSlice } from "@/hooks/useAssetDetail"
@@ -25,7 +23,9 @@ interface Props {
 
 /** Per-platform breakdown — each row is that platform's own FIFO slice. */
 export function AssetPlatformTable({ slices, category }: Props) {
-  const { obfuscated } = useDisplayCurrency()
+  // Cost basis, value and P&L are USD-anchored but render in the display
+  // currency — a platform row must not mix ₺ and $.
+  const { money, signedMoney, obfuscated } = useDisplayMoney()
   const o = (v: string) => obfuscate(v, obfuscated)
 
   if (slices.length === 0) return null
@@ -62,14 +62,14 @@ export function AssetPlatformTable({ slices, category }: Props) {
                   {o(formatAmount(s.balance, category))}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {o(formatCurrency(s.costBasisUsd, "USD"))}
+                  {money(s.costBasisUsd)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums font-semibold">
-                  {o(formatCurrency(s.currentValueUsd, "USD"))}
+                  {money(s.currentValueUsd)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  <span className={gainLossClass(s.unrealizedPnlUsd >= 0)}>
-                    {o(formatSignedCurrency(s.unrealizedPnlUsd, "USD"))}
+                  <span className={gainLossToneClass(s.unrealizedPnlUsd)}>
+                    {signedMoney(s.unrealizedPnlUsd)}
                     {s.unrealizedPnlPct !== null && (
                       <span className="ml-1 text-xs">
                         ({formatSignedPercent(s.unrealizedPnlPct)})

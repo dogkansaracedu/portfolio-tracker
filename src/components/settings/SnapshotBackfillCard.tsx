@@ -3,6 +3,7 @@ import { Loader2, History, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { SegmentedControl } from "@/components/common/SegmentedControl"
 import {
   Card,
   CardContent,
@@ -15,7 +16,6 @@ import {
   type BackfillGranularity,
   type BackfillResult,
 } from "@/lib/queries/snapshots"
-import { cn } from "@/lib/utils"
 
 const GRANULARITY_OPTIONS: {
   value: BackfillGranularity
@@ -89,24 +89,17 @@ export function SnapshotBackfillCard() {
         {/* Granularity */}
         <div className="space-y-2">
           <p className="text-sm font-medium">Granularity</p>
-          <div className="flex flex-wrap gap-2">
-            {GRANULARITY_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                disabled={running}
-                onClick={() => setGranularity(opt.value)}
-                className={cn(
-                  "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-                  granularity === opt.value
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-background text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            ariaLabel="Snapshot granularity"
+            value={granularity}
+            options={GRANULARITY_OPTIONS.map((o) => ({
+              id: o.value,
+              label: o.label,
+            }))}
+            onChange={setGranularity}
+            disabled={running}
+            size="sm"
+          />
           <p className="text-xs text-muted-foreground">
             {GRANULARITY_OPTIONS.find((o) => o.value === granularity)?.hint}
           </p>

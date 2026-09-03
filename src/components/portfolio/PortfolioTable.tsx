@@ -6,8 +6,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { PortfolioGroupHeader } from "@/components/portfolio/PortfolioGroupHeader"
+import {
+  PortfolioGroupHeader,
+  useGroupFigures,
+} from "@/components/portfolio/PortfolioGroupHeader"
 import { PortfolioRow, PortfolioRowCard } from "@/components/portfolio/PortfolioRow"
+import { formatSignedPercent, gainLossToneClass } from "@/lib/prices"
 import type { AssetGroup, ReturnMode } from "@/hooks/usePortfolio"
 import {
   RETURN_COLUMN_LABEL_TOTAL,
@@ -19,8 +23,6 @@ interface PortfolioTableProps {
   returnMode: ReturnMode
   dailyReturnAvailable: boolean
 }
-
-const COL_COUNT = 9
 
 export function PortfolioTable({
   groups,
@@ -37,8 +39,11 @@ export function PortfolioTable({
 
   return (
     <>
-      {/* Desktop table (hidden below 640px) */}
-      <div className="hidden sm:block">
+      {/* The table needs ~990px of its own. With the sidebar taking 240px
+          that is only true from 1280px up, so cards carry every width below
+          it — between 640 and 1279 the table used to push Value / P&L / Alloc
+          off the right edge, while the cards show every figure. */}
+      <div className="hidden xl:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -70,26 +75,15 @@ export function PortfolioTable({
         </Table>
       </div>
 
-      {/* Mobile card list (visible below 640px) */}
-      <div className="flex flex-col gap-2 sm:hidden">
+      {/* Card list (every width below 1280px) */}
+      <div className="flex flex-col gap-2 xl:hidden">
         {groups.map((group) => (
           <div key={group.key} className="space-y-2">
-            {/* Simplified mobile group header */}
-            <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
-              <div className="flex items-center gap-2">
-                {group.color && (
-                  <span
-                    className="inline-block size-2.5 rounded-full"
-                    style={{ backgroundColor: group.color }}
-                  />
-                )}
-                <span className="text-sm font-semibold">{group.label}</span>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {group.assets.length} asset
-                {group.assets.length !== 1 ? "s" : ""}
-              </span>
-            </div>
+            <MobileGroupHeader
+              group={group}
+              returnMode={returnMode}
+              dailyReturnAvailable={dailyReturnAvailable}
+            />
             {group.assets.map((asset) => (
               <Fragment key={asset.id}>
                 <PortfolioRowCard
@@ -130,7 +124,6 @@ function GroupSection({
     <>
       <PortfolioGroupHeader
         group={group}
-        colSpan={COL_COUNT}
         returnMode={returnMode}
         dailyReturnAvailable={dailyReturnAvailable}
       />
@@ -143,5 +136,48 @@ function GroupSection({
         />
       ))}
     </>
+  )
+}
+
+// ─── Group header (card list) ───────────────────────────────────────
+
+/** The same subtotal and return the desktop header puts in its columns, on one
+ *  line — without them the card list can't answer "what moved in this group?". */
+function MobileGroupHeader({
+  group,
+  returnMode,
+  dailyReturnAvailable,
+}: {
+  group: AssetGroup
+  returnMode: ReturnMode
+  dailyReturnAvailable: boolean
+}) {
+  const f = useGroupFigures(group, returnMode, dailyReturnAvailable)
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/30 px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2">
+        {group.color && (
+          <span
+            className="inline-block size-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: group.color }}
+          />
+        )}
+        <span className="truncate text-sm font-semibold">{group.label}</span>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {group.assets.length} asset{group.assets.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 text-xs tabular-nums">
+        <span className="font-medium">{f.value}</span>
+        {f.showReturn ? (
+          <span className={gainLossToneClass(f.returnUsd)}>
+            {f.returnText}
+            {f.returnPct !== null && ` ${formatSignedPercent(f.returnPct)}`}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </div>
+    </div>
   )
 }
