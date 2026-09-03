@@ -21,14 +21,20 @@ function getInitialCurrency(): DisplayCurrency {
   try {
     const stored = localStorage.getItem(CURRENCY_KEY)
     if (stored === "USD" || stored === "TRY") return stored
-  } catch {}
+  } catch {
+    // Storage can be unavailable (private mode, site data blocked); the
+    // default below is the right answer either way.
+  }
   return "USD"
 }
 
 function getInitialObfuscated(): boolean {
   try {
     return localStorage.getItem(OBFUSCATE_KEY) === "true"
-  } catch {}
+  } catch {
+    // Storage can be unavailable (private mode, site data blocked); the
+    // default below is the right answer either way.
+  }
   return false
 }
 
@@ -41,7 +47,9 @@ export function DisplayProvider({ children }: { children: ReactNode }) {
   const toggleCurrency = useCallback(() => {
     setCurrency((prev) => {
       const next = prev === "USD" ? "TRY" : "USD"
-      try { localStorage.setItem(CURRENCY_KEY, next) } catch {}
+      // A failed write only costs persistence across reloads, never the
+      // toggle itself — so the preference still applies this session.
+      try { localStorage.setItem(CURRENCY_KEY, next) } catch { /* not persisted */ }
       return next
     })
   }, [])
@@ -49,7 +57,9 @@ export function DisplayProvider({ children }: { children: ReactNode }) {
   const toggleObfuscated = useCallback(() => {
     setObfuscated((prev) => {
       const next = !prev
-      try { localStorage.setItem(OBFUSCATE_KEY, String(next)) } catch {}
+      // A failed write only costs persistence across reloads, never the
+      // toggle itself — so the preference still applies this session.
+      try { localStorage.setItem(OBFUSCATE_KEY, String(next)) } catch { /* not persisted */ }
       return next
     })
   }, [])
