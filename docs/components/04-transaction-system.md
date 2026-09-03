@@ -237,7 +237,10 @@ A type-driven form: choosing the type reveals only the relevant fields.
   confirmation line shows
   `Sale proceeds: <amount> → credited to {platform} {settlement asset}`, with
   the currency symbol following the settlement asset (fiat gets its symbol, a
-  stablecoin ticker renders bare — same notation as the transaction row).
+  stablecoin ticker renders bare — same notation as the transaction row). The
+  amount is **exactly the cash the ledger will book**: a fee in the trade's own
+  currency nets off the proceeds, a fee in any other currency does not (it stays
+  informational) — the preview follows the cash-leg rule rather than its own.
 - **Transfer**: a **destination platform** (required, and different from the
   source); the cost-basis line is shown read-only (auto-computed). Editing a
   linked transfer keeps the destination platform visible and changeable, with a
@@ -266,12 +269,18 @@ A type-driven form: choosing the type reveals only the relevant fields.
 
 A **spreadsheet-style editable grid** with one typed cell per field (asset picker,
 type, date, quantity, price, currency, derived read-only total, fee, platform). Each
-row carries a status (clean / new / dirty / invalid) and per-cell validation with
-inline errors. Rows can be added blank, or **imported** three ways:
+row carries a status (clean / new / dirty / invalid) and per-cell validation whose
+reason is printed under the offending cell — readable without hovering or tapping,
+so it works the same on a phone. A row the **server** refuses on save is different:
+its reason belongs to no single cell, so it is printed on the row itself, and stays
+on screen when the grid is scrolled sideways. Rows can be added blank, or
+**imported** three ways:
 
 1. **Paste** tab-separated rows copied from a spreadsheet (header row auto-detected,
    else positional columns). Locale-tolerant date and number parsing.
-2. **Upload a CSV** file exported from a spreadsheet.
+2. **Upload a CSV** file exported from a spreadsheet. Choosing the same file a
+   second time re-imports it (cancelling or closing the importer forgets the
+   previous pick), so a corrected export of the same name is never silently ignored.
 3. **Import a broker PDF statement** — a statement carries several stacked tables and
    all of them are read:
    - **Trades** → buys/sells on the traded [Asset](GLOSSARY.md#asset). What makes a
@@ -321,6 +330,11 @@ and funded buys) or rolls back entirely, after which holding balances are recomp
       on its own platform (or none, if external) — funding is never offered from
       a different platform.
 - [ ] Recording a `sell` always creates a paired `cash_credit` on the trading platform.
+- [ ] The sell form's proceeds preview equals the `cash_credit` that gets booked —
+      including when the fee is in a different currency from the trade.
+- [ ] A bulk-editor cell that fails validation shows its reason without any hover or
+      tap; a row the server refuses shows the server's own reason on the row.
+- [ ] Picking the same CSV twice imports it twice.
 - [ ] A `sell` / `transfer_out` / `fee` exceeding the platform balance is rejected.
 - [ ] A transfer moves the position across platforms, carries weighted-average cost
       basis, and books **no realized P&L**.
