@@ -38,6 +38,18 @@ export function collapseLinkedTransferIns<
  *  a wall of context-free cash rows, because a trade's cash leg is booked
  *  against the fiat asset while the trade itself lives on the traded asset.
  *  The Transactions page keeps them — that is the full audit trail. */
+/**
+ * What the log's two layouts are given. The desktop row and the mobile card
+ * render the same transaction at two widths, so they take the same props and
+ * derive the same display model — see {@link useTransactionRowDisplay}.
+ */
+export interface TransactionRowProps {
+  transaction: TransactionWithDetails
+  linkedChild?: TransactionWithDetails | null
+  currency: DisplayCurrency
+  realized?: RealizedPnLEntry | null
+}
+
 export function dropCashLegs<T extends Pick<TransactionWithDetails, "type">>(
   rows: T[],
 ): T[] {

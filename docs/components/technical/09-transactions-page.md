@@ -49,8 +49,12 @@
   `realizedByTx.get(tx.id)` per row. The `xl` split matches `PortfolioTable`: the
   eight columns need ~930px and below 1280 the shell leaves at most 736px beside
   the 240px sidebar.
-- `TransactionRow.tsx` — one desktop table row; calls `deriveTransactionDisplay(...)`
-  for sign/converted/realized, then renders cells. Quantity / Unit Price / Total
+- `TransactionRow.tsx` — one desktop table row. It and `TransactionRowCard` take
+  the same `TransactionRowProps` (`transactionRowModel.ts`) and get their model
+  from the same `useTransactionRowDisplay(props)` (`TransactionRowShared.tsx`),
+  which reads the rates off the shared store and returns
+  `{ transferPair, display }` — `deriveTransactionDisplay`'s
+  sign/converted/realized figures. The row then renders cells. Quantity / Unit Price / Total
   cells and their `TableHead`s carry `text-right` + `tabular-nums`; the `(~…)`
   display-currency equivalent renders as a `div` (its own second line), not an
   inline span. A linked transfer pair
@@ -96,7 +100,8 @@
   (`TransactionRowActions` edit/delete menu + confirm dialog — pair-aware: names
   both sides when deleting a linked transfer; `TransactionAssetLabel` subtitle —
   cash legs only, a transfer child renders no subtitle; `TransferRoute`;
-  `isTransferPair`; `RealizedPnLLine`), `transactionRowModel.ts`
+  `isTransferPair`; `useTransactionRowDisplay`; `RealizedPnLLine`),
+  `transactionRowModel.ts`
   (`deriveTransactionDisplay` — no `amountColor` any more; the realized line's
   colour comes from `gainLossClass` and its `%` from
   `formatSignedPercent(…, DECIMALS.percentage)`; `collapseLinkedTransferIns`,
