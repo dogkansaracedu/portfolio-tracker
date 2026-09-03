@@ -33,9 +33,11 @@
   TWR|MWR and time-range switches (all three are
   `components/common/SegmentedControl`, the app's single pick-one control),
   benchmark `DropdownMenu`, the Recharts `AreaChart`, and the
-  headline/delta/subtitle. Owns axis-tick math (`niceStep`/`niceTicks`,
-  `compactCurrency`) and the dual-axis calibration. The shadcn `Tooltip` is
-  imported **aliased as `HintTooltip`** — Recharts exports a `Tooltip` too.
+  headline/delta/subtitle. Owns axis-tick math (`niceStep`/`niceTicks`) and the
+  dual-axis calibration; compact money ticks come from `lib/prices`'
+  `formatCompactCurrency`, shared with the Asset Detail and Budget charts. The
+  measure switch's explainer and the MWR/yr chip are `HintPopover`s (hover *and*
+  tap), so no shadcn `Tooltip` is imported here any more.
 - `src/components/dashboard/NetWorthCard.tsx` — net worth: primary + secondary
   currency. (Defined and exported; **not currently mounted** by the page — the
   hero's headline shows total value. See gotchas.)

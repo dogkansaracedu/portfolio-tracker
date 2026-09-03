@@ -38,6 +38,7 @@ import { CURRENCY_SYMBOLS, type FiatCurrency } from "@/lib/constants/currencies"
 import type { MonthlyBudgetRow } from "@/lib/budget"
 import type { CashflowEntry } from "@/types/database"
 import {
+  BUDGET_SERIES_LABELS,
   DEFAULT_INCOME_LABEL,
   DEFAULT_VISIBLE_MONTHS,
   INCOME_EDIT_COPY,
@@ -126,13 +127,20 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
         <CardTitle className="text-sm font-medium">Months</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
+        {/* Below `sm` the five columns squeeze Spent — the column the page
+            exists for — off the side, so Invested drops out of the row and
+            rides under Income as a caption instead. */}
+        {/* `Table` brings its own overflow container. Below `sm` the cells lose
+            their side padding and the heads may wrap, which is what lets the
+            four columns fit 326px without a sideways scroll. */}
+        <Table className="max-sm:text-xs max-sm:[&_td]:px-1 max-sm:[&_th]:px-1 max-sm:[&_td]:whitespace-normal max-sm:[&_th]:whitespace-normal">
             <TableHeader>
               <TableRow>
                 <TableHead>Month</TableHead>
                 <TableHead className="text-right">Income</TableHead>
-                <TableHead className="text-right">Invested</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">
+                  {BUDGET_SERIES_LABELS.invested}
+                </TableHead>
                 <TableHead className="text-right">Spent</TableHead>
                 <TableHead className="text-right">Savings rate</TableHead>
               </TableRow>
@@ -145,10 +153,13 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                   monthEntries[0]?.currency ?? INCOME_ENTRY_DEFAULT_CURRENCY
                 return (
                   <TableRow key={row.month}>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="whitespace-nowrap max-sm:whitespace-normal">
                       {monthLabel(row.month)}
                       {row.month === currentMonth && (
-                        <Badge variant="outline" className="ml-2">
+                        <Badge
+                          variant="outline"
+                          className="ml-2 max-sm:mt-1 max-sm:ml-0 max-sm:block max-sm:w-fit"
+                        >
                           {IN_PROGRESS_LABEL}
                         </Badge>
                       )}
@@ -197,14 +208,18 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                         >
                           {money(legFor(row, "income", currency))}
                           {row.incomeSource === "default" && (
-                            <span className="ml-1 text-xs text-muted-foreground">
+                            <span className="ml-1 text-xs text-muted-foreground max-sm:ml-0 max-sm:block">
                               ({DEFAULT_INCOME_LABEL})
                             </span>
                           )}
                         </button>
                       )}
+                      <span className="block text-[0.6875rem] text-muted-foreground sm:hidden">
+                        {BUDGET_SERIES_LABELS.invested}{" "}
+                        {money(legFor(row, "invested", currency))}
+                      </span>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="hidden text-right sm:table-cell">
                       {money(legFor(row, "invested", currency))}
                     </TableCell>
                     <TableCell className="text-right">
@@ -219,8 +234,7 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                 )
               })}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
         {rows.length > DEFAULT_VISIBLE_MONTHS && (
           <Button
             variant="ghost"

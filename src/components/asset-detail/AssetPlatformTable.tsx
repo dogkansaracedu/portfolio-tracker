@@ -36,7 +36,36 @@ export function AssetPlatformTable({ slices, category }: Props) {
         <CardTitle className="text-sm font-medium">By platform</CardTitle>
       </CardHeader>
       <CardContent>
-        <Table>
+        {/* Phone: stacked rows. The five columns compress to the point where
+            Value clips and P&L — the reason to read this card — falls off the
+            side, so below `sm` each platform is a two-line block instead. */}
+        <div className="flex flex-col divide-y sm:hidden">
+          {slices.map((s) => (
+            <div key={s.platformId} className="flex flex-col gap-1 py-2 first:pt-0 last:pb-0">
+              <div className="flex items-center gap-1.5 text-sm">
+                <span
+                  className="inline-block size-2 rounded-full"
+                  style={{ backgroundColor: s.platformColor }}
+                />
+                {s.platformName}
+              </div>
+              <div className="flex flex-wrap items-baseline gap-x-2 text-xs tabular-nums">
+                <span className="text-muted-foreground">
+                  {o(formatAmount(s.balance, category))}
+                </span>
+                <span className="font-semibold">{money(s.currentValueUsd)}</span>
+                <span className={gainLossToneClass(s.unrealizedPnlUsd)}>
+                  {signedMoney(s.unrealizedPnlUsd)}
+                  {s.unrealizedPnlPct !== null && (
+                    <> ({formatSignedPercent(s.unrealizedPnlPct)})</>
+                  )}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Table className="hidden sm:table">
           <TableHeader>
             <TableRow>
               <TableHead>Platform</TableHead>

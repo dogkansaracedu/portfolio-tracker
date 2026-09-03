@@ -66,9 +66,13 @@ A top-level page alongside Dashboard / Portfolio / Retirement:
   removing the last entry falls the month back to the salary default. Every
   income cell is therefore editable; nothing renders as a control that does not
   act.
+  On a phone the row keeps month · income · spent · savings rate and **invested**
+  moves under income as a second line, so the spent column — the reason the
+  table exists — never leaves the screen.
 - **Trend chart**: grouped monthly bars for income / invested / spent. The
   savings rate stays in the table — it is a different measure and never shares
-  the chart's axis.
+  the chart's axis. Money ticks are compact ("$4.5k", "-$1.5k"), so the axis
+  does not spend a quarter of a phone-width chart on ".00".
 - **Salary schedule editor**: default income rows (amount, currency,
   effective-from month), appendable and deletable.
 - The page follows the **app-wide display currency** (USD/TRY); derived figures
