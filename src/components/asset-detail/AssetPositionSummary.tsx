@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { HintPopover } from "@/components/common/HintPopover"
+import { cn } from "@/lib/utils"
 import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import {
   formatAmount,
@@ -37,14 +38,16 @@ interface Props {
 function Stat({
   label,
   emphasis = false,
+  className,
   children,
 }: {
   label: string
   emphasis?: boolean
+  className?: string
   children: React.ReactNode
 }) {
   return (
-    <Card size="sm" className="h-full">
+    <Card size="sm" className={cn("h-full", className)}>
       <CardContent>
         <p className="text-xs text-muted-foreground">{label}</p>
         <div
@@ -196,7 +199,9 @@ export function AssetPositionSummary({
         signedMoney={signedMoney}
       />
 
-      <Stat label="Today" emphasis>
+      {/* Two columns on a phone, three promoted stats: the third takes the
+          whole row so a promoted figure never sits beside a demoted one. */}
+      <Stat label="Today" emphasis className="max-md:col-span-2">
         {dailyReturnAvailable ? (
           <span className={gainLossToneClass(enriched.dailyReturnUsd)}>
             {signedMoney(enriched.dailyReturnUsd)}

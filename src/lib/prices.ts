@@ -31,6 +31,35 @@ export function formatCurrency(
 }
 
 /**
+ * The axis/dense-space form of {@link formatCurrency}: "$4.5k", "-$1.5k",
+ * "₺160k", "$3.2M". Chart ticks and any other place where a quarter of the
+ * width would otherwise go to ".00" use this — the symbol still leads and the
+ * minus still leads the symbol, so it reads with the same shape as the full
+ * form.
+ *
+ * One decimal below ten so a half-step tick reads "$1.5k" rather than rounding
+ * to "$2k"; the trailing ".0" is dropped so "$2.0k" reads "$2k".
+ */
+export function formatCompactCurrency(
+  value: number,
+  currency: FiatCurrency
+): string {
+  const symbol = CURRENCY_CONFIG[currency].symbol
+  const abs = Math.abs(value)
+  const sign = value < 0 ? "-" : ""
+  const trim = (s: string) => s.replace(/\.0$/, "")
+  if (abs >= 1_000_000) {
+    const v = abs / 1_000_000
+    return `${sign}${symbol}${trim(v.toFixed(v < 10 ? 1 : 0))}M`
+  }
+  if (abs >= 1_000) {
+    const v = abs / 1_000
+    return `${sign}${symbol}${trim(v.toFixed(v < 10 ? 1 : 0))}k`
+  }
+  return `${sign}${symbol}${abs.toFixed(0)}`
+}
+
+/**
  * Canonical Tailwind text-color classes for a gain/loss figure — the single
  * source every surface (transactions, portfolio, performance, dashboard) uses
  * so the green/red never drifts. `positive` is typically `value >= 0`.

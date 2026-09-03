@@ -28,6 +28,7 @@ import {
   type HeroViewMode,
 } from "@/hooks/useDashboardHero"
 import {
+  formatCompactCurrency,
   formatCurrency,
   formatSignedCurrency,
   formatSignedPercent,
@@ -150,25 +151,6 @@ function formatTooltipDate(ms: number): string {
     year: "numeric",
     timeZone: "UTC",
   })
-}
-
-function compactCurrency(value: number, currency: "USD" | "TRY"): string {
-  const symbol = currency === "USD" ? "$" : "₺"
-  const abs = Math.abs(value)
-  const sign = value < 0 ? "-" : ""
-  // 1 decimal when below 10 so half-k ticks (e.g. $1.5k) render as "$1.5k"
-  // instead of rounding up to "$2k". Drop trailing ".0" so $2.0k becomes
-  // $2k. Same logic for M.
-  const trim = (s: string) => s.replace(/\.0$/, "")
-  if (abs >= 1_000_000) {
-    const v = abs / 1_000_000
-    return `${sign}${symbol}${trim(v.toFixed(v < 10 ? 1 : 0))}M`
-  }
-  if (abs >= 1_000) {
-    const v = abs / 1_000
-    return `${sign}${symbol}${trim(v.toFixed(v < 10 ? 1 : 0))}k`
-  }
-  return `${sign}${symbol}${abs.toFixed(0)}`
 }
 
 /**
@@ -747,7 +729,7 @@ export default function DashboardHero({
                   width={56}
                   domain={axisDomains.pnl ?? ["auto", "auto"]}
                   ticks={axisDomains.pnlTicks}
-                  tickFormatter={(v: number) => compactCurrency(v, currency)}
+                  tickFormatter={(v: number) => formatCompactCurrency(v, currency)}
                 />
                 {viewMode === "pnl" && (
                   // Right axis: same physical scale as the left, relabeled
