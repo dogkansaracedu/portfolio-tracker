@@ -24,16 +24,13 @@ import { formatCurrency } from "@/lib/prices"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionMutations } from "@/hooks/useTransactions"
 import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
-import {
-  CURRENCY_SYMBOLS,
-  type FiatCurrency,
-} from "@/lib/constants/currencies"
 import type { TransactionWithDetails } from "@/lib/queries/transactions"
 import {
   formatTxDate,
   formatTxQuantity,
   type TransactionDisplay,
 } from "./transactionRowModel"
+import { formatSettlementAmount } from "@/components/transactions/settlementAmount"
 
 // A linked transfer pair (transfer_out parent + its transfer_in child) renders
 // as one combined row: neutral quantity, "Transfer" badge, source → destination
@@ -195,15 +192,14 @@ export function TransactionAssetLabel({
               // The leg's amount is in units of the asset it sits on — the
               // price-currency fiat row, or a settlement stablecoin (USDT).
               const unit = linkedChild.assets?.ticker ?? linkedChild.price_currency
-              const sym = CURRENCY_SYMBOLS[unit as FiatCurrency] ?? ""
-              const amt = Number(linkedChild.amount).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })
+              const amount = formatSettlementAmount(
+                Number(linkedChild.amount),
+                unit,
+              )
               const platform = linkedChild.platforms?.name ?? "platform"
               return linkedChild.type === TRANSACTION_TYPES.CASH_CREDIT
-                ? `${sym}${amt} ${unit} → ${platform}`
-                : `-${sym}${amt} ${unit} from ${platform}`
+                ? `${amount} ${unit} → ${platform}`
+                : `-${amount} ${unit} from ${platform}`
             })()}
           </span>
         )}
