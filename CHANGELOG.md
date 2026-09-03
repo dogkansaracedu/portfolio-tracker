@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.13.0] — 2026-09-02
+- UI/UX pass over the whole app: P&L, cost and subtotals now follow the display
+  currency (a row never mixes ₺ and $), zero is neutral instead of green, every
+  pick-one switch uses one control, and numeric columns are right-aligned.
+- Add Transaction gained a Transfer type, a pre-selected platform and funding
+  source, submit-time validation, and a footer that stays on screen (a
+  full-height sheet on a phone).
+- Dashboard hero speaks English throughout ("Net invested", "Now", round
+  gridlines, a readable benchmark line); retirement projections floor at zero and
+  name the depletion age; the bulk editor wears the app's own chrome.
+
 ## [0.12.0] — 2026-09-01
 - Fiat holdings now run the FIFO lot engine in a fiat mode: currency
   conversions, withdrawals, cash spends, and tax charges book realized FX P&L
