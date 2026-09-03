@@ -39,12 +39,16 @@ export default function TransactionsEditPage() {
   const asset = assetId ? assets.find((a) => a.id === assetId) : null
   // How many real rows the grid holds (loaded or added) — the blank
   // placeholders don't count. On a phone the grid only appears once there is
-  // something in it.
+  // something in it, so this must count EVERY status: leaving `invalid` out
+  // meant a Save that failed validation dropped the count to zero and swapped
+  // the grid back for the import screen — hiding the very rows, and the very
+  // messages, the user was told to review.
   const rowCount = controls
     ? controls.counts.new +
       controls.counts.dirty +
       controls.counts.clean +
-      controls.counts.deleted
+      controls.counts.deleted +
+      controls.counts.invalid
     : 0
   const isBulkAdd = !assetId
   const placeholderRows = isBulkAdd ? 12 : 6
