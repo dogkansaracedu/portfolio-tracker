@@ -12,7 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTheme } from "@/contexts/ThemeContext"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCompactCurrency, formatMoney, obfuscate } from "@/lib/prices"
+import { formatCompactCurrency, formatMoney } from "@/lib/prices"
 import type { FiatCurrency } from "@/lib/constants/currencies"
 import type { MonthlyBudgetRow } from "@/lib/budget"
 import {
@@ -40,11 +40,14 @@ const SERIES_ORDER: BudgetSeries[] = [
  * Unknown legs (months with no income data) are omitted from the chart rather
  * than drawn as zero; the savings rate lives in the table — one axis only.
  *
- * Both money surfaces here — the axis ticks and the tooltip — go through the
- * privacy toggle like the table beside them. An unmasked axis would hand the
- * hidden amounts straight back: the bars are still to scale, so a labelled
- * axis is the table's masked figures readable off a ruler. The bar SHAPE stays
- * (the same reason percentages stay visible under the toggle).
+ * Under the privacy toggle the axis loses its LABELS and the tooltip masks.
+ * An unmasked axis would hand the hidden amounts straight back — the bars are
+ * still to scale, so a labelled axis is the table's masked figures readable
+ * off a ruler. Masking each tick instead was worse than dropping them: five
+ * identical dot-rows at 11px read as stray gridlines against the dashed grid,
+ * and they held 56px of a 390px chart to say nothing. Same idiom as the asset
+ * history chart's price axis below `md` — the axis keeps its scale, drops its
+ * labels. The bar SHAPE stays (the reason percentages stay visible too).
  */
 export function BudgetTrendChart({ rows, currency }: Props) {
   const { theme } = useTheme()
@@ -74,12 +77,12 @@ export function BudgetTrendChart({ rows, currency }: Props) {
             <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 11 }} />
             <YAxis
               className="text-xs"
-              tick={{ fontSize: 11 }}
+              // Privacy on → no labels at all (see above), so the formatter
+              // below never runs and the gutter goes back to the bars.
+              tick={obfuscated ? false : { fontSize: 11 }}
+              width={obfuscated ? 0 : 56}
               // Compact: a quarter of the phone chart used to go to ".00".
-              tickFormatter={(v: number) =>
-                obfuscate(formatCompactCurrency(v, currency), obfuscated)
-              }
-              width={56}
+              tickFormatter={(v: number) => formatCompactCurrency(v, currency)}
             />
             <Tooltip
               formatter={(value, name) => [
