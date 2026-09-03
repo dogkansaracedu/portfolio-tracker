@@ -423,7 +423,7 @@ function CampaignCard({
             href={campaign.source_url}
             target={EXTERNAL_LINK_TARGET}
             rel={EXTERNAL_LINK_REL}
-            className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+            className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline max-sm:min-h-10"
           >
             {CAMPAIGN_COPY.sourceLabel}
             <ExternalLink className="size-3" />
@@ -435,6 +435,7 @@ function CampaignCard({
             size="xs"
             aria-label={INTEREST_COPY.trackAria}
             onClick={() => onTrack(campaign)}
+            className="max-sm:min-h-10"
           >
             <BookmarkPlus className="size-3" />
             {INTEREST_COPY.track}

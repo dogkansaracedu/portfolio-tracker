@@ -29,6 +29,7 @@ import { homeDayIso } from "@/lib/config"
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies"
 import {
   INTEREST_COPY,
+  INTEREST_SECTION_ANCHOR,
   INTEREST_ROUTE,
   INTEREST_STATUS_CLASSES,
 } from "@/lib/constants/interest"
@@ -106,7 +107,7 @@ export function AssetInterestSection({ asset }: { asset: Asset }) {
   }
 
   return (
-    <section className="space-y-3">
+    <section id={INTEREST_SECTION_ANCHOR} className="scroll-mt-4 space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">
@@ -333,7 +334,8 @@ function PositionCard({
           <p className="text-xs text-muted-foreground">{position.note}</p>
         )}
 
-        <div className="flex flex-wrap gap-1">
+        {/* 40px tap targets on a phone; desktop keeps the `xs` density. */}
+        <div className="flex flex-wrap gap-1 max-sm:*:min-h-10">
           <Button variant="ghost" size="xs" onClick={onEdit}>
             {INTEREST_COPY.edit}
           </Button>

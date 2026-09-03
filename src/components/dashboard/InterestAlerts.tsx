@@ -126,9 +126,11 @@ function AlertBanner({
         <ul className="space-y-0.5">
           {named.map((position) => (
             <li key={position.id}>
+              {/* `block` + a 40px min height: the whole row is the tap target,
+                  not the sentence's own 16px of text. */}
               <Link
                 to={INTEREST_ROUTE.assetDetail(position.asset_id)}
-                className="underline-offset-4 hover:underline"
+                className="flex items-center underline-offset-4 hover:underline max-sm:min-h-10"
               >
                 {alertSentence(
                   position,

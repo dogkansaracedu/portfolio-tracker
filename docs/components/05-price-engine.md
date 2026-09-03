@@ -104,7 +104,11 @@ session**, not once per consumer.
 
 **Staleness is display-only.** Age is computed from `updated_at` and surfaced as
 a 3-level indicator (fresh / warning / stale). Stale prices are **still used** in
-all calculations — staleness only informs the user, it never blocks a value.
+all calculations — staleness only informs the user, it never blocks a value. The
+indicator is present at every screen width: where there is no room for the full
+"updated N ago" sentence the age shows in its compact form (minutes / hours /
+days), carrying the level as its tone — the engine's own status tones, never the
+gain/loss palette.
 
 **Historical-rate backfill (supporting behavior).** When a [Transaction](GLOSSARY.md#transaction)
 is entered in a non-USD currency, the engine ensures the dated exchange rate for
@@ -168,6 +172,7 @@ falls back to the nearest known rate.
 - [ ] FX rates and gram-gold appear in the exchange-rate history after an FX
       refresh; crypto and equity prices appear in the cache after a refresh.
 - [ ] The refresh control shows the last-update time and refreshes on click; the
-      display shows fresh/warning/stale indicators.
+      display shows fresh/warning/stale indicators — including at phone widths,
+      where the age is compact but never absent.
 - [ ] A non-USD transaction triggers a best-effort fetch of that day's historical
       rate; if unavailable, conversion degrades to the nearest prior rate.

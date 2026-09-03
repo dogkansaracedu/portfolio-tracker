@@ -20,6 +20,7 @@ export default function ThemeToggle() {
             size="icon-sm"
             onClick={toggleTheme}
             aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            className="max-sm:size-10"
           />
         }
       >
