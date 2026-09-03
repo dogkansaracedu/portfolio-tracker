@@ -98,7 +98,10 @@ row** is shown **after tax** as the headline figure: `net = gross − tax`, wher
 is the at-source accrual on the position's positive native gain (see Component 6
 rule 7). The **gross** figure and the tax deducted are shown beside it as a
 muted annotation, so nothing is hidden. The percent is recomputed on the net
-amount over the same cost basis. **Group headers and the summary bar stay gross
+amount over the same cost basis. When a taxed position has **no cost base** to
+divide by, there is no net percent to show and the percent is **absent** rather
+than falling back to the gross one — a net amount beside a gross percent reads
+as one figure disagreeing with itself. (Same rule as Asset Detail.) **Group headers and the summary bar stay gross
 of the accrual** — the after-tax view is deliberately confined to the rows, so
 aggregate figures everywhere are the plain money-weighted totals.
 Consequently a group holding a taxed asset reads slightly **above** the sum of
