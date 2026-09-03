@@ -83,10 +83,15 @@
   the Transfer chip wears exactly the row badge's neutral slate. `USER_PICKABLE_TYPES`
   stays the editor/sheet's list — the pseudo-type must never be selectable there.
 - `TransactionSummary.tsx` — one `figures` array rendered twice: a single
-  `lg:hidden` `Card` holding a 3-column strip (label over value, `text-xs`), and the
-  three stat `Card`s from `lg` up. The strip runs to `lg`, not `sm`: the sidebar
-  appears at `md` and leaves each of three cards ~125px of content, which a
-  `text-2xl` converted ₺ volume overflows. Takes no `currency` prop — the volumes
+  `sm:hidden` `Card` holding a `grid-cols-[auto_1fr_1fr]` strip (label over value,
+  `text-xs`; the count column takes only its content so the two ₺ volumes get the
+  rest — that regained ~25px per volume column at 375px), and the three stat `Card`s
+  from `sm` up. The card figure is `text-2xl md:text-lg lg:text-2xl`: the 240px
+  sidebar appears at `md` and leaves each card ~125px of content, which `text-2xl`
+  overflows for a converted ₺ volume (needs ~148px), while `text-lg` needs ~111px.
+  Measured with the longest All Time TRY figures at 320/375/390/500/640/700/768/800/
+  850/900/1023/1024/1280/1440 — no clipping and no page-level horizontal scroll at
+  any of them, in either currency. Takes no `currency` prop — the volumes
   arrive in USD and go through `useDisplayMoney().money()` (so they are converted,
   and obfuscation-aware); `formatCurrency(usd, displayCurrency)` printed the dollar
   figure behind a lira sign. All render in the default foreground: volumes are
