@@ -124,6 +124,13 @@ const NET_INVESTED_LABEL = "Net invested"
  *  the first deposit, so it is a total, not a period gain. */
 const SINCE_FIRST_DEPOSIT_LABEL = "since first deposit"
 
+/** Subtitle chips are separated by a middle dot carried as the FOLLOWING
+ *  chip's `::before`, never as its own flex child — a separate child dangles
+ *  at the end of a wrapped line. Below `sm` the chips each take their own line,
+ *  where a separator has nothing to separate and reads as a bullet, so the dot
+ *  starts at `sm`. */
+const CHIP_SEPARATOR = "sm:before:mr-3 sm:before:content-['·']"
+
 /** The benchmark line's own neutral — dedicated, so it never reads as either
  *  side of the gain/loss palette and stays legible in both themes. */
 const BENCHMARK_STROKE = "var(--muted-foreground)"
@@ -599,8 +606,7 @@ export default function DashboardHero({
                   {SINCE_FIRST_DEPOSIT_LABEL}
                 </span>
               )}
-              <span className="text-muted-foreground">·</span>
-              <span className="text-muted-foreground">
+              <span className={cn("text-muted-foreground", CHIP_SEPARATOR)}>
                 {NET_INVESTED_LABEL}{" "}
                 <span className="font-medium text-foreground">
                   {obfuscate(
@@ -631,14 +637,17 @@ export default function DashboardHero({
                   under a year or the solver found no rate. A percent, so it
                   stays visible under the privacy toggle. */}
               {lifetimeXirrPct != null && (
-                <>
-                  <span className="text-muted-foreground">·</span>
-                  <HintTooltip>
-                    <TooltipTrigger
-                      render={
-                        <span className="cursor-default text-muted-foreground" />
-                      }
-                    >
+                <HintTooltip>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        className={cn(
+                          "cursor-default text-muted-foreground",
+                          CHIP_SEPARATOR,
+                        )}
+                      />
+                    }
+                  >
                       {MWR_LABEL}{" "}
                       <span className={cn("font-medium", xirrColor)}>
                         {formatSignedPercent(
@@ -649,15 +658,15 @@ export default function DashboardHero({
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>{MWR_PER_YEAR_HINT}</TooltipContent>
-                  </HintTooltip>
-                </>
+                </HintTooltip>
               )}
               {timeRange !== "1D" && (
-                <>
-                  <span className="text-muted-foreground">·</span>
-                  <DropdownMenu>
+                <DropdownMenu>
                     <DropdownMenuTrigger
-                      className="inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-foreground"
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-foreground",
+                        CHIP_SEPARATOR,
+                      )}
                     >
                       <span>
                         {/* The legend IS this chip: the dot ties the name to
@@ -689,11 +698,9 @@ export default function DashboardHero({
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuContent>
-                  </DropdownMenu>
-                </>
+                </DropdownMenu>
               )}
-              <span className="text-muted-foreground">·</span>
-              <span className="text-muted-foreground">
+              <span className={cn("text-muted-foreground", CHIP_SEPARATOR)}>
                 {NET_INVESTED_LABEL}{" "}
                 {obfuscate(
                   formatCurrency(

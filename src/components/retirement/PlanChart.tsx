@@ -86,10 +86,13 @@ export function PlanChart({
     currentAge,
   )
 
-  // The two age markers overprint whenever they are close (two years is ~10px
-  // on a phone), so they sit on OPPOSITE sides of their lines and on different
-  // rows: retirement top-right, earliest top-left one line down.
-  const earliestLabelOffset = 14
+  // A horizontal reference line's label follows the LINE, not the chart, so
+  // the target's label sits wherever the target value falls — often right on
+  // the baseline. Every vertical marker therefore labels at the TOP, and the
+  // ones that can be near each other are pushed onto their own rows. Two years
+  // is ~10px of chart on a phone, so proximity can never be what separates
+  // two labels.
+  const stackedLabelOffset = 16
 
   return (
     <Card>
@@ -124,12 +127,16 @@ export function PlanChart({
               tickFormatter={display.axisTick}
             />
             <Tooltip
+              // Capped and wrapping: the band row is two full money figures,
+              // which otherwise renders a ~750px tooltip inside a 326px chart.
               contentStyle={{
                 background: "var(--background)",
                 border: "1px solid var(--border)",
                 color: "var(--foreground)",
                 borderRadius: 8,
                 fontSize: 12,
+                maxWidth: 240,
+                whiteSpace: "normal",
               }}
               formatter={(value, name) =>
                 Array.isArray(value)
@@ -167,7 +174,7 @@ export function PlanChart({
                 value: RETIREMENT_TARGET_LINE_LABEL(
                   display.moneyFromChartValue(targetValue),
                 ),
-                position: "insideBottomLeft",
+                position: "insideTopLeft",
                 fontSize: 11,
                 fill: "var(--muted-foreground)",
               }}
@@ -179,7 +186,8 @@ export function PlanChart({
                 strokeDasharray="4 4"
                 label={{
                   value: DEPLETED_AT_LABEL(formatAge(depletedAge)),
-                  position: "insideBottomRight",
+                  position: "insideTopRight",
+                  dy: stackedLabelOffset * 2,
                   fontSize: 11,
                   fill: "var(--destructive)",
                 }}
@@ -202,7 +210,7 @@ export function PlanChart({
                     formatAge(earliestRetirementAge),
                   ),
                   position: "insideTopLeft",
-                  dy: earliestLabelOffset,
+                  dy: stackedLabelOffset,
                   fontSize: 11,
                   fill: "var(--primary)",
                 }}

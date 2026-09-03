@@ -44,6 +44,12 @@ export const INCOME_EDIT_COPY = {
   listTitle: "Income entries",
   amountLabel: "Amount",
   deleteLabel: "Delete entry",
+  deleteTitle: "Delete this income entry?",
+  deleteBody: (day: string, amount: string) =>
+    `This permanently removes the ${amount} entry recorded on ${day}. ` +
+    `Monthly figures will be recalculated. This cannot be undone.`,
+  deleteConfirm: "Delete",
+  done: "Done",
   defaultNote: "Falls back to the salary default when every entry is removed.",
 } as const
 

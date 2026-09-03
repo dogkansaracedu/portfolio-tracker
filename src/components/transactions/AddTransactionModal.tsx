@@ -1056,7 +1056,14 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
         )}
 
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={closeTransactionModal}>
+          {/* On the phone sheet the header's X already carries "get me out",
+              and a third full-width button costs a third of the visible form.
+              Cancel is the desktop card's exit only. */}
+          <Button
+            variant="outline"
+            onClick={closeTransactionModal}
+            className="hidden sm:inline-flex"
+          >
             Cancel
           </Button>
           {!isEdit && (

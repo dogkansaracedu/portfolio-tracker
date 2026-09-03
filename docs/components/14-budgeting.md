@@ -57,11 +57,15 @@ A top-level page alongside Dashboard / Portfolio / Retirement:
   income cell is editable inline: a month with no entry gets one recorded on
   its first day; a month with exactly one entry has that entry's amount updated
   (clearing the cell removes it, falling back to the salary default); a month
-  with **several** entries opens a small list editor instead — one row per
-  entry, each with its own amount and a delete — because the cell's figure is
-  their total, which is nobody's amount to type over. Removing the last entry
-  falls the month back to the salary default. Every income cell is therefore
-  editable; nothing renders as a control that does not act.
+  with **several** entries opens a list editor instead — one row per entry,
+  each with its own amount and a delete — because the cell's figure is their
+  total, which is nobody's amount to type over. The editor is a dialog, not a
+  panel inside the cell: the months table scrolls sideways on a narrow screen,
+  where a panel wedged into a cell puts its own controls out of reach. Deleting
+  an entry asks for confirmation first (it removes real income history);
+  removing the last entry falls the month back to the salary default. Every
+  income cell is therefore editable; nothing renders as a control that does not
+  act.
 - **Trend chart**: grouped monthly bars for income / invested / spent. The
   savings rate stays in the table — it is a different measure and never shares
   the chart's axis.

@@ -23,7 +23,8 @@
   from `xl`, i.e. 1280px, where the 240px sidebar still leaves a container the
   table's ~992px fits) + the card list (`xl:hidden`, every width below it —
   between 640 and 1279 the table pushed Value / P&L / Alloc off the edge while
-  the cards show every figure). Swaps the return column header label
+  the cards show every figure — `PortfolioRowCard` carries quantity @ cost/unit
+  and allocation for exactly that reason). Swaps the return column header label
   (`RETURN_COLUMN_LABEL_TOTAL` "P&L" ↔ `RETURN_COLUMN_LABEL_DAILY` "Today").
   Also holds `MobileGroupHeader`, which renders `useGroupFigures` on one line.
 - `src/components/portfolio/PortfolioGroupHeader.tsx` — the group row as **real

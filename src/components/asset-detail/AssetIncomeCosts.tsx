@@ -13,7 +13,7 @@ interface Props {
 export function AssetIncomeCosts({ incomeUsd, taxesUsd, feesUsd }: Props) {
   // USD-anchored sums, rendered in the display currency like every other
   // money figure on this page.
-  const { money } = useDisplayMoney()
+  const { money, signedMoney } = useDisplayMoney()
 
   const cards = [
     incomeUsd !== 0 && {
@@ -23,12 +23,12 @@ export function AssetIncomeCosts({ incomeUsd, taxesUsd, feesUsd }: Props) {
     },
     taxesUsd !== 0 && {
       label: "Taxes withheld",
-      value: `-${money(taxesUsd)}`,
+      value: signedMoney(-taxesUsd),
       className: "text-muted-foreground",
     },
     feesUsd !== 0 && {
       label: "Fees paid",
-      value: `-${money(feesUsd)}`,
+      value: signedMoney(-feesUsd),
       className: "text-muted-foreground",
     },
   ].filter(Boolean) as { label: string; value: string; className: string }[]
