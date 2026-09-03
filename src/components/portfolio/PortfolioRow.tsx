@@ -74,10 +74,16 @@ function rowFigures(
     showReturn: !isDaily || dailyReturnAvailable,
     returnUsd,
     netUsd,
-    netPct:
-      taxed && asset.costBasisUsd > 0
+    // The percent has to measure the same money as the figure beside it. On a
+    // taxed row with no cost base to divide by there is no net ratio, so the
+    // percent is absent rather than the gross one — a net amount paired with a
+    // gross percent read as one figure disagreeing with itself. (Absent, never
+    // "—": the hidden-not-zeroed convention. Same rule as Asset Detail.)
+    netPct: taxed
+      ? asset.costBasisUsd > 0
         ? (netUsd / asset.costBasisUsd) * 100
-        : returnPct,
+        : null
+      : returnPct,
     taxed,
     costUsdPerUnit:
       asset.totalBalance > 0 ? asset.costBasisUsd / asset.totalBalance : null,
