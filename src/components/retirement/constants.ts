@@ -255,6 +255,11 @@ export const COAST_CURVE_COLOR = { light: "#eb6834", dark: "#d95926" } as const
 /** Monthly projections run to 700+ points; charts sample down to this many. */
 export const CHART_MAX_POINTS = 240
 
+/** The money axis of all three retirement charts, so they cannot drift apart
+ *  (the labels themselves come from `RetirementDisplay.axisLabels`). */
+export const CHART_AXIS_FONT_SIZE = 11
+export const CHART_AXIS_WIDTH = 60
+
 export const DEFAULT_SCENARIO_NAME = "My plan"
 
 /** The scenario picker: prompt when nothing is loaded, and the default marker. */

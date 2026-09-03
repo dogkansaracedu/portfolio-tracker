@@ -231,7 +231,10 @@ answer, the verdict says the target is not reachable under these assumptions.
 
 ### Consistency rules
 
-- Display-currency toggle and amount obfuscation apply as elsewhere; signed
+- Display-currency toggle and amount obfuscation apply as elsewhere — the
+  projection charts' money axes drop their tick labels while amounts are hidden
+  (Component 11), keeping the bands' shape and giving the gutter to the plot;
+  signed
   figures use the canonical gain/loss palette; USD anchor throughout.
 - Terminology singularity is a hard requirement: UI labels, code identifiers,
   and docs use the glossary term exactly (e.g. "Coast FIRE number" /
