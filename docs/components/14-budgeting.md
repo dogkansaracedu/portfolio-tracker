@@ -65,7 +65,10 @@ A top-level page alongside Dashboard / Portfolio / Retirement:
   an entry asks for confirmation first (it removes real income history);
   removing the last entry falls the month back to the salary default. Every
   income cell is therefore editable; nothing renders as a control that does not
-  act.
+  act. How that editing works is explained once, from the **income column's own
+  heading**, through an explainer that opens on hover *and* on tap — a cell's
+  own tap already starts an edit, so the explanation needs a trigger of its own,
+  and one sentence at the head beats the same sentence repeated down every row.
   On a phone the row keeps month · income · spent · savings rate and **invested**
   moves under income as a second line, so the spent column — the reason the
   table exists — never leaves the screen.
@@ -77,6 +80,14 @@ A top-level page alongside Dashboard / Portfolio / Retirement:
   effective-from month), appendable and deletable.
 - The page follows the **app-wide display currency** (USD/TRY); derived figures
   are normalized using each transaction's or entry's own date rate.
+- Every money figure on the page — table cells, the chart's **axis ticks and
+  tooltip**, the salary schedule's amounts, and the amount named in the
+  delete-entry confirmation — is hidden by the **privacy toggle**, and every one
+  is grouped by its currency's own conventions. An unmasked chart axis would
+  hand the hidden figures straight back, since the bars are still to scale; the
+  bar *shape* stays visible, for the same reason percentages do. Amounts that
+  belong to a single entry (a schedule row, the entry being deleted) render in
+  **that entry's own currency**, never re-denominated.
 - Spending is not a loss: the page uses a neutral palette, not the gain/loss
   colors.
 
