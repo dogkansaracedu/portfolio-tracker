@@ -1,5 +1,6 @@
 import { formatApr } from "@/lib/campaigns"
 import { homeDayIso } from "@/lib/config"
+import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import { INTEREST_COPY, type InterestStatus } from "@/lib/constants/interest"
 import { daysUntil } from "@/lib/interest"
 import type { InterestPosition } from "@/types/database"
@@ -12,7 +13,7 @@ import type { InterestPosition } from "@/types/database"
 
 /** "Aug 19, 2026" from a `YYYY-MM-DD` day. */
 export function formatInterestDay(day: string): string {
-  return new Date(`${day}T00:00:00`).toLocaleDateString("en-US", {
+  return new Date(`${day}T00:00:00`).toLocaleDateString(DISPLAY_LOCALE, {
     day: "numeric",
     month: "short",
     year: "numeric",

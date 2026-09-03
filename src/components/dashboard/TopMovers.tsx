@@ -56,7 +56,7 @@ export default function TopMovers({ topMovers }: TopMoversProps) {
                       {o(pnlDisplay)}
                     </p>
                     <p className={`text-xs ${colorClass}`}>
-                      {formatSignedPercent(mover.unrealizedPnlPct, 2)}
+                      {formatSignedPercent(mover.unrealizedPnlPct)}
                     </p>
                   </div>
                 </div>

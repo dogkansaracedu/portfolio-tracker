@@ -35,6 +35,7 @@ import {
   partitionExpired,
 } from "@/lib/campaigns"
 import { bn, homeDayIso } from "@/lib/config"
+import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import {
   CAMPAIGN_COPY,
   ENDS_SOON_TONE_CLASS,
@@ -67,7 +68,7 @@ interface HeldPosition {
 /** "Aug 17, 2026" from a `YYYY-MM-DD` day or a full timestamp. */
 function formatDay(value: string): string {
   const date = new Date(value.length <= 10 ? `${value}T00:00:00` : value)
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString(DISPLAY_LOCALE, {
     day: "numeric",
     month: "short",
     year: "numeric",
