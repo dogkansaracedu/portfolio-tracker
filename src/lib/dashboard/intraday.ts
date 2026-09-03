@@ -1,3 +1,4 @@
+import { DISPLAY_LOCALE, NOW_LABEL } from "@/lib/constants/app"
 import { HOME_TIMEZONE } from "@/lib/config"
 import type { IntradaySnapshot } from "@/types/database"
 
@@ -8,7 +9,7 @@ export interface IntradayHeroPoint {
   date: string
   /** Epoch ms — the chart's numeric/time X value. */
   dateMs: number
-  /** "HH:mm" in the home timezone; the final point is "Şimdi". */
+  /** "HH:mm" in the home timezone; the final point is the "now" label. */
   label: string
   valueUsd: number
   valueTry: number
@@ -36,9 +37,10 @@ interface BuildArgs {
   nowMs: number
 }
 
-const timeFmt = new Intl.DateTimeFormat("tr-TR", {
+const timeFmt = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
   hour: "2-digit",
   minute: "2-digit",
+  hour12: false,
   timeZone: HOME_TIMEZONE,
 })
 
@@ -75,7 +77,7 @@ export function buildIntradaySeries({
   const points: IntradayHeroPoint[] = raw.map((p, i) => ({
     date: p.date,
     dateMs: p.dateMs,
-    label: i === raw.length - 1 ? "Şimdi" : timeFmt.format(new Date(p.dateMs)),
+    label: i === raw.length - 1 ? NOW_LABEL : timeFmt.format(new Date(p.dateMs)),
     valueUsd: p.valueUsd,
     valueTry: p.valueTry,
     twrPct: startUsd > 0 ? (p.valueUsd / startUsd - 1) * 100 : 0,

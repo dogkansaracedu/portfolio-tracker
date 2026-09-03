@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { buildIntradaySeries } from "./intraday"
+import { NOW_LABEL } from "@/lib/constants/app"
 import type { IntradaySnapshot } from "@/types/database"
 
 function snap(captured_at: string, total_usd: number, total_try: number): IntradaySnapshot {
@@ -18,7 +19,7 @@ describe("buildIntradaySeries", () => {
     expect(r.points).toHaveLength(3)
     expect(r.points[0].dateMs).toBe(new Date("2026-06-15T07:00:00Z").getTime())
     expect(r.points[2].dateMs).toBe(nowMs)
-    expect(r.points[2].label).toBe("Şimdi")
+    expect(r.points[2].label).toBe(NOW_LABEL)
     expect(r.points[2].valueUsd).toBe(1020)
   })
 
@@ -42,9 +43,9 @@ describe("buildIntradaySeries", () => {
     const intraday = [snap("2026-06-15T08:00:00Z", 1000, 34000)]
     const nowMs = new Date("2026-06-15T08:00:00Z").getTime()
     const r = buildIntradaySeries({ intraday, nowUsd: 1000, nowTry: 34000, nowMs })
-    // one historical + now at same ms → collapse to a single labelled "Şimdi"
+    // one historical + now at same ms → collapse to a single labelled "now" point
     expect(r.points).toHaveLength(1)
-    expect(r.points[0].label).toBe("Şimdi")
+    expect(r.points[0].label).toBe(NOW_LABEL)
   })
 
   it("returns just the now point when there is no intraday history", () => {
