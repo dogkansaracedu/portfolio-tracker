@@ -267,6 +267,13 @@ are always recomputed from inputs.
 - A persistent scenario panel: scenario picker (create / rename / save /
   delete / set default), the input fields above, and the assumption set behind
   a collapsible "Assumptions" section so casual use isn't buried in knobs.
+  Naming a scenario (create or rename) happens in a small form; the form closes
+  only once the write has landed. A **failed** write keeps it open with the
+  typed name intact and the reason shown in the form — never the silent close
+  that is indistinguishable from success. Its heading names what is being
+  saved, and does not change while the form is dismissing. Failures from the
+  panel's own buttons (save / delete / set default) report on the panel
+  instead — one failure, one place.
   On a phone the **whole panel** starts collapsed behind a one-line summary of
   the plan (monthly contribution · retirement age · safe withdrawal rate, with
   an Edit affordance), so the question tabs and their answer are on screen

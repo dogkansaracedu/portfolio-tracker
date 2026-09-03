@@ -17,7 +17,10 @@ import {
   normalizeScenarioInputs,
   type RetirementScenarioInputs,
 } from "@/lib/retirement"
-import { DEFAULT_SCENARIO_NAME } from "@/components/retirement/constants"
+import {
+  DEFAULT_SCENARIO_NAME,
+  SCENARIO_WRITE_FAILED,
+} from "@/components/retirement/constants"
 import type { RetirementScenario } from "@/types/database"
 
 /**
@@ -56,10 +59,17 @@ export interface RetirementPlanner {
   engineStartingAmountUsd: BigNumber
   patch: (partial: Partial<RetirementScenarioInputs>) => void
   selectScenario: (id: string) => void
+  /** Reports failure through `error`; always resolves. */
   save: () => Promise<void>
+  /** **Rejects** when the write fails, and reports nothing itself — the name
+   *  dialog owns that failure: it stays open with the typed name and the
+   *  reason under the field. */
   createScenario: (name: string) => Promise<void>
+  /** **Rejects** when the write fails — see {@link createScenario}. */
   renameActive: (name: string) => Promise<void>
+  /** Reports failure through `error`; always resolves. */
   deleteActive: () => Promise<void>
+  /** Reports failure through `error`; always resolves. */
   makeActiveDefault: () => Promise<void>
   discardEdits: () => void
 }
@@ -159,30 +169,50 @@ export function useRetirementPlanner(): RetirementPlanner {
     [scenarios],
   )
 
+  /**
+   * Every scenario write goes through here: it flips `saving`, clears the last
+   * report — and lets the failure through. It deliberately does NOT swallow
+   * one: which slot reports a failure belongs to the caller, and swallowing it
+   * here made a failed rename close its dialog exactly like a successful one.
+   */
   const run = useCallback(async (action: () => Promise<void>) => {
     setSaving(true)
     setError(null)
     try {
       await action()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save the scenario")
     } finally {
       setSaving(false)
     }
   }, [])
 
+  /**
+   * A write whose report is the panel's own `error` line — the picker's
+   * fire-and-forget buttons. The failure lands there and the promise settles,
+   * because an unhandled rejection is not a report. Writes driven by a form
+   * with its own error slot (the name dialog) skip this and keep the rejection.
+   */
+  const reported = useCallback(
+    (write: Promise<void>) =>
+      write.catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : SCENARIO_WRITE_FAILED)
+      }),
+    [],
+  )
+
   const save = useCallback(
     () =>
-      run(async () => {
-        if (activeScenario) {
-          await update(activeScenario.id, { inputs })
-          return
-        }
-        const created = await create(DEFAULT_SCENARIO_NAME, inputs, true)
-        pendingSelectionRef.current = created.id
-        setActiveId(created.id)
-      }),
-    [run, activeScenario, update, create, inputs],
+      reported(
+        run(async () => {
+          if (activeScenario) {
+            await update(activeScenario.id, { inputs })
+            return
+          }
+          const created = await create(DEFAULT_SCENARIO_NAME, inputs, true)
+          pendingSelectionRef.current = created.id
+          setActiveId(created.id)
+        }),
+      ),
+    [reported, run, activeScenario, update, create, inputs],
   )
 
   const createScenario = useCallback(
@@ -206,21 +236,25 @@ export function useRetirementPlanner(): RetirementPlanner {
 
   const deleteActive = useCallback(
     () =>
-      run(async () => {
-        if (!activeScenario) return
-        await remove(activeScenario.id)
-        setActiveId(null)
-      }),
-    [run, remove, activeScenario],
+      reported(
+        run(async () => {
+          if (!activeScenario) return
+          await remove(activeScenario.id)
+          setActiveId(null)
+        }),
+      ),
+    [reported, run, remove, activeScenario],
   )
 
   const makeActiveDefault = useCallback(
     () =>
-      run(async () => {
-        if (!activeScenario) return
-        await setDefault(activeScenario.id)
-      }),
-    [run, setDefault, activeScenario],
+      reported(
+        run(async () => {
+          if (!activeScenario) return
+          await setDefault(activeScenario.id)
+        }),
+      ),
+    [reported, run, setDefault, activeScenario],
   )
 
   const discardEdits = useCallback(() => {
