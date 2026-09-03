@@ -45,7 +45,7 @@ export const DEFAULT_VISIBLE_MONTHS = 12
  *  one sentence covering both the single- and several-entry cases. */
 export const INCOME_EDIT_COPY = {
   columnHint:
-    "Select a month's income to edit it — a month with several entries opens its full list instead.",
+    "Edit a month's income by choosing its figure — a month with several entries opens its full list instead.",
   listTitle: "Income entries",
   amountLabel: "Amount",
   deleteLabel: "Delete entry",
