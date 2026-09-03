@@ -39,6 +39,11 @@ export interface SheetRow {
    *  dirty-vs-clean transitions and to power Discard. */
   original: SheetSnapshot | null
   errors: Partial<Record<SheetField, string>>
+  /** Why the server refused this row on the last Save. Row-level, not
+   *  field-level — no single cell owns it — so it renders on the row itself
+   *  rather than in a cell's error slot. Cleared as soon as the row is edited
+   *  or re-saved. */
+  saveError: string | null
 }
 
 export type SheetSnapshot = Pick<

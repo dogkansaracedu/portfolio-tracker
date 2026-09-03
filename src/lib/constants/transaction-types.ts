@@ -140,6 +140,14 @@ export const BULK_EDITOR_PHONE_INTRO =
   "Import a statement or a copied table — the rows appear here for review before you save."
 export const BULK_EDITOR_PHONE_ADD_BY_HAND = "…or add a row by hand"
 
+/** Fallbacks for a bulk-editor row the server refused without a message of
+ *  its own. They render on the row itself, so they read as a reason. */
+export const ROW_SAVE_ERRORS = {
+  update: "Update failed",
+  bulkInsert: "Bulk insert failed",
+  missingId: "Bulk insert returned no id",
+} as const
+
 /** What the Add-transaction form's Type row offers. Deliberately the SAME
  *  vocabulary as the log's filter chips, so the form can record everything the
  *  log can show: the user-pickable stored types plus the derived internal

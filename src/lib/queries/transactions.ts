@@ -200,6 +200,13 @@ export async function bulkInsertTransactions(
   const { data, error } = await supabase.rpc("bulk_insert_transactions", {
     p_rows: rows,
   })
-  if (error) throw error
+  if (error) {
+    // Rethrow as a real Error: this client hands back a PLAIN object here, so
+    // a caller's `err instanceof Error` check would fail and the server's own
+    // reason ("insufficient cash on …") would be replaced by a generic
+    // fallback — on the one screen whose whole job is to explain which row
+    // the database refused and why.
+    throw new Error(error.message)
+  }
   return (data ?? []) as BulkInsertResult[]
 }

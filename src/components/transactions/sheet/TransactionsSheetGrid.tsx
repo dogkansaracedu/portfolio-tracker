@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
   TableBody,
@@ -24,7 +24,10 @@ import { NumberCell } from "./cells/NumberCell"
 import { TotalCostCell } from "./cells/TotalCostCell"
 import { CurrencyCell } from "./cells/CurrencyCell"
 import { useTransactionMutations } from "@/hooks/useTransactions"
-import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
+import {
+  ROW_SAVE_ERRORS,
+  TRANSACTION_TYPES,
+} from "@/lib/constants/transaction-types"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import {
@@ -100,6 +103,20 @@ const PINNED_ROW_NUMBER_CLASS =
   "max-sm:sticky max-sm:left-0 max-sm:w-10 max-sm:min-w-10 max-sm:bg-background"
 const PINNED_TICKER_CLASS =
   "max-sm:sticky max-sm:left-10 max-sm:w-[7.5rem] max-sm:bg-background"
+
+/**
+ * Two sticky layers meet in this grid: the `thead` (vertically) and the two
+ * pinned columns (horizontally). The header must win where they cross.
+ *
+ * A `z-index` on the sticky `thead` opens its own stacking context, so any
+ * `z-*` on the header cells inside it is measured against their siblings only
+ * — it cannot lift them past a body cell. The layering therefore has to be
+ * decided between `thead` and `tbody`: the header sits above every body cell,
+ * and the pinned header cells need no z of their own (a positioned element
+ * already paints over the static cells it scrolls across).
+ */
+const STICKY_HEADER_Z = "z-20"
+const PINNED_BODY_CELL_Z = "max-sm:z-10"
 
 export function TransactionsSheetGrid({
   assetId,
@@ -312,7 +329,7 @@ export function TransactionsSheetGrid({
         errCount++
         markSaveError(
           row.rowKey,
-          err instanceof Error ? err.message : "Update failed",
+          err instanceof Error ? err.message : ROW_SAVE_ERRORS.update,
         )
       }
     }
@@ -334,7 +351,7 @@ export function TransactionsSheetGrid({
             okCount++
           } else {
             errCount++
-            markSaveError(newRows[i].rowKey, "Bulk insert returned no id")
+            markSaveError(newRows[i].rowKey, ROW_SAVE_ERRORS.missingId)
           }
         }
         // Backfill TCMB rates for any non-USD rows dated before our earliest
@@ -364,7 +381,8 @@ export function TransactionsSheetGrid({
       } catch (err) {
         // Whole batch rolls back atomically on the SQL side; mark every
         // new row invalid so the user sees what didn't land.
-        const message = err instanceof Error ? err.message : "Bulk insert failed"
+        const message =
+          err instanceof Error ? err.message : ROW_SAVE_ERRORS.bulkInsert
         for (const row of newRows) {
           markSaveError(row.rowKey, message)
         }
@@ -485,17 +503,22 @@ export function TransactionsSheetGrid({
      *  `overflow-x-auto` which creates a nested scroll container and breaks
      *  the sticky thead. The caller (the page) owns the actual scroll area. */}
     <table className="w-full caption-bottom border-separate border-spacing-0 text-sm">
-      <TableHeader className="sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_var(--border)]">
+      <TableHeader
+        className={cn(
+          "sticky top-0 bg-background shadow-[inset_0_-1px_0_var(--border)]",
+          STICKY_HEADER_Z,
+        )}
+      >
         <TableRow className="hover:bg-transparent">
           <TableHead
             className={cn(
-              "w-10 px-2 py-3 text-right text-xs font-normal text-muted-foreground max-sm:z-30",
+              "w-10 px-2 py-3 text-right text-xs font-normal text-muted-foreground",
               PINNED_ROW_NUMBER_CLASS,
             )}
           />
           <TableHead
             className={cn(
-              "px-2 py-3 text-xs font-medium text-muted-foreground max-sm:z-30",
+              "px-2 py-3 text-xs font-medium text-muted-foreground",
               PINNED_TICKER_CLASS,
             )}
           >
@@ -542,21 +565,22 @@ export function TransactionsSheetGrid({
 
         {!loading &&
           visibleRows.map((row, idx) => (
+            <Fragment key={row.rowKey}>
             <TableRow
-              key={row.rowKey}
               className={cn("border-b last:border-b", ROW_STATUS_TINT[row.status])}
               data-status={row.status}
             >
               <TableCell
                 className={cn(
-                  "w-10 px-2 py-2 text-right align-middle text-xs text-muted-foreground tabular-nums max-sm:z-10",
+                  "w-10 px-2 py-2 text-right align-middle text-xs text-muted-foreground tabular-nums",
+                  PINNED_BODY_CELL_Z,
                   PINNED_ROW_NUMBER_CLASS,
                 )}
               >
                 {idx + 1}
               </TableCell>
               <AssetCell
-                className={cn("max-sm:z-10", PINNED_TICKER_CLASS)}
+                className={cn(PINNED_BODY_CELL_Z, PINNED_TICKER_CLASS)}
                 value={row.assetId}
                 assets={assets}
                 error={row.errors.assetId}
@@ -620,6 +644,26 @@ export function TransactionsSheetGrid({
                 </Button>
               </CellShell>
             </TableRow>
+            {/* Why the server refused this row, on the row the footer's
+                "Review highlighted rows" points at. It spans the grid, and
+                the text is pinned to the left edge of the scroll area so a
+                sideways-scrolled phone still reads it. */}
+            {row.saveError && (
+              <TableRow
+                className={cn(
+                  "border-b hover:bg-transparent",
+                  ROW_STATUS_TINT[row.status],
+                )}
+                data-row-error=""
+              >
+                <TableCell colSpan={COL_COUNT + 1} className="px-2 pt-0 pb-2">
+                  <span className="sticky left-2 inline-block text-xs text-destructive">
+                    {row.saveError}
+                  </span>
+                </TableCell>
+              </TableRow>
+            )}
+            </Fragment>
           ))}
 
         {!loading &&
