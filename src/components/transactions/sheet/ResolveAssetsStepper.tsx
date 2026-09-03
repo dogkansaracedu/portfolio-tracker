@@ -22,7 +22,9 @@ import {
 import { useAssets } from "@/hooks/useAssets"
 import {
   ASSET_CATEGORIES,
+  ASSET_NAME_LABEL,
   PRICE_SOURCES,
+  PRICE_SOURCE_LABEL,
   TICKER_HINTS,
   DEFAULT_PRICE_SOURCE,
   assetNativeCurrency,
@@ -140,7 +142,7 @@ export function ResolveAssetsStepper({
       return
     }
     if (!trimmedName) {
-      toast.error("Display name is required")
+      toast.error(`${ASSET_NAME_LABEL} is required`)
       return
     }
     const existing = tickerExists(trimmedTicker)
@@ -289,7 +291,7 @@ export function ResolveAssetsStepper({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="resolve-name">Display name</Label>
+            <Label htmlFor="resolve-name">{ASSET_NAME_LABEL}</Label>
             <Input
               id="resolve-name"
               placeholder="e.g. Bitcoin, Apple Inc., US Dollar"
@@ -317,7 +319,7 @@ export function ResolveAssetsStepper({
           </div>
 
           <div className="grid gap-2">
-            <Label>Price source</Label>
+            <Label>{PRICE_SOURCE_LABEL}</Label>
             <Select
               value={form.priceSource}
               onValueChange={(v) =>

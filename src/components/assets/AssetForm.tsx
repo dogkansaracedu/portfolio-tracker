@@ -22,7 +22,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AssetIcon } from "@/components/common/AssetIcon";
 import { derivePriceId } from "@/lib/priceId";
-import { ASSET_CATEGORIES, PRICE_SOURCES } from "@/lib/constants/assets";
+import {
+  ASSET_CATEGORIES,
+  ASSET_NAME_LABEL,
+  PRICE_SOURCES,
+  PRICE_SOURCE_LABEL,
+} from "@/lib/constants/assets";
 
 const TICKER_HINTS: Record<string, string> = {
   fiat: 'Display shorthand, e.g. "USD", "TRY", "EUR"',
@@ -148,7 +153,7 @@ export function AssetForm({
     }
     const trimmedName = displayName.trim();
     if (!trimmedName) {
-      setError("Display name is required");
+      setError(`${ASSET_NAME_LABEL} is required`);
       return;
     }
 
@@ -239,7 +244,7 @@ export function AssetForm({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="asset-name">Display Name</Label>
+              <Label htmlFor="asset-name">{ASSET_NAME_LABEL}</Label>
               <Input
                 id="asset-name"
                 placeholder="e.g. Bitcoin, Apple Inc., US Dollar"
@@ -267,7 +272,7 @@ export function AssetForm({
             </div>
 
             <div className="grid gap-2">
-              <Label>Price Source</Label>
+              <Label>{PRICE_SOURCE_LABEL}</Label>
               <Select
                 value={priceSource}
                 onValueChange={(val) => handlePriceSourceChange(val as string)}

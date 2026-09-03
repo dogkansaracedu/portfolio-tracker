@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { AssetIcon } from "@/components/common/AssetIcon"
 import { useTransactionModal } from "@/contexts/TransactionContext"
 import { formatCurrency } from "@/lib/prices"
-import { assetNativeCurrency } from "@/lib/constants/assets"
-import { CATEGORY_LABELS } from "@/lib/portfolio/grouping"
+import { assetNativeCurrency, CATEGORY_LABELS } from "@/lib/constants/assets"
+import { ADD_TRANSACTION_LABEL } from "@/lib/constants/transaction-types"
 import type { Asset } from "@/types/database"
 import type { EnrichedAsset } from "@/hooks/usePortfolio"
 
@@ -71,7 +71,7 @@ export function AssetDetailHeader({ asset, enriched }: Props) {
           </Button>
           <Button onClick={() => openTransactionModal({ assetId: asset.id })}>
             <Plus className="size-4" />
-            Add Transaction
+            {ADD_TRANSACTION_LABEL}
           </Button>
         </div>
       </div>
