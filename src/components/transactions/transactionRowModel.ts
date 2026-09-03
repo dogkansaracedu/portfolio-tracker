@@ -5,7 +5,7 @@ import {
   TRANSFER_PAIR_FILTER_TYPE,
   type TransactionFilterType,
 } from "@/lib/constants/transaction-types"
-import { isFiatCurrency, type FiatCurrency } from "@/lib/constants/currencies"
+import { type DisplayCurrency, isFiatCurrency, type FiatCurrency } from "@/lib/constants/currencies"
 import { convertOnDate, fromUsdOnDate } from "@/lib/pnl/currency"
 import { BN_HUNDRED, DECIMALS } from "@/lib/config"
 import { DISPLAY_LOCALE } from "@/lib/constants/app"
@@ -83,7 +83,7 @@ export interface TransactionDisplay {
 // color follow the USD sign (a position up in lira can be down in dollars).
 export function deriveTransactionDisplay(
   tx: TransactionWithDetails,
-  currency: "USD" | "TRY",
+  currency: DisplayCurrency,
   realized: RealizedPnLEntry | null,
   rates: ExchangeRate[],
   /** A linked transfer pair rendered as one combined row is an internal move —
