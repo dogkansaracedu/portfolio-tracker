@@ -95,6 +95,11 @@ A top-level page alongside Dashboard / Portfolio / Retirement:
   entries is about to go.
 - Amounts that belong to a single entry (a schedule row, the entry being
   deleted) render in **that entry's own currency**, never re-denominated.
+- **A write that fails says so.** Every income edit — the inline cell, the entry
+  list's amounts and deletes, the salary schedule's rows — reports its failure on
+  the surface that made it, and the editor that made it stays open with what was
+  typed. None of them may fail silently: an inline edit that quietly reverted was
+  indistinguishable from one the owner undid on purpose.
 - Spending is not a loss: the page uses a neutral palette, not the gain/loss
   colors.
 
