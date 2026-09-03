@@ -10,6 +10,7 @@ import {
   formatSignedMoney,
 } from "@/lib/prices"
 import { AGE_LABEL, EMPTY_FIGURE, VALUE_VIEW, type ValueView } from "./constants"
+import type { DisplayCurrency } from "@/lib/constants/currencies"
 
 /**
  * The display edge of the retirement views: BigNumber USD in, formatted string
@@ -41,7 +42,7 @@ export function formatAgeLabel(age: number): string {
 }
 
 export interface RetirementDisplay {
-  currency: "USD" | "TRY"
+  currency: DisplayCurrency
   isReal: boolean
   /** Nominal USD → the viewed USD amount (real applies the inflation deflator). */
   toViewUsd: (nominalUsd: BigNumber, monthsFromNow: number) => BigNumber

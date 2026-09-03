@@ -1,3 +1,4 @@
+import type { DisplayCurrency } from "@/lib/constants/currencies"
 import {
   createContext,
   useContext,
@@ -6,10 +7,8 @@ import {
   type ReactNode,
 } from "react"
 
-type Currency = "USD" | "TRY"
-
 interface DisplayContextValue {
-  currency: Currency
+  currency: DisplayCurrency
   toggleCurrency: () => void
   obfuscated: boolean
   toggleObfuscated: () => void
@@ -18,7 +17,7 @@ interface DisplayContextValue {
 const CURRENCY_KEY = "portfolio-display-currency"
 const OBFUSCATE_KEY = "portfolio-obfuscated"
 
-function getInitialCurrency(): Currency {
+function getInitialCurrency(): DisplayCurrency {
   try {
     const stored = localStorage.getItem(CURRENCY_KEY)
     if (stored === "USD" || stored === "TRY") return stored
@@ -36,7 +35,7 @@ function getInitialObfuscated(): boolean {
 const DisplayContext = createContext<DisplayContextValue | undefined>(undefined)
 
 export function DisplayProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrency] = useState<Currency>(getInitialCurrency)
+  const [currency, setCurrency] = useState<DisplayCurrency>(getInitialCurrency)
   const [obfuscated, setObfuscated] = useState(getInitialObfuscated)
 
   const toggleCurrency = useCallback(() => {

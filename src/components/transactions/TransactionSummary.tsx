@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/prices"
 import type { TransactionLogSummary } from "@/hooks/useTransactionLog"
+import type { DisplayCurrency } from "@/lib/constants/currencies"
 
 interface Props {
   summary: TransactionLogSummary
-  currency: "USD" | "TRY"
+  currency: DisplayCurrency
 }
 
 const SUMMARY_LABELS = {

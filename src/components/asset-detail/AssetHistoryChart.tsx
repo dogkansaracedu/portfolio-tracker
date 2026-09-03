@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TimeRangeSelector } from "@/components/performance/TimeRangeSelector"
 import { Toggle } from "@/components/ui/toggle"
 import { formatCompactCurrency, formatCurrency } from "@/lib/prices"
-import { DEFAULT_CURRENCY } from "@/lib/constants/currencies"
+import { type DisplayCurrency, DEFAULT_CURRENCY } from "@/lib/constants/currencies"
 import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import { SeriesDot } from "@/components/common/SeriesDot"
 import { MEDIA_QUERY, useMediaQuery } from "@/hooks/useMediaQuery"
@@ -35,7 +35,7 @@ const PRICE_SERIES_COLOR = "var(--muted-foreground)"
 
 interface Props {
   history: AssetHistoryPoint[]
-  currency: "USD" | "TRY"
+  currency: DisplayCurrency
 }
 
 /** Position value (area, display currency) + unit price (line, USD, right
