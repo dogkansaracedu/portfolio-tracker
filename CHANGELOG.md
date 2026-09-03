@@ -15,8 +15,9 @@ and patches move only the third digit.
   Earning section); controls the owner touches daily are 40px, and the phone
   header shows how stale the prices are.
 - The bulk editor opens import-first on a phone with its row number and ticker
-  pinned; charts gained plot width from compact money ticks, and the tab bar,
-  content and footers clear the home indicator.
+  pinned; charts gained plot width from compact money ticks; no page repeats
+  its own title on a phone, and the tab bar, content and footers clear the home
+  indicator.
 
 ## [0.13.0] — 2026-09-02
 - UI/UX pass over the whole app: P&L, cost and subtotals now follow the display
