@@ -172,7 +172,9 @@ trail, cash legs included, remains on the Transactions page.
 
 **Consistency rules.** Display-currency toggle and amount obfuscation apply
 exactly as on the Portfolio page (percentages stay visible when amounts are
-obfuscated) — which means **every money figure on this screen, P&L included,
+obfuscated; the history chart's value axis drops its labels and its value and
+cost readouts mask, while the **unit price** series — a public market quote,
+not one of the owner's amounts — keeps both, as the header price does) — which means **every money figure on this screen, P&L included,
 renders in the selected display currency**; only the per-unit prices (header
 price, average unit cost) stay asset-native with a USD equivalent. Conversion is
 presentation only; the figures are computed against the

@@ -42,6 +42,20 @@ affects. This component only defines their behaviour.
   owner picks one; once picked, the explicit choice persists and wins on reload.
 - **Value privacy (obfuscation)** — a toggle that masks all monetary figures
   (for screen-sharing / screenshots) without changing any data. Persists per browser.
+  **Percentages stay visible** (they reveal shape, not size), and so do public
+  market quotes — a per-unit price is not one of the owner's amounts.
+  - **On charts** the rule reaches the axes, not just the readouts: a money axis
+    keeps its scale and **drops its tick labels** while amounts are hidden, so
+    the plotted shape survives but the ruler beside it does not. A masked label
+    per tick was rejected on both counts — a series drawn to scale beside a
+    labelled axis is the hidden figures readable off that ruler, and a column of
+    identical mask glyphs reads as chart noise while holding a gutter open (up
+    to 56px of a 390px phone chart) to say nothing. Percent axes keep their
+    labels. Chart tooltips mask like any other readout.
+  - **Editable fields are the exception, by construction:** a text input shows
+    the raw amount it edits and cannot mask. A confirmation that names a figure
+    already visible in such a field therefore names it in the clear too —
+    masking it would buy no privacy and cost the confirmation its identifier.
 
 **Data portability:**
 

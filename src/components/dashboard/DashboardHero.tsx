@@ -33,6 +33,7 @@ import {
   formatSignedMoney,
   formatSignedPercent,
   gainLossToneClass,
+  moneyAxisLabels,
   NEUTRAL_FIGURE_CLASS,
 } from "@/lib/prices"
 import { SegmentedControl } from "@/components/common/SegmentedControl"
@@ -120,6 +121,13 @@ const NET_INVESTED_LABEL = "Net invested"
 /** Wording for a window with no real starting base: the delta is measured from
  *  the first deposit, so it is a total, not a period gain. */
 const SINCE_FIRST_DEPOSIT_LABEL = "since first deposit"
+
+/** The chip that marks a sampled/estimated series, and its explainer. A
+ *  `title` here never fired on touch, so the one thing that says WHY the
+ *  numbers are approximate was unreachable on a phone. */
+const APPROXIMATE_LABEL = "approximate"
+const APPROXIMATE_HINT =
+  "Older history is weekly-sampled; periods containing a deposit or withdrawal are estimated."
 
 /** Subtitle chips are separated by a middle dot carried as the FOLLOWING
  *  chip's `::before`, never as its own flex child — a separate child dangles
@@ -529,12 +537,20 @@ export default function DashboardHero({
               <SeriesDot color={strokeColor} />
               {youLabel} — {MEASURE_SUBLABELS[effectiveMeasure]}
               {approximate && (
-                <span
-                  className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase"
-                  title="Older history is weekly-sampled; periods containing a deposit or withdrawal are estimated."
+                // The chip is the trigger (hover AND tap). Below `sm` it grows
+                // to a 40px target, pulled back vertically so the chip itself
+                // stays a chip and never overlaps the lines around it — the
+                // same idiom the interest badge uses.
+                <HintPopover
+                  text={APPROXIMATE_HINT}
+                  label={APPROXIMATE_LABEL}
+                  align="start"
+                  className="ml-1.5 max-sm:-my-2.5 max-sm:min-h-10"
                 >
-                  approximate
-                </span>
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase">
+                    {APPROXIMATE_LABEL}
+                  </span>
+                </HintPopover>
               )}
             </p>
           )}
@@ -692,12 +708,14 @@ export default function DashboardHero({
                   tickLine={false}
                   minTickGap={24}
                 />
+                {/* The money axis. Hidden amounts drop its labels: the
+                    headline above is masked, and a labelled axis under a
+                    to-scale line hands the same figure back off a ruler. */}
                 <YAxis
                   yAxisId="primary"
-                  tick={{ fontSize: 11 }}
+                  {...moneyAxisLabels(obfuscated, { fontSize: 11, width: 56 })}
                   axisLine={false}
                   tickLine={false}
-                  width={56}
                   domain={axisDomains.pnl ?? ["auto", "auto"]}
                   ticks={axisDomains.pnlTicks}
                   tickFormatter={(v: number) => formatCompactCurrency(v, currency)}
@@ -709,6 +727,10 @@ export default function DashboardHero({
                   // grey benchmark line is plotted in % directly on this
                   // axis. Both axes share the same `ticks` positions so
                   // gridlines align.
+                  //
+                  // It keeps its labels under the privacy toggle: percentages
+                  // are never masked, and a % scale alone yields no amount —
+                  // recovering one needs `denom`, itself a hidden figure.
                   <YAxis
                     yAxisId="compare"
                     orientation="right"
