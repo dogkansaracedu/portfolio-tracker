@@ -64,11 +64,17 @@
 - `src/lib/dashboard/allocation.ts` — pure `deriveAllocationSlices` + the
   `AllocationNode` type (below). Separate module (not in the hook) so its test
   doesn't import the Supabase-backed data hooks.
-- `src/components/dashboard/PlatformBreakdown.tsx` — ranked platform list with
-  percent bars (plain divs, not Recharts).
-- `src/components/dashboard/CurrencyBreakdown.tsx` — ranked native-currency list
-  with percent bars; colours from the shared `CURRENCY_CHART_COLORS` /
-  `CURRENCY_CHART_FALLBACK_COLOR`. Mirrors `PlatformBreakdown` exactly.
+- `src/components/dashboard/AllocationBreakdown.tsx` — the breakdown card
+  itself: card shell, empty state, and one labelled coloured bar per slice with
+  its share and its value in the display currency (plain divs, not Recharts).
+  Takes `{ title, emptyText, rows }` where a row is
+  `{ label, color, valueUsd, valueTry, percentage }` — `label` doubles as the key.
+- `src/components/dashboard/PlatformBreakdown.tsx` — maps the ranked platform
+  list onto it; each platform carries its own colour.
+- `src/components/dashboard/CurrencyBreakdown.tsx` — maps the ranked
+  native-currency list onto it; colours from the shared `CURRENCY_CHART_COLORS`
+  / `CURRENCY_CHART_FALLBACK_COLOR`. The two cards were the same component
+  written twice, down to the bar's `Math.max(pct, 1)%` floor.
 - `src/components/dashboard/ForeignIncomeCard.tsx` — the "Foreign income · <year>"
   heads-up: reads `useForeignIncomeYtd()`, renders the YTD-vs-threshold line + a
   progress bar (`bg-primary` → `bg-amber-500` at `pct >= 80` → `bg-red-500` once

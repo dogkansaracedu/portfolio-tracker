@@ -1,6 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency, obfuscate } from "@/lib/prices"
+import { AllocationBreakdown } from "@/components/dashboard/AllocationBreakdown"
 import {
   CURRENCY_CHART_COLORS,
   CURRENCY_CHART_FALLBACK_COLOR,
@@ -14,64 +12,19 @@ interface CurrencyBreakdownProps {
 export default function CurrencyBreakdown({
   byCurrency,
 }: CurrencyBreakdownProps) {
-  const { currency, obfuscated } = useDisplayCurrency()
-  const o = (v: string) => obfuscate(v, obfuscated)
-
-  if (byCurrency.length === 0) {
-    return (
-      <Card className="flex flex-col">
-        <CardHeader>
-          <CardTitle>Currencies</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-1 items-center justify-center">
-          <p className="text-muted-foreground">No currencies to display.</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
-    <Card className="flex flex-col">
-      <CardHeader>
-        <CardTitle>Currencies</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {byCurrency.map((c) => {
-          const value = currency === "USD" ? c.valueUsd : c.valueTry
-          const color =
-            CURRENCY_CHART_COLORS[c.currency] ?? CURRENCY_CHART_FALLBACK_COLOR
-          return (
-            <div key={c.currency} className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="inline-block h-3 w-3 rounded-full"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="font-medium">{c.currency}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">
-                    {c.percentage.toFixed(1)}%
-                  </span>
-                  <span className="font-medium">
-                    {o(formatCurrency(value, currency))}
-                  </span>
-                </div>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${Math.max(c.percentage, 1)}%`,
-                    backgroundColor: color,
-                  }}
-                />
-              </div>
-            </div>
-          )
-        })}
-      </CardContent>
-    </Card>
+    <AllocationBreakdown
+      title="Currencies"
+      emptyText="No currencies to display."
+      rows={byCurrency.map((c) => ({
+        label: c.currency,
+        // The one currency palette, shared with the donut's outer ring.
+        color:
+          CURRENCY_CHART_COLORS[c.currency] ?? CURRENCY_CHART_FALLBACK_COLOR,
+        valueUsd: c.valueUsd,
+        valueTry: c.valueTry,
+        percentage: c.percentage,
+      }))}
+    />
   )
 }
