@@ -30,7 +30,6 @@ export {
   computeOpportunityCost,
   type OwnershipCost,
   type OpportunityCost,
-  type CategoryTotal,
 } from "./costs"
 
 export {

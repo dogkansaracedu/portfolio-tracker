@@ -37,21 +37,12 @@ import { DAYS_PER_YEAR } from "@/lib/xirr"
 import { compoundFactor } from "@/lib/retirement/projection"
 import {
   VEHICLE_VARIABLE_CATEGORIES,
-  VEHICLE_COST_CATEGORIES,
   type VehicleCostCategory,
 } from "@/lib/constants/vehicle"
 import type { ExchangeRate, Vehicle, VehicleCostEntry } from "@/types/database"
 
 /** Average days in a month, for turning a span into whole-ish months. */
 const DAYS_PER_MONTH = DAYS_PER_YEAR / 12
-
-export interface CategoryTotal {
-  category: VehicleCostCategory
-  label: string
-  usd: number
-  /** Share of total cash spend, 0–100. */
-  pct: number
-}
 
 export interface OwnershipCost {
   /** Cash actually paid out, all entries at their own date's rate. */
@@ -86,9 +77,6 @@ export interface OwnershipCost {
   variablePerKmUsd: number | null
   /** Total ÷ km driven — offered last, and never without its distance. */
   blendedPerKmUsd: number | null
-
-  /** Cash spend by category, largest first, zero-spend categories omitted. */
-  byCategory: CategoryTotal[]
 }
 
 /** One entry's amount in USD at its own date. Null-amount rows contribute
@@ -127,11 +115,10 @@ export function computeOwnershipCost(
   const depreciation =
     currentValueUsd === null ? null : purchaseUsd.minus(currentValueUsd)
 
-  // ── Cash, split fixed/variable and bucketed by category in one pass.
+  // ── Cash, split fixed vs variable in one pass.
   let cash = BN_ZERO
   let variable = BN_ZERO
   let fixedCash = BN_ZERO
-  const byCategoryUsd = new Map<string, BigNumber>()
 
   for (const entry of entries) {
     const usd = entryUsd(entry, rates)
@@ -147,11 +134,6 @@ export function computeOwnershipCost(
     } else {
       fixedCash = fixedCash.plus(usd)
     }
-
-    byCategoryUsd.set(
-      entry.category,
-      (byCategoryUsd.get(entry.category) ?? BN_ZERO).plus(usd),
-    )
   }
 
   const total = depreciation === null ? null : cash.plus(depreciation)
@@ -181,24 +163,8 @@ export function computeOwnershipCost(
       ? total.div(bn(kmDriven)).toNumber()
       : null
 
-  const cashNumber = cash.toNumber()
-  const byCategory: CategoryTotal[] = VEHICLE_COST_CATEGORIES.map((c) => {
-    const usd = byCategoryUsd.get(c.value)
-    return {
-      category: c.value,
-      label: c.label,
-      usd: usd ? usd.toNumber() : 0,
-      pct:
-        usd && cashNumber > 0
-          ? usd.div(cash).times(100).toNumber()
-          : 0,
-    }
-  })
-    .filter((row) => row.usd > 0)
-    .sort((a, b) => b.usd - a.usd)
-
   return {
-    cashUsd: cashNumber,
+    cashUsd: cash.toNumber(),
     depreciationUsd: depreciation === null ? null : depreciation.toNumber(),
     totalUsd: total === null ? null : total.toNumber(),
     purchaseUsd: purchaseUsd.toNumber(),
@@ -211,7 +177,6 @@ export function computeOwnershipCost(
     fixedPerMonthUsd,
     variablePerKmUsd,
     blendedPerKmUsd,
-    byCategory,
   }
 }
 

@@ -2,7 +2,7 @@
 
 > Layer: behavioral (tech-agnostic). Implementation → [technical/17-vehicle.md](technical/17-vehicle.md)
 >
-> **Status: built** (v0.16.0). The contract below describes the shipped
+> **Status: built** (v0.16.0, reviewed and corrected in v0.16.1). The contract below describes the shipped
 > behavior.
 
 ## Purpose
@@ -71,7 +71,9 @@ the car.
 ### What a vehicle records
 
 - **Identity** — name (what the owner calls it), plate, make, model, year. Only
-  the name is required.
+  the name is required. All of it is displayed, as a caption under the page
+  title, which on a narrow screen is the only thing that says which car the
+  figures belong to.
 - **Purchase** — date, price in the currency actually paid, and **the odometer
   at purchase**. A used car does not start at zero; treating it as though it did
   would inflate every per-km figure.
@@ -80,8 +82,11 @@ the car.
   honestly, and a value without its currency cannot be converted at all.
 - **Odometer** — the latest standalone reading, with its date. All-or-nothing
   for the same reason.
-- **Archive flag** — a sold car leaves the default lists but stays as history.
-  Reversible: nothing about it was ever booked.
+- **Archive flag** — stored and read (lists show active cars, and only active
+  cars raise warnings), but **no control writes it**, so in this build every car
+  is permanently active. The only removal shipped is a confirmed delete. The
+  read path exists for the archive control that is out of scope, not for a
+  state the owner can currently reach.
 
 The current value is **always typed, never fetched.** No free machine-readable
 valuation source exists for the Turkish market: the insurers' reference list is
@@ -172,13 +177,20 @@ not a fixed distance or number of days, so one rule works at every scale.
 
 Items already due are grouped into a **"due at your next service"** bundle —
 the real workflow is one visit closing several items, and the list is shaped to
-be handed to the mechanic. When nothing is due, the card names the closest
-upcoming item rather than rendering empty.
+be handed to the mechanic. **The bundle is actionable**: one action opens a cost
+entry with every listed item already ticked — and categorized as maintenance,
+since a row that closes service items is a visit, not a fill — so closing a
+whole visit does not mean hunting for each item in a long checkbox list. When nothing is due, the
+card names the closest upcoming item rather than rendering empty.
 
-Overdue and due-soon items raise **dashboard banners**, one per level, across
-every active car. Each names a few items and summarizes the rest, and links to
-the vehicle page. Dismissal lasts the browser session only: this is a nudge,
-not a task list, so it returns on the next visit if nothing was done.
+Overdue and due-soon items raise **one dashboard banner** covering both levels
+across every active car, overdue first and taking their tone. Deliberately one
+rather than one per level: both levels mean the same thing to the owner ("book
+a servis"), and a second banner costs a phone's whole first screen on the
+dashboard of a *portfolio* tracker. It names a few items, summarizes the rest,
+names the car only when several are involved, and links to the vehicle page.
+Dismissal lasts the browser session only: this is a nudge, not a task list, so
+it returns on the next visit if nothing was done.
 
 ### The odometer
 
@@ -213,9 +225,8 @@ With no current value recorded there is no depreciation, therefore no total, no
 fixed-per-month and no blended per-km — all render as unknown, with the reason
 stated. What remains knowable (cash spent, variable per km) still shows.
 
-A **category breakdown** ranks cash spend, largest first, omitting categories
-with no spend. Neutral palette throughout: spending is not a loss, so the
-gain/loss colors never appear on this page.
+Neutral palette throughout: spending is not a loss, so the gain/loss colors
+never appear on this page.
 
 ### Capital tied up
 
@@ -241,12 +252,28 @@ correct; silence about it is what makes owners conclude the feature is broken.
 
 ### Display rules
 
-- Every figure follows the **app-wide display currency** toggle and the
-  **privacy toggle** — including odometer readings and the ledger's amounts.
-- A single entry's amount renders in **that entry's own currency**, never
-  re-denominated. Aggregates are anchor-normalized.
+- Every **money** figure follows the **app-wide display currency** toggle and
+  the **privacy toggle**, including the ledger's amounts.
+- **Odometer readings are not masked.** A distance is not money, and the
+  schedule prints dozens of km figures (last done, next due, distance driven)
+  that cannot be masked without destroying the thing the page is for — so
+  masking one reading would hide nothing while looking broken. One rule,
+  applied consistently.
+- **A stored fact renders in its own recorded currency; only derived aggregates
+  follow the display toggle.** That covers a cost entry's amount, the purchase
+  price and the current value — the alternative had the same hand-typed value
+  reading two different numbers on one screen.
+- Where a stored amount is not in the anchor, **the anchored equivalent at that
+  amount's own date is printed beside it**. Without it the depreciation figure
+  cannot be checked against the two numbers under it: the operands are lira and
+  the difference is dollars, which is the entire point and yet reads as an error
+  when only one side is shown.
 - Amounts that cannot be computed render as unknown, never as a fake zero — and
   wherever the reason is not obvious, it is stated inline.
+- **Every span uses one unit convention**, in the coarsest honest unit: days up
+  to a quarter, then months, then years. An interval reads "every 2 years", not
+  "every 24 months", and time remaining reads in years rather than as a
+  four-digit day count nobody can act on.
 - The page states its own boundary rule, so the absence of these figures from
   net worth is never a surprise.
 
@@ -282,3 +309,10 @@ correct; silence about it is what makes owners conclude the feature is broken.
 - **A cross-link from budgeting's "spent" residual** to the car's share of it —
   natural, and deliberately not built until asked for.
 - **The car in net worth** — explicitly rejected, not deferred.
+- **Archiving a car from the UI.** The flag and the reads exist; no control
+  writes it. A confirmed delete is the only removal, which is the honest
+  escape hatch for a mistyped car; archive earns its control when a car is
+  actually sold.
+- **A spend-by-category breakdown.** Built, then cut: it re-sliced a figure
+  already in the headline and already itemized in the ledger below it, and it
+  was neither of the two things asked for nor one of the three opted-in extras.

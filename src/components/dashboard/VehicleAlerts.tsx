@@ -12,14 +12,20 @@ import {
   VEHICLE_ROUTE,
 } from "@/lib/constants/vehicle"
 import { cn } from "@/lib/utils"
-import { remainingPhrase } from "@/components/vehicle/display"
+import { remainingPhrase, statusLabel } from "@/components/vehicle/display"
 
 type Row = Alerts["overdue"][number]
 
 /**
- * The dashboard maintenance warnings: one compact banner per loud status,
- * mirroring `InterestAlerts` exactly — same two levels, same named-then-
- * summarized list, same session-scoped dismissal, same tones.
+ * The dashboard maintenance warning: **one** compact banner covering both loud
+ * statuses, with overdue rows first and the banner taking their tone.
+ *
+ * It borrows `InterestAlerts`' shape — same tones, same named-then-summarized
+ * list, same session-scoped dismissal — but deliberately not its two-banner
+ * split. That split is right for interest (an expired term and one ending soon
+ * call for different actions) and wrong here: overdue and due-soon both mean
+ * "book a servis", and two banners plus the interest one filled a phone's
+ * whole first screen and pushed the portfolio's own figures off it.
  *
  * Dismissal dies with the tab on purpose: this is a nudge, not a task list, so
  * it must return on the next visit if the work still hasn't been done. The
@@ -52,21 +58,25 @@ export function VehicleAlerts() {
     setDismissed(true)
   }
 
+  // Overdue rows lead and set the banner's tone; due-soon follows in the same
+  // list. `InterestAlerts` splits its two levels into two banners, which is
+  // right there (they mean different things — idle money vs a decision) but
+  // wrong here: both of these mean "book a servis", so one banner says it once.
+  const rows = [...overdue, ...dueSoon]
+  const tone =
+    overdue.length > 0 ? MAINTENANCE_STATUS.overdue : MAINTENANCE_STATUS.dueSoon
+  const title =
+    overdue.length > 0
+      ? VEHICLE_COPY.alertOverdueTitle
+      : VEHICLE_COPY.alertDueSoonTitle
+
   return (
-    <div className="space-y-2">
-      <AlertBanner
-        title={VEHICLE_COPY.alertOverdueTitle}
-        tone={MAINTENANCE_STATUS.overdue}
-        rows={overdue}
-        onDismiss={dismiss}
-      />
-      <AlertBanner
-        title={VEHICLE_COPY.alertDueSoonTitle}
-        tone={MAINTENANCE_STATUS.dueSoon}
-        rows={dueSoon}
-        onDismiss={dismiss}
-      />
-    </div>
+    <AlertBanner
+      title={title}
+      tone={tone}
+      rows={rows}
+      onDismiss={dismiss}
+    />
   )
 }
 
@@ -82,6 +92,8 @@ function AlertBanner({ title, tone, rows, onDismiss }: AlertBannerProps) {
 
   const named = rows.slice(0, VEHICLE_ALERT_NAMED_LIMIT)
   const rest = rows.length - named.length
+  // Only worth naming the car when the banner spans more than one.
+  const multiCar = new Set(rows.map((r) => r.vehicle.id)).size > 1
 
   return (
     <div
@@ -102,7 +114,9 @@ function AlertBanner({ title, tone, rows, onDismiss }: AlertBannerProps) {
                 to={VEHICLE_ROUTE}
                 className="flex items-center underline-offset-4 hover:underline max-sm:min-h-10"
               >
-                {vehicle.name}: {state.item.name} — {remainingPhrase(state)}
+                {multiCar ? `${vehicle.name}: ` : ""}
+                {state.item.name} — {statusLabel(state.status).toLowerCase()},{" "}
+                {remainingPhrase(state)}
               </Link>
             </li>
           ))}

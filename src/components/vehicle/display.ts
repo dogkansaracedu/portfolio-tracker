@@ -4,7 +4,7 @@
  * Component 16 uses.
  */
 
-import { DISPLAY_LOCALE, NOW_LABEL } from "@/lib/constants/app"
+import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import { DECIMALS } from "@/lib/config"
 import {
   FUEL_ECONOMY_UNIT,
@@ -41,14 +41,41 @@ export function formatVehicleDay(day: string | null | undefined): string {
   })
 }
 
+/** "2 Sep 26" — the narrow-screen form, so a table row keeps room for its
+ *  actions. Same locale, fewer characters. */
+export function formatShortDay(day: string | null | undefined): string {
+  if (!day) return NO_DATA
+  const ms = Date.parse(`${day}T00:00:00Z`)
+  if (Number.isNaN(ms)) return NO_DATA
+  return new Date(ms).toLocaleDateString(DISPLAY_LOCALE, {
+    year: "2-digit",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  })
+}
+
 export function statusLabel(status: MaintenanceStatus): string {
   return MAINTENANCE_STATUS_LABELS[status]
 }
 
+/** A month count in the coarsest honest unit: "6 months", "1 year",
+ *  "2 years", "4 years 6 months". One convention, so a plan does not read
+ *  "Every 1 year" on one row and "Every 48 months" on the next. */
+export function formatMonthSpan(months: number): string {
+  const whole = Math.round(months)
+  if (whole < 12) return whole === 1 ? "1 month" : `${whole} months`
+  const years = Math.floor(whole / 12)
+  const rest = whole % 12
+  const yearPart = years === 1 ? "1 year" : `${years} years`
+  if (rest === 0) return yearPart
+  return `${yearPart} ${rest === 1 ? "1 month" : `${rest} months`}`
+}
+
 /**
- * An item's interval, in the dimensions it actually tracks: "10,000 km / 12
- * months", "90,000 km", "24 months". A dormant item says so rather than
- * printing an empty interval.
+ * An item's interval, in the dimensions it actually tracks: "10,000 km / 1
+ * year", "90,000 km", "2 years". Returns `""` for a dormant item — the caller
+ * words that case itself, because "Every not tracked" is not a sentence.
  */
 export function formatInterval(
   intervalKm: number | null,
@@ -56,13 +83,16 @@ export function formatInterval(
 ): string {
   const parts: string[] = []
   if (intervalKm !== null) parts.push(formatKm(Number(intervalKm)))
-  if (intervalMonths !== null) {
-    const months = Number(intervalMonths)
-    parts.push(months === 12 ? "1 year" : `${months} months`)
-  }
-  return parts.length > 0
-    ? parts.join(" / ")
-    : MAINTENANCE_STATUS_LABELS[MAINTENANCE_STATUS.dormant]
+  if (intervalMonths !== null) parts.push(formatMonthSpan(Number(intervalMonths)))
+  return parts.join(" / ")
+}
+
+/** A day count in the coarsest honest unit. Days up to a quarter, then months
+ *  and years — "1,691 days left" is a figure nobody can act on. */
+export function formatDaySpan(days: number): string {
+  const whole = Math.abs(Math.round(days))
+  if (whole <= 90) return whole === 1 ? "1 day" : `${whole} days`
+  return formatMonthSpan(whole / (365.25 / 12))
 }
 
 /**
@@ -81,8 +111,7 @@ export function remainingPhrase(state: MaintenanceItemState): string {
       return `${formatKm(Math.abs(kmRemaining))} over`
     }
     if (daysRemaining !== null && daysRemaining < 0) {
-      const days = Math.abs(Math.round(daysRemaining))
-      return days === 1 ? "1 day over" : `${days} days over`
+      return `${formatDaySpan(daysRemaining)} over`
     }
     return statusLabel(MAINTENANCE_STATUS.overdue)
   }
@@ -90,8 +119,7 @@ export function remainingPhrase(state: MaintenanceItemState): string {
   const options: string[] = []
   if (kmRemaining !== null) options.push(`${formatKm(kmRemaining)} left`)
   if (daysRemaining !== null) {
-    const days = Math.round(daysRemaining)
-    options.push(days === 1 ? "1 day left" : `${days} days left`)
+    options.push(`${formatDaySpan(daysRemaining)} left`)
   }
   // Whichever comes first is the one worth showing.
   if (options.length === 0) return NO_DATA
@@ -121,10 +149,17 @@ export function lastDonePhrase(state: MaintenanceItemState): string {
   return `${formatKm(state.lastDoneKm)}, ${formatVehicleDay(state.lastDoneDate)}`
 }
 
-/** "7.0 L/100km" */
+/** Just the figure — "7.0" — so a card can put the unit on its own line and
+ *  a narrow column never breaks "L/100km" across three lines. */
+export function formatConsumptionValue(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return NO_DATA
+  return value.toFixed(1)
+}
+
+/** "7.0 L/100km" — the inline form, for prose and tooltips. */
 export function formatConsumption(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return NO_DATA
-  return `${value.toFixed(1)} ${FUEL_ECONOMY_UNIT}`
+  return `${formatConsumptionValue(value)} ${FUEL_ECONOMY_UNIT}`
 }
 
 /** "44.0 L" */
@@ -133,12 +168,11 @@ export function formatLitres(value: number | null): string {
   return `${value.toFixed(1)} L`
 }
 
-/** "21.1 months" / "1 month" — the ownership span. */
+/** The ownership span, in the same unit convention as every other span. */
 export function formatMonths(months: number): string {
   if (!Number.isFinite(months) || months <= 0) return NO_DATA
   if (months < 1) return "under a month"
-  const rounded = months.toFixed(months < 24 ? 1 : 0)
-  return `${rounded} months`
+  return formatMonthSpan(months)
 }
 
 /** The percentage on an interval bar, coarse on purpose (it is a rate). */
@@ -147,8 +181,7 @@ export function formatUsedPct(pct: number | null): string {
   return `${pct.toFixed(DECIMALS.percentageRate)}%`
 }
 
-/** The date a projection lands on, or "now" when it already has. */
+/** The date a projection lands on. */
 export function projectionLabel(day: string | null): string {
-  if (!day) return NO_DATA
-  return formatVehicleDay(day) === NO_DATA ? NOW_LABEL : formatVehicleDay(day)
+  return formatVehicleDay(day)
 }

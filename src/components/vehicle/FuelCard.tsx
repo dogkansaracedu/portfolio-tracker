@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayMoney } from "@/hooks/useDisplayMoney"
-import { VEHICLE_COPY } from "@/lib/constants/vehicle"
+import { FUEL_ECONOMY_UNIT, VEHICLE_COPY } from "@/lib/constants/vehicle"
 import type { FuelEconomy } from "@/lib/vehicle"
 import {
   NO_DATA,
-  formatConsumption,
+  formatConsumptionValue,
   formatLitres,
 } from "@/components/vehicle/display"
 
@@ -32,8 +32,16 @@ export function FuelCard({ fuel }: Props) {
   return (
     <Card>
       <CardHeader>
+        {/* The unit lives in the title: it applies to all three figures, and
+            inside a 98px column it broke "L/100km" across three lines. */}
         <CardTitle className="text-sm font-medium">
           {VEHICLE_COPY.fuelHeading}
+          {fuel.average !== null && (
+            <span className="text-muted-foreground">
+              {" · "}
+              {FUEL_ECONOMY_UNIT}
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -42,31 +50,25 @@ export function FuelCard({ fuel }: Props) {
             {VEHICLE_COPY.economyUnavailable}
           </p>
         ) : (
-          <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-            <div className="space-y-0.5">
+          <div className="grid grid-cols-3 items-baseline gap-x-4 gap-y-1">
               <p className="text-xs text-muted-foreground">
                 {VEHICLE_COPY.economyAverage}
               </p>
-              <p className="text-lg font-semibold tabular-nums">
-                {formatConsumption(fuel.average)}
-              </p>
-            </div>
-            <div className="space-y-0.5">
               <p className="text-xs text-muted-foreground">
                 {VEHICLE_COPY.economyBest}
               </p>
-              <p className="text-sm font-medium tabular-nums">
-                {formatConsumption(fuel.best?.consumption ?? null)}
-              </p>
-            </div>
-            <div className="space-y-0.5">
               <p className="text-xs text-muted-foreground">
                 {VEHICLE_COPY.economyWorst}
               </p>
-              <p className="text-sm font-medium tabular-nums">
-                {formatConsumption(fuel.worst?.consumption ?? null)}
+              <p className="text-lg font-semibold tabular-nums">
+                {formatConsumptionValue(fuel.average)}
               </p>
-            </div>
+              <p className="text-sm font-medium tabular-nums">
+                {formatConsumptionValue(fuel.best?.consumption ?? null)}
+              </p>
+              <p className="text-sm font-medium tabular-nums">
+                {formatConsumptionValue(fuel.worst?.consumption ?? null)}
+              </p>
           </div>
         )}
 
@@ -81,7 +83,9 @@ export function FuelCard({ fuel }: Props) {
             <>
               {" · "}
               {fuel.segments.length}{" "}
-              {fuel.segments.length === 1 ? "tank measured" : "tanks measured"}
+              {fuel.segments.length === 1
+                ? VEHICLE_COPY.tankMeasured
+                : VEHICLE_COPY.tanksMeasured}
             </>
           )}
         </p>

@@ -21,6 +21,8 @@ import type { VehicleCostEntry, VehicleMaintenanceItem } from "@/types/database"
 import {
   NO_DATA,
   formatKm,
+  formatLitres,
+  formatShortDay,
   formatVehicleDay,
 } from "@/components/vehicle/display"
 
@@ -89,10 +91,22 @@ export function CostLedger({ entries, items, onEdit, onDelete }: Props) {
               return (
                 <TableRow key={entry.id}>
                   <TableCell className="align-top">
-                    <div>{formatVehicleDay(entry.date)}</div>
+                    {/* The date must not wrap (it broke into four lines at
+                        320px) but the full form is wide enough to push the row
+                        actions past the edge — so it is short below `sm` and
+                        full from there up. */}
+                    <div className="whitespace-nowrap max-sm:hidden">
+                      {formatVehicleDay(entry.date)}
+                    </div>
+                    <div className="whitespace-nowrap sm:hidden">
+                      {formatShortDay(entry.date)}
+                    </div>
+                    {/* Not masked — same rule as the readings card: an
+                        odometer is not money, and the plan above prints dozens
+                        of km figures that cannot be masked. */}
                     {entry.odometer !== null && (
                       <div className="text-xs text-muted-foreground">
-                        {obfuscate(formatKm(Number(entry.odometer)), obfuscated)}
+                        {formatKm(Number(entry.odometer))}
                       </div>
                     )}
                   </TableCell>
@@ -123,8 +137,10 @@ export function CostLedger({ entries, items, onEdit, onDelete }: Props) {
                         )}
                     {entry.litres !== null && (
                       <div className="text-xs text-muted-foreground">
-                        {Number(entry.litres).toFixed(1)} L
-                        {entry.is_full_tank ? " · full" : ""}
+                        {formatLitres(Number(entry.litres))}
+                        {entry.is_full_tank
+                          ? ` · ${VEHICLE_COPY.fullTankSuffix}`
+                          : ""}
                       </div>
                     )}
                   </TableCell>

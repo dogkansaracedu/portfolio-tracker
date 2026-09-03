@@ -134,7 +134,7 @@ export function MaintenanceItemForm({
             {VEHICLE_COPY.intervalBothBlankHint}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="contents">
           <DialogBody className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="item-name">{VEHICLE_COPY.fieldName}</Label>
