@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.14.1] — 2026-09-03
+- Money figures obey the privacy toggle everywhere: the dashboard, retirement,
+  asset and budget charts no longer print your amounts on an axis or in a
+  tooltip while the headline above them is masked.
+- Buy/Sell volumes now convert into the display currency instead of showing a
+  dollar figure behind a lira sign, and the sale-proceeds preview asks the cash
+  layer what it will actually book.
+- Writes that fail now say so instead of reverting quietly (budget income,
+  salary rows, retirement scenarios), and a refused import names its reason on
+  the row it refused.
+
 ## [0.14.0] — 2026-09-03
 - Phone pass: dialogs land their submit on one 40px row that survives the
   keyboard, the first holding and the first transaction sit in the first screen,
