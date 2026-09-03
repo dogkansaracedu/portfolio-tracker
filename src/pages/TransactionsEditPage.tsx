@@ -62,7 +62,15 @@ export default function TransactionsEditPage() {
             <span className="text-sm text-muted-foreground">{asset.name}</span>
           )}
           {controls && (
-            <>
+            // While the import-first block is showing on a phone these three
+            // are its own labelled buttons — the header would be a second,
+            // weaker copy of them.
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-2 md:gap-4",
+                rowCount === 0 && "max-sm:hidden",
+              )}
+            >
               {/* Labels collapse below `sm` so the header stays one row on a
                   phone — the icon plus an accessible name carries it. */}
               <Button
@@ -89,7 +97,7 @@ export default function TransactionsEditPage() {
                   onAppend={controls.appendRows}
                 />
               )}
-            </>
+            </div>
           )}
         </div>
       </header>

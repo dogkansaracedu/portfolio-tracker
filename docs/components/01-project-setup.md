@@ -58,7 +58,7 @@ What the user sees and can do:
 
 - **App shell (authenticated, shell screens):**
   - Desktop: left side navigation with the product name/logo and all screen links (icon + label); a top header. The side navigation's bottom-left corner carries a muted build stamp (`v<version> · <short revision>`), selectable for copying, with the full revision and build time on hover.
-  - Mobile: a fixed bottom bar with four tabs (icon + label) — the three primary screens and More; the side navigation is not shown; the header shows the current screen's title (including on secondary screens and the More hub).
+  - Mobile: a fixed bottom bar with four tabs (icon + label) — the three primary screens and More; the side navigation is not shown; the header shows the current screen's title (including on secondary screens and the More hub). Because the header names the screen, no page repeats its own title on a mobile-width viewport — the title block and its subtitle belong to the wider layouts.
   - Header controls (right-aligned): hide/show-values toggle, theme toggle, display-currency toggle, a price-refresh control, and an account menu. (Each control's behavior belongs to its own component; setup only guarantees the header hosts them.)
   - Account menu: shows who is signed in and offers sign-out; sign-out asks for confirmation, then returns the user to `login`.
 - **Public screens:** `login` and `signup` render standalone, without the app shell.

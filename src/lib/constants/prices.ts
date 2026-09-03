@@ -12,7 +12,7 @@ export const PRICE_STALENESS_TONE_CLASS: Record<StalenessLevel, string> = {
   // The same amber as `ENDS_SOON_TONE_CLASS` (its text half — this indicator
   // has no border) — one warning colour app-wide.
   warning: "text-amber-700 dark:text-amber-300",
-  stale: "text-red-600 dark:text-red-400",
+  stale: "text-destructive",
 }
 
 /** Shown on the phone header, where there is no room for "Updated 2m ago". */

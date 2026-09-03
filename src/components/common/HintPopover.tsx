@@ -47,11 +47,11 @@ export function HintPopover({
             className={cn(
               "inline-flex cursor-help items-center justify-center text-muted-foreground",
               // The bare glyph is 14px, far under the touch guideline, so below
-              // `sm` it gets a 40px box pulled back with a negative margin —
-              // the target grows, the glyph and the line it sits on do not. A
-              // caller-supplied chip is already wide enough to hit and stays
-              // inline, so the surrounding text keeps its rhythm.
-              !children && "max-sm:-m-3 max-sm:size-10",
+              // `sm` it gets a 40px box. Only the horizontal half is pulled
+              // back — a vertical negative margin would let the target overlap
+              // the lines above and below it. A caller-supplied chip is already
+              // wide enough to hit and stays inline.
+              !children && "max-sm:-mx-3 max-sm:size-10",
               className
             )}
           />
