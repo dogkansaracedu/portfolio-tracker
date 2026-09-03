@@ -15,6 +15,9 @@ and patches move only the third digit.
 - Dashboard hero speaks English throughout ("Net invested", "Now", round
   gridlines, a readable benchmark line); retirement projections floor at zero and
   name the depletion age; the bulk editor wears the app's own chrome.
+- Phone: dialogs are full-height sheets that follow the keyboard, the portfolio
+  card list carries every column the table does, and the budget's multi-entry
+  income editor is a dialog with a confirmed delete.
 
 ## [0.12.0] — 2026-09-01
 - Fiat holdings now run the FIFO lot engine in a fiat mode: currency
