@@ -48,6 +48,10 @@
   `tabIndex={-1}` link over the rest so the whole block stays tappable). See
   [technical/16-interest.md](16-interest.md). Both read their figures from the
   file-local `rowFigures(asset, returnMode, dailyReturnAvailable, currency)` —
+  whose `netPct` is the net-over-cost ratio on a taxed row and **null** (no
+  percent rendered) when that row's `costBasisUsd <= 0`; falling back to the
+  gross `returnPct` there paired a net amount with a gross percent. Mirrors
+  `AssetPositionSummary` exactly —
   one derivation for two widths, so the daily-return guard and the tax
   annotation cannot disagree between them. It picks
   `unrealizedPnlUsd`/`unrealizedPnlPct` (total) vs `dailyReturnUsd`/`dailyReturnPct`
