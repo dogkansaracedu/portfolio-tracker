@@ -2,11 +2,7 @@ import { useMemo } from "react"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { usePrices } from "@/hooks/usePrices"
 import { bn } from "@/lib/config"
-import {
-  formatCurrency,
-  formatSignedCurrency,
-  obfuscate,
-} from "@/lib/prices"
+import { formatMoney, formatSignedMoney } from "@/lib/prices"
 import type { FiatCurrency } from "@/lib/constants/currencies"
 
 /**
@@ -43,12 +39,10 @@ export function useDisplayMoney(): DisplayMoney {
       currency,
       obfuscated,
       fromUsd,
-      money: (usd: number) =>
-        obfuscate(formatCurrency(fromUsd(usd), currency), obfuscated),
+      money: (usd: number) => formatMoney(fromUsd(usd), currency, obfuscated),
       signedMoney: (usd: number) =>
-        obfuscate(formatSignedCurrency(fromUsd(usd), currency), obfuscated),
-      display: (value: number) =>
-        obfuscate(formatCurrency(value, currency), obfuscated),
+        formatSignedMoney(fromUsd(usd), currency, obfuscated),
+      display: (value: number) => formatMoney(value, currency, obfuscated),
     }
   }, [currency, obfuscated, usdTry])
 }

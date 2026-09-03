@@ -108,6 +108,32 @@ export function formatSignedCurrency(
 }
 
 /**
+ * {@link formatCurrency} under the privacy toggle — the composition every money
+ * surface in the app repeats. Obfuscation replaces the whole string (the
+ * currency goes with the amount), so it wraps the format rather than the value.
+ */
+export function formatMoney(
+  value: number,
+  currency: FiatCurrency,
+  obfuscated: boolean
+): string {
+  return obfuscate(formatCurrency(value, currency), obfuscated)
+}
+
+/**
+ * {@link formatSignedCurrency} under the privacy toggle. The same string as
+ * {@link formatMoney} — it survives for the same reason its unobfuscated twin
+ * does: it marks a P&L figure at the call site.
+ */
+export function formatSignedMoney(
+  value: number,
+  currency: FiatCurrency,
+  obfuscated: boolean
+): string {
+  return formatMoney(value, currency, obfuscated)
+}
+
+/**
  * Format a "signed" percentage to `decimals` places: losses get a leading
  * minus, gains and zero render bare (e.g. "12.3%", "-4.0%"). Defaults to
  * `DECIMALS.percentage`.
