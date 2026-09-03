@@ -5,7 +5,7 @@ import {
   moreNavItem,
   matchesPath,
   isNavItemActive,
-} from "./Sidebar"
+} from "@/lib/constants/navigation"
 
 const tabClass = (isActive: boolean) =>
   `flex flex-1 flex-col items-center gap-1 py-2 text-xs transition-colors ${

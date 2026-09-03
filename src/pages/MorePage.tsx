@@ -1,7 +1,7 @@
 import { Link } from "react-router"
 import { ChevronRight } from "lucide-react"
 import { PageHeading } from "@/components/common/PageHeading"
-import { secondaryNavItems } from "@/components/layout/Sidebar"
+import { secondaryNavItems } from "@/lib/constants/navigation"
 
 export default function MorePage() {
   return (

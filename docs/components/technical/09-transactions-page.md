@@ -51,7 +51,7 @@
   the 240px sidebar.
 - `TransactionRow.tsx` — one desktop table row. It and `TransactionRowCard` take
   the same `TransactionRowProps` (`transactionRowModel.ts`) and get their model
-  from the same `useTransactionRowDisplay(props)` (`TransactionRowShared.tsx`),
+  from the same `useTransactionRowDisplay(props)` (`src/hooks/`),
   which reads the rates off the shared store and returns
   `{ transferPair, display }` — `deriveTransactionDisplay`'s
   sign/converted/realized figures. The row then renders cells. Quantity / Unit Price / Total
@@ -110,9 +110,10 @@
   (`TransactionRowActions` edit/delete menu + confirm dialog — pair-aware: names
   both sides when deleting a linked transfer; `TransactionAssetLabel` subtitle —
   cash legs only, a transfer child renders no subtitle; `TransferRoute`;
-  `isTransferPair`; `useTransactionRowDisplay`; `RealizedPnLLine`),
+  `RealizedPnLLine` — components only, so the file stays fast-refreshable),
+  `src/hooks/useTransactionRowDisplay.ts`,
   `transactionRowModel.ts`
-  (`deriveTransactionDisplay` — no `amountColor` any more; the realized line's
+  (`isTransferPair`; `deriveTransactionDisplay` — no `amountColor` any more; the realized line's
   colour comes from `gainLossClass` and its `%` from
   `formatSignedPercent(…, DECIMALS.percentage)`; `collapseLinkedTransferIns`,
   `formatTxDate`, plus the

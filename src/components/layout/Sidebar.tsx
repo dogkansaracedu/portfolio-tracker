@@ -1,55 +1,8 @@
 import { Link, useLocation } from "react-router"
-import {
-  LayoutDashboard,
-  Briefcase,
-  ArrowLeftRight,
-  TrendingUp,
-  PiggyBank,
-  Wallet,
-  Megaphone,
-  Settings,
-  Ellipsis,
-} from "lucide-react"
-import { CAMPAIGN_COPY } from "@/lib/constants/campaigns"
 import { APP_NAME } from "@/lib/constants/app"
-import { FEATURES } from "@/lib/features"
+import { navItems, isNavItemActive } from "@/lib/constants/navigation"
 import Logo from "@/components/common/Logo"
 import BuildBadge from "@/components/common/BuildBadge"
-
-// Primary items get a dedicated tab in the mobile bottom bar; secondary
-// items live behind its "More" hub tab. Desktop sidebar shows all of them.
-const primaryNavItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/portfolio", label: "Portfolio", icon: Briefcase },
-  { to: "/transactions", label: "Transactions", icon: ArrowLeftRight },
-]
-
-const secondaryNavItems = [
-  // Performance page is feature-flagged off (frozen) — see lib/features.ts.
-  ...(FEATURES.performancePage
-    ? [{ to: "/performance", label: "Performance", icon: TrendingUp }]
-    : []),
-  { to: "/retirement", label: "Retirement", icon: PiggyBank },
-  { to: "/budget", label: "Budget", icon: Wallet },
-  { to: "/campaigns", label: CAMPAIGN_COPY.navLabel, icon: Megaphone },
-  { to: "/settings", label: "Settings", icon: Settings },
-]
-
-const navItems = [...primaryNavItems, ...secondaryNavItems]
-
-const moreNavItem = { to: "/more", label: "More", icon: Ellipsis }
-
-// Exact match or a sub-path — "/budget" must not match a future "/budgets".
-const matchesPath = (pathname: string, to: string) =>
-  pathname === to || pathname.startsWith(`${to}/`)
-
-// Shared by Sidebar and MobileNav so both shells light the same entry.
-// Asset detail is Portfolio's drill-down; it lights the Portfolio entry.
-const isNavItemActive = (pathname: string, to: string) =>
-  to === "/"
-    ? pathname === "/"
-    : matchesPath(pathname, to) ||
-      (to === "/portfolio" && matchesPath(pathname, "/assets"))
 
 export default function Sidebar() {
   const { pathname } = useLocation()
@@ -84,13 +37,4 @@ export default function Sidebar() {
       </div>
     </aside>
   )
-}
-
-export {
-  navItems,
-  primaryNavItems,
-  secondaryNavItems,
-  moreNavItem,
-  matchesPath,
-  isNavItemActive,
 }

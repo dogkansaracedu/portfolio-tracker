@@ -6,10 +6,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  PortfolioGroupHeader,
-  useGroupFigures,
-} from "@/components/portfolio/PortfolioGroupHeader"
+import { PortfolioGroupHeader } from "@/components/portfolio/PortfolioGroupHeader"
+import { useGroupFigures } from "@/hooks/useGroupFigures"
 import { PortfolioRow, PortfolioRowCard } from "@/components/portfolio/PortfolioRow"
 import { formatSignedPercent, gainLossToneClass } from "@/lib/prices"
 import type { AssetGroup, ReturnMode } from "@/hooks/usePortfolio"

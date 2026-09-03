@@ -12,8 +12,8 @@ import {
   TransactionAssetLabel,
   TransferRoute,
   RealizedPnLLine,
-  useTransactionRowDisplay,
 } from "./TransactionRowShared"
+import { useTransactionRowDisplay } from "@/hooks/useTransactionRowDisplay"
 import { TRANSFER_PAIR_DISPLAY } from "@/lib/constants/transaction-types"
 
 export function TransactionRow(props: TransactionRowProps) {
