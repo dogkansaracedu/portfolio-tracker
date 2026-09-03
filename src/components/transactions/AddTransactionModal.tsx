@@ -51,13 +51,12 @@ import {
   isSettlementStablecoin,
 } from "@/lib/constants/assets"
 import {
-  CURRENCY_SYMBOLS,
   SUPPORTED_FIAT_CURRENCIES,
   DEFAULT_CURRENCY,
-  type FiatCurrency,
 } from "@/lib/constants/currencies"
 import { toast } from "sonner"
 import type { TransactionType, Asset, Platform } from "@/types/database"
+import { formatSettlementAmount } from "@/components/transactions/settlementAmount"
 
 // The date picker tracks a local-timezone Date. .toISOString() converts to
 // UTC, which can shift the calendar day backward (e.g. TR midnight on Jan 21
@@ -905,23 +904,16 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           {/* Total Cost display */}
           {showPriceFields && totalCost.gt(0) && (
             <div className="rounded-md bg-muted px-3 py-2 text-sm">
-              Total: {CURRENCY_SYMBOLS[priceCurrency as FiatCurrency] ?? ""}
-              {totalCost.toNumber().toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              Total:{" "}
+              {formatSettlementAmount(totalCost.toNumber(), priceCurrency)}
             </div>
           )}
 
           {/* Transfer auto-cost display (read-only) */}
           {isTransferEither && parsedAmount.gt(0) && parsedPrice.gt(0) && selectedAsset && (isCurrencyAsset || type === "transfer_out") && (
             <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-              Cost basis: {CURRENCY_SYMBOLS[priceCurrency as FiatCurrency] ?? ""}
-              {totalCost.toNumber().toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}{" "}
-              (auto)
+              Cost basis:{" "}
+              {formatSettlementAmount(totalCost.toNumber(), priceCurrency)} (auto)
             </div>
           )}
 
@@ -1028,10 +1020,9 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           {type === TRANSACTION_TYPES.SELL && parsedAmount.gt(0) && parsedPrice.gt(0) && (
             <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
               Sale proceeds:{" "}
-              {CURRENCY_SYMBOLS[proceedsTicker as FiatCurrency] ?? ""}
-              {totalCost.minus(parsedFee).toNumber().toLocaleString(
-                undefined,
-                { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+              {formatSettlementAmount(
+                totalCost.minus(parsedFee).toNumber(),
+                proceedsTicker,
               )}{" "}
               → credited to{" "}
               {platforms.find((p) => p.id === platformId)?.name ?? "the trading platform"}{" "}

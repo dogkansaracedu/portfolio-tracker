@@ -93,7 +93,8 @@
 - `DateCell.tsx` — native date input.
 - `NumberCell.tsx` — numeric input (amount / price / fee), right-aligned.
 - `CurrencyCell.tsx` — supported-fiat dropdown.
-- `TotalCostCell.tsx` — read-only derived `amount × unit_price` with currency symbol.
+- `TotalCostCell.tsx` — read-only derived `amount × unit_price`, symbol + digits
+  from `settlementAmount.ts`.
 
 ### Domain logic
 - `src/lib/balance.ts` — `recalculateBalance(userId, assetId, platformId)`: sums
@@ -104,6 +105,15 @@
   `cashAssetId`; legs always carry `unit_price: 1` in the parent's price
   currency, which *is* the $1 peg when the leg sits on USDT),
   `validateFundingCash` (with `settlementTicker` for the error message's unit).
+- `src/components/transactions/settlementAmount.ts` — `settlementSymbol(unit)`,
+  `formatSettlementDigits(value)` and `formatSettlementAmount(value, unit)`: the
+  cash leg's figure, whose unit may be a fiat currency OR a settlement
+  stablecoin, so it cannot go through `formatCurrency` (which takes a
+  `FiatCurrency`). Used by the modal's Total / Cost basis / Sale proceeds lines,
+  the row's cash-leg subtitle and the grid's `TotalCostCell`. Its digits follow
+  the BROWSER locale, not the currency's — so a ₺ figure here groups differently
+  from the same figure through `formatCurrency`; that is pre-existing and this
+  module is the one place to fix it.
 - `src/lib/constants/assets.ts` — `SETTLEMENT_STABLECOIN_TICKERS` (USDT) +
   `isSettlementStablecoin`: the curated set of stablecoins eligible as a
   settlement asset. Distinct from `STABLECOIN_TICKERS` (display nesting).
