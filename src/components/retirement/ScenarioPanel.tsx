@@ -450,6 +450,9 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
         </Disclosure>
       </CardContent>
 
+      {/* `mode` is only read when the dialog opens (it latches it), so
+          dropping this state on close cannot rewrite the heading while the
+          dialog is still animating out. */}
       <ScenarioNameDialog
         open={nameDialog !== null}
         onOpenChange={(open) => !open && setNameDialog(null)}
