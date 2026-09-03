@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.15.0] — 2026-09-03
+- One name per figure, everywhere: the money you are up or down is **Total P&L**
+  on the dashboard, the Portfolio bar and an asset page (it used to be "Total",
+  "P&L" and "Total return"), and the Portfolio column that shows an open
+  position's gain now says **Unrealized** — it never was the portfolio total.
+- The portfolio's worth is **Total Value** on both pages that show it, and each
+  asset category has one label app-wide (an asset is "US Stock" on the dashboard
+  as well as in Settings, not "US Stocks" on one and "US Stock" on the other).
+- Terms now live in the glossary and are imported from one constants module, so
+  a label cannot drift between two screens again.
+
 ## [0.14.2] — 2026-09-03
 - The dashboard's Performance chart gets its dashed zero line back and stops
   holding open an empty gutter beside it. The left edge had been reserving room

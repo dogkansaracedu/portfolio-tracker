@@ -39,8 +39,11 @@ import { usePrices } from "@/hooks/usePrices"
 import { fetchLinkedChild } from "@/lib/queries/transactions"
 import { computeCashAmount, validateFundingCash } from "@/lib/cash"
 import { computeTransferCostBasis } from "@/lib/pnl/fifo"
+import { COST_BASIS_LABEL } from "@/lib/constants/returns"
 import { bn } from "@/lib/config"
 import {
+  ADD_TRANSACTION_LABEL,
+  EDIT_TRANSACTION_LABEL,
   TRANSACTION_TYPES,
   BALANCE_LIMITED_TYPES,
   TRANSFER_PAIR_FILTER_TYPE,
@@ -671,7 +674,9 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           transaction type (and above the keyboard on the phone sheet). */}
       <DialogContent className="gap-0 sm:max-w-[500px]">
         <DialogHeader className="pb-4">
-          <DialogTitle>{isEdit ? "Edit Transaction" : "Add Transaction"}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? EDIT_TRANSACTION_LABEL : ADD_TRANSACTION_LABEL}
+          </DialogTitle>
         </DialogHeader>
 
         <DialogBody className="space-y-4 py-2">
@@ -925,7 +930,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           {/* Transfer auto-cost display (read-only) */}
           {isTransferEither && parsedAmount.gt(0) && parsedPrice.gt(0) && selectedAsset && (isCurrencyAsset || type === "transfer_out") && (
             <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-              Cost basis:{" "}
+              {COST_BASIS_LABEL}:{" "}
               {formatSettlementAmount(totalCost.toNumber(), priceCurrency)} (auto)
             </div>
           )}
@@ -1081,7 +1086,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
               ? "Saving..."
               : isEdit
                 ? "Save Changes"
-                : "Add Transaction"}
+                : ADD_TRANSACTION_LABEL}
           </Button>
         </DialogFooter>
       </DialogContent>
