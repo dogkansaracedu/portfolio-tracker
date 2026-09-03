@@ -31,8 +31,12 @@
   keeps the form open. Layout: `DialogHeader` + `DialogBody` (the only scroll
   region) + `DialogFooter`, so the actions never leave the viewport; the footer's
   Cancel is `hidden sm:inline-flex` (the sheet's own close control is the phone's
-  exit). (Sub-controls `TransactionTypeSelector`, `AssetSearchSelect`,
-  `FundingSourceSelect` live alongside it — see Component 3 / 9.)
+  exit). The "Sale proceeds" preview calls `computeCashAmount` from `lib/cash.ts`
+  with the same three fields the payload sends (`total_cost`, `fee`, `fee_currency`,
+  `price_currency`), rather than restating its rule — subtracting the fee
+  unconditionally promised a net-of-fee figure whenever the fee was in another
+  currency, which the cash leg books gross. (Sub-controls `TransactionTypeSelector`,
+  `AssetSearchSelect`, `FundingSourceSelect` live alongside it — see Component 3 / 9.)
 
 ### Bulk-import subsystem — `src/components/transactions/sheet/`
 - `TransactionsSheetGrid.tsx` — the spreadsheet grid. Loads existing rows (or starts
@@ -42,6 +46,10 @@
   remove; lifts `Controls` up to the page chrome.
 - `ImportPopover.tsx` — paste-from-spreadsheet + upload-CSV tabs; parses, shows a
   summary (rows / unknown tickers / unknown platforms), appends parsed rows to the grid.
+  One `reset()` (clears the textarea, the summary **and** `fileInputRef.current.value`)
+  runs on append, on Cancel and on popover close — blanking the file input is what
+  lets the SAME CSV be picked twice, since re-selecting an unchanged value fires no
+  `change` event. Mirrors `MidasPdfImportButton`'s `reset()`.
 - `MidasPdfImportButton.tsx` — file picker + parse-progress + summary for the Midas PDF
   importer; appends parsed rows. After parsing it fetches existing Midas-platform
   transactions for the statement's date range (`fetchTransactions`) and drops
@@ -57,9 +65,17 @@
 - `ResolveAssetsStepper.tsx` — modal stepper that walks each unresolved `new:TICKER`
   one at a time (category / ticker / display name / tags / price source), creates the
   asset, and reports its id + native currency back; defaults the fetch id to the ticker.
+  `handleNext` reads `form.ticker` **once**, into `trimmedTicker`, and both `ticker`
+  and `price_id` come off that — a trailing space reaching `price_id` alone would
+  break every later price fetch while the displayed ticker looked clean.
 - `useTransactionsSheetState.ts` — reducer hook: row buffer, per-row status
   (clean/new/dirty/invalid), `pendingDeletes`, dirty-vs-clean diffing against an
-  `original` snapshot, sentinel substitution, counts, discard.
+  `original` snapshot, sentinel substitution, counts, discard. Two error channels:
+  `errors` (per `SheetField`, from `validateRow`) and `saveError` (row-level, set by
+  `markSaveError` when the server refuses the row). `saveError` is deliberately NOT a
+  field error — it was parked on `errors.notes`, which has no grid column, so the
+  reason rendered nowhere. It clears on edit, on `validateAll` (a fresh Save attempt)
+  and on `commitSaveSuccess`.
 - `parseImport.ts` — `parseClipboard`: TSV/CSV → `ParsedRow[]` via papaparse;
   header-alias + positional column detection, locale-tolerant date/number/currency/type
   normalization, ticker/platform lookup, unresolved-set collection.
@@ -85,7 +101,11 @@
   `tx.related_asset_id` on load and written back by both save paths.
 
 ### Typed cells — `src/components/transactions/sheet/cells/`
-- `CellShell.tsx` — wrapper for every editable cell; red ring + tooltip on error.
+- `CellShell.tsx` — wrapper for every editable cell; red ring **plus the reason
+  inline** under the control on error. Deliberately not a `Tooltip` (hover-only, so
+  unreachable on a phone) and not a `HintPopover` (its trigger is a `<button>`, and
+  these cells' children are the inputs themselves). The cell only grows the second
+  line while invalid, so density is unchanged otherwise.
 - `AssetCell.tsx` — searchable asset picker (ticker over name); read-only in per-asset
   mode; offers "Create <TICKER>" → sets a `new:` sentinel.
 - `PlatformCell.tsx` — searchable platform picker with colour dot.
@@ -94,7 +114,8 @@
 - `NumberCell.tsx` — numeric input (amount / price / fee), right-aligned.
 - `CurrencyCell.tsx` — supported-fiat dropdown.
 - `TotalCostCell.tsx` — read-only derived `amount × unit_price`, symbol + digits
-  from `settlementAmount.ts`.
+  from `settlementAmount.ts` (the currency is passed to the digits helper so the
+  grouping follows the currency, not the browser).
 
 ### Domain logic
 - `src/lib/balance.ts` — `recalculateBalance(userId, assetId, platformId)`: sums
@@ -106,14 +127,15 @@
   currency, which *is* the $1 peg when the leg sits on USDT),
   `validateFundingCash` (with `settlementTicker` for the error message's unit).
 - `src/components/transactions/settlementAmount.ts` — `settlementSymbol(unit)`,
-  `formatSettlementDigits(value)` and `formatSettlementAmount(value, unit)`: the
-  cash leg's figure, whose unit may be a fiat currency OR a settlement
-  stablecoin, so it cannot go through `formatCurrency` (which takes a
+  `formatSettlementDigits(value, unit)` and `formatSettlementAmount(value, unit)`:
+  the cash leg's figure, whose unit may be a fiat currency OR a settlement
+  stablecoin, so it cannot forward every call to `formatCurrency` (which takes a
   `FiatCurrency`). Used by the modal's Total / Cost basis / Sale proceeds lines,
-  the row's cash-leg subtitle and the grid's `TotalCostCell`. Its digits follow
-  the BROWSER locale, not the currency's — so a ₺ figure here groups differently
-  from the same figure through `formatCurrency`; that is pre-existing and this
-  module is the one place to fix it.
+  the row's cash-leg subtitle and the grid's `TotalCostCell`. A **fiat** unit goes
+  through `formatCurrency` itself, so it groups by the currency's own locale
+  (`₺15.570,91`) exactly as every other money figure in the app; a stablecoin unit
+  has no locale of its own and follows `DISPLAY_LOCALE`. Vitest:
+  `settlementAmount.test.ts` pins the `formatCurrency` equivalence.
 - `src/lib/constants/assets.ts` — `SETTLEMENT_STABLECOIN_TICKERS` (USDT) +
   `isSettlementStablecoin`: the curated set of stablecoins eligible as a
   settlement asset. Distinct from `STABLECOIN_TICKERS` (display nesting).
@@ -247,6 +269,17 @@ Beyond the shared `transactions` / `holdings` / `assets` schema (Component 2):
   `useTransactions` `addLens`). The payer ticker is the token before `" - "` in
   `Sermaya Piyasası Aracı`, canonicalized before lookup; an uncatalogued payer stays
   `null` (no `new:` sentinel) and is named in the note instead.
+- **A row the server refuses names its reason on the row.** `markSaveError` sets
+  the row's `saveError`, and the grid renders it as a full-width sub-row under the
+  offending row, in `text-destructive`, its text `sticky left-2` so a
+  sideways-scrolled phone still reads it. `bulkInsertTransactions` rethrows the
+  Supabase error as a real `Error` — the client hands back a PLAIN object there, so
+  the call site's `err instanceof Error` check would otherwise swap the server's own
+  reason for the generic `ROW_SAVE_ERRORS` fallback.
+- **The phone's row-count gate counts `invalid` too.** `TransactionsEditPage` swaps
+  the grid for the import-first screen while `rowCount === 0`; leaving `invalid` out
+  of that sum meant a Save that failed validation hid the grid — and the messages the
+  toast had just told the user to review.
 - **Unknown tickers flow as `new:TICKER` sentinels.** Save first auto-resolves (reuse
   existing → Yahoo `resolveTickers` → create), and only leftovers open
   `ResolveAssetsStepper`; the commit pauses until the queue empties, and Cancel aborts
