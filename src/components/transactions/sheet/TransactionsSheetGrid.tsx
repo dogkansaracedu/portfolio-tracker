@@ -51,6 +51,9 @@ interface Controls {
   hasChanges: boolean
   saving: boolean
   loading: boolean
+  /** Why the last Save refused the whole batch, if it did — one reason for
+   *  an all-or-nothing insert, shown once by the page chrome. */
+  batchError: string | null
   counts: { new: number; dirty: number; deleted: number; invalid: number; clean: number }
   /** Current grid rows (loaded + unsaved). Lets the import buttons dedup
    *  against rows already appended in this session. */
@@ -79,12 +82,39 @@ interface Props {
   refetchAssets: () => Promise<void>
 }
 
+/**
+ * The status marker rides the row's FIRST CELL, not the `<tr>`. This table is
+ * `border-separate`, and in CSS's separated-borders model a row cannot have a
+ * border at all — the old `border-l-2` on the `<tr>` painted nothing, so
+ * "Review highlighted rows" pointed at rows that were never highlighted.
+ * The first cell is also the pinned column, so the marker survives a sideways
+ * scroll on a phone.
+ */
 const ROW_STATUS_TINT: Record<SheetRow["status"], string> = {
   clean: "",
-  dirty: "border-l-2 border-l-amber-400",
-  new: "border-l-2 border-l-emerald-400",
-  invalid: "border-l-2 border-l-destructive",
+  dirty: "[&>td:first-child]:border-l-2 [&>td:first-child]:border-l-amber-400",
+  new: "[&>td:first-child]:border-l-2 [&>td:first-child]:border-l-emerald-400",
+  invalid:
+    "[&>td:first-child]:border-l-2 [&>td:first-child]:border-l-destructive",
   deleted: "",
+}
+
+/**
+ * Everything wrong with one row, in one line: the failing cells' reasons (the
+ * ring on each cell says which cell) then the server's own refusal. Deduped —
+ * two cells failing "Not a number" is one thing to read, and the rings already
+ * count them.
+ *
+ * `row.errors` is written by `validateRow` in its fixed field order, so the
+ * reasons read left-to-right in column order.
+ */
+function rowErrorLine(row: SheetRow): string | null {
+  const reasons = Object.values(row.errors).filter(
+    (m): m is string => Boolean(m),
+  )
+  if (row.saveError) reasons.push(row.saveError)
+  if (reasons.length === 0) return null
+  return [...new Set(reasons)].join(" · ")
 }
 
 function localDayAsUtcMidnight(date: string): string {
@@ -159,6 +189,9 @@ export function TransactionsSheetGrid({
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  // The reason an atomic bulk insert refused the whole batch. Row-level
+  // failures (a per-row update, a missing returned id) stay on their row.
+  const [batchError, setBatchError] = useState<string | null>(null)
   // Suppress txVersion-driven reloads while we're saving — each insert/edit
   // bumps txVersion, and we don't want our own bumps to clobber the buffer
   // before commitSaveSuccess lands.
@@ -223,6 +256,7 @@ export function TransactionsSheetGrid({
 
   const save = async () => {
     if (!user) return
+    setBatchError(null)
     setSaving(true)
     savingRef.current = true
     validateAll()
@@ -233,7 +267,9 @@ export function TransactionsSheetGrid({
       setSaving(false)
       savingRef.current = false
       toast.error(
-        `${offenders.length} row${offenders.length === 1 ? "" : "s"} have errors`,
+        offenders.length === 1
+          ? "1 row has errors"
+          : `${offenders.length} rows have errors`,
       )
       return
     }
@@ -379,12 +415,17 @@ export function TransactionsSheetGrid({
         bumpTxVersion()
         await refreshTxData()
       } catch (err) {
-        // Whole batch rolls back atomically on the SQL side; mark every
-        // new row invalid so the user sees what didn't land.
+        // The whole batch rolls back atomically on the SQL side, so this is
+        // ONE failure with one reason — not one per row. Stamping the message
+        // under every row printed it N times and, when the server named a row
+        // ("… for row 1"), pointed at rows it had never complained about. The
+        // rows are marked invalid so the tint and the counts are right; the
+        // reason itself goes to the footer, beside the Save that produced it.
         const message =
           err instanceof Error ? err.message : ROW_SAVE_ERRORS.bulkInsert
+        setBatchError(message)
         for (const row of newRows) {
-          markSaveError(row.rowKey, message)
+          markSaveError(row.rowKey, null)
         }
         errCount += newRows.length
       }
@@ -450,6 +491,7 @@ export function TransactionsSheetGrid({
       hasChanges,
       saving,
       loading,
+      batchError,
       counts,
       rows,
       addBlankRow: () =>
@@ -480,6 +522,7 @@ export function TransactionsSheetGrid({
     hasChanges,
     saving,
     loading,
+    batchError,
     counts.new,
     counts.dirty,
     counts.deleted,
@@ -564,7 +607,9 @@ export function TransactionsSheetGrid({
         )}
 
         {!loading &&
-          visibleRows.map((row, idx) => (
+          visibleRows.map((row, idx) => {
+          const errorLine = rowErrorLine(row)
+          return (
             <Fragment key={row.rowKey}>
             <TableRow
               className={cn("border-b last:border-b", ROW_STATUS_TINT[row.status])}
@@ -644,27 +689,39 @@ export function TransactionsSheetGrid({
                 </Button>
               </CellShell>
             </TableRow>
-            {/* Why the server refused this row, on the row the footer's
-                "Review highlighted rows" points at. It spans the grid, and
-                the text is pinned to the left edge of the scroll area so a
-                sideways-scrolled phone still reads it. */}
-            {row.saveError && (
+            {/* What is wrong with the row above, on the row the footer's
+                "Review highlighted rows" points at: the failing cells'
+                reasons, then the server's own refusal. It spans the grid and
+                the text sticks to the Ticker column's left edge, so a
+                sideways-scrolled phone still reads it without leaving the
+                row-number gutter. */}
+            {errorLine && (
               <TableRow
                 className={cn(
-                  "border-b hover:bg-transparent",
+                  "hover:bg-transparent",
                   ROW_STATUS_TINT[row.status],
                 )}
                 data-row-error=""
               >
                 <TableCell colSpan={COL_COUNT + 1} className="px-2 pt-0 pb-2">
-                  <span className="sticky left-2 inline-block text-xs text-destructive">
-                    {row.saveError}
+                  {/* The cell spans the whole (wider-than-the-screen) grid,
+                      so the line is capped at the scroll area's own width and
+                      wraps inside it — otherwise its tail sat off the right
+                      edge of a phone, unreachable, since the sticky start
+                      never moves. This page owns the full viewport at every
+                      width, so `100vw` IS the scroll area. `whitespace-normal`
+                      is required — `TableCell` is `whitespace-nowrap`, which
+                      let the line run past that cap instead of wrapping in
+                      it. */}
+                  <span className="sticky left-12 inline-block max-w-[calc(100vw-4rem)] whitespace-normal text-xs text-destructive">
+                    {errorLine}
                   </span>
                 </TableCell>
               </TableRow>
             )}
             </Fragment>
-          ))}
+          )
+          })}
 
         {!loading &&
           placeholders.map((i) => {

@@ -101,11 +101,13 @@
   `tx.related_asset_id` on load and written back by both save paths.
 
 ### Typed cells — `src/components/transactions/sheet/cells/`
-- `CellShell.tsx` — wrapper for every editable cell; red ring **plus the reason
-  inline** under the control on error. Deliberately not a `Tooltip` (hover-only, so
-  unreachable on a phone) and not a `HintPopover` (its trigger is a `<button>`, and
-  these cells' children are the inputs themselves). The cell only grows the second
-  line while invalid, so density is unchanged otherwise.
+- `CellShell.tsx` — wrapper for every editable cell; a red ring on error and
+  nothing else. Not a `Tooltip` (hover-only, so unreachable on a phone) and not a
+  `HintPopover` (its trigger is a `<button>`, and these cells' children are the
+  inputs themselves). The **reason** is printed once per row by the grid, not per
+  cell: a cell carrying a second line centres the control+message pair, so its
+  control rode ~9px above the cells beside it (measured spread 9px → 0px), and each
+  message widened its column (table 942 → 1041px on a phone).
 - `AssetCell.tsx` — searchable asset picker (ticker over name); read-only in per-asset
   mode; offers "Create <TICKER>" → sets a `new:` sentinel.
 - `PlatformCell.tsx` — searchable platform picker with colour dot.
@@ -269,17 +271,35 @@ Beyond the shared `transactions` / `holdings` / `assets` schema (Component 2):
   `useTransactions` `addLens`). The payer ticker is the token before `" - "` in
   `Sermaya Piyasası Aracı`, canonicalized before lookup; an uncatalogued payer stays
   `null` (no `new:` sentinel) and is named in the note instead.
-- **A row the server refuses names its reason on the row.** `markSaveError` sets
-  the row's `saveError`, and the grid renders it as a full-width sub-row under the
-  offending row, in `text-destructive`, its text `sticky left-2` so a
-  sideways-scrolled phone still reads it. `bulkInsertTransactions` rethrows the
-  Supabase error as a real `Error` — the client hands back a PLAIN object there, so
-  the call site's `err instanceof Error` check would otherwise swap the server's own
-  reason for the generic `ROW_SAVE_ERRORS` fallback.
+- **One error line per row; a batch refusal is reported once.** `rowErrorLine(row)`
+  joins the failing cells' reasons (in `validateRow`'s field order) with the row's
+  own `saveError`, deduped, into a single `text-xs text-destructive` sub-row under
+  the row. Its text is `sticky left-12` (starting under the Ticker column, clear of
+  the row-number gutter) and capped at `max-w-[calc(100vw-4rem)]` with
+  `whitespace-normal` — the cell spans the whole wider-than-the-screen grid, and
+  `TableCell` is `whitespace-nowrap`, so without both the tail sat off the right
+  edge of a phone where the sticky start could never bring it back.
+  A **bulk insert** is atomic, so its failure is ONE reason for every row at once:
+  the rows are marked invalid with a `null` message and the reason goes to
+  `Controls.batchError`, which the page prints once above the footer actions.
+  Stamping it per row printed it N times and, when the server named a row ("… for
+  row 1"), pointed at rows it had never complained about.
+  `bulkInsertTransactions` rethrows the Supabase error as a real `Error` — the
+  client hands back a PLAIN object there, so the call site's `err instanceof Error`
+  check would otherwise swap the server's own reason for the generic
+  `ROW_SAVE_ERRORS` fallback.
+- **The row-status marker lives on the row's first CELL.** This table is
+  `border-separate`, and CSS's separated-borders model gives rows no border at all —
+  `ROW_STATUS_TINT`'s old `border-l-2` on the `<tr>` painted nothing, so the save
+  toast's "Review highlighted rows" pointed at rows that were never highlighted.
+  The classes now target `[&>td:first-child]`, which is also the pinned column, so
+  the marker survives a sideways scroll.
 - **The phone's row-count gate counts `invalid` too.** `TransactionsEditPage` swaps
   the grid for the import-first screen while `rowCount === 0`; leaving `invalid` out
   of that sum meant a Save that failed validation hid the grid — and the messages the
-  toast had just told the user to review.
+  toast had just told the user to review. The footer badge's denominator is that same
+  `rowCount`, so two filled rows the server refused no longer read "0 / 0
+  transactions ready · 2 invalid".
 - **Unknown tickers flow as `new:TICKER` sentinels.** Save first auto-resolves (reuse
   existing → Yahoo `resolveTickers` → create), and only leftovers open
   `ResolveAssetsStepper`; the commit pauses until the queue empties, and Cancel aborts
