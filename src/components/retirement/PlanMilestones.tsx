@@ -15,9 +15,12 @@ import {
   type Projection,
   type ProjectionBand,
 } from "@/lib/retirement"
+import { BN_ZERO } from "@/lib/config"
+import { depletionAge } from "./chartSeries"
 import {
   BAND_LABELS,
   BAND_CAPTION,
+  DEPLETED_AT_LABEL,
   MILESTONE_COLUMN_LABELS,
   MILESTONES_CAPTION,
   MILESTONES_TITLE,
@@ -42,6 +45,8 @@ interface Props {
   milestones: PlanMilestone[]
   projections: Record<ProjectionBand, Projection>
   startingAmountUsd: BigNumber
+  /** Needed to name the age a depleted band ran out at. */
+  currentAge: number
   display: RetirementDisplay
 }
 
@@ -49,19 +54,26 @@ export function PlanMilestones({
   milestones,
   projections,
   startingAmountUsd,
+  currentAge,
   display,
 }: Props) {
   if (milestones.length === 0) return null
 
-  const money = (milestone: PlanMilestone, band: ProjectionBand) =>
-    display.money(
-      valueAtMonthsFromNow(
-        projections[band],
-        milestone.monthsFromNow,
-        startingAmountUsd,
-      ),
+  // Displayed values are floored at zero (a portfolio is never worth a
+  // negative amount); a band that has run out says so by age instead.
+  const cell = (milestone: PlanMilestone, band: ProjectionBand) => {
+    const value = valueAtMonthsFromNow(
+      projections[band],
       milestone.monthsFromNow,
+      startingAmountUsd,
     )
+    if (value.lte(0)) {
+      const age = depletionAge(projections[band], currentAge)
+      return age === null ? display.money(BN_ZERO) : DEPLETED_AT_LABEL(formatAge(age))
+    }
+    return display.money(value, milestone.monthsFromNow)
+  }
+  const money = cell
 
   return (
     <Card>

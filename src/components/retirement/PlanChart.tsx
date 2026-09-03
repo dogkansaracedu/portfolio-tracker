@@ -12,13 +12,14 @@ import {
   YAxis,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { Projection, ProjectionBand } from "@/lib/retirement"
+import { PROJECTION_BAND, type Projection, type ProjectionBand } from "@/lib/retirement"
 import { useTheme } from "@/contexts/ThemeContext"
-import { buildBandPoints } from "./chartSeries"
+import { buildBandPoints, depletionAge } from "./chartSeries"
 import { coastMarkerLines } from "./coastMarkers"
 import {
   AGE_LABEL,
   BAND_CAPTION,
+  DEPLETED_AT_LABEL,
   COAST_CURVE_COLOR,
   EARLIEST_RETIREMENT_LINE_LABEL,
   RETIREMENT_AGE_LINE_LABEL,
@@ -77,6 +78,18 @@ export function PlanChart({
   )
 
   const targetValue = display.chartValue(targetUsd, monthsToRetirement)
+
+  // The pessimistic leg is the one that runs out; naming the age turns a line
+  // that flattens on zero into an answer.
+  const depletedAge = depletionAge(
+    projections[PROJECTION_BAND.pessimistic],
+    currentAge,
+  )
+
+  // The two age markers overprint whenever they are close (two years is ~10px
+  // on a phone), so they sit on OPPOSITE sides of their lines and on different
+  // rows: retirement top-right, earliest top-left one line down.
+  const earliestLabelOffset = 14
 
   return (
     <Card>
@@ -151,12 +164,27 @@ export function PlanChart({
               stroke="var(--muted-foreground)"
               strokeDasharray="4 4"
               label={{
-                value: RETIREMENT_TARGET_LINE_LABEL,
-                position: "insideTopLeft",
+                value: RETIREMENT_TARGET_LINE_LABEL(
+                  display.moneyFromChartValue(targetValue),
+                ),
+                position: "insideBottomLeft",
                 fontSize: 11,
                 fill: "var(--muted-foreground)",
               }}
             />
+            {depletedAge !== null && (
+              <ReferenceLine
+                x={depletedAge}
+                stroke="var(--destructive)"
+                strokeDasharray="4 4"
+                label={{
+                  value: DEPLETED_AT_LABEL(formatAge(depletedAge)),
+                  position: "insideBottomRight",
+                  fontSize: 11,
+                  fill: "var(--destructive)",
+                }}
+              />
+            )}
             {coastMarkerLines({
               plannedCoastAge:
                 contributionEndAge < retirementAge ? contributionEndAge : null,
@@ -173,7 +201,8 @@ export function PlanChart({
                   value: EARLIEST_RETIREMENT_LINE_LABEL(
                     formatAge(earliestRetirementAge),
                   ),
-                  position: "insideTop",
+                  position: "insideTopLeft",
+                  dy: earliestLabelOffset,
                   fontSize: 11,
                   fill: "var(--primary)",
                 }}
