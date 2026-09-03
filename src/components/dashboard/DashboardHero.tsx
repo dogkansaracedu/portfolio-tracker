@@ -14,6 +14,13 @@ import {
 } from "recharts"
 import { Card, CardContent } from "@/components/ui/card"
 import {
+  // recharts also exports a `Tooltip` — alias the UI one so the chart's stays
+  // the plain `<Tooltip>` it has always been.
+  Tooltip as HintTooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip"
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -30,9 +37,19 @@ import {
   formatCurrency,
   formatSignedCurrency,
   formatSignedPercent,
-  gainLossClass,
+  gainLossToneClass,
+  NEUTRAL_FIGURE_CLASS,
   obfuscate,
 } from "@/lib/prices"
+import { SegmentedControl } from "@/components/common/SegmentedControl"
+import { DECIMALS } from "@/lib/config"
+import { DISPLAY_LOCALE, NOW_LABEL } from "@/lib/constants/app"
+import {
+  MWR_LABEL,
+  MWR_PER_YEAR_HINT,
+  MWR_PER_YEAR_SUFFIX,
+  TWR_LABEL,
+} from "@/lib/constants/returns"
 import { cn } from "@/lib/utils"
 import {
   BENCHMARKS,
@@ -77,12 +94,12 @@ const VIEW_MODES: { id: HeroViewMode; label: string }[] = [
 const MEASURES: { id: HeroMeasure; label: string; hint: string }[] = [
   {
     id: "twr",
-    label: "TWR",
+    label: TWR_LABEL,
     hint: "Time-weighted return — deposits and withdrawals removed. Scores the strategy against the index.",
   },
   {
     id: "mwr",
-    label: "MWR",
+    label: MWR_LABEL,
     hint: "Money-weighted return (XIRR) — deposit timing counts. Scores your actual dollars against the same flows placed into the index.",
   },
 ]
@@ -97,12 +114,19 @@ const MEASURE_SUBLABELS: Record<HeroMeasure, string> = {
  *  (same flows, same dates), not the index's own buy-and-hold return. */
 const WHAT_IF_LABEL_SUFFIX = " (same flows)"
 
-/** Lifetime XIRR chip: label, unit suffix (an annualized rate, not a total),
- *  and the hover explainer. */
-const XIRR_LABEL = "XIRR"
-const XIRR_PER_YEAR_SUFFIX = "/yr"
-const XIRR_HINT =
-  "Lifetime money-weighted annual return (XIRR) across every deposit and withdrawal."
+/** The one name for net invested capital — the Value-mode subtitle, the
+ *  Performance subtitle, the dashed reference series and its tooltip row all
+ *  say this. "Cost basis" stays reserved for the FIFO figures (Portfolio
+ *  "Bought", Asset Detail "Cost Basis"). */
+const NET_INVESTED_LABEL = "Net invested"
+
+/** Wording for a window with no real starting base: the delta is measured from
+ *  the first deposit, so it is a total, not a period gain. */
+const SINCE_FIRST_DEPOSIT_LABEL = "since first deposit"
+
+/** The benchmark line's own neutral — dedicated, so it never reads as either
+ *  side of the gain/loss palette and stays legible in both themes. */
+const BENCHMARK_STROKE = "var(--muted-foreground)"
 
 const RANGE_LABELS: Record<TimeRange, string> = {
   "1D": "past day",
@@ -114,6 +138,17 @@ const RANGE_LABELS: Record<TimeRange, string> = {
   "1Y": "past year",
   "2Y": "past 2 years",
   ALL: "all time",
+}
+
+/** A hovered point's date, in the app's locale — the same short-month idiom
+ *  the tables use ("2 September 2026" reads as one language with them). */
+function formatTooltipDate(ms: number): string {
+  return new Date(ms).toLocaleDateString(DISPLAY_LOCALE, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  })
 }
 
 function compactCurrency(value: number, currency: "USD" | "TRY"): string {
@@ -178,6 +213,17 @@ function niceTicks(
   return ticks
 }
 
+/** A legend swatch, inline in a subtitle chip. */
+function SeriesDot({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      className="mr-1 inline-block size-2 shrink-0 rounded-full align-middle"
+      style={{ backgroundColor: color }}
+    />
+  )
+}
+
 export default function DashboardHero({
   snapshots,
   intradaySnapshots,
@@ -223,9 +269,12 @@ export default function DashboardHero({
   const benchmarkFetchKey = viewMode === "pnl" ? activeBenchmark.id : null
   const { series: benchmarkSeries } = useBenchmark(benchmarkFetchKey)
   // Under MWR the grey line is the what-if index — say so wherever it's named.
+  // ONE label source for both lines, read by the tooltip, the subtitle chip and
+  // the legend dots, so the three can never disagree.
   const benchmarkLabel =
     activeBenchmark.label +
     (effectiveMeasure === "mwr" ? WHAT_IF_LABEL_SUFFIX : "")
+  const youLabel = `You (${activeMeasure.label})`
 
   const {
     chartData,
@@ -274,26 +323,28 @@ export default function DashboardHero({
 
   const periodDeltaValue = currency === "USD" ? delta.usd : delta.try
 
-  const periodColor =
-    delta.usd === 0 ? "text-muted-foreground" : gainLossClass(delta.usd > 0)
+  // No real starting base for this window (ALL's $0 anchor, or a range that
+  // reaches back before the portfolio existed): the "delta" is the whole
+  // portfolio measured against nothing, so it is not a gain. `delta.pct` is
+  // already null in exactly that case — the amount now follows the same rule,
+  // rendering in the neutral tone and saying what it is measured from.
+  const hasStartingBase = delta.pct != null
+  const periodColor = hasStartingBase
+    ? gainLossToneClass(delta.usd)
+    : NEUTRAL_FIGURE_CLASS
 
-  const totalPnlColor =
-    totalPnlUsdNow === 0
-      ? "text-muted-foreground"
-      : gainLossClass(totalPnlUsdNow > 0)
+  const totalPnlColor = gainLossToneClass(totalPnlUsdNow)
 
   // P&L headline is the active measure's return %: green/red by direction,
   // muted at exactly flat.
-  const twrColor =
-    twrEnd === 0 ? "text-muted-foreground" : gainLossClass(twrEnd > 0)
+  const twrColor = gainLossToneClass(twrEnd)
   // Gap (you − index) chip: green when ahead of the market, red when behind.
-  const gapColor =
-    gapPts === 0 ? "text-muted-foreground" : gainLossClass(gapPts > 0)
-  // Lifetime XIRR chip (percent — visible under obfuscation).
+  const gapColor = gainLossToneClass(gapPts)
+  // Lifetime MWR chip (percent — visible under obfuscation).
   const xirrColor =
-    lifetimeXirrPct == null || lifetimeXirrPct === 0
-      ? "text-muted-foreground"
-      : gainLossClass(lifetimeXirrPct > 0)
+    lifetimeXirrPct == null
+      ? NEUTRAL_FIGURE_CLASS
+      : gainLossToneClass(lifetimeXirrPct)
 
   // For the P&L chart we want the area to start at 0 (range start = baseline)
   // and climb/fall to the period delta. Subtract rangeStart from each point.
@@ -320,12 +371,11 @@ export default function DashboardHero({
   const denom = currency === "USD" ? denomUsd : denomTry
 
   // Calibrate left (USD/TRY) and right (%) axes so position(left) /
-  // denom × 100 = position(right). Pick "nice" round USD/TRY ticks (and
-  // force 0 to be one of them — niceTicks already does this when 0 is
-  // inside the padded data range), then derive the matching % ticks at
-  // those same physical positions. Both axes share gridlines, the left
-  // reads as round monetary amounts (the user's headline frame), the
-  // right shows the exact %-equivalent at each gridline.
+  // denom × 100 = position(right). In Performance mode BOTH plotted lines
+  // live on the % axis, so the "nice" round step is picked in **percent**
+  // (0.5 / 1 / 2 / 5 …) and the money ticks are derived from it — gridlines
+  // at 2.1% and 8.7% cannot be read as a comparison. The left axis then
+  // shows the money equivalent of each round percent, compact-formatted.
   const axisDomains = useMemo<{
     pnl?: [number, number]
     pct?: [number, number]
@@ -362,21 +412,21 @@ export default function DashboardHero({
     // day). Use a much smaller floor (0.1%) for 1D so the axis fits the day.
     const padFloor = Math.abs(denom) * (timeRange === "1D" ? 0.001 : 0.01)
     const pad = Math.max((pnlMax - pnlMin) * 0.08, padFloor)
-    const pnlTicks = niceTicks(pnlMin - pad, pnlMax + pad, 5)
-    const tickMinUsd = pnlTicks[0]
-    const tickMaxUsd = pnlTicks[pnlTicks.length - 1]
-    const pctTicks = pnlTicks.map((t) => (t / denom) * 100)
+    const toPct = (v: number) => (v / denom) * 100
+    const pctTicks = niceTicks(toPct(pnlMin - pad), toPct(pnlMax + pad), 5)
+    const pnlTicks = pctTicks.map((t) => (t / 100) * denom)
     return {
-      pnl: [tickMinUsd, tickMaxUsd],
-      pct: [(tickMinUsd / denom) * 100, (tickMaxUsd / denom) * 100],
+      pnl: [pnlTicks[0], pnlTicks[pnlTicks.length - 1]],
+      pct: [pctTicks[0], pctTicks[pctTicks.length - 1]],
       pnlTicks,
       pctTicks,
     }
   }, [viewMode, displayChartData, currency, denom, timeRange])
 
   const formatRightAxisTick = (v: number) => {
-    // niceTicks emits integers for any span >= 5%, so 0 decimals is
-    // safe in practice. Keep one decimal for sub-5% spans (rare).
+    // The % ticks are now themselves round numbers (the axis pair is built
+    // from a nice % step, see `axisDomains`), so 0 decimals covers almost
+    // every case; keep one for the sub-1% spans an intraday day produces.
     const decimals = Number.isInteger(v) ? 0 : 1
     return formatSignedPercent(v, decimals)
   }
@@ -393,18 +443,10 @@ export default function DashboardHero({
     // since the range start, as of the hovered date.
     const gainSinceStart = currency === "USD" ? point.valueUsd : point.valueTry
     let dateLabel: string
-    if (point.label === "Şimdi") {
-      dateLabel = "Şimdi"
-    } else if (timeRange === "1D") {
+    if (point.label === NOW_LABEL || timeRange === "1D") {
       dateLabel = point.label
     } else {
-      const d = new Date(point.dateMs)
-      dateLabel = d.toLocaleDateString("tr-TR", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      })
+      dateLabel = formatTooltipDate(point.dateMs)
     }
     return (
       <div
@@ -417,9 +459,7 @@ export default function DashboardHero({
       >
         <p className="mb-1.5 font-medium text-muted-foreground">{dateLabel}</p>
         <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
-          <span className="text-muted-foreground">
-            You ({activeMeasure.label})
-          </span>
+          <span className="text-muted-foreground">{youLabel}</span>
           <span className="text-right font-medium">
             {obfuscate(
               formatSignedCurrency(gainSinceStart, currency),
@@ -455,46 +495,29 @@ export default function DashboardHero({
     <Card className="overflow-hidden">
       <CardContent className="space-y-5 pt-2">
         {/* View mode tabs */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="inline-flex rounded-lg bg-muted p-1">
-            {VIEW_MODES.map((mode) => (
-              <button
-                key={mode.id}
-                type="button"
-                onClick={() => setViewMode(mode.id)}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                  viewMode === mode.id
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {mode.label}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SegmentedControl
+            ariaLabel="Hero view"
+            value={viewMode}
+            options={VIEW_MODES.map((m) => ({ id: m.id, label: m.label }))}
+            onChange={setViewMode}
+            size="sm"
+          />
 
           {/* Measure switch — which return the percent race plots. Performance
               mode only, and never in 1D (intraday is the simple change). */}
           {showMeasureSwitch && (
-            <div className="inline-flex rounded-lg bg-muted p-0.5">
-              {MEASURES.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setMeasure(m.id)}
-                  title={m.hint}
-                  className={cn(
-                    "rounded-md px-2 py-1 text-xs font-medium transition-colors",
-                    measure === m.id
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              ariaLabel="Return measure"
+              value={measure}
+              options={MEASURES.map((m) => ({
+                id: m.id,
+                label: m.label,
+                hint: m.hint,
+              }))}
+              onChange={setMeasure}
+              size="sm"
+            />
           )}
         </div>
 
@@ -536,7 +559,8 @@ export default function DashboardHero({
           </p>
           {viewMode === "pnl" && (
             <p className="text-xs text-muted-foreground">
-              {MEASURE_SUBLABELS[effectiveMeasure]}
+              <SeriesDot color={strokeColor} />
+              {youLabel} — {MEASURE_SUBLABELS[effectiveMeasure]}
               {approximate && (
                 <span
                   className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase"
@@ -555,21 +579,29 @@ export default function DashboardHero({
                   obfuscated,
                 )}
               </span>
-              {/* Null when the window has no real starting base (ALL's $0
-                  anchor, or a range reaching before the portfolio existed) —
-                  a Δ against ~$0 has no meaningful %, so it's hidden, not
-                  fabricated. */}
-              {delta.pct != null && (
-                <span className={cn("font-medium", periodColor)}>
-                  {formatSignedPercent(delta.pct, 2)}
+              {/* The % is null when the window has no real starting base
+                  (ALL's $0 anchor, or a range reaching before the portfolio
+                  existed) — a Δ against ~$0 has no meaningful %, so it is
+                  hidden, not fabricated. The amount then says what it IS
+                  measured from, in the neutral tone: it is the whole
+                  portfolio, not a gain. */}
+              {hasStartingBase ? (
+                <>
+                  <span className={cn("font-medium", periodColor)}>
+                    {formatSignedPercent(delta.pct as number, DECIMALS.percentage)}
+                  </span>
+                  <span className="font-normal text-muted-foreground">
+                    {RANGE_LABELS[timeRange]}
+                  </span>
+                </>
+              ) : (
+                <span className="font-normal text-muted-foreground">
+                  {SINCE_FIRST_DEPOSIT_LABEL}
                 </span>
               )}
-              <span className="font-normal text-muted-foreground">
-                {RANGE_LABELS[timeRange]}
-              </span>
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">
-                Cost basis{" "}
+                {NET_INVESTED_LABEL}{" "}
                 <span className="font-medium text-foreground">
                   {obfuscate(
                     formatCurrency(
@@ -601,16 +633,23 @@ export default function DashboardHero({
               {lifetimeXirrPct != null && (
                 <>
                   <span className="text-muted-foreground">·</span>
-                  <span
-                    className="text-muted-foreground"
-                    title={XIRR_HINT}
-                  >
-                    {XIRR_LABEL}{" "}
-                    <span className={cn("font-medium", xirrColor)}>
-                      {formatSignedPercent(lifetimeXirrPct, 1)}
-                      {XIRR_PER_YEAR_SUFFIX}
-                    </span>
-                  </span>
+                  <HintTooltip>
+                    <TooltipTrigger
+                      render={
+                        <span className="cursor-default text-muted-foreground" />
+                      }
+                    >
+                      {MWR_LABEL}{" "}
+                      <span className={cn("font-medium", xirrColor)}>
+                        {formatSignedPercent(
+                          lifetimeXirrPct,
+                          DECIMALS.percentageRate,
+                        )}
+                        {MWR_PER_YEAR_SUFFIX}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{MWR_PER_YEAR_HINT}</TooltipContent>
+                  </HintTooltip>
                 </>
               )}
               {timeRange !== "1D" && (
@@ -621,12 +660,21 @@ export default function DashboardHero({
                       className="inline-flex items-center gap-1 rounded-md text-muted-foreground hover:text-foreground"
                     >
                       <span>
+                        {/* The legend IS this chip: the dot ties the name to
+                            the grey line in the chart, so no separate legend
+                            row is needed at any width. */}
+                        <SeriesDot color={BENCHMARK_STROKE} />
                         {benchmarkLabel}{" "}
                         <span className="font-medium text-foreground">
-                          {formatSignedPercent(benchmarkEnd, 2)}
+                          {formatSignedPercent(benchmarkEnd, DECIMALS.percentage)}
                         </span>{" "}
                         <span className={cn("font-medium", gapColor)}>
-                          ({formatSignedPercent(gapPts, 1).replace("%", "")} pts)
+                          (
+                          {formatSignedPercent(
+                            gapPts,
+                            DECIMALS.percentageRate,
+                          ).replace("%", "")}{" "}
+                          pts)
                         </span>
                       </span>
                       <ChevronDown className="size-3" />
@@ -646,7 +694,7 @@ export default function DashboardHero({
               )}
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">
-                Invested{" "}
+                {NET_INVESTED_LABEL}{" "}
                 {obfuscate(
                   formatCurrency(
                     currency === "USD" ? investedNowUsd : investedNowTry,
@@ -733,7 +781,7 @@ export default function DashboardHero({
                   content={viewMode === "pnl" ? renderPnlTooltip : undefined}
                   formatter={(value, name) => {
                     const isCompare = name === "compare"
-                    const label = isCompare ? "Cost basis" : "Value"
+                    const label = isCompare ? NET_INVESTED_LABEL : "Value"
                     return [
                       obfuscate(formatCurrency(Number(value), currency), obfuscated),
                       label,
@@ -743,15 +791,9 @@ export default function DashboardHero({
                     const ms = Number(label)
                     if (Number.isNaN(ms)) return ""
                     const point = chartData.find((p) => p.dateMs === ms)
-                    if (point?.label === "Şimdi") return "Şimdi"
+                    if (point?.label === NOW_LABEL) return NOW_LABEL
                     if (timeRange === "1D") return point?.label ?? ""
-                    const d = new Date(ms)
-                    return d.toLocaleDateString("tr-TR", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                      timeZone: "UTC",
-                    })
+                    return formatTooltipDate(ms)
                   }}
                 />
                 {showZeroRef && (
@@ -783,13 +825,12 @@ export default function DashboardHero({
                         type="monotone"
                         dataKey="benchmarkPct"
                         name="compare"
-                        stroke="var(--muted-foreground)"
+                        // A full-opacity 1.5px line in its own neutral: the
+                        // card's whole point is "you vs the index", which a
+                        // 45%-opacity hairline could not carry.
+                        stroke={BENCHMARK_STROKE}
                         fill="transparent"
-                        // De-emphasized: thin stroke + partial opacity so the
-                        // benchmark reads as a reference line, not a peer to the
-                        // portfolio (TWR) line.
-                        strokeWidth={1}
-                        strokeOpacity={0.45}
+                        strokeWidth={1.5}
                         isAnimationActive={false}
                       />
                     )}
@@ -810,7 +851,7 @@ export default function DashboardHero({
                       type="monotone"
                       dataKey={currency === "USD" ? "compareUsd" : "compareTry"}
                       name="compare"
-                      stroke="var(--muted-foreground)"
+                      stroke={BENCHMARK_STROKE}
                       fill="transparent"
                       // De-emphasized: thin dashed reference line for cost basis.
                       strokeWidth={1}
@@ -831,24 +872,14 @@ export default function DashboardHero({
           </div>
         )}
 
-        {/* Time range tabs */}
-        <div className="flex flex-wrap gap-1.5">
-          {TIME_RANGES.map((range) => (
-            <button
-              key={range.id}
-              type="button"
-              onClick={() => setTimeRange(range.id)}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                timeRange === range.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/70",
-              )}
-            >
-              {range.label}
-            </button>
-          ))}
-        </div>
+        {/* Time range */}
+        <SegmentedControl
+          ariaLabel="Time range"
+          value={timeRange}
+          options={TIME_RANGES.map((r) => ({ id: r.id, label: r.label }))}
+          onChange={setTimeRange}
+          size="sm"
+        />
       </CardContent>
     </Card>
   )
