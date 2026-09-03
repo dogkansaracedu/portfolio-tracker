@@ -2,6 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { HintPopover } from "@/components/common/HintPopover"
 import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import { VEHICLE_COPY } from "@/lib/constants/vehicle"
+import {
+  DEFAULT_CURRENCY,
+  isFiatCurrency,
+  type FiatCurrency,
+} from "@/lib/constants/currencies"
+import { formatCurrency, obfuscate } from "@/lib/prices"
+import type { Vehicle } from "@/types/database"
 import type { OpportunityCost, OwnershipCost } from "@/lib/vehicle"
 import { DECIMALS } from "@/lib/config"
 import {
@@ -13,6 +20,11 @@ import {
 interface Props {
   cost: OwnershipCost
   opportunity: OpportunityCost | null
+  /** The car, for the two hand-typed facts (purchase price, current value)
+   *  that render in their OWN recorded currency rather than the display one —
+   *  the same rule the ledger follows for a single entry's amount. Converting
+   *  them here made the current value disagree with the readings card. */
+  vehicle: Vehicle
   /** True when the car has no recorded current value — the reason the capital
    *  half of every figure is missing. */
   valueMissing: boolean
@@ -32,7 +44,12 @@ function Figure({
 }) {
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      {/* EVERY label row reserves the height of the tallest one: a
+          `HintPopover` trigger is a 40px tap target on a phone against a bare
+          label's 16px, so matching only the bare rows still left the figures
+          in a row off their shared baseline — in the one card whose argument
+          is that cash and depreciation are comparable halves. */}
+      <div className="flex min-h-6 items-center gap-1 text-xs text-muted-foreground max-sm:min-h-10">
         <span>{label}</span>
         {hint && <HintPopover label={label} text={hint} />}
       </div>
@@ -69,8 +86,25 @@ function Figure({
  * Every figure is USD-anchored internally and rendered through the app-wide
  * display currency; spending is not a loss, so no gain/loss palette here.
  */
-export function CostOfOwnershipCard({ cost, opportunity, valueMissing }: Props) {
+export function CostOfOwnershipCard({
+  cost,
+  opportunity,
+  vehicle,
+  valueMissing,
+}: Props) {
   const { money, obfuscated } = useDisplayMoney()
+
+  /** Whether an anchored equivalent is worth printing beside a stored amount —
+   *  it says nothing when the amount is already in the anchor. */
+  const isForeign = (currency: string | null) =>
+    (currency ?? DEFAULT_CURRENCY) !== DEFAULT_CURRENCY
+
+  /** A stored amount in the currency it was actually recorded in. */
+  const own = (amount: number, currency: string | null) =>
+    obfuscate(
+      formatCurrency(amount, isFiatCurrency(currency ?? "") ? (currency as FiatCurrency) : DEFAULT_CURRENCY),
+      obfuscated,
+    )
 
   const perKm = (usd: number | null) =>
     usd === null ? NO_DATA : `${money(usd)} / km`
@@ -140,12 +174,24 @@ export function CostOfOwnershipCard({ cost, opportunity, valueMissing }: Props) 
           {VEHICLE_COPY.monthsOwned} {formatMonths(cost.monthsOwned)}
           {" · "}
           {VEHICLE_COPY.purchasePrice.toLowerCase()}{" "}
-          {money(cost.purchaseUsd)}
-          {cost.currentValueUsd !== null && (
+          {own(Number(vehicle.purchase_price), vehicle.purchase_currency)}
+          {/* The anchored equivalent, at the rate on that day. Without it the
+              depreciation figure above cannot be checked against the two
+              numbers printed under it: the operands are lira and the
+              difference is dollars, which is the whole point but reads as an
+              error when only one side is shown. */}
+          {isForeign(vehicle.purchase_currency) && (
+            <> ({money(cost.purchaseUsd)} {VEHICLE_COPY.atTheTime})</>
+          )}
+          {vehicle.current_value !== null && (
             <>
               {" · "}
               {VEHICLE_COPY.currentValue.toLowerCase()}{" "}
-              {money(cost.currentValueUsd)}
+              {own(Number(vehicle.current_value), vehicle.current_value_currency)}
+              {isForeign(vehicle.current_value_currency) &&
+                cost.currentValueUsd !== null && (
+                  <> ({money(cost.currentValueUsd)} {VEHICLE_COPY.atTheTime})</>
+                )}
             </>
           )}
         </p>
@@ -167,7 +213,7 @@ export function CostOfOwnershipCard({ cost, opportunity, valueMissing }: Props) 
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 <Figure
                   label={VEHICLE_COPY.opportunityCost}
                   value={money(opportunity.foregoneUsd)}
@@ -185,8 +231,8 @@ export function CostOfOwnershipCard({ cost, opportunity, valueMissing }: Props) 
               <p className="text-xs text-muted-foreground">
                 At your lifetime{" "}
                 {opportunity.ratePct.toFixed(DECIMALS.percentageRate)}%/yr over{" "}
-                {opportunity.years.toFixed(1)} years
-                {obfuscated ? "" : ` on ${money(opportunity.capitalUsd)}`}.
+                {formatMonths(opportunity.years * 12)} on{" "}
+                {money(opportunity.capitalUsd)}.
               </p>
             </>
           )}

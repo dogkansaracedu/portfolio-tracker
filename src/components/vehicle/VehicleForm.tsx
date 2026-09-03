@@ -205,7 +205,7 @@ export function VehicleForm({ open, onOpenChange, vehicle, onCreated }: Props) {
           </DialogTitle>
           <DialogDescription>{VEHICLE_COPY.valueSourceHint}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="contents">
           <DialogBody className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -310,7 +310,7 @@ export function VehicleForm({ open, onOpenChange, vehicle, onCreated }: Props) {
                       className="w-24 shrink-0"
                       aria-label={VEHICLE_COPY.fieldCurrency}
                     >
-                      <SelectValue />
+                      <SelectValue>{form.purchaseCurrency}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {SUPPORTED_FIAT_CURRENCIES.map((c) => (

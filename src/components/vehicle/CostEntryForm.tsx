@@ -27,6 +27,7 @@ import {
   FUEL_CATEGORY,
   VEHICLE_COPY,
   VEHICLE_COST_CATEGORIES,
+  VEHICLE_COST_CATEGORY_LABELS,
   VEHICLE_DEFAULT_CURRENCY,
   type VehicleCostCategory,
 } from "@/lib/constants/vehicle"
@@ -64,7 +65,10 @@ interface FormState {
 function emptyForm(prefillItemIds: string[] = []): FormState {
   return {
     date: homeDayIso(),
-    category: "fuel",
+    // A row that closes maintenance items is a service visit, not a fill —
+    // "Log this visit" arrives with items already ticked, and leaving the
+    // category on fuel filed it wrongly and showed the litres fields.
+    category: prefillItemIds.length > 0 ? "maintenance" : FUEL_CATEGORY,
     amount: "",
     // Every cost of running a car in Turkey is paid in lira; still editable.
     currency: VEHICLE_DEFAULT_CURRENCY,
@@ -211,7 +215,7 @@ export function CostEntryForm({
             {VEHICLE_COPY.costAmountOptional}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="contents">
           <DialogBody className="space-y-4">
             {/* Date + category share a row from `sm`; stacked on a phone so
                 neither field gets squeezed below a usable width. */}
@@ -234,8 +238,12 @@ export function CostEntryForm({
                     set("category", v as VehicleCostCategory)
                   }
                 >
-                  <SelectTrigger id="cost-category">
-                    <SelectValue />
+                  {/* Base UI renders the raw value unless given children —
+                      the app-wide convention is to resolve the label. */}
+                  <SelectTrigger id="cost-category" className="w-full">
+                    <SelectValue>
+                      {VEHICLE_COST_CATEGORY_LABELS[form.category]}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {VEHICLE_COST_CATEGORIES.map((c) => (
@@ -270,7 +278,7 @@ export function CostEntryForm({
                       className="w-24 shrink-0"
                       aria-label={VEHICLE_COPY.fieldCurrency}
                     >
-                      <SelectValue />
+                      <SelectValue>{form.currency}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {SUPPORTED_FIAT_CURRENCIES.map((c) => (
@@ -339,9 +347,10 @@ export function CostEntryForm({
                     text={VEHICLE_COPY.closesItemsHint}
                   />
                 </div>
-                {/* Caps at ~11rem and scrolls: a full Turkish plan is 14 items
-                    and would otherwise push the save button off a phone. */}
-                <div className="max-h-44 space-y-1 overflow-y-auto rounded-md border p-2">
+                {/* The dialog body is the one scroller (the form is
+                    `display: contents`, so DialogBody's overflow applies) — a
+                    nested scroller here would trap the wheel. */}
+                <div className="space-y-1 rounded-md border p-2">
                   {items.map((item) => (
                     <label
                       key={item.id}

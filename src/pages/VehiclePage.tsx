@@ -20,7 +20,6 @@ import { useVehicleContext } from "@/contexts/VehicleContext"
 import { useReportedWrite } from "@/hooks/useReportedWrite"
 import { VEHICLE_COPY } from "@/lib/constants/vehicle"
 import { CostOfOwnershipCard } from "@/components/vehicle/CostOfOwnershipCard"
-import { CostBreakdown } from "@/components/vehicle/CostBreakdown"
 import { CostEntryForm } from "@/components/vehicle/CostEntryForm"
 import { CostLedger } from "@/components/vehicle/CostLedger"
 import { FuelCard } from "@/components/vehicle/FuelCard"
@@ -32,7 +31,23 @@ import { MaintenanceItemForm } from "@/components/vehicle/MaintenanceItemForm"
 import { VehicleForm } from "@/components/vehicle/VehicleForm"
 import { VehicleReadingsCard } from "@/components/vehicle/VehicleReadingsCard"
 import type { MaintenanceItemState } from "@/lib/vehicle"
-import type { VehicleCostEntry, VehicleMaintenanceItem } from "@/types/database"
+import type {
+  Vehicle,
+  VehicleCostEntry,
+  VehicleMaintenanceItem,
+} from "@/types/database"
+
+/** "Fiat Egea 1.6 Multijet · 2019 · 34 ABC 123" — whichever of those the
+ *  owner filled in, in that order. Empty string when none are set. */
+function vehicleSubtitle(vehicle: Vehicle): string {
+  return [
+    [vehicle.make, vehicle.model].filter(Boolean).join(" "),
+    vehicle.model_year === null ? "" : String(vehicle.model_year),
+    vehicle.plate ?? "",
+  ]
+    .filter((part) => part !== "")
+    .join(" · ")
+}
 
 /**
  * Component 17 — Vehicle. What the car has really cost (cash out plus the
@@ -164,6 +179,20 @@ export default function VehiclePage() {
         subtitle={VEHICLE_COPY.pageSubtitle}
       />
 
+      {/* The car's own identity. It earns a line because `PageHeading` is
+          desktop-only, so on a phone this is the only thing that says which
+          car the figures below belong to — and it is what the make / model /
+          year / plate fields are for. */}
+      <p className="text-sm">
+        <span className="font-medium">{vehicle.name}</span>
+        {vehicleSubtitle(vehicle) && (
+          <span className="text-muted-foreground">
+            {" · "}
+            {vehicleSubtitle(vehicle)}
+          </span>
+        )}
+      </p>
+
       {/* The switcher appears only with more than one car — a control that
           offers one choice is not a choice. */}
       {vehicles.length > 1 && (
@@ -226,30 +255,29 @@ export default function VehiclePage() {
         <CostOfOwnershipCard
           cost={cost}
           opportunity={opportunity}
+          vehicle={vehicle}
           valueMissing={vehicle.current_value === null}
         />
       )}
 
-      {/* 2. What needs doing, then the plan it comes from. The due bundle and
-             the breakdown share a row from `lg`; both are short lists. */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <DueSummary due={due} nextUp={nextUp} />
-        {cost && <CostBreakdown byCategory={cost.byCategory} />}
+      {/* 2. What needs doing, beside the two readings that decide it — they
+             share a row so neither stretches the full content width, where
+             a short list's name and figure end up a thousand pixels apart. */}
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <DueSummary due={due} nextUp={nextUp} onLogVisit={openAddCost} />
+        {odometer && (
+          <VehicleReadingsCard vehicle={vehicle} odometer={odometer} />
+        )}
       </div>
 
+      {/* 3. The plan it all comes from, then fuel and the ledger. */}
       <MaintenanceChart
         plan={plan}
         onEdit={openEditItem}
         onDelete={(state) => setDeletingItem(state.item)}
       />
 
-      {/* 3. The raw material: readings, fuel, and the ledger. */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {odometer && (
-          <VehicleReadingsCard vehicle={vehicle} odometer={odometer} />
-        )}
-        {fuel && <FuelCard fuel={fuel} />}
-      </div>
+      {fuel && <FuelCard fuel={fuel} />}
 
       <CostLedger
         entries={entries}

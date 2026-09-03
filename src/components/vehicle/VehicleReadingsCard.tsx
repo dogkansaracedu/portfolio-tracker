@@ -96,8 +96,11 @@ export function VehicleReadingsCard({ vehicle, odometer }: Props) {
             every width — a number field plus a short verb fits 320px. */}
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between gap-2">
+            {/* Not masked: an odometer is not money, and the maintenance chart
+                below prints ~30 km figures that cannot be masked without
+                destroying the schedule. One rule, applied consistently. */}
             <span className="text-lg font-semibold tabular-nums">
-              {obfuscate(formatKm(odometer.km), obfuscated)}
+              {formatKm(odometer.km)}
             </span>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               {VEHICLE_COPY.odometerAsOf} {formatVehicleDay(odometer.asOf)}
@@ -129,7 +132,8 @@ export function VehicleReadingsCard({ vehicle, odometer }: Props) {
           </div>
           {odometer.kmPerDay !== null && (
             <p className="text-xs text-muted-foreground">
-              {odometer.kmPerDay.toFixed(1)} {VEHICLE_COPY.perDay} average
+              {odometer.kmPerDay.toFixed(1)} {VEHICLE_COPY.perDay}{" "}
+              {VEHICLE_COPY.averageSuffix}
             </p>
           )}
           {odometer.hasBackwardsReading && (
@@ -163,7 +167,7 @@ export function VehicleReadingsCard({ vehicle, odometer }: Props) {
               min={0}
               value={valueDraft}
               onChange={(e) => setValueDraft(e.target.value)}
-              placeholder={`Value in ${valueCurrency}`}
+              placeholder={`${VEHICLE_COPY.valuePlaceholder} ${valueCurrency}`}
               aria-label={VEHICLE_COPY.updateValue}
               className="h-9"
             />
