@@ -15,6 +15,7 @@ import { SnapshotsProvider } from "@/contexts/SnapshotsContext"
 import { ThemeProvider } from "@/contexts/ThemeContext"
 import { TransactionProvider } from "@/contexts/TransactionContext"
 import { TransactionDataProvider } from "@/contexts/TransactionDataContext"
+import { VehicleProvider } from "@/contexts/VehicleContext"
 import { Toaster } from "@/components/ui/sonner"
 import App from "./App"
 import { initAnalytics } from "@/lib/analytics"
@@ -39,8 +40,10 @@ createRoot(document.getElementById("root")!).render(
                             <BudgetProvider>
                               <CampaignsProvider>
                                 <InterestProvider>
-                                  <App />
-                                  <Toaster />
+                                  <VehicleProvider>
+                                    <App />
+                                    <Toaster />
+                                  </VehicleProvider>
                                 </InterestProvider>
                               </CampaignsProvider>
                             </BudgetProvider>

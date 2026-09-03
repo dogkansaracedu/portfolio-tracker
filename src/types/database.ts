@@ -399,3 +399,181 @@ export type InterestPositionUpdate = Partial<
   > &
     InterestPositionNumerics
 >;
+
+// ─── Vehicle (Component 17) ─────────────────────────────────────────
+// Informational only: no row below ever creates a transaction or changes a
+// holding, balance, net worth or P&L figure.
+
+export interface Vehicle {
+  id: string;
+  user_id: string;
+  /** What the owner calls it ("Egea", "the blue one"). */
+  name: string;
+  plate: string | null;
+  make: string | null;
+  model: string | null;
+  model_year: number | null;
+
+  /** YYYY-MM-DD. */
+  purchased_on: string;
+  purchase_price: number;
+  purchase_currency: string;
+  /** Odometer at purchase — a used car does not start at zero. */
+  purchase_odometer: number;
+
+  /** Hand-entered market value; the three fields are all-or-nothing (there is
+   *  no free Turkish valuation API — see the component's constants). */
+  current_value: number | null;
+  current_value_currency: string | null;
+  /** YYYY-MM-DD. */
+  current_value_at: string | null;
+
+  /** The latest standalone odometer reading; all-or-nothing with its date. */
+  odometer: number | null;
+  /** YYYY-MM-DD. */
+  odometer_at: string | null;
+
+  note: string | null;
+  /** Soft archive for a sold car. Reversible — nothing was ever booked. */
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface VehicleMaintenanceItem {
+  id: string;
+  user_id: string;
+  vehicle_id: string;
+  name: string;
+  /** Null = distance is not tracked for this item. */
+  interval_km: number | null;
+  /** Null = time is not tracked. Both null = dormant, never becomes due. */
+  interval_months: number | null;
+  sort_order: number;
+  note: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface VehicleCostEntry {
+  id: string;
+  user_id: string;
+  vehicle_id: string;
+  /** YYYY-MM-DD. */
+  date: string;
+  /** A `VehicleCostCategory` — see lib/constants/vehicle. */
+  category: string;
+  /** Null = "work done, price not recorded". Contributes nothing to any total
+   *  and is NOT zero; it still resets whatever items the row closes. */
+  amount: number | null;
+  currency: string;
+  /** Optional reading; every one sharpens the projected due dates. */
+  odometer: number | null;
+  /** Fuel rows only — needed to measure consumption full-tank to full-tank. */
+  litres: number | null;
+  is_full_tank: boolean;
+  note: string | null;
+  created_at: string;
+  /**
+   * The maintenance items this entry closed, flattened from
+   * `vehicle_cost_entry_items` by the query layer so the pure schedule engine
+   * takes one array instead of a join. Always present (empty when the entry
+   * closed nothing).
+   */
+  item_ids: string[];
+}
+
+// Numeric columns are written as BigNumber `toFixed()` strings to preserve
+// precision, so every write type widens them — the same hand-synced pattern
+// the transaction and interest writes use.
+type VehicleNumerics = {
+  purchase_price: number | string;
+  purchase_odometer: number | string;
+  current_value: number | string | null;
+  odometer: number | string | null;
+};
+
+export type VehicleInsert = Omit<
+  Vehicle,
+  | "id"
+  | "purchase_price"
+  | "purchase_odometer"
+  | "current_value"
+  | "odometer"
+  | "is_active"
+  | "created_at"
+> &
+  VehicleNumerics & { is_active?: boolean };
+
+export type VehicleUpdate = Partial<
+  Omit<
+    Vehicle,
+    | "id"
+    | "user_id"
+    | "purchase_price"
+    | "purchase_odometer"
+    | "current_value"
+    | "odometer"
+    | "created_at"
+  > &
+    VehicleNumerics
+>;
+
+type VehicleCostEntryNumerics = {
+  amount: number | string | null;
+  odometer: number | string | null;
+  litres: number | string | null;
+};
+
+/** `item_ids` is not a column — the query layer writes it to the join table. */
+export type VehicleCostEntryInsert = Omit<
+  VehicleCostEntry,
+  | "id"
+  | "amount"
+  | "odometer"
+  | "litres"
+  | "is_full_tank"
+  | "created_at"
+  | "item_ids"
+> &
+  VehicleCostEntryNumerics & { is_full_tank?: boolean };
+
+export type VehicleCostEntryUpdate = Partial<
+  Omit<
+    VehicleCostEntry,
+    | "id"
+    | "user_id"
+    | "amount"
+    | "odometer"
+    | "litres"
+    | "created_at"
+    | "item_ids"
+  > &
+    VehicleCostEntryNumerics
+>;
+
+type VehicleMaintenanceItemNumerics = {
+  interval_km: number | string | null;
+  interval_months: number | string | null;
+};
+
+export type VehicleMaintenanceItemInsert = Omit<
+  VehicleMaintenanceItem,
+  | "id"
+  | "interval_km"
+  | "interval_months"
+  | "sort_order"
+  | "is_active"
+  | "created_at"
+> &
+  VehicleMaintenanceItemNumerics & {
+    sort_order?: number;
+    is_active?: boolean;
+  };
+
+export type VehicleMaintenanceItemUpdate = Partial<
+  Omit<
+    VehicleMaintenanceItem,
+    "id" | "user_id" | "interval_km" | "interval_months" | "created_at"
+  > &
+    VehicleMaintenanceItemNumerics
+>;

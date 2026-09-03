@@ -48,6 +48,7 @@ not rewrite the findings, they are a dated observation.
 |---|---|---|---|
 | [Transfers between platforms](transfers-between-platforms.md) | Delta, Ghostfolio, Kubera, Sharesight, Empower | 2026-08-28 | [04 Transaction System](../components/04-transaction-system.md), [09 Transactions Page](../components/09-transactions-page.md) |
 | [Stablecoin-settled trades](stablecoin-settled-trades.md) | Delta, Ghostfolio, Kubera | 2026-08-28 | [04 Transaction System](../components/04-transaction-system.md), [06 P&L Engine](../components/06-pnl-engine.md) |
+| [Vehicle cost of ownership & maintenance](vehicle-cost-of-ownership.md) | Drivvo, Carfax Car Care / Fuelly, Edmunds TCO / AAA / KBB, + Turkish cost & interval facts | 2026-09-04 | [17 Vehicle](../components/17-vehicle.md) |
 
 ## Related research that lives elsewhere
 
