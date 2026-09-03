@@ -12,7 +12,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TimeRangeSelector } from "@/components/performance/TimeRangeSelector"
 import { Toggle } from "@/components/ui/toggle"
-import { formatCurrency } from "@/lib/prices"
+import { formatCompactCurrency, formatCurrency } from "@/lib/prices"
+import { DEFAULT_CURRENCY } from "@/lib/constants/currencies"
+import { MEDIA_QUERY, useMediaQuery } from "@/hooks/useMediaQuery"
 import {
   filterHistoryByRange,
   type AssetHistoryPoint,
@@ -51,6 +53,9 @@ export function AssetHistoryChart({ history, currency }: Props) {
   const [range, setRange] = useState<TimeRange>("ALL")
   const [showPrice, setShowPrice] = useState(true)
   const [showCost, setShowCost] = useState(true)
+  // Recharts sizes its plot area in JS, so the axis budget cannot come from a
+  // Tailwind variant.
+  const isWide = useMediaQuery(MEDIA_QUERY.md)
 
   const data = useMemo(
     () =>
@@ -121,26 +126,33 @@ export function AssetHistoryChart({ history, currency }: Props) {
                 dataKey="label"
                 className="text-xs"
                 tick={{ fontSize: 12 }}
-                minTickGap={40}
+                minTickGap={48}
               />
               <YAxis
                 yAxisId="value"
                 className="text-xs"
                 tick={{ fontSize: 12 }}
+                width={isWide ? undefined : 44}
                 tickFormatter={(v: number) =>
-                  currency === "USD"
-                    ? `$${(v / 1000).toFixed(1)}k`
-                    : `₺${(v / 1000).toFixed(0)}k`
+                  formatCompactCurrency(v, currency)
                 }
               />
               {showPrice && (
+                // Below `md` the two axes cost more than half the card width,
+                // leaving the value history — the reason to open this page on a
+                // phone — about 200px. The price axis keeps its scale but drops
+                // its labels there; the tooltip still carries Price.
                 <YAxis
                   yAxisId="price"
                   orientation="right"
                   className="text-xs"
-                  tick={{ fontSize: 12 }}
+                  tick={isWide ? { fontSize: 12 } : false}
+                  width={isWide ? undefined : 0}
+                  axisLine={isWide}
                   domain={["auto", "auto"]}
-                  tickFormatter={(v: number) => `$${v.toLocaleString()}`}
+                  tickFormatter={(v: number) =>
+                    formatCompactCurrency(v, DEFAULT_CURRENCY)
+                  }
                 />
               )}
               <Tooltip

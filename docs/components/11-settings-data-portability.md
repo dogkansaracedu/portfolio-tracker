@@ -100,6 +100,11 @@ affects. This component only defines their behaviour.
 - **Import** — surfaced via **Component 4** (grid / CSV / broker PDF). Settings
   carries a single muted line under a small heading linking to it — a pointer,
   not a card, and never a second import UI.
+- **Asset and platform catalogs on a narrow screen** — the catalog's columns
+  (ticker, category, price, group, status, actions) do not fit a phone: there
+  the list uses the app's card idiom instead, each asset one card with its
+  actions menu in the card header, so the menu is never the thing that falls
+  off the side.
 - **Export status** — **not built**; show nothing actionable, or an explicit
   "not available yet" affordance. Never imply a download exists.
 - **Snapshot backfill control** — granularity selector, an overwrite toggle with

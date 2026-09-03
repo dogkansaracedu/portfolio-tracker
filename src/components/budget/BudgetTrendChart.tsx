@@ -11,7 +11,7 @@ import {
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTheme } from "@/contexts/ThemeContext"
-import { formatCurrency } from "@/lib/prices"
+import { formatCompactCurrency, formatCurrency } from "@/lib/prices"
 import type { FiatCurrency } from "@/lib/constants/currencies"
 import type { MonthlyBudgetRow } from "@/lib/budget"
 import {
@@ -67,8 +67,9 @@ export function BudgetTrendChart({ rows, currency }: Props) {
             <YAxis
               className="text-xs"
               tick={{ fontSize: 11 }}
-              tickFormatter={(v: number) => formatCurrency(v, currency)}
-              width={90}
+              // Compact: a quarter of the phone chart used to go to ".00".
+              tickFormatter={(v: number) => formatCompactCurrency(v, currency)}
+              width={56}
             />
             <Tooltip
               formatter={(value, name) => [

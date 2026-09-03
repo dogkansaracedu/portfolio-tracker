@@ -6,7 +6,7 @@ import { usePrices } from "@/hooks/usePrices";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import type { Asset } from "@/types/database";
 import { AssetForm } from "@/components/assets/AssetForm";
-import { AssetRow } from "@/components/assets/AssetRow";
+import { AssetRow, AssetRowCard } from "@/components/assets/AssetRow";
 import {
   Table,
   TableHeader,
@@ -125,7 +125,49 @@ export function AssetList() {
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border">
+        <>
+        {/* Phone: the card idiom the Transactions log uses. The catalog's six
+            columns push Price into "$3" and the Actions menu off the side, so
+            below `sm` each asset is a card with its menu in the header. */}
+        <div className="flex flex-col gap-2 sm:hidden">
+          {ownedAssets.map((asset) => (
+            <AssetRowCard
+              key={asset.id}
+              asset={asset}
+              prices={prices}
+              canManage={isAdmin}
+              onEdit={handleEdit}
+              onDeactivate={handleDeactivate}
+            />
+          ))}
+          {otherAssets.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowNotHeld((v) => !v)}
+              className="flex min-h-10 w-full items-center gap-1.5 rounded-lg bg-muted/50 px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {showNotHeld ? (
+                <ChevronDown className="size-3.5" />
+              ) : (
+                <ChevronRight className="size-3.5" />
+              )}
+              Not held ({otherAssets.length})
+            </button>
+          )}
+          {showNotHeld &&
+            otherAssets.map((asset) => (
+              <AssetRowCard
+                key={asset.id}
+                asset={asset}
+                prices={prices}
+                canManage={isAdmin}
+                onEdit={handleEdit}
+                onDeactivate={handleDeactivate}
+              />
+            ))}
+        </div>
+
+        <div className="hidden rounded-lg border sm:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -180,6 +222,7 @@ export function AssetList() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
 
       <AssetForm
