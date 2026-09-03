@@ -37,7 +37,7 @@ import { useHoldings } from "@/hooks/useHoldings"
 import { useAuth } from "@/hooks/useAuth"
 import { usePrices } from "@/hooks/usePrices"
 import { fetchLinkedChild } from "@/lib/queries/transactions"
-import { validateFundingCash } from "@/lib/cash"
+import { computeCashAmount, validateFundingCash } from "@/lib/cash"
 import { computeTransferCostBasis } from "@/lib/pnl/fifo"
 import { bn } from "@/lib/config"
 import {
@@ -354,6 +354,19 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
   const proceedsTicker = proceedsAssetId
     ? (assets.find((a) => a.id === proceedsAssetId)?.ticker ?? priceCurrency)
     : priceCurrency
+
+  // What the sell's cash leg will actually book, from the cash layer's own
+  // rule rather than a restatement of it: a fee denominated in another
+  // currency stays informational and never nets off the proceeds. Fed the
+  // same three fields the payload sends, so the preview and the booked leg
+  // cannot drift apart again.
+  const sellProceeds = computeCashAmount({
+    type: TRANSACTION_TYPES.SELL,
+    total_cost: totalCost.toFixed(),
+    fee: parsedFee.toFixed(),
+    fee_currency: fee ? feeCurrency : null,
+    price_currency: priceCurrency,
+  })
 
   // Keep settlement selections consistent when the price currency changes:
   // a fiat funding source follows the new currency's fiat row; stablecoin
@@ -1020,10 +1033,7 @@ export function AddTransactionModal({ assets, platforms, onSuccess }: Props) {
           {type === TRANSACTION_TYPES.SELL && parsedAmount.gt(0) && parsedPrice.gt(0) && (
             <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
               Sale proceeds:{" "}
-              {formatSettlementAmount(
-                totalCost.minus(parsedFee).toNumber(),
-                proceedsTicker,
-              )}{" "}
+              {formatSettlementAmount(sellProceeds.toNumber(), proceedsTicker)}{" "}
               → credited to{" "}
               {platforms.find((p) => p.id === platformId)?.name ?? "the trading platform"}{" "}
               {proceedsTicker}
