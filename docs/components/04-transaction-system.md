@@ -152,8 +152,8 @@ renders as a loss). FIFO is computed over the asset's **complete** prior history
 a filtered view, so a sell shown under a date/type filter still reports the correct
 cost basis.
 
-- USD-priced sell → one line: `$50.00 (20.00%)` — gains render bare (direction is
-  carried by the gain/loss colour), losses with a leading minus. A **return
+- USD-priced sell → one line: `$50.00 (20.00%) Realized` — gains render bare
+  (direction is carried by the gain/loss colour), losses with a leading minus. A **return
   percentage carries two decimals everywhere in the app**, this row included.
 - Non-USD sell → native primary (no %) plus a USD secondary with the %:
   `₺1,000.00` and `~$13.33 (66.67%)`.

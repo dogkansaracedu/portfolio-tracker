@@ -11,9 +11,13 @@ import {
 } from "@/lib/prices"
 import { DECIMALS } from "@/lib/config"
 import {
+  DAILY_RETURN_LABEL,
   MWR_HINT,
   MWR_LABEL,
   MWR_PER_YEAR_SUFFIX,
+  REALIZED_LABEL,
+  TOTAL_PNL_LABEL,
+  UNREALIZED_LABEL,
 } from "@/lib/constants/returns"
 import type { EnrichedAsset } from "@/hooks/usePortfolio"
 
@@ -22,7 +26,7 @@ interface Props {
   held: boolean
   realizedPnlUsd: number
   realizedPnlPct: number | null
-  totalReturnUsd: number
+  totalPnlUsd: number
   mwrCumulativePct: number | null
   mwrAnnualizedPct: number | null
   dailyReturnAvailable: boolean
@@ -73,24 +77,24 @@ function MwrLabel() {
   )
 }
 
-/** The lifetime money-weighted headline. The % is the cumulative XIRR — what
- *  each dollar earned for the time it was in — exact at any age; the muted
- *  %/yr reading appears only past 1 year of history. */
-function TotalReturnStat({
-  totalReturnUsd,
+/** The lifetime money-weighted headline (value − net invested). The % is the
+ *  cumulative XIRR — what each dollar earned for the time it was in — exact at
+ *  any age; the muted %/yr reading appears only past 1 year of history. */
+function TotalPnlStat({
+  totalPnlUsd,
   mwrCumulativePct,
   mwrAnnualizedPct,
   signedMoney,
 }: {
-  totalReturnUsd: number
+  totalPnlUsd: number
   mwrCumulativePct: number | null
   mwrAnnualizedPct: number | null
   signedMoney: (usd: number) => string
 }) {
   return (
-    <Stat label="Total return" emphasis>
-      <span className={gainLossToneClass(totalReturnUsd)}>
-        {signedMoney(totalReturnUsd)}
+    <Stat label={TOTAL_PNL_LABEL} emphasis>
+      <span className={gainLossToneClass(totalPnlUsd)}>
+        {signedMoney(totalPnlUsd)}
         {mwrCumulativePct !== null && (
           <span className="ml-1 text-xs">
             ({formatSignedPercent(mwrCumulativePct)})
@@ -118,7 +122,7 @@ export function AssetPositionSummary({
   held,
   realizedPnlUsd,
   realizedPnlPct,
-  totalReturnUsd,
+  totalPnlUsd,
   mwrCumulativePct,
   mwrAnnualizedPct,
   dailyReturnAvailable,
@@ -127,7 +131,7 @@ export function AssetPositionSummary({
   const o = (v: string) => obfuscate(v, obfuscated)
 
   const realizedStat = (
-    <Stat label={held ? "Realized P&L" : "Realized P&L (lifetime)"}>
+    <Stat label={held ? REALIZED_LABEL : `${REALIZED_LABEL} (lifetime)`}>
       <span className={gainLossToneClass(realizedPnlUsd)}>
         {signedMoney(realizedPnlUsd)}
         {realizedPnlPct !== null && (
@@ -150,8 +154,8 @@ export function AssetPositionSummary({
             </p>
           </CardContent>
         </Card>
-        <TotalReturnStat
-          totalReturnUsd={totalReturnUsd}
+        <TotalPnlStat
+          totalPnlUsd={totalPnlUsd}
           mwrCumulativePct={mwrCumulativePct}
           mwrAnnualizedPct={mwrAnnualizedPct}
           signedMoney={signedMoney}
@@ -198,8 +202,8 @@ export function AssetPositionSummary({
         {display(displayValue)}
       </Stat>
 
-      <TotalReturnStat
-        totalReturnUsd={totalReturnUsd}
+      <TotalPnlStat
+        totalPnlUsd={totalPnlUsd}
         mwrCumulativePct={mwrCumulativePct}
         mwrAnnualizedPct={mwrAnnualizedPct}
         signedMoney={signedMoney}
@@ -207,7 +211,7 @@ export function AssetPositionSummary({
 
       {/* Two columns on a phone, three promoted stats: the third takes the
           whole row so a promoted figure never sits beside a demoted one. */}
-      <Stat label="Today" emphasis className="max-md:col-span-2">
+      <Stat label={DAILY_RETURN_LABEL} emphasis className="max-md:col-span-2">
         {dailyReturnAvailable ? (
           <span className={gainLossToneClass(enriched.dailyReturnUsd)}>
             {signedMoney(enriched.dailyReturnUsd)}
@@ -222,7 +226,7 @@ export function AssetPositionSummary({
         )}
       </Stat>
 
-      <Stat label="Unrealized P&L">
+      <Stat label={UNREALIZED_LABEL}>
         <span className={gainLossToneClass(netUsd)}>
           {signedMoney(netUsd)}
           {netPct !== null && (

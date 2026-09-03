@@ -14,6 +14,7 @@ import {
   gainLossToneClass,
   obfuscate,
 } from "@/lib/prices"
+import { COST_BASIS_LABEL, UNREALIZED_LABEL } from "@/lib/constants/returns"
 import type { AssetPlatformSlice } from "@/hooks/useAssetDetail"
 
 interface Props {
@@ -70,9 +71,9 @@ export function AssetPlatformTable({ slices, category }: Props) {
             <TableRow>
               <TableHead>Platform</TableHead>
               <TableHead className="text-right">Quantity</TableHead>
-              <TableHead className="text-right">Cost Basis</TableHead>
+              <TableHead className="text-right">{COST_BASIS_LABEL}</TableHead>
               <TableHead className="text-right">Value</TableHead>
-              <TableHead className="text-right">P&L</TableHead>
+              <TableHead className="text-right">{UNREALIZED_LABEL}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

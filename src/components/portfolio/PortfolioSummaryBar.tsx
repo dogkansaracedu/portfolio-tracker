@@ -2,8 +2,17 @@ import { Card, CardContent } from "@/components/ui/card"
 import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import { formatSignedPercent, gainLossToneClass } from "@/lib/prices"
 import { HintPopover } from "@/components/common/HintPopover"
-import { MWR_HINT, MWR_LABEL } from "@/lib/constants/returns"
-import { HELD_ASSETS_LABEL } from "@/lib/constants/portfolio"
+import {
+  MWR_HINT,
+  MWR_LABEL,
+  REALIZED_LABEL,
+  TOTAL_PNL_LABEL,
+  UNREALIZED_LABEL,
+} from "@/lib/constants/returns"
+import {
+  HELD_ASSETS_LABEL,
+  TOTAL_VALUE_LABEL,
+} from "@/lib/constants/portfolio"
 
 interface PortfolioSummaryBarProps {
   totalValueUsd: number
@@ -46,7 +55,7 @@ export function PortfolioSummaryBar({
         <CardContent>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">
-              Total Portfolio Value
+              {TOTAL_VALUE_LABEL}
             </span>
             <span className="text-xl font-bold tabular-nums">
               {display(displayValue)}
@@ -58,7 +67,9 @@ export function PortfolioSummaryBar({
       <Card size="sm">
         <CardContent>
           <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">P&L</span>
+            <span className="text-xs text-muted-foreground">
+              {TOTAL_PNL_LABEL}
+            </span>
             <div className="flex flex-wrap items-baseline gap-x-2">
               <span
                 className={`text-xl font-bold tabular-nums ${gainLossToneClass(
@@ -85,9 +96,9 @@ export function PortfolioSummaryBar({
                 strip carries the headline plus the held-asset count. */}
             {hasRealized && (
               <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
-                Unrealized {signedMoney(totalUnrealizedPnlUsd)}
+                {UNREALIZED_LABEL} {signedMoney(totalUnrealizedPnlUsd)}
                 {" · "}
-                Realized {signedMoney(totalRealizedPnlUsd)}
+                {REALIZED_LABEL} {signedMoney(totalRealizedPnlUsd)}
               </span>
             )}
             {hasIncome && (

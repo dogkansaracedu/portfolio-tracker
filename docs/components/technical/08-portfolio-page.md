@@ -27,7 +27,7 @@
   between 640 and 1279 the table pushed Value / P&L / Alloc off the edge while
   the cards show every figure — `PortfolioRowCard` carries quantity @ cost/unit
   and allocation for exactly that reason). Swaps the return column header label
-  (`RETURN_COLUMN_LABEL_TOTAL` "P&L" ↔ `RETURN_COLUMN_LABEL_DAILY` "Today").
+  (`UNREALIZED_LABEL` ↔ `DAILY_RETURN_LABEL`, both from `lib/constants/returns`).
   Also holds `MobileGroupHeader`, which renders `useGroupFigures` on one line.
 - `src/components/portfolio/PortfolioGroupHeader.tsx` — the group row as **real
   cells**: label (`colSpan={2}`), an empty `colSpan={3}` over
@@ -104,8 +104,9 @@
     `unrealizedPnlUsd − taxAccrualUsd` (rendered in `PortfolioRow`, no new math).
 - `src/hooks/usePortfolio.ts` — the engine (below).
 - `src/lib/constants/portfolio.ts` — `RETURN_MODE_LABELS` (`{ total: "Total",
-  daily: "Daily" }`), `RETURN_COLUMN_LABEL_TOTAL = "P&L"`,
-  `RETURN_COLUMN_LABEL_DAILY = "Today"`.
+  daily: "Daily" }`), `TOTAL_VALUE_LABEL`, `HELD_ASSETS_LABEL`. The figure
+  labels themselves (`TOTAL_PNL_LABEL`, `UNREALIZED_LABEL`, `REALIZED_LABEL`,
+  `DAILY_RETURN_LABEL`) live in `lib/constants/returns`.
 - `src/lib/pnl/daily.ts` — pure `computeDailyReturn(input)` + `dailyReturnPct(return,
   denom)` guard; the daily-return math lives in the shared P&L layer, not on the page.
 
