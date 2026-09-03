@@ -46,7 +46,8 @@
   top categories, outer `Pie` = leaves in the same order (fiat → its currencies,
   others pass through), both `paddingAngle={0}` and `startAngle={90}
   endAngle={-270}` (12 o'clock, clockwise) so the rings stay radially aligned.
-  Local `CATEGORY_COLORS`/`CATEGORY_LABELS` + the shared
+  Local `CATEGORY_COLORS` + the shared `CATEGORY_LABELS`
+  (`lib/constants/assets.ts` — one label per category app-wide) and
   `CURRENCY_CHART_COLORS` (`lib/constants/currencies.ts`) for the fiat children
   — the same map `CurrencyBreakdown` reads, so a currency is one colour app-wide;
   `labelFor`/`colorFor` resolve a node's key.
@@ -346,7 +347,7 @@
   `title` (a `title` never fires on touch) — it opens on hover *and* on tap. Rendered **only when
   `lifetimeXirrPct != null`** — no "—" placeholder, no fabricated 0. It is a
   percent, so it is deliberately **not** wrapped in `obfuscate`.
-- **"Total" subtitle (P&L mode):** the dollar figure is rendered from the gross
+- **`TOTAL_PNL_LABEL` subtitle (P&L mode):** the dollar figure is rendered from the gross
   `totalPnlUsd`/`Try` props (usePnLSummary); colour/sign use
   `gainLossToneClass(totalPnlUsdNow)`. **No percent companion** — the peak-based
   `totalPnlPct` prop was removed (2026-08-28); the money-weighted % surfaces as

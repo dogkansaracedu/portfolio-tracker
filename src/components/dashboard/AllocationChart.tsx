@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { formatMoney } from "@/lib/prices"
 import { CURRENCY_CHART_COLORS } from "@/lib/constants/currencies"
+import { CATEGORY_LABELS } from "@/lib/constants/assets"
 import type { AllocationNode } from "@/lib/dashboard/allocation"
 
 // Asset-class slices (inner ring + the outer ring's pass-through segments).
@@ -15,13 +16,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   stock_bist: "#ef4444",
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  fiat: "Fiat",
-  crypto: "Crypto",
-  gold: "Gold",
-  stock_us: "US Stocks",
-  stock_bist: "BIST Stocks",
-}
 
 const FALLBACK_COLOR = "#94a3b8" // slate-400
 const DIM_OPACITY = 0.28

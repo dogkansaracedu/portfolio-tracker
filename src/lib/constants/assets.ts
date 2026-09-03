@@ -11,16 +11,26 @@ export const ASSET_CATEGORIES = [
   { value: "fiat", label: "Fiat" },
   { value: "crypto", label: "Crypto" },
   { value: "gold", label: "Gold" },
-  { value: "fund", label: "Fund (PPF)" },
+  { value: "fund", label: "Fund" },
   { value: "stock_us", label: "US Stock" },
   { value: "stock_bist", label: "BIST Stock" },
 ] as const
 
 export type AssetCategoryValue = (typeof ASSET_CATEGORIES)[number]["value"]
 
+/** The one label per category — asset badges, portfolio group headers, the
+ *  allocation donut and the asset form all read it from here. */
+export const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  ASSET_CATEGORIES.map((c) => [c.value, c.label])
+)
+
 /** Category of the seeded per-currency cash rows (one per fiat currency,
  *  `ticker` = the ISO code). Cash-side transactions sit on these. */
 export const FIAT_ASSET_CATEGORY: AssetCategoryValue = "fiat"
+
+/** Field labels shared by the Add/Edit asset form and the import stepper. */
+export const ASSET_NAME_LABEL = "Display name"
+export const PRICE_SOURCE_LABEL = "Price source"
 
 export const PRICE_SOURCES = [
   { value: "yahoo", label: "Yahoo Finance" },
