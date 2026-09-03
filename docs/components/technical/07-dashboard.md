@@ -276,7 +276,19 @@
   derived from it as `(pct / 100) × denom` — the inverse of the old order, which
   produced gridlines at 2.1% / 8.7%. The axis pad floor is `denom × 1%` for multi-range views
   but `denom × 0.1%` for `1D`, so a sub-1% intraday day fills the chart instead of
-  collapsing into a sliver. Tooltip rows show **You (TWR)** / **You (MWR)**
+  collapsing into a sliver.
+- **The left axis carries no data in P&L mode, so it needs `allowDataOverflow`.**
+  Both `<Area>`s sit on the `compare` (%) axis; Recharts will not build a scale
+  for a `<YAxis>` that no graphical item references unless its domain is declared
+  authoritative (`parseNumericalUserDomain` bails out on a null data domain while
+  `allowDataOverflow` is false). Without it the axis silently rendered **zero tick
+  labels while still reserving its 56px gutter**, and the `ReferenceLine
+  yAxisId="primary" y={0}` anchored to it drew nothing — from `3ffb6a9` (the TWR
+  race, which moved the money `<Area>` off this axis) until `0.14.2`. `domain` and
+  `ticks` are both derived from the same round percent ticks the right axis uses,
+  so nothing can overflow them and the two axes stay tick-for-tick aligned. The
+  flag is gated on `viewMode === "pnl"`: in Value mode the axis has its own data
+  and an `["auto", "auto"]` domain. Tooltip rows show **You (TWR)** / **You (MWR)**
   (`youLabel`, built once from `MEASURES` and reused by the legend dot's row —
   one label source, not a second string map) and the index (`benchmarkLabel`). The **You** row shows the
   money gained since the window start beside the percent — the hovered point's

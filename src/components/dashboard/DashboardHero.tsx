@@ -718,6 +718,14 @@ export default function DashboardHero({
                   tickLine={false}
                   domain={axisDomains.pnl ?? ["auto", "auto"]}
                   ticks={axisDomains.pnlTicks}
+                  // In Performance mode both plotted series live on the
+                  // `compare` (%) axis, so this one carries no data — and a
+                  // dataless axis gets no scale (and therefore no ticks, and
+                  // no zero reference line) unless its domain is declared
+                  // authoritative. It is: the domain and ticks below are
+                  // derived from the same round percent ticks the right axis
+                  // uses, so there is nothing here that could overflow them.
+                  allowDataOverflow={viewMode === "pnl"}
                   tickFormatter={(v: number) => formatCompactCurrency(v, currency)}
                 />
                 {viewMode === "pnl" && (
