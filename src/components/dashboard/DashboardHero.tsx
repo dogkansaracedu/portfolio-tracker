@@ -29,12 +29,11 @@ import {
 } from "@/hooks/useDashboardHero"
 import {
   formatCompactCurrency,
-  formatCurrency,
-  formatSignedCurrency,
+  formatMoney,
+  formatSignedMoney,
   formatSignedPercent,
   gainLossToneClass,
   NEUTRAL_FIGURE_CLASS,
-  obfuscate,
 } from "@/lib/prices"
 import { SegmentedControl } from "@/components/common/SegmentedControl"
 import { SeriesDot } from "@/components/common/SeriesDot"
@@ -435,10 +434,7 @@ export default function DashboardHero({
         <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
           <span className="text-muted-foreground">{youLabel}</span>
           <span className="text-right font-medium">
-            {obfuscate(
-              formatSignedCurrency(gainSinceStart, currency),
-              obfuscated,
-            )}
+            {formatSignedMoney(gainSinceStart, currency, obfuscated)}
             <span className="text-muted-foreground"> · </span>
             {formatSignedPercent(point.twrPct, DECIMALS.percentage)}
           </span>
@@ -525,14 +521,11 @@ export default function DashboardHero({
                     periodColor,
                   )}
                 >
-                  {obfuscate(
-                    formatSignedCurrency(periodDeltaValue, currency),
-                    obfuscated,
-                  )}
+                  {formatSignedMoney(periodDeltaValue, currency, obfuscated)}
                 </span>
               </>
             ) : (
-              obfuscate(formatCurrency(headlineValue, currency), obfuscated)
+              formatMoney(headlineValue, currency, obfuscated)
             )}
           </p>
           {viewMode === "pnl" && (
@@ -552,10 +545,7 @@ export default function DashboardHero({
           {viewMode === "value" ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className={cn("font-medium", periodColor)}>
-                {obfuscate(
-                  formatSignedCurrency(periodDeltaValue, currency),
-                  obfuscated,
-                )}
+                {formatSignedMoney(periodDeltaValue, currency, obfuscated)}
               </span>
               {/* The % is null when the window has no real starting base
                   (ALL's $0 anchor, or a range reaching before the portfolio
@@ -580,11 +570,9 @@ export default function DashboardHero({
               <span className={cn("text-muted-foreground", CHIP_SEPARATOR)}>
                 {NET_INVESTED_LABEL}{" "}
                 <span className="font-medium text-foreground">
-                  {obfuscate(
-                    formatCurrency(
-                      currency === "USD" ? compareNow.usd : compareNow.try,
-                      currency,
-                    ),
+                  {formatMoney(
+                    currency === "USD" ? compareNow.usd : compareNow.try,
+                    currency,
                     obfuscated,
                   )}
                 </span>
@@ -595,11 +583,9 @@ export default function DashboardHero({
               <span className="text-muted-foreground">
                 Total{" "}
                 <span className={cn("font-medium", totalPnlColor)}>
-                  {obfuscate(
-                    formatSignedCurrency(
-                      currency === "USD" ? totalPnlUsdNow : totalPnlTryNow,
-                      currency,
-                    ),
+                  {formatSignedMoney(
+                    currency === "USD" ? totalPnlUsdNow : totalPnlTryNow,
+                    currency,
                     obfuscated,
                   )}
                 </span>
@@ -667,11 +653,9 @@ export default function DashboardHero({
               )}
               <span className={cn("text-muted-foreground", CHIP_SEPARATOR)}>
                 {NET_INVESTED_LABEL}{" "}
-                {obfuscate(
-                  formatCurrency(
-                    currency === "USD" ? investedNowUsd : investedNowTry,
-                    currency,
-                  ),
+                {formatMoney(
+                  currency === "USD" ? investedNowUsd : investedNowTry,
+                  currency,
                   obfuscated,
                 )}
               </span>
@@ -749,7 +733,7 @@ export default function DashboardHero({
                     const isCompare = name === "compare"
                     const label = isCompare ? NET_INVESTED_LABEL : "Value"
                     return [
-                      obfuscate(formatCurrency(Number(value), currency), obfuscated),
+                      formatMoney(Number(value), currency, obfuscated),
                       label,
                     ]
                   }}

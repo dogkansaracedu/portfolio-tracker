@@ -2,7 +2,7 @@ import { useState } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCurrency, obfuscate } from "@/lib/prices"
+import { formatMoney } from "@/lib/prices"
 import { CURRENCY_CHART_COLORS } from "@/lib/constants/currencies"
 import type { AllocationNode } from "@/lib/dashboard/allocation"
 
@@ -47,7 +47,7 @@ export default function AllocationChart({
   const totalValue = currency === "USD" ? totalValueUsd : totalValueTry
   const valueOf = (n: AllocationNode) =>
     currency === "USD" ? n.valueUsd : n.valueTry
-  const fmt = (v: number) => obfuscate(formatCurrency(v, currency), obfuscated)
+  const fmt = (v: number) => formatMoney(v, currency, obfuscated)
 
   // key → {label, value, pct} for the center read-out (any slice, at any depth).
   const meta = new Map<

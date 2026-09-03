@@ -2,12 +2,12 @@ import { useCallback, useMemo } from "react"
 import type BigNumber from "bignumber.js"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { usePrices } from "@/hooks/usePrices"
-import { CURRENCY_CONFIG } from "@/lib/config"
+import { bn } from "@/lib/config"
 import { MONTHS_PER_YEAR, toReal } from "@/lib/retirement"
 import {
-  formatCurrency,
-  formatSignedCurrency,
-  obfuscate,
+  formatCompactCurrency,
+  formatMoney,
+  formatSignedMoney,
 } from "@/lib/prices"
 import { AGE_LABEL, EMPTY_FIGURE, VALUE_VIEW, type ValueView } from "./constants"
 
@@ -17,22 +17,6 @@ import { AGE_LABEL, EMPTY_FIGURE, VALUE_VIEW, type ValueView } from "./constants
  * toggle (a re-derivation, never a stored change), the display currency, and
  * amount obfuscation (percentages and durations stay visible).
  */
-
-/** Compact axis tick — the retirement horizon reaches millions. */
-function compactMoney(value: number, symbol: string): string {
-  const abs = Math.abs(value)
-  const sign = value < 0 ? "-" : ""
-  const trim = (s: string) => s.replace(/\.0$/, "")
-  if (abs >= 1_000_000) {
-    const v = abs / 1_000_000
-    return `${sign}${symbol}${trim(v.toFixed(v < 10 ? 1 : 0))}M`
-  }
-  if (abs >= 1_000) {
-    const v = abs / 1_000
-    return `${sign}${symbol}${trim(v.toFixed(v < 10 ? 1 : 0))}k`
-  }
-  return `${sign}${symbol}${abs.toFixed(0)}`
-}
 
 /** "12 years 4 months" / "8 months" / "now". */
 export function formatMonthsDuration(months: number): string {
@@ -54,11 +38,6 @@ export function formatAge(age: number): string {
 /** "Age 52" — an age read as a label (headline answers, chart markers, tooltips). */
 export function formatAgeLabel(age: number): string {
   return `${AGE_LABEL} ${formatAge(age)}`
-}
-
-export function formatYearsFromMonths(months: number | null): string {
-  if (months === null) return EMPTY_FIGURE
-  return formatMonthsDuration(months)
 }
 
 export interface RetirementDisplay {
@@ -93,7 +72,7 @@ export function useRetirementDisplay(
 
   const toDisplayNumber = useCallback(
     (usd: BigNumber) =>
-      currency === "USD" ? usd.toNumber() : usd.times(usdTry).toNumber(),
+      currency === "USD" ? usd.toNumber() : usd.times(bn(usdTry)).toNumber(),
     [currency, usdTry],
   )
 
@@ -102,7 +81,7 @@ export function useRetirementDisplay(
       toDisplayNumber(toViewUsd(nominalUsd, monthsFromNow))
 
     const moneyFromChartValue = (value: number) =>
-      obfuscate(formatCurrency(value, currency), obfuscated)
+      formatMoney(value, currency, obfuscated)
 
     return {
       currency,
@@ -117,12 +96,12 @@ export function useRetirementDisplay(
       signedMoney: (nominalUsd, monthsFromNow = 0) =>
         nominalUsd === null
           ? EMPTY_FIGURE
-          : obfuscate(
-              formatSignedCurrency(chartValue(nominalUsd, monthsFromNow), currency),
+          : formatSignedMoney(
+              chartValue(nominalUsd, monthsFromNow),
+              currency,
               obfuscated,
             ),
-      axisTick: (value: number) =>
-        compactMoney(value, CURRENCY_CONFIG[currency].symbol),
+      axisTick: (value: number) => formatCompactCurrency(value, currency),
     }
   }, [currency, obfuscated, isReal, toViewUsd, toDisplayNumber])
 }
