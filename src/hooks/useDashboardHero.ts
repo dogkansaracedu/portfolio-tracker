@@ -14,6 +14,7 @@ import {
   computeWhatIfIndexMWRSeries,
 } from "@/lib/mwr"
 import { buildIntradaySeries } from "@/lib/dashboard/intraday"
+import { DISPLAY_LOCALE, NOW_LABEL } from "@/lib/constants/app"
 import type { BenchmarkPrice, Snapshot, IntradaySnapshot } from "@/types/database"
 
 export type HeroViewMode = "value" | "pnl"
@@ -143,12 +144,16 @@ function todayLocalIso(): string {
 function formatLabel(dateStr: string, range: TimeRange): string {
   const d = new Date(dateStr)
   if (range === "1D" || range === "1W") {
-    return d.toLocaleDateString("tr-TR", { day: "2-digit", month: "short" })
+    return d.toLocaleDateString(DISPLAY_LOCALE, {
+      month: "short",
+      day: "numeric",
+    })
   }
-  // Use full 4-digit year to avoid the "Şub 26" ambiguity (which Turkish
-  // readers can mis-parse as "26 Şubat" — i.e. day 26 of February —
-  // instead of "Şub 2026"). "Şub 2026" is unambiguous.
-  return d.toLocaleDateString("tr-TR", { month: "short", year: "numeric" })
+  // Full 4-digit year: "Feb 26" would read as a day-of-month.
+  return d.toLocaleDateString(DISPLAY_LOCALE, {
+    month: "short",
+    year: "numeric",
+  })
 }
 
 /**
@@ -505,12 +510,12 @@ export function useDashboardHero({
     }
 
     if (chartData.length > 0) {
-      chartData[chartData.length - 1].label = "Şimdi"
+      chartData[chartData.length - 1].label = NOW_LABEL
     }
 
-    // Pick one tick per unique label (e.g. "Nis 2026") so the X-axis
+    // Pick one tick per unique label (e.g. "Apr 2026") so the X-axis
     // doesn't repeat the same month/day string for every dense daily
-    // snapshot. The last point's label is "Şimdi" — always include it.
+    // snapshot. The last point's label is the "now" label — always include it.
     const seen = new Set<string>()
     const xTicks: number[] = []
     for (const p of chartData) {
