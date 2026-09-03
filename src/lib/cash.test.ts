@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { computeCashAmount } from "@/lib/cash"
 import { TRANSACTION_TYPES } from "@/lib/constants/transaction-types"
+
+// `cash.ts` also exports `resolveFiatAsset`, which imports the Supabase
+// client — and that module throws at import time when the env vars are
+// absent. The functions under test here are pure, so stub the client to
+// keep this suite runnable in a checkout with no `.env.local` (CI, a fresh
+// clone) the way every other suite already is.
+vi.mock("@/lib/supabase", () => ({ supabase: {} }))
 
 /**
  * The cash leg's amount is the one figure the Add-transaction form previews
