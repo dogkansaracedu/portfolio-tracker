@@ -1,5 +1,8 @@
 import { bn } from "@/lib/config"
-import { CURRENCY_SYMBOLS, type FiatCurrency } from "@/lib/constants/currencies"
+import {
+  formatSettlementDigits,
+  settlementSymbol,
+} from "@/components/transactions/settlementAmount"
 import { TableCell } from "@/components/ui/table"
 
 interface Props {
@@ -16,7 +19,6 @@ export function TotalCostCell({ amount, unitPrice, currency }: Props) {
   const a = bn(amount || "0")
   const p = bn(unitPrice || "0")
   const total = a.times(p)
-  const sym = CURRENCY_SYMBOLS[currency as FiatCurrency] ?? ""
   const hasValue = !total.isNaN() && total.gt(0)
 
   return (
@@ -25,11 +27,10 @@ export function TotalCostCell({ amount, unitPrice, currency }: Props) {
     >
       {hasValue ? (
         <span>
-          <span className="text-muted-foreground">{sym}</span>
-          {total.toNumber().toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
+          <span className="text-muted-foreground">
+            {settlementSymbol(currency)}
+          </span>
+          {formatSettlementDigits(total.toNumber())}
         </span>
       ) : (
         <span className="text-muted-foreground">—</span>
