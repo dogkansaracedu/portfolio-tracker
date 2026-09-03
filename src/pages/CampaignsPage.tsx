@@ -248,9 +248,11 @@ export default function CampaignsPage() {
   )
 }
 
+/** The phone header already names the page, so the title block only exists
+ *  from `md` up (same rule as Portfolio and Transactions). */
 function PageHeading() {
   return (
-    <div>
+    <div className="hidden md:block">
       <h1 className="text-2xl font-bold">{CAMPAIGN_COPY.pageTitle}</h1>
       <p className="text-muted-foreground">{CAMPAIGN_COPY.pageSubtitle}</p>
     </div>

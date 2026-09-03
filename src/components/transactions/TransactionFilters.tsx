@@ -7,6 +7,9 @@ import { Disclosure } from "@/components/common/Disclosure"
 
 type DatePreset = "7d" | "30d" | "year" | "all"
 
+/** What `defaultFilters()` in `useTransactionLog` applies on a fresh visit. */
+const DEFAULT_DATE_PRESET: DatePreset = "year"
+
 const DATE_PRESETS: { id: DatePreset; label: string }[] = [
   { id: "7d", label: "Last 7d" },
   { id: "30d", label: "Last 30d" },
@@ -130,10 +133,12 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
     return null
   })()
 
-  // What the phone trigger counts: the date window as one, plus each chosen
-  // asset / platform / type.
+  // What the phone trigger counts: each chosen asset / platform / type, plus
+  // the date window — but only when it is not the default one. A fresh visit
+  // already carries "This Year", and a badge that never reads 0 says nothing
+  // about what the user actually narrowed.
   const activeFilterCount =
-    (filters.dateFrom || filters.dateTo ? 1 : 0) +
+    (activePreset === DEFAULT_DATE_PRESET ? 0 : 1) +
     (filters.assetId ? 1 : 0) +
     (filters.platformId ? 1 : 0) +
     (filters.types?.length ?? 0)

@@ -25,7 +25,9 @@ export default function BudgetPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      {/* The phone header already names the page — the title block only
+          exists from `md` up (same rule as Portfolio and Transactions). */}
+      <div className="hidden md:block">
         <h1 className="text-2xl font-bold">Budget</h1>
         <p className="text-muted-foreground">
           What each month earned, what went into the portfolio, and what the

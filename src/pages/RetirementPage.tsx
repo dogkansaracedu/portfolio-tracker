@@ -48,7 +48,9 @@ export default function RetirementPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        {/* The phone header already names the page — the title block only
+            exists from `md` up (same rule as Portfolio and Transactions). */}
+        <div className="hidden md:block">
           <h1 className="text-2xl font-bold">Retirement</h1>
           <p className="text-muted-foreground">
             Ask your plan when you can retire, when you can stop contributing,

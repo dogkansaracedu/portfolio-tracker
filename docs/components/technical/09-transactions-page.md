@@ -67,9 +67,11 @@
   platform `Select`, and the type chips; pushes changes through `onFiltersChange`.
   The three rows sit inside the shared `common/Disclosure` with
   `triggerClassName="sm:hidden"` / `contentClassName="… sm:block"`, so below `sm`
-  they collapse behind `Filters (n)` (`activeFilterCount` = the date window as
-  one + asset + platform + each chosen type) and from `sm` up they are always
-  open with no trigger.
+  they collapse behind `Filters (n)` (`activeFilterCount` = asset + platform +
+  each chosen type, plus the date window only when `activePreset` differs from
+  `DEFAULT_DATE_PRESET` — a fresh visit already carries "This Year", so counting
+  it would mean the badge never reads 0) and from `sm` up they are always open
+  with no trigger.
   The chips render `FILTERABLE_TYPES` (the user-pickable stored types **plus** the
   derived `TRANSFER_PAIR_FILTER_TYPE`, placed right after Deposit and Withdrawal) with
   `FILTER_TYPE_DISPLAY` (= `TRANSACTION_TYPE_DISPLAY` + `TRANSFER_PAIR_DISPLAY`), so

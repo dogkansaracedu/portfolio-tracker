@@ -62,7 +62,7 @@ toggle.
 | --- | --- |
 | `src/App.tsx` | `<Route path="budget">` (lazy, inside `AppLayout`). |
 | `src/components/layout/Sidebar.tsx` | `/budget` nav item (`navItems`, shared with `MobileNav`). |
-| `src/pages/BudgetPage.tsx` | Composition: chart (table's default window, oldest-left) + table + salary card. |
+| `src/pages/BudgetPage.tsx` | Composition: chart (table's default window, oldest-left) + table + salary card. Its `h1`/subtitle block is `hidden md:block` — on a phone the app header is the only page title. |
 | `src/components/budget/constants.ts` | Series order/labels, per-theme chart palette (validated light AND dark — dark is its own steps), placeholders, `DEFAULT_VISIBLE_MONTHS`, inline-entry default currency (TRY). |
 | `src/components/budget/display.ts` | `monthLabel("YYYY-MM")`, `legFor(row, field, currency)` — the USD/TRY leg picker. |
 | `src/components/budget/BudgetTrendChart.tsx` | Grouped Recharts bars, theme-aware colors; null legs omitted, not drawn as zero; one axis (no rate line), `width={56}` with `formatCompactCurrency` ticks. |
