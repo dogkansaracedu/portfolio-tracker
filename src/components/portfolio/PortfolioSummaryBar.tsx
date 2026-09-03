@@ -7,6 +7,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip"
 import { MWR_HINT, MWR_LABEL } from "@/lib/constants/returns"
+import { HELD_ASSETS_LABEL } from "@/lib/constants/portfolio"
 
 interface PortfolioSummaryBarProps {
   totalValueUsd: number
@@ -41,7 +42,10 @@ export function PortfolioSummaryBar({
   const hasIncome = Math.abs(totalIncomeUsd) > 0.005
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    // Below `sm` the two figures the page exists for sit side by side and Held
+    // Assets folds into the P&L card's caption, so the first holding is inside
+    // the first screen.
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       <Card size="sm">
         <CardContent>
           <div className="flex flex-col gap-0.5">
@@ -59,7 +63,7 @@ export function PortfolioSummaryBar({
         <CardContent>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">P&L</span>
-            <div className="flex items-baseline gap-2">
+            <div className="flex flex-wrap items-baseline gap-x-2">
               <span
                 className={`text-xl font-bold tabular-nums ${gainLossToneClass(
                   totalPnlUsd
@@ -86,28 +90,34 @@ export function PortfolioSummaryBar({
                 </Tooltip>
               )}
             </div>
+            {/* The split and the income line are desktop detail; the phone
+                strip carries the headline plus the held-asset count. */}
             {hasRealized && (
-              <span className="text-xs text-muted-foreground tabular-nums">
+              <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
                 Unrealized {signedMoney(totalUnrealizedPnlUsd)}
                 {" · "}
                 Realized {signedMoney(totalRealizedPnlUsd)}
               </span>
             )}
             {hasIncome && (
-              <span className="text-xs text-muted-foreground tabular-nums">
+              <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
                 Dividend &amp; interest income {signedMoney(totalIncomeUsd)}
               </span>
             )}
+            <span className="text-xs text-muted-foreground tabular-nums sm:hidden">
+              {heldAssetCount} {HELD_ASSETS_LABEL.toLowerCase()}
+            </span>
           </div>
         </CardContent>
       </Card>
 
-      {/* Held Assets */}
-      <Card size="sm">
+      {/* Held Assets — a third card only from `sm` up; on a phone it is the
+          caption under P&L. */}
+      <Card size="sm" className="hidden sm:block">
         <CardContent>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">
-              Held Assets
+              {HELD_ASSETS_LABEL}
             </span>
             <span className="text-xl font-bold tabular-nums">
               {heldAssetCount}

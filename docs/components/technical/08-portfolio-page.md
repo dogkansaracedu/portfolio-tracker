@@ -18,7 +18,8 @@
 - `src/pages/PortfolioPage.tsx` — page shell. Pulls everything from
   `usePortfolio`, renders summary bar → filters → table; threads `returnMode` +
   `dailyReturnAvailable` to the table and `returnMode`/`onReturnModeChange` to the
-  filters.
+  filters. The `h1`/subtitle block is `hidden md:block` — on a phone the app
+  header is the only page title.
 - `src/components/portfolio/PortfolioTable.tsx` — the 9-column `Table` (shown
   from `xl`, i.e. 1280px, where the 240px sidebar still leaves a container the
   table's ~992px fits) + the card list (`xl:hidden`, every width below it —
@@ -50,7 +51,10 @@
   children (chevron + recursive `nested` render — see the funds-nested-under-fiat
   entry below).
 - `src/components/portfolio/PortfolioSummaryBar.tsx` — lifetime cards (value, P&L
-  with unrealized/realized split, held count). **No `returnMode` prop** — by
+  with unrealized/realized split, held count). `grid-cols-2 sm:grid-cols-3`: below
+  `sm` the held-count card is `hidden` and its figure becomes a caption under P&L
+  (`HELD_ASSETS_LABEL`), while the unrealized/realized and income captions are
+  `hidden … sm:inline`. **No `returnMode` prop** — by
   construction unaffected by the toggle. The P&L **headline** is the gross
   `totalPnlUsd`; no after-tax figures here.
 - `src/components/portfolio/PortfolioFilters.tsx` — search `Input`, the

@@ -144,7 +144,9 @@ and portfolio views exactly.
 
 - **Log list.** Table on wide screens (columns: Date, Asset, Platform, Type,
   Quantity, Unit Price, Total, row-actions — "Quantity", matching the Portfolio
-  page's wording, never "Amount"); a stacked card list on narrow screens.
+  page's wording, never "Amount"); a stacked card list on narrow screens — the
+  same width split the Portfolio table uses, since the eight columns need the
+  same room.
   Type is a color-coded badge per type. Asset cell carries the icon, ticker, and the
   linked-leg subtitle. Empty and loading states are explicit.
 - **Numeric columns are right-aligned and figure-aligned** (Quantity, Unit Price,
@@ -156,6 +158,12 @@ and portfolio views exactly.
   carry direction with their sign alone (the Type badge already colours buy vs
   sell), and the activity summary's buy/sell volumes are turnover, not profit —
   they render in the default foreground.
+- **Phone.** The page title and subtitle are dropped (the phone header names the
+  screen), the activity summary condenses to one strip of count · buy volume ·
+  sell volume, and the filters collapse behind a single "Filters (n)" trigger
+  that names how many are active — so the first transaction is on screen without
+  scrolling. From the medium width up the title returns; from the small width up
+  the summary is three cards and the filters are always open.
 - **Filters.** Date-range presets (Last 7d / Last 30d / This Year / All Time) plus
   free date pickers; an asset picker; a platform picker; type chips (toggle on/off) —
   including a **Transfer** chip carrying the same neutral label and colour as the

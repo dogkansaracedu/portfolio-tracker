@@ -43,8 +43,10 @@ export function TransactionList({
 
   return (
     <>
-      {/* Desktop table (hidden below 640px) */}
-      <div className="hidden sm:block">
+      {/* Desktop table. Same switch as the Portfolio table: the eight columns
+          need ~930px, and below 1280 the shell leaves at most 736px beside the
+          sidebar — so the card list carries every width under `xl`. */}
+      <div className="hidden xl:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -72,8 +74,8 @@ export function TransactionList({
         </Table>
       </div>
 
-      {/* Mobile card list (visible below 640px) */}
-      <div className="flex flex-col gap-2 sm:hidden">
+      {/* Card list — every width below 1280px. */}
+      <div className="flex flex-col gap-2 xl:hidden">
         {transactions.map((tx) => (
           <TransactionRowCard
             key={tx.id}

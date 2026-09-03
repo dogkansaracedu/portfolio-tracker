@@ -225,6 +225,12 @@ widths: ticker, current price, quantity **and cost per unit**, allocation,
 platforms, value, and the mode-dependent return amount + % inline. Same toggle,
 same "—" rules.
 
+**Phone.** The page title and its subtitle are dropped (the phone's own header
+already names the screen) and the summary condenses to two side-by-side figures
+— total value and P&L, with the held-asset count as the P&L caption and the
+realized/unrealized and income breakdown left to wider screens — so the first
+holding is on screen without scrolling.
+
 **Inactive / zero-balance.** Inactive assets hidden by default; zero-balance
 positions are not shown as active rows.
 
