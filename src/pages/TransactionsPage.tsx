@@ -11,6 +11,7 @@ import { PageHeading } from "@/components/common/PageHeading"
 import { Button } from "@/components/ui/button"
 import { PlusIcon, TableIcon } from "lucide-react"
 import { BULK_ADD_ROUTE } from "@/lib/constants/app"
+import { ADD_TRANSACTION_LABEL } from "@/lib/constants/transaction-types"
 import {
   fetchLinkedChildrenForParents,
   type TransactionWithDetails,
@@ -63,7 +64,7 @@ export default function TransactionsPage() {
           </Button>
           <Button onClick={() => openTransactionModal()}>
             <PlusIcon className="size-4" />
-            Add Transaction
+            {ADD_TRANSACTION_LABEL}
           </Button>
         </div>
       </div>
