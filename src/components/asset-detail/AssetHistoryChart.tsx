@@ -14,6 +14,7 @@ import { TimeRangeSelector } from "@/components/performance/TimeRangeSelector"
 import { Toggle } from "@/components/ui/toggle"
 import { formatCompactCurrency, formatCurrency } from "@/lib/prices"
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies"
+import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import { MEDIA_QUERY, useMediaQuery } from "@/hooks/useMediaQuery"
 import {
   filterHistoryByRange,
@@ -61,7 +62,7 @@ export function AssetHistoryChart({ history, currency }: Props) {
     () =>
       filterHistoryByRange(history, range).map((p) => ({
         date: p.date,
-        label: new Date(p.date).toLocaleDateString("en-US", {
+        label: new Date(p.date).toLocaleDateString(DISPLAY_LOCALE, {
           month: "short",
           day: "numeric",
         }),

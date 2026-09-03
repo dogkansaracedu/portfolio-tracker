@@ -4,18 +4,6 @@ import { usePlatforms } from "@/hooks/usePlatforms"
 import { Button } from "@/components/ui/button"
 import { SegmentedControl } from "@/components/common/SegmentedControl"
 import { Disclosure } from "@/components/common/Disclosure"
-
-type DatePreset = "7d" | "30d" | "year" | "all"
-
-/** What `defaultFilters()` in `useTransactionLog` applies on a fresh visit. */
-const DEFAULT_DATE_PRESET: DatePreset = "year"
-
-const DATE_PRESETS: { id: DatePreset; label: string }[] = [
-  { id: "7d", label: "Last 7d" },
-  { id: "30d", label: "Last 30d" },
-  { id: "year", label: "This Year" },
-  { id: "all", label: "All Time" },
-]
 import {
   Select,
   SelectContent,
@@ -41,6 +29,19 @@ import {
   thisYearStartISO,
   type TransactionLogFilters,
 } from "@/hooks/useTransactionLog"
+import { DISPLAY_LOCALE } from "@/lib/constants/app"
+
+type DatePreset = "7d" | "30d" | "year" | "all"
+
+/** What `defaultFilters()` in `useTransactionLog` applies on a fresh visit. */
+const DEFAULT_DATE_PRESET: DatePreset = "year"
+
+const DATE_PRESETS: { id: DatePreset; label: string }[] = [
+  { id: "7d", label: "Last 7d" },
+  { id: "30d", label: "Last 30d" },
+  { id: "year", label: "This Year" },
+  { id: "all", label: "All Time" },
+]
 
 interface Props {
   filters: TransactionLogFilters
@@ -49,7 +50,7 @@ interface Props {
 
 function formatDateLabel(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00")
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString(DISPLAY_LOCALE, {
     month: "short",
     day: "numeric",
     year: "numeric",

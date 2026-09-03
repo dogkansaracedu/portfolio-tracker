@@ -1,5 +1,7 @@
 import { CURRENCY_CONFIG, DECIMALS, getAmountDecimals } from "@/lib/config"
+import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import type { FiatCurrency } from "@/lib/constants/currencies"
+import type { StalenessLevel } from "@/lib/constants/prices"
 import type { PriceCache, ExchangeRate } from "@/types/database"
 
 export const OBFUSCATED_VALUE = "••••••"
@@ -91,18 +93,18 @@ export function gainLossToneClass(value: number): string {
 }
 
 /**
- * Format a "signed" currency figure: losses carry a leading ASCII minus,
- * gains and zero render bare (e.g. "$1,234.56", "-₺500,00") — direction is
- * carried by the gain/loss color, not a "+". The sign is applied here (over
- * `Math.abs`) rather than relying on the locale formatter so the convention
- * stays uniform app-wide.
+ * A gain/loss money figure: losses carry a leading ASCII minus, gains and zero
+ * render bare (e.g. "$1,234.56", "-₺500,00") — direction is carried by the
+ * gain/loss colour, not a "+". Since {@link formatCurrency} itself leads with
+ * the minus for every currency, this is the same string; the name survives
+ * because it marks a P&L figure at the call site (the convention CLAUDE.md
+ * and the UI skill point to), not because it formats differently.
  */
 export function formatSignedCurrency(
   value: number,
   currency: FiatCurrency
 ): string {
-  const sign = value < 0 ? "-" : ""
-  return `${sign}${formatCurrency(Math.abs(value), currency)}`
+  return formatCurrency(value, currency)
 }
 
 /**
@@ -123,7 +125,7 @@ export function formatSignedPercent(
  * trimming trailing zeros.
  */
 export function formatCryptoAmount(value: number): string {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(DISPLAY_LOCALE, {
     minimumFractionDigits: 0,
     maximumFractionDigits: DECIMALS.cryptoAmount,
   }).format(value)
@@ -134,7 +136,7 @@ export function formatCryptoAmount(value: number): string {
  */
 export function formatAmount(value: number, category: string): string {
   const decimals = getAmountDecimals(category)
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(DISPLAY_LOCALE, {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,
   }).format(value)
@@ -210,9 +212,7 @@ export function ratesEqual(
  * - warning: 30 minutes to 2 hours old
  * - stale: more than 2 hours old
  */
-export function getStalenessLevel(
-  updatedAt: string
-): "fresh" | "warning" | "stale" {
+export function getStalenessLevel(updatedAt: string): StalenessLevel {
   const ageMs = Date.now() - new Date(updatedAt).getTime()
   const ageMinutes = ageMs / (60 * 1000)
 

@@ -256,10 +256,10 @@
   money gained since the window start beside the percent — the hovered point's
   `valueUsd`/`valueTry` from `displayChartData` (already rebased to 0 at the
   window's first point), via `formatSignedCurrency` wrapped in `obfuscate`,
-  then ` · ` and `formatSignedPercent(point.twrPct, 2)`. The index row stays
+  then ` · ` and `formatSignedPercent(point.twrPct, DECIMALS.percentage)`. The index row stays
   percent-only (`formatSignedPercent`) — there is no "your money" amount for
   the benchmark line.
-- **Headline (P&L mode)** = `formatSignedPercent(twrEnd, 2)`, colored by `twrColor`
+- **Headline (P&L mode)** = `formatSignedPercent(twrEnd, DECIMALS.percentage)`, colored by `twrColor`
   (`gainLossClass(twrEnd > 0)`, muted when exactly flat), followed by the period's
   money gain in a smaller inline span (`text-lg sm:text-xl md:text-2xl` vs the
   percent's `2xl…4xl`): `formatSignedCurrency(periodDeltaValue, currency)` wrapped
@@ -273,8 +273,8 @@
   dollar lifetime **Total** P&L (+ %), the lifetime MWR chip (below), and the
   benchmark dropdown label (`benchmarkLabel` = `activeBenchmark.label` +
   `WHAT_IF_LABEL_SUFFIX` `" (same flows)"` under MWR, so the user can tell the grey
-  line changed meaning) with `formatSignedPercent(benchmarkEnd, 2)` and the gap
-  `({formatSignedPercent(gapPts, 1)} pts)` colored by `gapColor`
+  line changed meaning) with `formatSignedPercent(benchmarkEnd, DECIMALS.percentage)` and the gap
+  `({formatSignedPercent(gapPts, DECIMALS.percentageRate)} pts)` colored by `gapColor`
   (`gainLossClass(gapPts > 0)` — green when ahead of the market). An
   **"approximate"** badge renders next to the headline when `approximate` is true —
   which the hook never sets under MWR, so no extra gate is needed here. The row
