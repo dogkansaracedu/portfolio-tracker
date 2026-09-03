@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronDown, Plus, Star, Trash2 } from "lucide-react"
+import { Plus, Star, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -29,7 +29,6 @@ import {
 } from "@/lib/retirement"
 import type { RetirementPlanner } from "@/hooks/useRetirementPlanner"
 import type { RetirementScenario } from "@/types/database"
-import { cn } from "@/lib/utils"
 import {
   CONTRIBUTION_END_AGE_LABEL,
   DEFAULT_SCENARIO_NAME,
@@ -39,6 +38,7 @@ import {
   GLOSSARY_HINTS,
   SAFE_WITHDRAWAL_RATE_HINTS,
   SCENARIO_PICKER_PLACEHOLDER,
+  SCENARIO_SUMMARY,
   WITHDRAWAL_STRATEGY_LABELS,
 } from "./constants"
 import {
@@ -47,6 +47,7 @@ import {
   SegmentedControl,
 } from "./RetirementControls"
 import { ScenarioNameDialog } from "./ScenarioNameDialog"
+import { Disclosure } from "@/components/common/Disclosure"
 
 /**
  * The persistent scenario panel: which saved scenario is loaded, the
@@ -90,6 +91,7 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
     discardEdits,
   } = planner
   const { obfuscated } = useDisplayCurrency()
+  const [panelOpen, setPanelOpen] = useState(false)
   const [assumptionsOpen, setAssumptionsOpen] = useState(false)
   const [nameDialog, setNameDialog] = useState<"create" | "rename" | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -117,9 +119,33 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
       ),
     })
 
+  // The phone panel opens collapsed behind this line, so the question tabs and
+  // the answer land in the first screen; from `sm` up the panel is always open
+  // and the trigger is gone.
+  const phoneSummary = [
+    `${obfuscate(formatCurrency(inputs.monthlyContributionUsd, "USD"), obfuscated)}${SCENARIO_SUMMARY.perMonthSuffix}`,
+    `${SCENARIO_SUMMARY.retireAt} ${inputs.retirementAge}`,
+    `${inputs.safeWithdrawalRatePct}${SCENARIO_SUMMARY.swrSuffix}`,
+  ].join(SCENARIO_SUMMARY.separator)
+
   return (
     <Card>
-      <CardContent className="space-y-4">
+      <CardContent>
+        <Disclosure
+          open={panelOpen}
+          onOpenChange={setPanelOpen}
+          label={
+            <span className="text-left font-normal text-muted-foreground">
+              {phoneSummary}
+              {" — "}
+              <span className="font-medium text-foreground">
+                {SCENARIO_SUMMARY.edit}
+              </span>
+            </span>
+          }
+          triggerClassName="sm:hidden"
+          contentClassName="space-y-4 sm:mt-0 sm:block"
+        >
         {/* Scenario picker + persistence actions */}
         <div className="flex flex-wrap items-center gap-2">
           {scenarios.length > 0 ? (
@@ -326,23 +352,13 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
         </div>
 
         {/* Assumptions */}
-        <div className="border-t pt-3">
-          <button
-            type="button"
-            onClick={() => setAssumptionsOpen((open) => !open)}
-            className="flex items-center gap-1.5 text-sm font-medium"
-          >
-            <ChevronDown
-              className={cn(
-                "size-4 transition-transform",
-                assumptionsOpen && "rotate-180",
-              )}
-            />
-            Assumptions
-          </button>
-
-          {assumptionsOpen && (
-            <div className="mt-3 space-y-4">
+        <Disclosure
+          className="border-t pt-3"
+          open={assumptionsOpen}
+          onOpenChange={setAssumptionsOpen}
+          label="Assumptions"
+          contentClassName="space-y-4"
+        >
               <div className="space-y-2">
                 <HintLabel hint={GLOSSARY_HINTS.expectedReturnBand}>
                   Primary expected return (drives Plan and Coast FIRE)
@@ -431,10 +447,9 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
                     />
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        </Disclosure>
+        </Disclosure>
       </CardContent>
 
       <ScenarioNameDialog

@@ -3,6 +3,7 @@ import { useAssets } from "@/hooks/useAssets"
 import { usePlatforms } from "@/hooks/usePlatforms"
 import { Button } from "@/components/ui/button"
 import { SegmentedControl } from "@/components/common/SegmentedControl"
+import { Disclosure } from "@/components/common/Disclosure"
 
 type DatePreset = "7d" | "30d" | "year" | "all"
 
@@ -62,6 +63,7 @@ function toISODate(date: Date): string {
 export function TransactionFilters({ filters, onFiltersChange }: Props) {
   const { assets } = useAssets()
   const { platforms } = usePlatforms()
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [dateFromOpen, setDateFromOpen] = useState(false)
   const [dateToOpen, setDateToOpen] = useState(false)
 
@@ -128,8 +130,27 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
     return null
   })()
 
+  // What the phone trigger counts: the date window as one, plus each chosen
+  // asset / platform / type.
+  const activeFilterCount =
+    (filters.dateFrom || filters.dateTo ? 1 : 0) +
+    (filters.assetId ? 1 : 0) +
+    (filters.platformId ? 1 : 0) +
+    (filters.types?.length ?? 0)
+
   return (
-    <div className="space-y-3">
+    // Below `sm` the three filter rows cost a full screen above the first
+    // transaction, so they collapse behind a "Filters (n)" trigger; from `sm`
+    // up the trigger is gone and the rows are always open.
+    <Disclosure
+      open={filtersOpen}
+      onOpenChange={setFiltersOpen}
+      label={
+        activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters"
+      }
+      triggerClassName="sm:hidden"
+      contentClassName="space-y-3 sm:mt-0 sm:block"
+    >
       {/* Date presets */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium text-muted-foreground">Date:</span>
@@ -295,6 +316,6 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
           )
         })}
       </div>
-    </div>
+    </Disclosure>
   )
 }

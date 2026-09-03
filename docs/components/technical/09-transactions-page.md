@@ -22,7 +22,8 @@
   `{ transactions, loading, filters, setFilters, summary }` from `useTransactionLog`,
   the `transaction → realized` map from `useRealizedPnL`, and the modal opener from
   `TransactionContext`. Header has **Add Transaction** (opens modal) and **Bulk add**
-  (links to `/transactions/edit`). It separately fetches the linked-child map for the
+  (links to `/transactions/edit`); the `h1`/subtitle block is `hidden md:block`
+  so the phone header is the only page title. It separately fetches the linked-child map for the
   visible parents (`fetchLinkedChildrenForParents`) and threads it to the list.
 - `src/pages/TransactionsEditPage.tsx` — the **bulk-import / spreadsheet** page (full
   viewport, rendered outside the app layout). `/transactions/edit` = blank bulk-add
@@ -37,8 +38,11 @@
   they use the modal; see gotchas.)
 
 **Components** (`src/components/transactions/`)
-- `TransactionList.tsx` — branches desktop `Table` vs mobile card list; maps rows,
-  joining `childMap.get(tx.id)` and `realizedByTx.get(tx.id)` per row.
+- `TransactionList.tsx` — branches desktop `Table` (`hidden xl:block`) vs card list
+  (`xl:hidden`); maps rows, joining `childMap.get(tx.id)` and
+  `realizedByTx.get(tx.id)` per row. The `xl` split matches `PortfolioTable`: the
+  eight columns need ~930px and below 1280 the shell leaves at most 736px beside
+  the 240px sidebar.
 - `TransactionRow.tsx` — one desktop table row; calls `deriveTransactionDisplay(...)`
   for sign/converted/realized, then renders cells. Quantity / Unit Price / Total
   cells and their `TableHead`s carry `text-right` + `tabular-nums`; the `(~…)`
@@ -51,14 +55,20 @@
   column header/label says "Quantity" (matches Portfolio), not "Amount".
 - `TransactionFilters.tsx` — date presets + two `Calendar` popovers, asset `Select`,
   platform `Select`, and the type chips; pushes changes through `onFiltersChange`.
+  The three rows sit inside the shared `common/Disclosure` with
+  `triggerClassName="sm:hidden"` / `contentClassName="… sm:block"`, so below `sm`
+  they collapse behind `Filters (n)` (`activeFilterCount` = the date window as
+  one + asset + platform + each chosen type) and from `sm` up they are always
+  open with no trigger.
   The chips render `FILTERABLE_TYPES` (the user-pickable stored types **plus** the
   derived `TRANSFER_PAIR_FILTER_TYPE`, placed right after Deposit and Withdrawal) with
   `FILTER_TYPE_DISPLAY` (= `TRANSACTION_TYPE_DISPLAY` + `TRANSFER_PAIR_DISPLAY`), so
   the Transfer chip wears exactly the row badge's neutral slate. `USER_PICKABLE_TYPES`
   stays the editor/sheet's list — the pseudo-type must never be selectable there.
-- `TransactionSummary.tsx` — three stat `Card`s: count, buy volume, sell volume.
-  All three render in the default foreground: volumes are turnover, so they never
-  go through `gainLossClass`.
+- `TransactionSummary.tsx` — one `figures` array rendered twice: a single
+  `sm:hidden` `Card` holding a 3-column strip (label over value, `text-xs`) for the
+  phone, and the three stat `Card`s from `sm` up. All render in the default
+  foreground: volumes are turnover, so they never go through `gainLossClass`.
 - `TransactionTypeSelector.tsx` — exports **both** `TransactionTypeSelector` (the
   single-pick chip row used by the add/edit modal) and `TransactionTypeBadge` (the
   colored per-row badge); config from `@/lib/constants/transaction-types`. The chip

@@ -267,6 +267,11 @@ are always recomputed from inputs.
 - A persistent scenario panel: scenario picker (create / rename / save /
   delete / set default), the input fields above, and the assumption set behind
   a collapsible "Assumptions" section so casual use isn't buried in knobs.
+  On a phone the **whole panel** starts collapsed behind a one-line summary of
+  the plan (monthly contribution · retirement age · safe withdrawal rate, with
+  an Edit affordance), so the question tabs and their answer are on screen
+  without scrolling past a dozen inputs; from the small width up the panel is
+  always open.
 - Every advanced term surfaces its one-line glossary explainer inline
   (tooltip or caption).
 - An input that the loaded withdrawal strategy does not use is shown but not
