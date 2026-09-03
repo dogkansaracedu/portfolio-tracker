@@ -259,13 +259,37 @@ publishes almost no methodology.
 
 > Dated observation, not standing truth. Re-verify before quoting.
 
-**MTV (vehicle tax).** Tariff = engine displacement × vehicle value × age band
-for cars registered from 2018 (displacement × age only for older). **Paid in two
-equal instalments, January and July** (Law 197 art. 9). 2026 amounts published
-in MTV Genel Tebliği Seri No: 58 (RG 31.12.2025), range **5,750–274,415 TL/yr**;
-the increase was set at **18.95%** by Cumhurbaşkanı Kararı 10783, not the 25.49%
-revaluation rate. A kasko-value relief lets an owner drop a tier when MTV
-exceeds ~5% of the car's insured value (that 5% is secondary-sourced).
+**MTV (vehicle tax).** **Paid in two equal instalments, January and July** (Law
+197 art. 9). 2026 amounts published in MTV Genel Tebliği Seri No: 58 (RG
+31.12.2025), range **5,750–274,415 TL/yr**; the increase was set at **18.95%**
+by Cumhurbaşkanı Kararı 10783, not the 25.49% revaluation rate.
+
+**Which of the two tariffs applies is the part that trips people up**, and the
+first research pass left the older one unresolved. Cars **registered on or after
+1/1/2018** use the **(I) tarife**: displacement × *vehicle value* × age. Cars
+registered **on or before 31/12/2017** were carved out by Law 197 **geçici madde
+8** into the **(I/A) tarife**, which has **no vehicle-value dimension at all** —
+displacement × age only. The value tiers arrived with 7061 sayılı Kanun in 2017
+and were made prospective only. So for any car older than about 2018 the value
+question does not arise.
+
+For 1301–1600 cm³ in 2026 the (I/A) row is **10,016 / 7,510 / 4,354 / 3,077 /
+1,181 TL** across the 1–3 / 4–6 / 7–11 / 12–15 / 16+ age bands — numerically
+identical to the (I) tarife's lowest value tier, which makes the amount robust
+even when a car's registration date is uncertain.
+
+**Age counts from the model year, not first registration**, and the car is
+**1 yaş in its own model year** (madde 2/18 + madde 11), so
+`age = tax year − model year + 1`. That +1 decides band boundaries: a 2015 model
+is 12 in 2026 and pays the 12–15 rate, not the 7–11 rate.
+
+A kasko-value relief lets an owner drop a row when MTV exceeds **5%** of the
+insured value for (I/A) vehicles (**10%** under madde 5 for (I) vehicles), but
+in (I/A) "the previous row" means **the next lower displacement band**, not a
+lower value tier. It is petition-only — the tax office never applies it
+unprompted — and needs a TSB-agent-completed declaration form. For an ordinary
+car it is unreachable: MTV runs around 0.4% of kasko value against a 5%
+trigger.
 
 **Muayene (TÜVTÜRK inspection).** Private cars: first at **3 years, then every
 2**. 2026 fee 3,288.84 TL + 460 TL emission ≈ **3,749 TL**. Late = **5% of the
@@ -307,8 +331,12 @@ a standard interval.** Many modern engines (Fiat 1.6 E-Torq, various Hyundai/Kia
 diesels) use a **chain** with no scheduled replacement at all.
 
 **Valuation cannot be automated.** TSB's **Kasko Değer Listesi** is free, no
-key, monthly — but an HTML query plus a file download, not an API, and covers
-only cars ≤15 model years; it carries no mileage or condition breakdown.
+key, monthly — but the page is **JS-rendered** (the static HTML serves the price
+field as `₺0,00`), so it is not even scrapable, let alone an API; it covers only
+cars ≤15 model years and carries no mileage or condition breakdown. Dated
+third-party mirrors reproduce the list and two of them agreed to within 0.15% on
+a spot check, but undated mirrors carry scrapes years stale — only trust one
+that names its list month.
 arabam.com's robots.txt disallows the major bots and blocks filter query
 strings; sahibinden.com returns **403** to a plain fetch. otoendeks.com
 advertises an API but its published indices appear stale (2021).
@@ -340,6 +368,60 @@ TR + VW's service page carry the weight). **Low** on typical kasko cost —
 no published tariff exists — and on exact azami prim levels, where press
 sources contradict each other (İstanbul basamak 0 quoted as both 57,213 and
 45,181 TL). **Not found:** 130,000 km as any official belt interval.
+
+### Per-car appendix: Renault Fluence 1.5 dCi (K9K), researched 2026-09-04
+
+Kept because it establishes a pattern the seeded plan cannot: **the
+manufacturer's own interval table may simply not be published.**
+
+**Renault Türkiye publishes no Fluence/K9K schedule and says so** — its FAQ and
+the owner's manual both defer to the paper *bakım belgesi* ("Bakım
+periyotlarınız ve yapılacak işlemler hakkında buradan bilgi alabilirsiniz";
+manual p.90: "Service intervals: please refer to your vehicle's maintenance
+document"). Exactly **three** figures are officially published, on service
+micro-pages rather than in a table:
+
+- **Brake fluid: 4 years or 120,000 km** — "Dört yılda bir ya da 120.000 km'de
+  fren hidroliğini değiştirmeniz önerilir."
+- **Brake inspection: 2 years or 20,000 km**
+- **Timing belt: a marketing range** — "beş yaşından büyük ve/veya 60.000 ile
+  160.000 km arasında", with no model or engine breakdown.
+
+Everything else is trade consensus. Turkish independent-service and dealer-price
+sources converge on **oil + filter every 1 year / 20,000 km**, air and cabin
+filters at every service, **diesel fuel filter every 40,000 km** (every second
+service), and **coolant at 120,000 km**. A minority of Turkish portals say
+10,000–15,000 km for oil, which may be the correct figure for the Fluence's own
+era.
+
+**The timing belt does not resolve, and this is the useful lesson.** The credible
+published spread is **60,000–160,000 km and 4–10 years**, unreconciled:
+European/French trade reads Renault as 160,000 km / 6 years for a post-2006
+K9K; Turkish yetkili-servis practice as reported by third-party price
+compilations runs at **80,000 km / 4 years** ("Kayışların ömrü 4 yıl olarak
+belirtilmiştir"); Turkish parts trade sits at 90,000–120,000 km, dropping to
+60,000–90,000 for heavy city use. No document settles it. On an interference
+engine that is a 2× disagreement about when the engine destroys itself —
+so the honest product answer is to make the interval the owner's own figure and
+say plainly that the app cannot supply it.
+
+Two items the generic plan misses for this engine:
+
+- **The accessory belt is its own scheduled item** (~80,000 km, trade), and it
+  is not cosmetic: if it snaps it can be drawn into the timing belt and jump the
+  timing. Turkish practice changes both belts together for that reason.
+- **Gearbox oil.** Renault's reported position is "lifetime"; a Turkish Renault
+  specialist rejects that for local conditions and gives 80,000–120,000 km
+  (manual) / 60,000–80,000 km (EDC dual-clutch).
+
+Water pump and tensioners appear in **no** published Renault schedule, while
+trade practice across three countries is unanimous that they go with the belt —
+the pump because it is belt-driven and its seizure breaks the belt.
+
+Reference costs (third-party compilations, TL ages fast): annual service
+₺3,650–4,850; the 4-year heavy service ≈₺10,600 at a dealer; a timing-belt set
+including water pump, coolant, parts and labour ₺9,750–11,750 independent, or
+≈₺17,300 as part of a dealer heavy service.
 
 ---
 
