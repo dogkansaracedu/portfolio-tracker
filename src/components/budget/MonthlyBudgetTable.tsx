@@ -1,5 +1,24 @@
 import { useMemo, useState } from "react"
 import { Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,9 +58,10 @@ interface Props {
  * The monthly table: month · income · invested · spent · savings rate, in the
  * app-wide display currency. The income cell edits the month's underlying
  * entry: no entry → creates one dated the 1st (TRY, salary-like); exactly one
- * → updates its amount in that entry's own currency; several → read-only here
- * (too ambiguous for an inline cell). Clearing the input deletes the single
- * entry so the month falls back to the salary default.
+ * → updates its amount in that entry's own currency; several → opens the
+ * entry-list dialog (the cell's figure is their total, which is nobody's
+ * amount to type over). Clearing the input deletes the single entry so the
+ * month falls back to the salary default.
  */
 export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
   const { entries, createEntry, updateEntry, removeEntry } = useBudgetContext()
@@ -135,12 +155,16 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                     </TableCell>
                     <TableCell className="text-right">
                       {editing && monthEntries.length > 1 ? (
-                        <MultiEntryEditor
-                          entries={monthEntries}
-                          onClose={() => setEditingMonth(null)}
-                          onUpdate={updateEntry}
-                          onRemove={removeEntry}
-                        />
+                        <>
+                          {money(legFor(row, "income", currency))}
+                          <MultiEntryDialog
+                            monthLabel={monthLabel(row.month)}
+                            entries={monthEntries}
+                            onClose={() => setEditingMonth(null)}
+                            onUpdate={updateEntry}
+                            onRemove={removeEntry}
+                          />
+                        </>
                       ) : editing ? (
                         <span className="inline-flex items-center justify-end gap-1">
                           <span className="text-xs text-muted-foreground">
@@ -221,38 +245,50 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
  * nobody's amount — so it opens this list instead of a typed-over cell. One row
  * per entry (its own date and currency), each editable or deletable on the
  * spot. Removing the last one falls the month back to the salary default.
+ *
+ * A dialog, not a panel inside the cell: the months table scrolls sideways on a
+ * phone, and a fixed-width panel wedged into a cell put its own controls off
+ * screen. The dialog is a full-height sheet there and a card on the desktop.
  */
-function MultiEntryEditor({
+function MultiEntryDialog({
+  monthLabel,
   entries,
   onClose,
   onUpdate,
   onRemove,
 }: {
+  monthLabel: string
   entries: CashflowEntry[]
   onClose: () => void
   onUpdate: (id: string, patch: { amount: number }) => Promise<unknown>
   onRemove: (id: string) => Promise<unknown>
 }) {
   return (
-    <div className="ml-auto flex w-56 flex-col gap-2 rounded-md border bg-popover p-2 text-left">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium">{INCOME_EDIT_COPY.listTitle}</span>
-        <Button variant="ghost" size="xs" onClick={onClose}>
-          Done
-        </Button>
-      </div>
-      {entries.map((entry) => (
-        <EntryRow
-          key={entry.id}
-          entry={entry}
-          onUpdate={onUpdate}
-          onRemove={onRemove}
-        />
-      ))}
-      <p className="text-[11px] text-muted-foreground">
-        {INCOME_EDIT_COPY.defaultNote}
-      </p>
-    </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>
+            {INCOME_EDIT_COPY.listTitle} · {monthLabel}
+          </DialogTitle>
+        </DialogHeader>
+        <DialogBody className="space-y-2 py-2 text-left">
+          {entries.map((entry) => (
+            <EntryRow
+              key={entry.id}
+              entry={entry}
+              onUpdate={onUpdate}
+              onRemove={onRemove}
+            />
+          ))}
+          <p className="text-xs text-muted-foreground">
+            {INCOME_EDIT_COPY.defaultNote}
+          </p>
+        </DialogBody>
+        <DialogFooter>
+          <Button onClick={onClose}>{INCOME_EDIT_COPY.done}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -266,6 +302,7 @@ function EntryRow({
   onRemove: (id: string) => Promise<unknown>
 }) {
   const [value, setValue] = useState(String(entry.amount))
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const commit = async () => {
     const amount = Number(value.trim())
@@ -274,9 +311,9 @@ function EntryRow({
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <span className="w-10 shrink-0 text-[11px] text-muted-foreground">
-        {entry.date.slice(8, 10)}/{entry.date.slice(5, 7)}
+    <div className="flex items-center gap-2">
+      <span className="w-14 shrink-0 text-xs text-muted-foreground">
+        {formatEntryDay(entry.date)}
       </span>
       <span className="shrink-0 text-xs text-muted-foreground">
         {CURRENCY_SYMBOLS[entry.currency as FiatCurrency] ?? entry.currency}
@@ -284,7 +321,7 @@ function EntryRow({
       <Input
         type="number"
         aria-label={INCOME_EDIT_COPY.amountLabel}
-        className="h-7 min-w-0 flex-1 text-right"
+        className="h-8 min-w-0 flex-1 text-right"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={() => void commit()}
@@ -292,14 +329,49 @@ function EntryRow({
           if (e.key === "Enter") void commit()
         }}
       />
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        aria-label={INCOME_EDIT_COPY.deleteLabel}
-        onClick={() => void onRemove(entry.id)}
-      >
-        <Trash2 className="size-3.5" />
-      </Button>
+      {/* Deleting real income history asks first — the app's one delete
+          convention, and the trash sits a thumb's width from the amount. */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={INCOME_EDIT_COPY.deleteLabel}
+          onClick={() => setConfirmOpen(true)}
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{INCOME_EDIT_COPY.deleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {INCOME_EDIT_COPY.deleteBody(
+                formatEntryDay(entry.date),
+                `${CURRENCY_SYMBOLS[entry.currency as FiatCurrency] ?? entry.currency}${entry.amount}`,
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                void onRemove(entry.id)
+                setConfirmOpen(false)
+              }}
+            >
+              {INCOME_EDIT_COPY.deleteConfirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
+}
+
+/** "05 Aug" — an entry's own day inside its month. */
+function formatEntryDay(date: string): string {
+  return new Date(`${date}T00:00:00`).toLocaleDateString(DISPLAY_LOCALE, {
+    day: "2-digit",
+    month: "short",
+  })
 }

@@ -28,7 +28,10 @@
   Destination Platform select visible — its value is passed as
   `transferDestPlatformId` so the lockstep child update can move the destination
   side — and shows a "saving updates both sides" hint. "Save & add another"
-  keeps the form open. (Sub-controls `TransactionTypeSelector`, `AssetSearchSelect`,
+  keeps the form open. Layout: `DialogHeader` + `DialogBody` (the only scroll
+  region) + `DialogFooter`, so the actions never leave the viewport; the footer's
+  Cancel is `hidden sm:inline-flex` (the sheet's own close control is the phone's
+  exit). (Sub-controls `TransactionTypeSelector`, `AssetSearchSelect`,
   `FundingSourceSelect` live alongside it — see Component 3 / 9.)
 
 ### Bulk-import subsystem — `src/components/transactions/sheet/`

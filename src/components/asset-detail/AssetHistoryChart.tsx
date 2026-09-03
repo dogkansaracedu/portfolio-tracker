@@ -19,9 +19,25 @@ import {
 } from "@/lib/portfolio/assetHistory"
 import type { TimeRange } from "@/lib/performance"
 
-/** Series names — also the tooltip/legend labels, so they never drift. */
+/** Series names — also the tooltip labels, so they never drift. */
 const COST_SERIES_LABEL = "Cost"
 const PRICE_SERIES_LABEL = "Price"
+
+/** Each series' own stroke, shared by its line and its toggle's dot: the
+ *  toggles double as the chart's key, so three series on two axes never go
+ *  unnamed (the same chip-as-legend idiom the dashboard hero uses). */
+const COST_SERIES_COLOR = "var(--chart-4)"
+const PRICE_SERIES_COLOR = "var(--muted-foreground)"
+
+function SeriesDot({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      className="mr-1 inline-block size-2 shrink-0 rounded-full"
+      style={{ backgroundColor: color }}
+    />
+  )
+}
 
 interface Props {
   history: AssetHistoryPoint[]
@@ -74,6 +90,7 @@ export function AssetHistoryChart({ history, currency }: Props) {
                 pressed={showCost}
                 onPressedChange={setShowCost}
               >
+                <SeriesDot color={COST_SERIES_COLOR} />
                 {COST_SERIES_LABEL}
               </Toggle>
               <Toggle
@@ -82,6 +99,7 @@ export function AssetHistoryChart({ history, currency }: Props) {
                 pressed={showPrice}
                 onPressedChange={setShowPrice}
               >
+                <SeriesDot color={PRICE_SERIES_COLOR} />
                 {PRICE_SERIES_LABEL}
               </Toggle>
             </div>
@@ -149,7 +167,7 @@ export function AssetHistoryChart({ history, currency }: Props) {
                   type="stepAfter"
                   dataKey="cost"
                   name="Cost basis"
-                  stroke="var(--chart-4)"
+                  stroke={COST_SERIES_COLOR}
                   strokeWidth={1.5}
                   dot={false}
                 />
@@ -160,7 +178,7 @@ export function AssetHistoryChart({ history, currency }: Props) {
                   type="monotone"
                   dataKey="price"
                   name="Price"
-                  stroke="var(--muted-foreground)"
+                  stroke={PRICE_SERIES_COLOR}
                   strokeWidth={1.5}
                   strokeDasharray="4 3"
                   dot={false}
