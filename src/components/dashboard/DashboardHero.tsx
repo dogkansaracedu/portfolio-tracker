@@ -85,8 +85,9 @@ const VIEW_MODES: { id: HeroViewMode; label: string }[] = [
   { id: "pnl", label: "Performance" },
 ]
 
-/** Return measure for the Performance percent race. `hint` is the button's
- *  title attribute — the switch is compact, so the "why" lives there. */
+/** Return measure for the Performance percent race. `hint` is the explainer
+ *  the `HintPopover` beside the switch carries — the switch itself is two
+ *  three-letter chips, so the "why" cannot live on them. */
 const MEASURES: { id: HeroMeasure; label: string; hint: string }[] = [
   {
     id: "twr",
@@ -285,14 +286,9 @@ export default function DashboardHero({
   const investedNowUsd = currentValueUsd - totalPnlUsdNow
   const investedNowTry = currentValueTry - totalPnlTryNow
 
-  const headlineValue =
-    viewMode === "value"
-      ? currency === "USD"
-        ? current.usd
-        : current.try
-      : currency === "USD"
-        ? delta.usd
-        : delta.try
+  // Value mode's big number. P&L mode has its own headline (the percent), so
+  // this is only ever read there.
+  const headlineValue = currency === "USD" ? current.usd : current.try
 
   const periodDeltaValue = currency === "USD" ? delta.usd : delta.try
 

@@ -6,7 +6,7 @@ import { CompareTab } from "@/components/retirement/CompareTab"
 import { PlanTab } from "@/components/retirement/PlanTab"
 import { RetirementSkeleton } from "@/components/retirement/RetirementSkeleton"
 import { ScenarioPanel } from "@/components/retirement/ScenarioPanel"
-import { SegmentedControl } from "@/components/retirement/RetirementControls"
+import { Hint, SegmentedControl } from "@/components/retirement/RetirementControls"
 import {
   GLOSSARY_HINTS,
   RETIREMENT_TAB,
@@ -18,7 +18,6 @@ import {
   type ValueView,
 } from "@/components/retirement/constants"
 import { useRetirementDisplay } from "@/components/retirement/display"
-import { Hint } from "@/components/retirement/RetirementControls"
 
 /**
  * Component 13 — Retirement Planning. The scenario panel is shared by both

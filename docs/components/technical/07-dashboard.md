@@ -211,7 +211,8 @@
   the default again requires a new suffix, otherwise browsers with a stale
   persisted value keep overriding it. `TIME_RANGES` includes **2Y**.
 - **Measure switch (TWR | MWR):** a second, smaller segmented control from the
-  `MEASURES` constant (`{ id, label, hint }`; `hint` → the button `title`), same
+  `MEASURES` constant (`{ id, label, hint }`; `hint` → the `HintPopover` beside
+  the switch, never a `title`), same
   visual language as the `VIEW_MODES` tabs at `p-0.5 / px-2 py-1 text-xs`. It sits
   in the **header row, right of the Value|Performance tabs** (that row is
   `justify-between`, so it lands flush right), and renders only when

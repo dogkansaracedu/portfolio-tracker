@@ -23,7 +23,7 @@ import {
 } from "@/lib/portfolio/assetHistory"
 import type { TimeRange } from "@/lib/performance"
 
-/** Series names — also the tooltip labels, so they never drift. */
+/** The names on the two series toggles, which double as the chart key. */
 const COST_SERIES_LABEL = "Cost"
 const PRICE_SERIES_LABEL = "Price"
 

@@ -25,8 +25,6 @@ export type HeroViewMode = "value" | "pnl"
 export type HeroMeasure = "twr" | "mwr"
 
 /** What the secondary chart line / chip represents at any moment. */
-export type CompareKind = "currency" | "percent"
-
 export interface HeroPoint {
   date: string
   /** Epoch milliseconds for `date` at UTC midnight. Used by Recharts as
@@ -60,12 +58,10 @@ export interface DashboardHeroData {
    *  month label rendering 8× when daily snapshots cluster. */
   xTicks: number[]
   current: { usd: number; try: number }
-  /** Current value of the secondary series at "now". `usd`/`try` are
-   *  populated when `compareKind === 'currency'`; `pct` when 'percent'.
-   *  The unused fields stay at 0 so callers can ignore them safely. */
+  /** Current value of the secondary series at "now". `usd`/`try` carry it in
+   *  Value mode, `pct` in P&L mode; the unused fields stay at 0 so callers can
+   *  ignore them safely. */
   compareNow: { usd: number; try: number; pct: number }
-  compareKind: CompareKind
-  rangeStart: { usd: number; try: number; date: string | null }
   /** `pct` is null when the window has no real starting base (< $1) —
    *  callers hide the percent rather than fabricate one. */
   delta: { usd: number; try: number; pct: number | null }
@@ -88,7 +84,6 @@ export interface DashboardHeroData {
   /** P&L mode: lifetime annualized XIRR % ("+X.X%/yr" chip). Null when the
    *  history spans < 1 year or the solver has no solution — never a fake 0. */
   lifetimeXirrPct: number | null
-  loading: boolean
 }
 
 interface UseDashboardHeroArgs {
@@ -187,7 +182,7 @@ export function useDashboardHero({
   benchmarkTicker = null,
   benchmarkSeries = [],
 }: UseDashboardHeroArgs): DashboardHeroData {
-  const { transactions, rates, loading: pnlLoading } = useTransactionData()
+  const { transactions, rates } = useTransactionData()
 
   // Benchmark overlay only applies in P&L mode. Value mode keeps the
   // existing cost-basis secondary line. Memoise the "is benchmark active"
@@ -203,8 +198,6 @@ export function useDashboardHero({
         xTicks: [],
         current: { usd: 0, try: 0 },
         compareNow: { usd: 0, try: 0, pct: 0 },
-        compareKind: "currency",
-        rangeStart: { usd: 0, try: 0, date: null },
         delta: { usd: 0, try: 0, pct: 0 },
         pnlDenom: { usd: 0, try: 0 },
         twrEnd: 0,
@@ -212,7 +205,6 @@ export function useDashboardHero({
         gapPts: 0,
         approximate: false,
         lifetimeXirrPct: null,
-        loading: pnlLoading,
       }
     }
 
@@ -254,8 +246,6 @@ export function useDashboardHero({
           twrPct: viewMode === "pnl" ? p.twrPct : 0,
         }
       })
-      const startUsd = chartData[0]?.valueUsd ?? 0
-      const startTry = chartData[0]?.valueTry ?? 0
       const endUsd = chartData[chartData.length - 1]?.valueUsd ?? 0
       const endTry = chartData[chartData.length - 1]?.valueTry ?? 0
       const pnlDenom =
@@ -274,8 +264,6 @@ export function useDashboardHero({
                 try: chartData[chartData.length - 1]?.compareTry ?? 0,
                 pct: 0,
               },
-        compareKind: viewMode === "pnl" ? "percent" : "currency",
-        rangeStart: { usd: startUsd, try: startTry, date: chartData[0]?.date ?? null },
         delta: {
           usd: series.deltaUsd,
           try: series.deltaTry,
@@ -287,7 +275,6 @@ export function useDashboardHero({
         gapPts: 0,
         approximate: false,
         lifetimeXirrPct,
-        loading: pnlLoading,
       }
     }
 
@@ -553,7 +540,6 @@ export function useDashboardHero({
     // in value mode it's the cost-basis amount (currency). Loading state
     // (P&L mode before the benchmark series arrives) reports percent with
     // a 0 placeholder — a brief 0% blip on first paint, not a wrong unit.
-    const compareKind: CompareKind = viewMode === "pnl" ? "percent" : "currency"
     const endCompare = end
       ? viewMode === "pnl"
         ? { usd: 0, try: 0, pct: end.benchmarkPct }
@@ -575,8 +561,6 @@ export function useDashboardHero({
       xTicks,
       current: { usd: endUsd, try: endTry },
       compareNow: endCompare,
-      compareKind,
-      rangeStart: { usd: startUsd, try: startTry, date: start?.date ?? null },
       delta: { usd: deltaUsd, try: deltaTry, pct: deltaPct },
       pnlDenom,
       twrEnd,
@@ -584,7 +568,6 @@ export function useDashboardHero({
       gapPts: twrEnd - (end?.benchmarkPct ?? 0),
       approximate,
       lifetimeXirrPct,
-      loading: pnlLoading,
     }
   }, [
     snapshots,
@@ -599,7 +582,6 @@ export function useDashboardHero({
     usdTry,
     currentPnlUsd,
     currentPnlTry,
-    pnlLoading,
     benchmarkActive,
     benchmarkSeries,
   ])

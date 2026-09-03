@@ -176,7 +176,6 @@ export const DEPLETION_AGE_HINTS: Record<WithdrawalStrategy, string> = {
 }
 
 /** An answer that has already happened — "you can stop contributing NOW". */
-export const NOW_LABEL = "Now"
 
 /** The "—" convention: a solve with no answer never renders a fabricated number. */
 export const EMPTY_FIGURE = "—"

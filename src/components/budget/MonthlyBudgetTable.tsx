@@ -260,9 +260,9 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
  * per entry (its own date and currency), each editable or deletable on the
  * spot. Removing the last one falls the month back to the salary default.
  *
- * A dialog, not a panel inside the cell: the months table scrolls sideways on a
- * phone, and a fixed-width panel wedged into a cell put its own controls off
- * screen. The dialog is a full-height sheet there and a card on the desktop.
+ * A dialog, not a panel inside the cell: a fixed-width panel wedged into one of
+ * these narrow phone cells put its own controls off screen. The dialog is a
+ * full-height sheet there and a card on the desktop.
  */
 function MultiEntryDialog({
   monthLabel,
