@@ -61,7 +61,7 @@ export function PlanMilestones({
 
   // Displayed values are floored at zero (a portfolio is never worth a
   // negative amount); a band that has run out says so by age instead.
-  const cell = (milestone: PlanMilestone, band: ProjectionBand) => {
+  const money = (milestone: PlanMilestone, band: ProjectionBand) => {
     const value = valueAtMonthsFromNow(
       projections[band],
       milestone.monthsFromNow,
@@ -73,7 +73,6 @@ export function PlanMilestones({
     }
     return display.money(value, milestone.monthsFromNow)
   }
-  const money = cell
 
   return (
     <Card>

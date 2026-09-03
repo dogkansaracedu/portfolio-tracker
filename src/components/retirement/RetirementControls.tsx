@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils"
  * input, and the segmented switch used for every mode/strategy choice.
  */
 
-/** Re-export so the retirement views keep importing `Hint` from here. */
+/** The retirement views' name for the app-wide `HintPopover`, so a glossary
+ *  explainer here reads as one word at the call site. */
 export function Hint({ text, label }: { text: string; label?: string }) {
   return <HintPopover text={text} label={label} />
 }

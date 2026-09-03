@@ -20,7 +20,7 @@ export default function BudgetPage() {
 
   // The chart mirrors the table's default window, oldest month on the left.
   const chartRows = useMemo(
-    () => rows.slice(0, DEFAULT_VISIBLE_MONTHS).slice().reverse(),
+    () => rows.slice(0, DEFAULT_VISIBLE_MONTHS).reverse(),
     [rows],
   )
 

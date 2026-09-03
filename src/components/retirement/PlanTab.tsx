@@ -24,7 +24,6 @@ import {
   BASE_CASE_CAPTION,
   GLOSSARY_HINTS,
   NOT_REACHABLE,
-  NOW_LABEL,
   PLAN_HEADLINE_LABELS,
   PLAN_MODE,
   PLAN_MODE_LABELS,
@@ -36,6 +35,7 @@ import { PlanMilestones } from "./PlanMilestones"
 import { PlanVerdict } from "./PlanVerdict"
 import { SegmentedControl, StatTile } from "./RetirementControls"
 import { SensitivityInsights } from "./SensitivityInsights"
+import { NOW_LABEL } from "@/lib/constants/app"
 
 /**
  * Plan — four questions about the same projection, each a first-class mode. The
