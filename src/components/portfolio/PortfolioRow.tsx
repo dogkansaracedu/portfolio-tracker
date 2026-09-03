@@ -17,6 +17,7 @@ import type { EnrichedAsset, ReturnMode } from "@/hooks/usePortfolio"
 import type { DisplayCurrency } from "@/lib/constants/currencies"
 import { assetNativeCurrency } from "@/lib/constants/assets"
 import { DISPLAY_LOCALE } from "@/lib/constants/app"
+import { ADD_TRANSACTION_LABEL } from "@/lib/constants/transaction-types"
 import { AssetIcon } from "@/components/common/AssetIcon"
 import { InterestBadge } from "@/components/interest/InterestBadge"
 
@@ -277,7 +278,7 @@ export function PortfolioRow({
           onClick={() => openTransactionModal({ assetId: asset.id })}
         >
           <Plus className="size-3.5" />
-          <span className="sr-only">Add Transaction</span>
+          <span className="sr-only">{ADD_TRANSACTION_LABEL}</span>
         </Button>
       </TableCell>
     </TableRow>
