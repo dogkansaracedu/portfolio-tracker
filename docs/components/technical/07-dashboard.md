@@ -136,6 +136,14 @@
 - Always computes `computePnLTimeSeries(snapshots, transactions, rates)` (from
   `@/lib/performance`) — value mode uses `investedUsd` per snapshot for the
   cost-basis secondary line; P&L mode uses `pnlUsd` as the primary series.
+- Snapshots and series points are paired **by date, in both directions**
+  (`investedAtSnap` keyed by `p.date`, `snapByDate` keyed by
+  `s.snapshot_date`) — never by array index. `computePnLTimeSeries` iterates a
+  `sortSnapshotsAsc` copy, so the series' order is its own; index pairing was
+  only ever correct because the query happens to `order("snapshot_date",
+  ascending)`, and changing that would have silently mis-dated every P&L point.
+  One snapshot per date is a DB constraint (`onConflict: "user_id,snapshot_date"`),
+  so the maps cannot drop a point.
 - TRY per point = `snapTotalTry / snapTotalUsd` ratio applied to the USD figure
   (per-point snapshot FX, never the live rate — avoids retro-converting history).
 - Appends a live "now" point (`computeCurrentInvestedUsd`); in P&L mode anchors it

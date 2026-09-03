@@ -281,8 +281,14 @@ export function useDashboardHero({
     // Always compute the P&L series — we need invested capital at each
     // snapshot for the secondary (cost basis / market value) line.
     const pnlSeries = computePnLTimeSeries(snapshots, transactions, rates)
+    // Both directions of the snapshot ↔ P&L pairing go by DATE, never by
+    // index: the series is built from a sorted copy of the snapshots, so its
+    // order is its own and a change to the query's `order by` would silently
+    // pair every point with the wrong day. One snapshot per date is a DB
+    // uniqueness constraint (`user_id, snapshot_date`).
     const investedAtSnap = new Map<string, number>()
     for (const p of pnlSeries) investedAtSnap.set(p.date, p.investedUsd)
+    const snapByDate = new Map(snapshots.map((s) => [s.snapshot_date, s]))
 
     type RawPoint = {
       date: string
@@ -311,8 +317,8 @@ export function useDashboardHero({
     } else {
       // P&L: compute true money-weighted P&L per snapshot, then convert
       // to TRY using each snapshot's effective rate (try / usd ratio).
-      raw = pnlSeries.map((p, i) => {
-        const snap = snapshots[i]
+      raw = pnlSeries.map((p) => {
+        const snap = snapByDate.get(p.date)
         const snapTotalUsd = snap?.total_usd ?? 0
         const snapTotalTry = snap?.total_try ?? 0
         const ratio = snapTotalUsd > 0 ? snapTotalTry / snapTotalUsd : usdTry
