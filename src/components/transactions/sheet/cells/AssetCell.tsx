@@ -13,6 +13,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Check, Plus, Sparkles } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { CellShell } from "./CellShell"
 import {
   isNewAssetSentinel,
@@ -27,6 +28,8 @@ interface Props {
   error?: string
   readOnly?: boolean
   onChange: (id: string) => void
+  /** Extra classes for the cell shell — the grid pins this column on a phone. */
+  className?: string
 }
 
 /** Ticker on top, company name below. In per-asset mode the cell is
@@ -34,7 +37,14 @@ interface Props {
  *  "Create new asset" item appears — selecting it sets the cell to a
  *  sentinel value (`new:TICKER`). The grid resolves sentinels via the
  *  Resolve-Unknowns stepper before committing on Save. */
-export function AssetCell({ value, assets, error, readOnly, onChange }: Props) {
+export function AssetCell({
+  value,
+  assets,
+  error,
+  readOnly,
+  onChange,
+  className,
+}: Props) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
 
@@ -84,14 +94,14 @@ export function AssetCell({ value, assets, error, readOnly, onChange }: Props) {
 
   if (readOnly) {
     return (
-      <CellShell error={error} className="w-[240px]">
+      <CellShell error={error} className={cn("w-[240px]", className)}>
         <div className="px-2 py-1">{renderLabel()}</div>
       </CellShell>
     )
   }
 
   return (
-    <CellShell error={error} className="w-[240px]">
+    <CellShell error={error} className={cn("w-[240px]", className)}>
       <Popover
         open={open}
         onOpenChange={(o) => {
