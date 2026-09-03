@@ -109,7 +109,6 @@ type Action =
   | { kind: "validateAll" }
   | { kind: "commitSaveSuccess"; rowKey: string; txId: string }
   | { kind: "markSaveError"; rowKey: string; message: string }
-  | { kind: "removeDeleted"; rowKey: string }
   | {
       kind: "resolveAssetSentinel"
       sentinel: string
@@ -193,9 +192,9 @@ function reduce(state: SheetState, action: Action): SheetState {
     case "delete": {
       const target = state.rows.find((r) => r.rowKey === action.rowKey)
       if (!target) return state
-      // New rows: drop outright. Existing rows: park in pendingDeletes, hide
-      // from the grid. We do not flip status to "deleted" in-place because
-      // TanStack would still render the row.
+      // New rows: drop outright. Existing rows: park in pendingDeletes and
+      // leave the grid — the row list is what renders, so a row that stays in
+      // it would keep its slot however its status reads.
       if (target.txId == null) {
         return { ...state, rows: state.rows.filter((r) => r.rowKey !== action.rowKey) }
       }
@@ -266,14 +265,6 @@ function reduce(state: SheetState, action: Action): SheetState {
       )
       return { ...state, rows: next }
     }
-
-    case "removeDeleted":
-      return {
-        ...state,
-        pendingDeletes: state.pendingDeletes.filter(
-          (d) => d.rowKey !== action.rowKey,
-        ),
-      }
 
     case "resolveAssetSentinel": {
       // Replace the sentinel in every row's assetId with the real asset id
@@ -348,10 +339,6 @@ export function useTransactionsSheetState() {
     dispatch({ kind: "markSaveError", rowKey, message })
   }, [])
 
-  const removeDeleted = useCallback((rowKey: string) => {
-    dispatch({ kind: "removeDeleted", rowKey })
-  }, [])
-
   const resolveAssetSentinel = useCallback(
     (sentinel: string, realAssetId: string, priceCurrency: string) => {
       dispatch({
@@ -394,7 +381,6 @@ export function useTransactionsSheetState() {
     validateAll,
     commitSaveSuccess,
     markSaveError,
-    removeDeleted,
     resolveAssetSentinel,
   }
 }

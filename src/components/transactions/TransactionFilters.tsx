@@ -74,7 +74,6 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
   const setDatePreset = (preset: DatePreset) => {
     const now = new Date()
     let dateFrom: string | undefined
-    const dateTo: string | undefined = undefined
 
     switch (preset) {
       case "7d": {
@@ -98,7 +97,8 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
         break
     }
 
-    onFiltersChange({ ...filters, dateFrom, dateTo })
+    // Every preset is open-ended: picking one clears any explicit end date.
+    onFiltersChange({ ...filters, dateFrom, dateTo: undefined })
   }
 
   const toggleType = (type: TransactionFilterType) => {

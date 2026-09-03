@@ -91,10 +91,9 @@
 - `PlatformCell.tsx` — searchable platform picker with colour dot.
 - `TypeCell.tsx` — type dropdown rendered as coloured uppercase label.
 - `DateCell.tsx` — native date input.
-- `NumberCell.tsx` — numeric input (amount / price / fee), right-aligned, optional prefix.
+- `NumberCell.tsx` — numeric input (amount / price / fee), right-aligned.
 - `CurrencyCell.tsx` — supported-fiat dropdown.
 - `TotalCostCell.tsx` — read-only derived `amount × unit_price` with currency symbol.
-- `TextCell.tsx` — free-text cell (notes).
 
 ### Domain logic
 - `src/lib/balance.ts` — `recalculateBalance(userId, assetId, platformId)`: sums
