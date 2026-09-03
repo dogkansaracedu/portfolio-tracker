@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { PageHeading } from "@/components/common/PageHeading";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PlatformList } from "@/components/platforms/PlatformList";
 import { AssetList } from "@/components/assets/AssetList";
@@ -8,14 +9,10 @@ import { BULK_ADD_ROUTE, SETTINGS_COPY } from "@/lib/constants/app";
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
-      {/* The phone header already names the page — the title block only
-          exists from `md` up (same rule as Portfolio and Transactions). */}
-      <div className="hidden md:block">
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your platforms, assets, and snapshots.
-        </p>
-      </div>
+      <PageHeading
+        title="Settings"
+        subtitle="Manage your platforms, assets, and snapshots."
+      />
 
       <Tabs defaultValue="assets">
         <TabsList>

@@ -7,6 +7,7 @@ import {
   Lock,
   TriangleAlert,
 } from "lucide-react"
+import { PageHeading } from "@/components/common/PageHeading"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -140,7 +141,10 @@ export default function CampaignsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeading />
+        <PageHeading
+          title={CAMPAIGN_COPY.pageTitle}
+          subtitle={CAMPAIGN_COPY.pageSubtitle}
+        />
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -150,7 +154,10 @@ export default function CampaignsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <PageHeading />
+        <PageHeading
+          title={CAMPAIGN_COPY.pageTitle}
+          subtitle={CAMPAIGN_COPY.pageSubtitle}
+        />
         <div className="flex items-center gap-2">
           {run && (
             <span className="text-xs text-muted-foreground">
@@ -245,17 +252,6 @@ export default function CampaignsPage() {
         }}
         prefill={trackPrefill ?? undefined}
       />
-    </div>
-  )
-}
-
-/** The phone header already names the page, so the title block only exists
- *  from `md` up (same rule as Portfolio and Transactions). */
-function PageHeading() {
-  return (
-    <div className="hidden md:block">
-      <h1 className="text-2xl font-bold">{CAMPAIGN_COPY.pageTitle}</h1>
-      <p className="text-muted-foreground">{CAMPAIGN_COPY.pageSubtitle}</p>
     </div>
   )
 }
