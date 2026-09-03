@@ -299,44 +299,58 @@ export function PortfolioRowCard({
   return (
     <Card size="sm">
       <CardContent className="flex items-center justify-between">
-        <Link
-          to={`/assets/${asset.id}`}
-          className="flex flex-col items-start gap-0.5 text-left focus:outline-none"
-        >
+        {/* The interest badge is a sibling of the link, never a child of it:
+            it is itself a control (a popover trigger), and an anchor may not
+            contain one. Same structure the desktop row uses. */}
+        <div className="flex min-w-0 flex-col items-start gap-0.5">
           <div className="flex items-center gap-2">
-            <AssetIcon asset={asset} size="sm" />
-            <span className="font-medium">{asset.ticker}</span>
+            <Link
+              to={`/assets/${asset.id}`}
+              className="flex items-center gap-2 text-left focus:outline-none"
+            >
+              <AssetIcon asset={asset} size="sm" />
+              <span className="font-medium">{asset.ticker}</span>
+            </Link>
             <InterestBadge assetId={asset.id} />
           </div>
-          <span className="tabular-nums text-sm">
-            <CurrentPrice asset={asset} />
-          </span>
-          <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-            <span className="tabular-nums">
-              {o(formatQuantity(asset.totalBalance, asset.category))} @{" "}
-              {costUsdPerUnit == null
-                ? "—"
-                : costNativePerUnit != null
-                  ? formatCurrency(costNativePerUnit, "TRY")
-                  : formatCurrency(costUsdPerUnit, "USD")}
+          {/* The rest of the card is the same destination — a second,
+              non-tabbable link so the whole block stays tappable without
+              adding a second stop for the keyboard. */}
+          <Link
+            to={`/assets/${asset.id}`}
+            className="flex flex-col items-start gap-0.5 text-left focus:outline-none"
+            tabIndex={-1}
+          >
+            <span className="tabular-nums text-sm">
+              <CurrentPrice asset={asset} />
             </span>
-            <span>·</span>
-            <span className="tabular-nums">
-              {asset.allocationPct.toFixed(1)}%
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            {asset.holdings.map((h) => (
-              <span key={h.platformId} className="flex items-center gap-1">
-                <span
-                  className="inline-block size-2 rounded-full"
-                  style={{ backgroundColor: h.platformColor }}
-                />
-                {h.platformName}
+            <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+              <span className="tabular-nums">
+                {o(formatQuantity(asset.totalBalance, asset.category))} @{" "}
+                {costUsdPerUnit == null
+                  ? "—"
+                  : costNativePerUnit != null
+                    ? formatCurrency(costNativePerUnit, "TRY")
+                    : formatCurrency(costUsdPerUnit, "USD")}
               </span>
-            ))}
-          </div>
-        </Link>
+              <span>·</span>
+              <span className="tabular-nums">
+                {asset.allocationPct.toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              {asset.holdings.map((h) => (
+                <span key={h.platformId} className="flex items-center gap-1">
+                  <span
+                    className="inline-block size-2 rounded-full"
+                    style={{ backgroundColor: h.platformColor }}
+                  />
+                  {h.platformName}
+                </span>
+              ))}
+            </div>
+          </Link>
+        </div>
 
         <div className="flex flex-col items-end gap-0.5">
           <span className="font-semibold">{display(displayValue)}</span>

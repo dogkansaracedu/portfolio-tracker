@@ -40,7 +40,11 @@
   `PortfolioRow` and the mobile `PortfolioRowCard`. Both render
   `<InterestBadge assetId>` next to the ticker — **Component 16's** per-row
   "something of this is earning" cue, tinted by *status* (amber/red), never by
-  `gainLossClass`; it renders `null` for an asset with no open position. See
+  `gainLossClass`; it renders `null` for an asset with no open position. In both
+  layouts the badge is a **sibling** of the asset link, never a child — it is
+  itself a popover trigger, and an anchor may not contain a control; the card
+  therefore links twice to the same asset (the identity row, plus a
+  `tabIndex={-1}` link over the rest so the whole block stays tappable). See
   [technical/16-interest.md](16-interest.md). Each picks
   `unrealizedPnlUsd`/`unrealizedPnlPct` (total) vs `dailyReturnUsd`/`dailyReturnPct`
   (daily). In **Total** mode, taxed rows (`asset.taxAccrualUsd > 0`) show
