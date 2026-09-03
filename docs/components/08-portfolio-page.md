@@ -23,7 +23,7 @@ between **lifetime total** and **today's** change.
 - [Platform](GLOSSARY.md#platform) — one grouping axis; also the per-platform price/value scope
 - [Snapshot](GLOSSARY.md#snapshot) — source of prices and the daily baseline
 - [Snapshot price / live quantity](GLOSSARY.md#snapshot-price-and-live-quantity) — how Value is computed
-- [Realized and unrealized](GLOSSARY.md#realized-and-unrealized) — the Total return shown is unrealized
+- [Realized and unrealized](GLOSSARY.md#realized-and-unrealized) — the figure shown in Total mode is the unrealized one
 - [Money-weighted](GLOSSARY.md#money-weighted) — the basis for the daily figure
 - [Daily return](GLOSSARY.md#daily-return) — the "Today" figure ([formula](GLOSSARY.md#daily-return-formula))
 - [Allocation](GLOSSARY.md#allocation) — share of total portfolio value
@@ -75,7 +75,8 @@ other column, and it does **not** affect the summary bar.
 
 - **Total** (default): lifetime
   [unrealized](GLOSSARY.md#realized-and-unrealized) return = current value − cost
-  basis, shown as amount + %.
+  basis, shown as amount + %. Labeled "Unrealized" — it is not the portfolio's
+  [Total P&L](GLOSSARY.md#total-pl), which the summary bar carries.
 - **Daily** ("Today"): the [money-weighted](GLOSSARY.md#money-weighted) change
   since the previous [snapshot](GLOSSARY.md#snapshot), shown as amount + %. Per the
   [daily-return formula](GLOSSARY.md#daily-return-formula):
@@ -193,7 +194,7 @@ hidden meaning when grouped by platform) ·
 Quantity (decimals per category) · Bought (cost per unit, asset-native with the
 USD equivalent on a **second line** where applicable) · Price (current unit
 price, same two-line treatment) · Value (bold) · **Return**
-(header reads **"P&L"** in Total mode, **"Today"** in Daily mode; amount over %,
+(header reads **"Unrealized"** in Total mode, **"Today"** in Daily mode; amount over %,
 gain/loss colored) · Allocation (% + a tiny bar) · a row action to record a
 transaction. The whole table fits its container at the narrowest width it is
 shown at — the row action and Allocation are never pushed off the edge.
@@ -202,7 +203,7 @@ shown at — the row action and Allocation are never pushed off the edge.
 alongside group-by and sort. Switching it re-renders every group header and every
 row's return cell; default is **Total**.
 
-**Summary bar:** above the table — total portfolio value, lifetime P&L (the
+**Summary bar:** above the table — **Total Value**, **Total P&L** (the
 money-weighted dollar amount, paired with the **lifetime cumulative
 [money-weighted](GLOSSARY.md#money-weighted) (XIRR) return %** — the same lens
 as the per-asset return %, so the headline and its rows answer the same

@@ -51,8 +51,8 @@ interface UseAssetDetailReturn {
   /** Realized P&L ÷ the FIFO cost basis of the lots actually sold — null when
    *  nothing was realized (or the consumed basis is 0). */
   realizedPnlPct: number | null
-  /** Lifetime money-weighted total for the asset: value − net invested. */
-  totalReturnUsd: number
+  /** The asset's Total P&L: value − net invested. */
+  totalPnlUsd: number
   /** The asset's headline % — cumulative money-weighted (XIRR) return over
    *  its lifespan ("what each dollar earned"); any age. */
   mwrCumulativePct: number | null
@@ -260,7 +260,7 @@ export function useAssetDetail(assetId: string | undefined): UseAssetDetailRetur
     held,
     realizedPnlUsd,
     realizedPnlPct,
-    totalReturnUsd: returnRates?.totalPnlUsd.toNumber() ?? 0,
+    totalPnlUsd: returnRates?.totalPnlUsd.toNumber() ?? 0,
     mwrCumulativePct: returnRates?.mwrCumulativePct?.toNumber() ?? null,
     mwrAnnualizedPct: returnRates?.mwrAnnualizedPct?.toNumber() ?? null,
     incomeUsd,

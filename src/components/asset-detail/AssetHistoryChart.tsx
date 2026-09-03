@@ -10,6 +10,7 @@ import {
   CartesianGrid,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { COST_BASIS_LABEL } from "@/lib/constants/returns"
 import { TimeRangeSelector } from "@/components/performance/TimeRangeSelector"
 import { Toggle } from "@/components/ui/toggle"
 import {
@@ -184,7 +185,7 @@ export function AssetHistoryChart({ history, currency }: Props) {
                   yAxisId="value"
                   type="stepAfter"
                   dataKey="cost"
-                  name="Cost basis"
+                  name={COST_BASIS_LABEL}
                   stroke={COST_SERIES_COLOR}
                   strokeWidth={1.5}
                   dot={false}

@@ -171,7 +171,7 @@ default.**
   subtitle, the dashed reference series and its tooltip row all call it
   **"Net invested"**. "Cost basis" is a different glossary term and stays
   reserved for the FIFO figures (the Portfolio table's Bought column, Asset
-  Detail's Cost Basis).
+  Detail's Cost basis).
 - **Both chart lines are named where they are read.** The index line is a solid
   line in its own neutral (not a hairline — the card's whole point is the
   comparison), and each line's colour is carried as a dot on the subtitle chip

@@ -60,13 +60,13 @@ page.
 
 **Position summary (held assets).** Total quantity (decimals per category),
 current value, average unit cost (native currency with USD in parens where
-applicable), the **total return** (below), unrealized return (amount + %),
+applicable), the **Total P&L** (below), unrealized return (amount + %),
 realized return to date (amount + %), the
 [daily return](GLOSSARY.md#daily-return) (amount + %, same formula and "—"
 guards as the Portfolio page), and [allocation](GLOSSARY.md#allocation).
 Value = snapshot price × live quantity, identical to the Portfolio row.
 
-**Total return — the asset-scoped headline.** Amount = current value − net
+**Total P&L — the asset-scoped headline.** Amount = current value − net
 invested into the asset (the canonical [Total P&L](GLOSSARY.md#total-pl)
 scoped down): unrealized + realized + income + FX in one figure. Its **%** is
 the asset's [money-weighted (XIRR)](GLOSSARY.md#money-weighted-return-mwr--xirr)
@@ -101,7 +101,7 @@ everywhere else): a net amount is never paired with a gross percent, which
 reads as one figure disagreeing with itself.
 
 **Sold-out positions.** When the live balance is zero, the position summary
-states there is no current position and shows the lifetime **total return**
+states there is no current position and shows the lifetime **Total P&L**
 (terminal value 0 against the historical flows) and **realized P&L** (amount +
 %) instead; quantity/value/allocation are omitted rather than shown as zeros.
 The chart, income/costs, and transaction history still render in full.
@@ -208,18 +208,18 @@ session: selected time range, price-series visibility (neither persisted).
   current price (native + USD), and actions: "record transaction" (pre-filled
   with this asset) and a link to the transaction editor.
 - **Position summary:** stat cards in two tiers. The three figures this screen
-  exists to answer — **value, total return and the daily return** — are set
+  exists to answer — **value, Total P&L and the daily return** — are set
   larger and come **first**; quantity, average unit cost and allocation are the
   supporting tier beneath. Every card keeps the same height so the two tiers do
   not stagger the grid. Where the grid is two columns wide (a phone) the three
   promoted figures come first and the odd one out spans the full width, so a
-  promoted figure never sits beside a supporting one. Total return carries its money-weighted %, and the
+  promoted figure never sits beside a supporting one. Total P&L carries its money-weighted %, and the
   measure's name (**MWR**) sits inline after it on the same line as the muted
   ≈%/yr reading — never a third line — with one app-wide explainer reachable by
   **hover and tap** (a hover-only hint is invisible on a phone). Unrealized
   shows the net headline + gross/tax annotation when taxed; realized shows
   amount + %. Sold-out: a muted "no current position" line with the lifetime
-  total return and realized P&L.
+  Total P&L and realized P&L.
 - **Per-platform table:** platform (color dot + name), quantity, cost basis,
   value, return — rendered only when there is at least one nonzero slice. On a
   phone the five columns compress until value clips and the return leaves the
@@ -264,7 +264,7 @@ session: selected time range, price-series visibility (neither persisted).
       offers 1M/3M/6M/YTD/1Y/ALL ranges with the pre-range anchor for ≥1M.
 - [ ] Dates without snapshot coverage draw no point (no fabricated values);
       fewer than 2 in-range points shows the "not enough history" hint.
-- [ ] The total return card shows value − net invested with the cumulative
+- [ ] The Total P&L card shows value − net invested with the cumulative
       money-weighted (XIRR) % at **any** age; the ≈%/yr line appears only past
       1 year of history; degenerate flows render "—" (no peak-based % on this
       page).
@@ -282,7 +282,7 @@ session: selected time range, price-series visibility (neither persisted).
 - [ ] Display currency, obfuscation (percentages stay visible), and gain/loss
       colors behave exactly as on the Portfolio page — including **zero being
       neutral**, and P&L rendering in ₺ in TRY mode.
-- [ ] Value, total return and the daily return are visibly the largest figures in
+- [ ] Value, Total P&L and the daily return are visibly the largest figures in
       the summary, and appear before the supporting ones.
-- [ ] The total return's % is labelled with its measure inline, and the
+- [ ] The Total P&L's % is labelled with its measure inline, and the
       explainer is reachable on a touch screen.

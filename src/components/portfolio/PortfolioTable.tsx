@@ -12,9 +12,9 @@ import { PortfolioRow, PortfolioRowCard } from "@/components/portfolio/Portfolio
 import { formatSignedPercent, gainLossToneClass } from "@/lib/prices"
 import type { AssetGroup, ReturnMode } from "@/hooks/usePortfolio"
 import {
-  RETURN_COLUMN_LABEL_TOTAL,
-  RETURN_COLUMN_LABEL_DAILY,
-} from "@/lib/constants/portfolio"
+  DAILY_RETURN_LABEL,
+  UNREALIZED_LABEL,
+} from "@/lib/constants/returns"
 
 interface PortfolioTableProps {
   groups: AssetGroup[]
@@ -53,8 +53,8 @@ export function PortfolioTable({
               <TableHead className="text-right">Value</TableHead>
               <TableHead className="text-right">
                 {returnMode === "daily"
-                  ? RETURN_COLUMN_LABEL_DAILY
-                  : RETURN_COLUMN_LABEL_TOTAL}
+                  ? DAILY_RETURN_LABEL
+                  : UNREALIZED_LABEL}
               </TableHead>
               <TableHead className="text-right">Alloc.</TableHead>
               <TableHead className="w-10" />
