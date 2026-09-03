@@ -261,3 +261,15 @@ export const DEFAULT_SCENARIO_NAME = "My plan"
 /** The scenario picker: prompt when nothing is loaded, and the default marker. */
 export const SCENARIO_PICKER_PLACEHOLDER = "Select a scenario"
 export const DEFAULT_SCENARIO_SUFFIX = " (default)"
+
+/**
+ * The phone summary the collapsed scenario panel shows in place of its twelve
+ * inputs — "$1,000/mo · retire at 60 · 4% SWR — Edit".
+ */
+export const SCENARIO_SUMMARY = {
+  perMonthSuffix: "/mo",
+  retireAt: "retire at",
+  swrSuffix: "% SWR",
+  separator: " · ",
+  edit: "Edit",
+} as const

@@ -47,7 +47,9 @@ export default function TransactionsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        {/* The phone header already names the page; hiding the title block puts
+            the Add Transaction button inside the first screen. */}
+        <div className="hidden md:block">
           <h1 className="text-2xl font-bold">Transactions</h1>
           <p className="text-muted-foreground">
             View and filter your transaction history.

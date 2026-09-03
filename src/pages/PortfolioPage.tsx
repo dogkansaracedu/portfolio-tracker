@@ -28,8 +28,9 @@ export default function PortfolioPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
+      {/* Header — the phone header already names the page, so the title and
+          its subtitle only exist from `md` up. */}
+      <div className="hidden md:block">
         <h1 className="text-2xl font-bold">Portfolio</h1>
         <p className="text-muted-foreground">
           All your assets in one place.
