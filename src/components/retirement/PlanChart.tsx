@@ -27,6 +27,7 @@ import {
   TODAYS_PURCHASING_POWER,
 } from "./constants"
 import { formatAge, type RetirementDisplay } from "./display"
+import { CHART_TOOLTIP_CONTENT_STYLE } from "@/lib/constants/charts"
 
 interface Props {
   projections: Record<ProjectionBand, Projection>
@@ -130,11 +131,7 @@ export function PlanChart({
               // Capped and wrapping: the band row is two full money figures,
               // which otherwise renders a ~750px tooltip inside a 326px chart.
               contentStyle={{
-                background: "var(--background)",
-                border: "1px solid var(--border)",
-                color: "var(--foreground)",
-                borderRadius: 8,
-                fontSize: 12,
+                ...CHART_TOOLTIP_CONTENT_STYLE,
                 maxWidth: 240,
                 whiteSpace: "normal",
               }}

@@ -24,6 +24,7 @@ import {
   TODAYS_PURCHASING_POWER,
 } from "./constants"
 import type { RetirementDisplay } from "./display"
+import { CHART_TOOLTIP_CONTENT_STYLE } from "@/lib/constants/charts"
 
 interface Props {
   results: ComparisonResult[]
@@ -102,13 +103,7 @@ export function CompareChart({
               tickFormatter={display.axisTick}
             />
             <Tooltip
-              contentStyle={{
-                background: "var(--background)",
-                border: "1px solid var(--border)",
-                color: "var(--foreground)",
-                borderRadius: 8,
-                fontSize: 12,
-              }}
+              contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
               formatter={(value, name) => [
                 display.moneyFromChartValue(Number(value)),
                 String(name),
