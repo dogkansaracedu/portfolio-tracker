@@ -37,6 +37,8 @@ import {
   obfuscate,
 } from "@/lib/prices"
 import { SegmentedControl } from "@/components/common/SegmentedControl"
+import { SeriesDot } from "@/components/common/SeriesDot"
+import { CHART_TOOLTIP_CONTENT_STYLE } from "@/lib/constants/charts"
 import { DECIMALS } from "@/lib/config"
 import { DISPLAY_LOCALE, NOW_LABEL } from "@/lib/constants/app"
 import {
@@ -194,17 +196,6 @@ function niceTicks(
     ticks.sort((a, b) => a - b)
   }
   return ticks
-}
-
-/** A legend swatch, inline in a subtitle chip. */
-function SeriesDot({ color }: { color: string }) {
-  return (
-    <span
-      aria-hidden
-      className="mr-1 inline-block size-2 shrink-0 rounded-full align-middle"
-      style={{ backgroundColor: color }}
-    />
-  )
 }
 
 export default function DashboardHero({
@@ -752,13 +743,7 @@ export default function DashboardHero({
                 )}
                 <Tooltip
                   cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1, strokeDasharray: "3 3" }}
-                  contentStyle={{
-                    background: "var(--background)",
-                    border: "1px solid var(--border)",
-                    color: "var(--foreground)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
+                  contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
                   content={viewMode === "pnl" ? renderPnlTooltip : undefined}
                   formatter={(value, name) => {
                     const isCompare = name === "compare"

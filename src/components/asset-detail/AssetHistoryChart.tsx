@@ -15,6 +15,7 @@ import { Toggle } from "@/components/ui/toggle"
 import { formatCompactCurrency, formatCurrency } from "@/lib/prices"
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies"
 import { DISPLAY_LOCALE } from "@/lib/constants/app"
+import { SeriesDot } from "@/components/common/SeriesDot"
 import { MEDIA_QUERY, useMediaQuery } from "@/hooks/useMediaQuery"
 import {
   filterHistoryByRange,
@@ -31,16 +32,6 @@ const PRICE_SERIES_LABEL = "Price"
  *  unnamed (the same chip-as-legend idiom the dashboard hero uses). */
 const COST_SERIES_COLOR = "var(--chart-4)"
 const PRICE_SERIES_COLOR = "var(--muted-foreground)"
-
-function SeriesDot({ color }: { color: string }) {
-  return (
-    <span
-      aria-hidden
-      className="mr-1 inline-block size-2 shrink-0 rounded-full"
-      style={{ backgroundColor: color }}
-    />
-  )
-}
 
 interface Props {
   history: AssetHistoryPoint[]

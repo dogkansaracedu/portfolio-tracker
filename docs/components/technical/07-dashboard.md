@@ -280,7 +280,9 @@
   which the hook never sets under MWR, so no extra gate is needed here. The row
   closes with the **`NET_INVESTED_LABEL`** amount ("Net invested" — the same
   string the Value subtitle, the dashed series and its tooltip row use).
-  The benchmark chip carries a `SeriesDot` in `BENCHMARK_STROKE`, and the
+  The benchmark chip carries a `SeriesDot`
+  (`src/components/common/SeriesDot.tsx`, shared with Asset Detail's chart) in
+  `BENCHMARK_STROKE`, and the
   measure sub-label carries one in `strokeColor`: those two dots ARE the chart
   legend (no separate legend row at any width). Chips are separated by
   `CHIP_SEPARATOR`, a `::before` middle dot on the FOLLOWING chip (a separator
