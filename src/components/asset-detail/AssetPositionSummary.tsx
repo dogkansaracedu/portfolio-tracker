@@ -1,13 +1,23 @@
 import { Card, CardContent } from "@/components/ui/card"
-import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import {
-  formatCurrency,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip"
+import { useDisplayMoney } from "@/hooks/useDisplayMoney"
+import {
   formatAmount,
-  formatSignedCurrency,
+  formatCurrency,
   formatSignedPercent,
-  gainLossClass,
+  gainLossToneClass,
   obfuscate,
 } from "@/lib/prices"
+import { DECIMALS } from "@/lib/config"
+import {
+  MWR_HINT,
+  MWR_LABEL,
+  MWR_PER_YEAR_SUFFIX,
+} from "@/lib/constants/returns"
 import type { EnrichedAsset } from "@/hooks/usePortfolio"
 
 interface Props {
@@ -21,14 +31,53 @@ interface Props {
   dailyReturnAvailable: boolean
 }
 
-function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * One stat card. `emphasis` promotes the three figures this page exists to
+ * answer — what it's worth, what it made, what it did today — above the
+ * supporting ones (quantity, allocation, average cost), which previously all
+ * shared one label-sized weight. Every card keeps the same height so the two
+ * tiers don't stagger the grid.
+ */
+function Stat({
+  label,
+  emphasis = false,
+  children,
+}: {
+  label: string
+  emphasis?: boolean
+  children: React.ReactNode
+}) {
   return (
-    <Card size="sm">
+    <Card size="sm" className="h-full">
       <CardContent>
         <p className="text-xs text-muted-foreground">{label}</p>
-        <div className="mt-1 tabular-nums text-sm font-semibold">{children}</div>
+        <div
+          className={`mt-1 tabular-nums font-semibold ${
+            emphasis ? "text-xl" : "text-sm"
+          }`}
+        >
+          {children}
+        </div>
       </CardContent>
     </Card>
+  )
+}
+
+/** The one MWR explainer, reachable by hover AND tap (a bare `title` never
+ *  fires on touch, and this % is a money-weighted rate — not the dollars ÷
+ *  cost ratio sitting beside it). */
+function MwrLabel() {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span className="cursor-default text-xs font-normal text-muted-foreground" />
+        }
+      >
+        {MWR_LABEL}
+      </TooltipTrigger>
+      <TooltipContent>{MWR_HINT}</TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -39,28 +88,35 @@ function TotalReturnStat({
   totalReturnUsd,
   mwrCumulativePct,
   mwrAnnualizedPct,
-  o,
+  signedMoney,
 }: {
   totalReturnUsd: number
   mwrCumulativePct: number | null
   mwrAnnualizedPct: number | null
-  o: (v: string) => string
+  signedMoney: (usd: number) => string
 }) {
   return (
-    <Stat label="Total return">
-      <span className={gainLossClass(totalReturnUsd >= 0)}>
-        {o(formatSignedCurrency(totalReturnUsd, "USD"))}
+    <Stat label="Total return" emphasis>
+      <span className={gainLossToneClass(totalReturnUsd)}>
+        {signedMoney(totalReturnUsd)}
         {mwrCumulativePct !== null && (
           <span className="ml-1 text-xs">
             ({formatSignedPercent(mwrCumulativePct)})
           </span>
         )}
       </span>
-      {mwrAnnualizedPct !== null && (
-        <p className="mt-0.5 text-xs font-normal text-muted-foreground">
-          ≈{formatSignedPercent(mwrAnnualizedPct)}/yr
-        </p>
-      )}
+      {/* The measure's name sits inline after the %, on the same line as the
+          annualised reading — never a third line. */}
+      <p className="mt-0.5 text-xs font-normal text-muted-foreground">
+        <MwrLabel />
+        {mwrAnnualizedPct !== null && (
+          <>
+            {" · ≈"}
+            {formatSignedPercent(mwrAnnualizedPct, DECIMALS.percentageRate)}
+            {MWR_PER_YEAR_SUFFIX}
+          </>
+        )}
+      </p>
     </Stat>
   )
 }
@@ -75,13 +131,13 @@ export function AssetPositionSummary({
   mwrAnnualizedPct,
   dailyReturnAvailable,
 }: Props) {
-  const { currency, obfuscated } = useDisplayCurrency()
+  const { currency, money, signedMoney, display, obfuscated } = useDisplayMoney()
   const o = (v: string) => obfuscate(v, obfuscated)
 
   const realizedStat = (
     <Stat label={held ? "Realized P&L" : "Realized P&L (lifetime)"}>
-      <span className={gainLossClass(realizedPnlUsd >= 0)}>
-        {o(formatSignedCurrency(realizedPnlUsd, "USD"))}
+      <span className={gainLossToneClass(realizedPnlUsd)}>
+        {signedMoney(realizedPnlUsd)}
         {realizedPnlPct !== null && (
           <span className="ml-1 text-xs">
             ({formatSignedPercent(realizedPnlPct)})
@@ -106,7 +162,7 @@ export function AssetPositionSummary({
           totalReturnUsd={totalReturnUsd}
           mwrCumulativePct={mwrCumulativePct}
           mwrAnnualizedPct={mwrAnnualizedPct}
-          o={o}
+          signedMoney={signedMoney}
         />
         {realizedStat}
       </div>
@@ -137,58 +193,24 @@ export function AssetPositionSummary({
       : null
 
   return (
+    // The three promoted cards lead, so on a phone (one column) the answers
+    // arrive before the supporting figures.
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <Stat label="Quantity">
-        {o(formatAmount(enriched.totalBalance, enriched.category))}
+      <Stat label="Value" emphasis>
+        {display(displayValue)}
       </Stat>
-
-      <Stat label="Value">{o(formatCurrency(displayValue, currency))}</Stat>
-
-      <Stat label="Avg cost / unit">
-        {avgCostUsd == null ? (
-          "—"
-        ) : avgCostNative != null ? (
-          <>
-            {formatCurrency(avgCostNative, "TRY")}
-            <span className="ml-1 text-xs text-muted-foreground">
-              (~{formatCurrency(avgCostUsd, "USD")})
-            </span>
-          </>
-        ) : (
-          formatCurrency(avgCostUsd, "USD")
-        )}
-      </Stat>
-
-      <Stat label="Allocation">{enriched.allocationPct.toFixed(1)}%</Stat>
 
       <TotalReturnStat
         totalReturnUsd={totalReturnUsd}
         mwrCumulativePct={mwrCumulativePct}
         mwrAnnualizedPct={mwrAnnualizedPct}
-        o={o}
+        signedMoney={signedMoney}
       />
 
-      <Stat label="Unrealized P&L">
-        <span className={gainLossClass(netUsd >= 0)}>
-          {o(formatSignedCurrency(netUsd, "USD"))}
-          {netPct !== null && (
-            <span className="ml-1 text-xs">({formatSignedPercent(netPct)})</span>
-          )}
-        </span>
-        {taxed && (
-          <p className="mt-0.5 text-xs font-normal text-muted-foreground">
-            gross {o(formatSignedCurrency(enriched.unrealizedPnlUsd, "USD"))} · −
-            {o(formatCurrency(enriched.taxAccrualUsd, "USD"))} tax
-          </p>
-        )}
-      </Stat>
-
-      {realizedStat}
-
-      <Stat label="Today">
+      <Stat label="Today" emphasis>
         {dailyReturnAvailable ? (
-          <span className={gainLossClass(enriched.dailyReturnUsd >= 0)}>
-            {o(formatSignedCurrency(enriched.dailyReturnUsd, "USD"))}
+          <span className={gainLossToneClass(enriched.dailyReturnUsd)}>
+            {signedMoney(enriched.dailyReturnUsd)}
             {enriched.dailyReturnPct !== null && (
               <span className="ml-1 text-xs">
                 ({formatSignedPercent(enriched.dailyReturnPct)})
@@ -199,6 +221,47 @@ export function AssetPositionSummary({
           <span className="text-muted-foreground">—</span>
         )}
       </Stat>
+
+      <Stat label="Unrealized P&L">
+        <span className={gainLossToneClass(netUsd)}>
+          {signedMoney(netUsd)}
+          {netPct !== null && (
+            <span className="ml-1 text-xs">({formatSignedPercent(netPct)})</span>
+          )}
+        </span>
+        {taxed && (
+          <p className="mt-0.5 text-xs font-normal text-muted-foreground">
+            gross {signedMoney(enriched.unrealizedPnlUsd)} · −
+            {money(enriched.taxAccrualUsd)} tax
+          </p>
+        )}
+      </Stat>
+
+      {realizedStat}
+
+      <Stat label="Quantity">
+        {o(formatAmount(enriched.totalBalance, enriched.category))}
+      </Stat>
+
+      {/* Per-unit cost stays in the asset's OWN currency (the asset-native
+          convention), with the USD equivalent beside it — it is a price, not a
+          P&L figure, so it does not follow the display currency. */}
+      <Stat label="Avg cost / unit">
+        {avgCostUsd == null ? (
+          "—"
+        ) : avgCostNative != null ? (
+          <>
+            {o(formatCurrency(avgCostNative, "TRY"))}
+            <span className="ml-1 text-xs font-normal text-muted-foreground">
+              (~{o(formatCurrency(avgCostUsd, "USD"))})
+            </span>
+          </>
+        ) : (
+          o(formatCurrency(avgCostUsd, "USD"))
+        )}
+      </Stat>
+
+      <Stat label="Allocation">{enriched.allocationPct.toFixed(1)}%</Stat>
     </div>
   )
 }

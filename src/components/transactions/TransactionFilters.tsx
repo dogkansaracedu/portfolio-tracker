@@ -2,6 +2,16 @@ import { useState } from "react"
 import { useAssets } from "@/hooks/useAssets"
 import { usePlatforms } from "@/hooks/usePlatforms"
 import { Button } from "@/components/ui/button"
+import { SegmentedControl } from "@/components/common/SegmentedControl"
+
+type DatePreset = "7d" | "30d" | "year" | "all"
+
+const DATE_PRESETS: { id: DatePreset; label: string }[] = [
+  { id: "7d", label: "Last 7d" },
+  { id: "30d", label: "Last 30d" },
+  { id: "year", label: "This Year" },
+  { id: "all", label: "All Time" },
+]
 import {
   Select,
   SelectContent,
@@ -55,7 +65,7 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
   const [dateFromOpen, setDateFromOpen] = useState(false)
   const [dateToOpen, setDateToOpen] = useState(false)
 
-  const setDatePreset = (preset: "7d" | "30d" | "year" | "all") => {
+  const setDatePreset = (preset: DatePreset) => {
     const now = new Date()
     let dateFrom: string | undefined
     const dateTo: string | undefined = undefined
@@ -123,23 +133,13 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
       {/* Date presets */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium text-muted-foreground">Date:</span>
-        {(
-          [
-            { key: "7d", label: "Last 7d" },
-            { key: "30d", label: "Last 30d" },
-            { key: "year", label: "This Year" },
-            { key: "all", label: "All Time" },
-          ] as const
-        ).map(({ key, label }) => (
-          <Button
-            key={key}
-            variant={activePreset === key ? "default" : "outline"}
-            size="sm"
-            onClick={() => setDatePreset(key)}
-          >
-            {label}
-          </Button>
-        ))}
+        <SegmentedControl
+          ariaLabel="Date range preset"
+          value={activePreset ?? ("" as DatePreset)}
+          options={DATE_PRESETS}
+          onChange={setDatePreset}
+          size="sm"
+        />
 
         {/* Custom date from */}
         <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>

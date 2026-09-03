@@ -11,12 +11,17 @@ import {
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TimeRangeSelector } from "@/components/performance/TimeRangeSelector"
+import { Toggle } from "@/components/ui/toggle"
 import { formatCurrency } from "@/lib/prices"
 import {
   filterHistoryByRange,
   type AssetHistoryPoint,
 } from "@/lib/portfolio/assetHistory"
 import type { TimeRange } from "@/lib/performance"
+
+/** Series names — also the tooltip/legend labels, so they never drift. */
+const COST_SERIES_LABEL = "Cost"
+const PRICE_SERIES_LABEL = "Price"
 
 interface Props {
   history: AssetHistoryPoint[]
@@ -58,29 +63,28 @@ export function AssetHistoryChart({ history, currency }: Props) {
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-sm font-medium">Position Value</CardTitle>
+          {/* Cost / Price are independent on-off series toggles — separate
+              `Toggle`s, visibly distinct from the pick-one range group beside
+              them (which is the app's segmented control). */}
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setShowCost((v) => !v)}
-              aria-pressed={showCost}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                showCost
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              Cost
-            </button>
-            <button
-              onClick={() => setShowPrice((v) => !v)}
-              aria-pressed={showPrice}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                showPrice
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              Price
-            </button>
+            <div className="flex items-center gap-1">
+              <Toggle
+                variant="outline"
+                size="sm"
+                pressed={showCost}
+                onPressedChange={setShowCost}
+              >
+                {COST_SERIES_LABEL}
+              </Toggle>
+              <Toggle
+                variant="outline"
+                size="sm"
+                pressed={showPrice}
+                onPressedChange={setShowPrice}
+              >
+                {PRICE_SERIES_LABEL}
+              </Toggle>
+            </div>
             <TimeRangeSelector value={range} onChange={setRange} />
           </div>
         </div>
@@ -95,7 +99,12 @@ export function AssetHistoryChart({ history, currency }: Props) {
           <ResponsiveContainer width="100%" height={300}>
             <ComposedChart data={data}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 12 }} />
+              <XAxis
+                dataKey="label"
+                className="text-xs"
+                tick={{ fontSize: 12 }}
+                minTickGap={40}
+              />
               <YAxis
                 yAxisId="value"
                 className="text-xs"

@@ -4,14 +4,13 @@ import { Link } from "react-router"
 import { TableRow, TableCell } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { useTransactionModal } from "@/contexts/TransactionContext"
+import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import {
   formatCurrency,
   formatCryptoAmount,
-  formatSignedCurrency,
   formatSignedPercent,
-  gainLossClass,
+  gainLossToneClass,
   obfuscate,
 } from "@/lib/prices"
 import type { EnrichedAsset, ReturnMode } from "@/hooks/usePortfolio"
@@ -44,17 +43,25 @@ function formatQuantity(balance: number, category: string): string {
 // the USD equivalent in parentheses). Shared by the desktop row and the mobile
 // card so the two never drift. We only have USD + TRY price columns, so non-TRY
 // natives (EUR) fall back to USD.
-function CurrentPrice({ asset }: { asset: EnrichedAsset }) {
+function CurrentPrice({
+  asset,
+  stacked = false,
+}: {
+  asset: EnrichedAsset
+  /** Desktop table: the USD equivalent drops to its own line so the column
+   *  stays inside the 1280px width budget. The mobile card keeps it inline. */
+  stacked?: boolean
+}) {
   const showNative = assetNativeCurrency(asset) === "TRY"
+  if (!showNative) return <>{formatCurrency(asset.currentPriceUsd, "USD")}</>
+  const approx = `(~${formatCurrency(asset.currentPriceUsd, "USD")})`
   return (
     <>
-      {showNative
-        ? formatCurrency(asset.currentPriceTry, "TRY")
-        : formatCurrency(asset.currentPriceUsd, "USD")}
-      {showNative && (
-        <span className="ml-1 text-xs text-muted-foreground">
-          (~{formatCurrency(asset.currentPriceUsd, "USD")})
-        </span>
+      {formatCurrency(asset.currentPriceTry, "TRY")}
+      {stacked ? (
+        <div className="text-xs text-muted-foreground">{approx}</div>
+      ) : (
+        <span className="ml-1 text-xs text-muted-foreground">{approx}</span>
       )}
     </>
   )
@@ -68,7 +75,7 @@ export function PortfolioRow({
   dailyReturnAvailable,
   nested = false,
 }: PortfolioRowProps) {
-  const { currency, obfuscated } = useDisplayCurrency()
+  const { currency, money, signedMoney, display, obfuscated } = useDisplayMoney()
   const { openTransactionModal } = useTransactionModal()
   const o = (v: string) => obfuscate(v, obfuscated)
   const childRows = asset.children ?? []
@@ -104,7 +111,6 @@ export function PortfolioRow({
   const netUsd = taxed ? returnUsd - asset.taxAccrualUsd : returnUsd
   const netPct =
     taxed && asset.costBasisUsd > 0 ? (netUsd / asset.costBasisUsd) * 100 : returnPct
-  const netIsPositive = netUsd >= 0
 
   return (
     <>
@@ -142,15 +148,17 @@ export function PortfolioRow({
         </div>
       </TableCell>
 
-      <TableCell>
+      {/* Platform names truncate rather than widen the table — the dot keeps
+          the platform identifiable once the name is clipped. */}
+      <TableCell className="max-w-[7rem]">
         <div className="flex flex-col gap-0.5">
           {asset.holdings.map((h) => (
-            <div key={h.platformId} className="flex items-center gap-1.5">
+            <div key={h.platformId} className="flex min-w-0 items-center gap-1.5">
               <span
-                className="inline-block size-2 rounded-full"
+                className="inline-block size-2 shrink-0 rounded-full"
                 style={{ backgroundColor: h.platformColor }}
               />
-              <span className="text-xs">{h.platformName}</span>
+              <span className="truncate text-xs">{h.platformName}</span>
             </div>
           ))}
           {asset.holdings.length === 0 && (
@@ -169,9 +177,9 @@ export function PortfolioRow({
         ) : costNativePerUnit != null ? (
           <>
             {formatCurrency(costNativePerUnit, "TRY")}
-            <span className="ml-1 text-xs">
+            <div className="text-xs">
               (~{formatCurrency(costUsdPerUnit, "USD")})
-            </span>
+            </div>
           </>
         ) : (
           formatCurrency(costUsdPerUnit, "USD")
@@ -179,28 +187,28 @@ export function PortfolioRow({
       </TableCell>
 
       <TableCell className="text-right tabular-nums">
-        <CurrentPrice asset={asset} />
+        <CurrentPrice asset={asset} stacked />
       </TableCell>
 
       <TableCell className="text-right tabular-nums font-semibold">
-        {o(formatCurrency(displayValue, currency))}
+        {display(displayValue)}
       </TableCell>
 
       <TableCell className="text-right">
         {showReturn ? (
           <div className="flex flex-col items-end">
-            <span className={gainLossClass(netIsPositive)}>
-              {o(formatSignedCurrency(netUsd, "USD"))}
+            <span className={gainLossToneClass(netUsd)}>
+              {signedMoney(netUsd)}
             </span>
             {netPct !== null && (
-              <span className={`text-xs ${gainLossClass(netIsPositive)}`}>
+              <span className={`text-xs ${gainLossToneClass(netPct)}`}>
                 {formatSignedPercent(netPct)}
               </span>
             )}
             {taxed && (
               <span className="text-xs text-muted-foreground">
-                gross {o(formatSignedCurrency(returnUsd, "USD"))} ·{" "}
-                −{o(formatCurrency(asset.taxAccrualUsd, "USD"))} tax
+                gross {signedMoney(returnUsd)} ·{" "}
+                −{money(asset.taxAccrualUsd)} tax
               </span>
             )}
           </div>
@@ -256,9 +264,8 @@ export function PortfolioRowCard({
   returnMode,
   dailyReturnAvailable,
 }: PortfolioRowProps) {
-  const { currency, obfuscated } = useDisplayCurrency()
+  const { currency, signedMoney, display } = useDisplayMoney()
   const { openTransactionModal } = useTransactionModal()
-  const o = (v: string) => obfuscate(v, obfuscated)
 
   const displayValue =
     currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
@@ -272,7 +279,6 @@ export function PortfolioRowCard({
   const netUsd = taxed ? returnUsd - asset.taxAccrualUsd : returnUsd
   const netPct =
     taxed && asset.costBasisUsd > 0 ? (netUsd / asset.costBasisUsd) * 100 : returnPct
-  const netIsPositive = netUsd >= 0
 
   return (
     <Card size="sm">
@@ -303,12 +309,10 @@ export function PortfolioRowCard({
         </Link>
 
         <div className="flex flex-col items-end gap-0.5">
-          <span className="font-semibold">
-            {o(formatCurrency(displayValue, currency))}
-          </span>
+          <span className="font-semibold">{display(displayValue)}</span>
           {showReturn ? (
-            <span className={`text-xs ${gainLossClass(netIsPositive)}`}>
-              {o(formatSignedCurrency(netUsd, "USD"))}
+            <span className={`text-xs ${gainLossToneClass(netUsd)}`}>
+              {signedMoney(netUsd)}
               {netPct !== null && (
                 <>
                   {" "}
@@ -318,7 +322,7 @@ export function PortfolioRowCard({
               {taxed && (
                 <span className="text-muted-foreground">
                   {" · "}
-                  gross {o(formatSignedCurrency(returnUsd, "USD"))}
+                  gross {signedMoney(returnUsd)}
                 </span>
               )}
             </span>

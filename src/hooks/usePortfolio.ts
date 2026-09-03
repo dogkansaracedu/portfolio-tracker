@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { usePersistedState } from "@/hooks/usePersistedState"
 import { bn, homeDayIso } from "@/lib/config"
 import { useAssets } from "@/hooks/useAssets"
 import { useHoldings } from "@/hooks/useHoldings"
@@ -132,10 +133,22 @@ export function usePortfolio(): UsePortfolioReturn {
     loading: pnlLoading,
   } = usePnL(holdings, prices)
 
+  // Search is per-visit (a stale filter would hide the portfolio on arrival);
+  // the three view choices persist, the way the dashboard hero's do — they are
+  // how the owner reads the table, not a transient query.
   const [search, setSearch] = useState("")
-  const [groupBy, setGroupBy] = useState<GroupBy>("category")
-  const [sortBy, setSortBy] = useState<SortBy>("value")
-  const [returnMode, setReturnMode] = useState<ReturnMode>("total")
+  const [groupBy, setGroupBy] = usePersistedState<GroupBy>(
+    "portfolio.groupBy",
+    "category",
+  )
+  const [sortBy, setSortBy] = usePersistedState<SortBy>(
+    "portfolio.sortBy",
+    "value",
+  )
+  const [returnMode, setReturnMode] = usePersistedState<ReturnMode>(
+    "portfolio.returnMode",
+    "total",
+  )
 
   const loading = assetsLoading || holdingsLoading || pricesLoading || pnlLoading
   const usdTryRate = rates?.usd_try ?? 0
