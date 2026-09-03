@@ -169,24 +169,31 @@ currency and the amount-obfuscation flag.
 
 **Outputs (rendered):** grouped rows + group subtotals; each row's quantity, unit
 price, value, cost basis, return (mode-dependent), allocation; a lifetime summary
-bar. UI state held during the session: search text, group-by axis, sort key, and
-the return mode (none persisted across reloads). The toggle's choice and the
-"daily available" flag drive which return figure renders.
+bar. UI state: the **group-by axis, sort key and return mode persist across
+navigation and reloads** (they are how the owner reads the table, not a
+transient query); **search text is per-visit** — a remembered filter would hide
+the portfolio on arrival. The toggle's choice and the "daily available" flag
+drive which return figure renders.
 
 ## UI contract
 
-**Grouped table (desktop).** Sticky header. Each group = a full-width header row
-(group name, optional color dot, asset count, value subtotal, return subtotal)
-followed by its asset rows.
+**Grouped table (desktop).** Sticky header. Each group = a header row followed by
+its asset rows. The group's **subtotal sits in the Value column and its return in
+the return column**, right-aligned over the rows they total (a header exists to be
+scanned against its own rows); the group name, its optional colour dot and the
+asset count sit in the label column. Both groupings and both return modes.
 
 **Columns:** Asset (icon + ticker, links to that asset's detail screen —
 Component 12) ·
-Platform (per-platform dots/names; hidden meaning when grouped by platform) ·
-Quantity (decimals per category) · Bought (cost per unit, asset-native with USD in
-parens where applicable) · Price (current unit price) · Value (bold) · **Return**
+Platform (per-platform dots/names, truncating rather than widening the table;
+hidden meaning when grouped by platform) ·
+Quantity (decimals per category) · Bought (cost per unit, asset-native with the
+USD equivalent on a **second line** where applicable) · Price (current unit
+price, same two-line treatment) · Value (bold) · **Return**
 (header reads **"P&L"** in Total mode, **"Today"** in Daily mode; amount over %,
 gain/loss colored) · Allocation (% + a tiny bar) · a row action to record a
-transaction.
+transaction. The whole table fits its container at the narrowest width it is
+shown at — the row action and Allocation are never pushed off the edge.
 
 **Toggle:** a **Total | Daily** control in the filter row (single-select),
 alongside group-by and sort. Switching it re-renders every group header and every
@@ -209,9 +216,12 @@ header stays equal to the sum of everything shown beneath it. Returns use the
 gain/loss palette; values follow the display-currency and obfuscation rules. The
 platform grouping shows no nesting.
 
-**Mobile (cards).** Below the table breakpoint, each group renders a simplified
-header and its assets as cards (icon + ticker, price, platforms, value, and the
-mode-dependent return amount + % inline). Same toggle, same "—" rules.
+**Cards (below the table's width).** The table needs its full column set to be
+readable, so below that width each group renders as a header line — name, asset
+count, **and the same value subtotal and mode-dependent return the desktop
+header puts in its columns** — followed by its assets as cards (icon + ticker,
+price, platforms, value, and the mode-dependent return amount + % inline). Same
+toggle, same "—" rules.
 
 **Inactive / zero-balance.** Inactive assets hidden by default; zero-balance
 positions are not shown as active rows.
@@ -221,7 +231,21 @@ return amount, subtotals) are obfuscated; **percentages remain visible** in both
 modes.
 
 **Return colors:** gain/loss palette — positive vs. negative drives the color,
-zero is neutral; consistent across rows, headers, and the summary bar.
+**zero is neutral** (a flat cash row is not a gain); consistent across rows,
+headers, and the summary bar.
+
+**Money follows the display currency.** Value, P&L, cost basis,
+realized/unrealized, income, "Today" and the group subtotals all render in the
+**selected display currency** — a row never shows its value in ₺ beside its P&L
+in $. This is presentation only: every figure is still computed against the
+[USD anchor](GLOSSARY.md#usd-anchor) and converted for display. The two
+per-unit **price** columns (Bought, Price) are the exception: a price is
+asset-native by definition, so it stays in the asset's own currency with the USD
+equivalent beneath it.
+
+**Controls.** The Total | Daily, Platform | Category and sort controls use the
+app's single pick-one control idiom; solid primary styling stays reserved for a
+page's one primary action.
 
 ## Acceptance
 
@@ -245,6 +269,16 @@ zero is neutral; consistent across rows, headers, and the summary bar.
 - [ ] Value = live balance × latest snapshot price; the page total equals the
       dashboard's net worth.
 - [ ] The summary bar shows the lifetime total and does **not** change with the toggle.
+- [ ] In TRY display mode every money figure on the page — value, P&L, the
+      unrealized/realized split, income, "Today" and the group subtotals — is in ₺;
+      only the two per-unit price columns stay asset-native.
+- [ ] The group header's subtotal and return sit in the Value and return columns,
+      in line with the rows beneath them.
+- [ ] The table fits its container without horizontal scrolling at the narrowest
+      width it is shown at, in TRY mode (the widest strings).
+- [ ] Grouping, sort and the Total | Daily mode survive navigating away and back;
+      search does not.
+- [ ] A zero return renders in the neutral tone, not the gain colour.
 - [ ] Group by platform/category shows headers with correct subtotals; search
       filters by name or ticker; values render in the selected currency.
 - [ ] Mobile renders cards; inactive hidden by default; obfuscation hides amounts

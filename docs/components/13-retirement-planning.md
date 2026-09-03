@@ -152,9 +152,16 @@ solve has no answer is left out rather than fabricated; when none of them has an
 answer, the verdict says the target is not reachable under these assumptions.
 
 - Chart: projected portfolio value over time (band), with the retirement age
-  and target marked — and, when the plan coasts, BOTH the age contributions are
-  planned to stop and the earliest age they could stop, each labelled with its
-  own age. The "when can I stop contributing?" question shows that pairing over
+  and the target — **labelled with the target's own value** — marked, and, when
+  the plan coasts, BOTH the age contributions are planned to stop and the
+  earliest age they could stop, each labelled with its own age. **A displayed
+  portfolio value never goes below zero:** a plan that overspends runs negative
+  in the maths (deliberately — the solvers need to see how far short it falls),
+  but the chart, its axis and the milestone figures are floored at 0, and the
+  band that has run out says **"depleted at age N"** — in its cell, in the
+  tooltip, and as a marker on the chart — instead of showing a floored zero or
+  a −$2.16M "value". Age markers never overprint each other: they sit on
+  opposite sides of their lines and on different rows. The "when can I stop contributing?" question shows that pairing over
   the rising Coast FIRE curve, with the crossing marked as the coast date;
   the other questions show it over the plan projection.
   Both withdrawal strategies continue past retirement,
@@ -316,7 +323,8 @@ are always recomputed from inputs.
       projection core as every other Plan figure; already-coasting renders its
       explicit celebratory state as that question's verdict.
 - [ ] A plan that coasts marks BOTH coast ages on its chart — the planned one
-      and the earliest possible one — each labelled with its own age, and the
+      and the earliest possible one — each labelled with its own age (never
+      overprinting), and the
       two collapse to one marker when they are the same month.
 - [ ] Capital preservation vs. capital depletion produce different targets and
       Coast FIRE numbers per the glossary formulas (worked cases in tests).
@@ -335,6 +343,10 @@ are always recomputed from inputs.
 - [ ] Sensitivity insights are solver outputs and match the charts exactly.
 - [ ] Nominal/real toggle re-derives all displayed values; real views are
       labeled "today's purchasing power".
+- [ ] No displayed projection figure is negative: the chart, its y-axis and the
+      milestone table floor at zero, and a depleted band names the age it ran
+      out at. The solvers keep the unfloored series.
+- [ ] The target line carries its own value.
 - [ ] Scenarios persist per user across devices; the default loads on entry;
       first use renders with sensible defaults.
 - [ ] Glossary-term singularity holds across UI, code identifiers, and docs.
