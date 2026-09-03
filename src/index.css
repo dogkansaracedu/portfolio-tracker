@@ -128,3 +128,15 @@
     @apply font-sans;
     }
 }
+
+/* Bottom safe area (the iPhone home indicator). `viewport-fit=cover` on the
+   viewport meta is what makes `env(safe-area-inset-bottom)` non-zero; on every
+   other device it resolves to 0, so these are no-ops there.
+   `pb-safe` = the inset alone, `pb-safe-<n>` = the `pb-<n>` step plus it. */
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility pb-safe-* {
+  padding-bottom: calc(--spacing(--value(integer)) + env(safe-area-inset-bottom));
+}

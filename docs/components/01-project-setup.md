@@ -66,7 +66,8 @@ What the user sees and can do:
   - *Determining session* — neutral full-screen loading indicator (neither screen nor redirect yet).
   - *Screen loading on demand* — neutral placeholder in the content region.
   - *Unauthenticated on a private path* — redirect to `login`.
-- **Responsive intent:** a single breakpoint splits desktop (side nav) from mobile (bottom nav). Content padding leaves room for the bottom bar on mobile so it never overlaps content.
+- **Dialogs on a phone:** below the small breakpoint every dialog is a full-height sheet measured against the *visible* viewport, so it follows the on-screen keyboard: a fixed header (title + close), a scrolling field area, and a footer pinned to the bottom holding the dialog's actions on **one** row. From the small breakpoint up the same dialog is the familiar centred card, capped in height, with the same scrolling middle. In both shapes the submit action is on screen without scrolling.
+- **Responsive intent:** a single breakpoint splits desktop (side nav) from mobile (bottom nav). Content padding leaves room for the bottom bar on mobile so it never overlaps content, and on devices with a bottom gesture area (a notched phone) the bottom bar, the content padding and any bottom-pinned footer clear that area as well.
 
 ## Acceptance
 
@@ -75,6 +76,7 @@ Any stack must pass these:
 - Navigating between all authenticated screens works on both a desktop-width and a mobile-width viewport, swapping content with no full reload.
 - On desktop the side navigation is visible and the bottom bar is not; on mobile the bottom bar is visible and the side navigation is not. The active screen is highlighted in the visible navigation.
 - On mobile, the primary screens are one tap away and every secondary screen is reachable in two (More → screen). On a secondary screen the More tab shows as active.
+- On a phone-width viewport, opening any dialog shows its submit action without scrolling, and with the on-screen keyboard up the field being typed into stays visible.
 - Toggling the theme switches light/dark immediately, the choice persists across a reload, and a fresh visitor with no saved choice gets the OS preference — with no wrong-theme flash on load.
 - Visiting any authenticated path while signed out redirects to `login`; visiting `login` or `signup` while signed out succeeds.
 - A signed-in user can open the account menu, confirm sign-out, and is returned to `login`.

@@ -2,6 +2,7 @@ import { useState } from "react"
 import {
   Dialog,
   DialogClose,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -224,158 +225,158 @@ export function InterestPositionForm({
           </DialogDescription>
         </DialogHeader>
 
-        <form
-          onSubmit={handleSubmit}
-          className="grid max-h-[65vh] gap-4 overflow-y-auto px-1"
-        >
-          <div className="grid gap-2">
-            <Label>{INTEREST_COPY.fieldAsset}</Label>
-            <Select
-              value={form.assetId}
-              onValueChange={(v) => set("assetId", v as string)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {selectedAsset
-                    ? `${selectedAsset.ticker} — ${selectedAsset.name}`
-                    : INTEREST_COPY.fieldAssetPlaceholder}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {assetOptions.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.ticker} — {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label>{INTEREST_COPY.fieldPlatform}</Label>
-            <Select
-              value={form.platformId}
-              onValueChange={(v) => set("platformId", v as string)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {selectedPlatform?.name ??
-                    INTEREST_COPY.fieldPlatformPlaceholder}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {platforms.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="interest-quantity">
-              {INTEREST_COPY.fieldQuantity}
-            </Label>
-            <Input
-              id="interest-quantity"
-              inputMode="decimal"
-              value={form.quantity}
-              onChange={(e) => set("quantity", e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {INTEREST_COPY.fieldQuantityHint}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+        {/* `contents` keeps the form out of the sheet's flex column, so the
+            body scrolls between a fixed header and a pinned footer. */}
+        <form onSubmit={handleSubmit} className="contents">
+          <DialogBody className="grid gap-4 py-1">
             <div className="grid gap-2">
-              <Label htmlFor="interest-apr">{INTEREST_COPY.fieldApr}</Label>
-              <Input
-                id="interest-apr"
-                inputMode="decimal"
-                value={form.apr}
-                onChange={(e) => set("apr", e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>{INTEREST_COPY.fieldAprKind}</Label>
+              <Label>{INTEREST_COPY.fieldAsset}</Label>
               <Select
-                value={form.aprKind}
-                onValueChange={(v) => set("aprKind", v as AprKind)}
+                value={form.assetId}
+                onValueChange={(v) => set("assetId", v as string)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue>
-                    {
-                      INTEREST_APR_KIND_OPTIONS.find(
-                        (o) => o.value === form.aprKind,
-                      )?.label
-                    }
+                    {selectedAsset
+                      ? `${selectedAsset.ticker} — ${selectedAsset.name}`
+                      : INTEREST_COPY.fieldAssetPlaceholder}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {INTEREST_APR_KIND_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
+                  {assetOptions.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.ticker} — {a.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <p className="-mt-2 text-xs text-muted-foreground">
-            {INTEREST_COPY.fieldAprHint}
-          </p>
 
-          <div className="grid gap-2">
-            <Label htmlFor="interest-label">{INTEREST_COPY.fieldLabel}</Label>
-            <Input
-              id="interest-label"
-              placeholder={INTEREST_COPY.fieldLabelPlaceholder}
-              value={form.label}
-              onChange={(e) => set("label", e.target.value)}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
-              <Label htmlFor="interest-started">
-                {INTEREST_COPY.fieldStartedAt}
+              <Label>{INTEREST_COPY.fieldPlatform}</Label>
+              <Select
+                value={form.platformId}
+                onValueChange={(v) => set("platformId", v as string)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {selectedPlatform?.name ??
+                      INTEREST_COPY.fieldPlatformPlaceholder}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {platforms.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="interest-quantity">
+                {INTEREST_COPY.fieldQuantity}
               </Label>
               <Input
-                id="interest-started"
-                type="date"
-                value={form.startedAt}
-                onChange={(e) => set("startedAt", e.target.value)}
+                id="interest-quantity"
+                inputMode="decimal"
+                value={form.quantity}
+                onChange={(e) => set("quantity", e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                {INTEREST_COPY.fieldQuantityHint}
+              </p>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="interest-apr">{INTEREST_COPY.fieldApr}</Label>
+                <Input
+                  id="interest-apr"
+                  inputMode="decimal"
+                  value={form.apr}
+                  onChange={(e) => set("apr", e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>{INTEREST_COPY.fieldAprKind}</Label>
+                <Select
+                  value={form.aprKind}
+                  onValueChange={(v) => set("aprKind", v as AprKind)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {
+                        INTEREST_APR_KIND_OPTIONS.find(
+                          (o) => o.value === form.aprKind,
+                        )?.label
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INTEREST_APR_KIND_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="-mt-2 text-xs text-muted-foreground">
+              {INTEREST_COPY.fieldAprHint}
+            </p>
+
             <div className="grid gap-2">
-              <Label htmlFor="interest-expires">
-                {INTEREST_COPY.fieldExpiresAt}
-              </Label>
+              <Label htmlFor="interest-label">{INTEREST_COPY.fieldLabel}</Label>
               <Input
-                id="interest-expires"
-                type="date"
-                value={form.expiresAt}
-                onChange={(e) => set("expiresAt", e.target.value)}
+                id="interest-label"
+                placeholder={INTEREST_COPY.fieldLabelPlaceholder}
+                value={form.label}
+                onChange={(e) => set("label", e.target.value)}
               />
             </div>
-          </div>
-          <p className="-mt-2 text-xs text-muted-foreground">
-            {INTEREST_COPY.fieldExpiresAtHint}
-          </p>
 
-          <div className="grid gap-2">
-            <Label htmlFor="interest-note">{INTEREST_COPY.fieldNote}</Label>
-            <Textarea
-              id="interest-note"
-              rows={2}
-              value={form.note}
-              onChange={(e) => set("note", e.target.value)}
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="interest-started">
+                  {INTEREST_COPY.fieldStartedAt}
+                </Label>
+                <Input
+                  id="interest-started"
+                  type="date"
+                  value={form.startedAt}
+                  onChange={(e) => set("startedAt", e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="interest-expires">
+                  {INTEREST_COPY.fieldExpiresAt}
+                </Label>
+                <Input
+                  id="interest-expires"
+                  type="date"
+                  value={form.expiresAt}
+                  onChange={(e) => set("expiresAt", e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="-mt-2 text-xs text-muted-foreground">
+              {INTEREST_COPY.fieldExpiresAtHint}
+            </p>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="grid gap-2">
+              <Label htmlFor="interest-note">{INTEREST_COPY.fieldNote}</Label>
+              <Textarea
+                id="interest-note"
+                rows={2}
+                value={form.note}
+                onChange={(e) => set("note", e.target.value)}
+              />
+            </div>
+          </DialogBody>
+          {error && <p className="pt-2 text-sm text-destructive">{error}</p>}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>

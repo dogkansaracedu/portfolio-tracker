@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -226,7 +227,7 @@ export function ResolveAssetsStepper({
           <DialogDescription>{reasonText(current)}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2">
+        <DialogBody className="grid gap-4 py-2">
           {/* Step indicator */}
           <div className="flex gap-1">
             {sentinels.map((_, i) => (
@@ -331,7 +332,7 @@ export function ResolveAssetsStepper({
               </SelectContent>
             </Select>
           </div>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={submitting}>

@@ -29,7 +29,7 @@ export default function MobileNav() {
   ]
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t bg-background md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t bg-background pb-safe md:hidden">
       {tabs.map((item) => (
         <Link
           key={item.to}
