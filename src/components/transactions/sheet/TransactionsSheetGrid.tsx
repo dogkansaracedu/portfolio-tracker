@@ -353,6 +353,10 @@ export function TransactionsSheetGrid({
       // Never write linked_tx_id on an edit — an existing transfer_in may be
       // linked to its transfer_out, and the grid has no pairing UI; sending
       // the insert default (null) would silently sever the pair.
+      // The binding below is not dead: destructuring it out of the rest is how
+      // the key is dropped. ESLint's own `ignoreRestSiblings` exempts exactly
+      // this idiom; it is off in our config, so the exemption is stated here.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { linked_tx_id: _omit, ...payload } = buildPayload(row)
       try {
         await editTransaction(row.txId, payload, {
