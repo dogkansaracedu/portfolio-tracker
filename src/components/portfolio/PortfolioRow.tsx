@@ -359,13 +359,15 @@ export function PortfolioRowCard({
           ) : (
             <span className="text-xs text-muted-foreground">—</span>
           )}
+          {/* The card's only action — a 40px tap target (the row's own "+" on
+              the desktop table stays `xs`). */}
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             onClick={() => openTransactionModal({ assetId: asset.id })}
-            className="mt-1"
+            className="mt-1 min-h-10"
           >
-            <Plus className="size-3" />
+            <Plus className="size-3.5" />
             Add Tx
           </Button>
         </div>

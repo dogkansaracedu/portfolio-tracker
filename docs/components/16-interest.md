@@ -109,7 +109,10 @@ Four surfaces, each with one job:
 
 1. **Portfolio page — a glance.** Any asset row with at least one open position
    carries a small indicator showing the rate, with the position details (rate,
-   end date, days left) available on hover. Colored by the loudest status among
+   end date, days left) behind it — reachable by pointer **and** by touch, and
+   carrying a link into that asset's Earning section. Because the indicator
+   sits inside the row's own link, activating it must open the detail rather
+   than navigate. Colored by the loudest status among
    that asset's positions. The indicator is a *status* cue, never gain/loss
    coloring — an interest position is neither a gain nor a loss, and the row's
    own return figure owns that meaning. Rows without a position show nothing.

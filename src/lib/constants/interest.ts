@@ -120,6 +120,7 @@ export const INTEREST_COPY = {
   badgeNoRate: "Earning",
   badgeTooltipMorePrefix: "+",
   badgeTooltipMoreSuffix: " more",
+  badgeViewLink: "View",
 
   // Asset detail section
   sectionTitle: "Earning",
@@ -200,3 +201,6 @@ export const INTEREST_COPY = {
   errorAprInvalid: "Rate must be a number",
   errorEndBeforeStart: "The end date can't be before the start date",
 } as const
+
+/** The Earning section's DOM anchor — the Portfolio badge links straight to it. */
+export const INTEREST_SECTION_ANCHOR = "earning"

@@ -13,13 +13,7 @@ import {
   ReferenceLine,
 } from "recharts"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  // recharts also exports a `Tooltip` — alias the UI one so the chart's stays
-  // the plain `<Tooltip>` it has always been.
-  Tooltip as HintTooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip"
+import { HintPopover } from "@/components/common/HintPopover"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -514,17 +508,21 @@ export default function DashboardHero({
           {/* Measure switch — which return the percent race plots. Performance
               mode only, and never in 1D (intraday is the simple change). */}
           {showMeasureSwitch && (
-            <SegmentedControl
-              ariaLabel="Return measure"
-              value={measure}
-              options={MEASURES.map((m) => ({
-                id: m.id,
-                label: m.label,
-                hint: m.hint,
-              }))}
-              onChange={setMeasure}
-              size="sm"
-            />
+            <div className="flex items-center gap-1.5">
+              <SegmentedControl
+                ariaLabel="Return measure"
+                value={measure}
+                options={MEASURES.map((m) => ({ id: m.id, label: m.label }))}
+                onChange={setMeasure}
+                size="sm"
+              />
+              {/* The active measure's explainer, on hover and on tap alike. */}
+              <HintPopover
+                text={activeMeasure.hint}
+                label={activeMeasure.label}
+                align="end"
+              />
+            </div>
           )}
         </div>
 
@@ -637,28 +635,22 @@ export default function DashboardHero({
                   under a year or the solver found no rate. A percent, so it
                   stays visible under the privacy toggle. */}
               {lifetimeXirrPct != null && (
-                <HintTooltip>
-                  <TooltipTrigger
-                    render={
-                      <span
-                        className={cn(
-                          "cursor-default text-muted-foreground",
-                          CHIP_SEPARATOR,
-                        )}
-                      />
-                    }
-                  >
-                      {MWR_LABEL}{" "}
-                      <span className={cn("font-medium", xirrColor)}>
-                        {formatSignedPercent(
-                          lifetimeXirrPct,
-                          DECIMALS.percentageRate,
-                        )}
-                        {MWR_PER_YEAR_SUFFIX}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>{MWR_PER_YEAR_HINT}</TooltipContent>
-                </HintTooltip>
+                <HintPopover
+                  text={MWR_PER_YEAR_HINT}
+                  label={MWR_LABEL}
+                  className={CHIP_SEPARATOR}
+                >
+                  <span>
+                    {MWR_LABEL}{" "}
+                    <span className={cn("font-medium", xirrColor)}>
+                      {formatSignedPercent(
+                        lifetimeXirrPct,
+                        DECIMALS.percentageRate,
+                      )}
+                      {MWR_PER_YEAR_SUFFIX}
+                    </span>
+                  </span>
+                </HintPopover>
               )}
               {timeRange !== "1D" && (
                 <DropdownMenu>

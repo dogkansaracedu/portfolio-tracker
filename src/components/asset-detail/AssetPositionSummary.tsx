@@ -1,9 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip"
+import { HintPopover } from "@/components/common/HintPopover"
 import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import {
   formatAmount,
@@ -68,16 +64,9 @@ function Stat({
  *  cost ratio sitting beside it). */
 function MwrLabel() {
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span className="cursor-default text-xs font-normal text-muted-foreground" />
-        }
-      >
-        {MWR_LABEL}
-      </TooltipTrigger>
-      <TooltipContent>{MWR_HINT}</TooltipContent>
-    </Tooltip>
+    <HintPopover text={MWR_HINT} label={MWR_LABEL}>
+      <span className="text-xs font-normal">{MWR_LABEL}</span>
+    </HintPopover>
   )
 }
 

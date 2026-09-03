@@ -1,12 +1,7 @@
 import { useState, type ReactNode } from "react"
-import { Info } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { HintPopover } from "@/components/common/HintPopover"
 import { cn } from "@/lib/utils"
 
 /**
@@ -15,23 +10,9 @@ import { cn } from "@/lib/utils"
  * input, and the segmented switch used for every mode/strategy choice.
  */
 
+/** Re-export so the retirement views keep importing `Hint` from here. */
 export function Hint({ text, label }: { text: string; label?: string }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            type="button"
-            aria-label={label ? `What is ${label}?` : "What is this?"}
-            className="inline-flex cursor-help text-muted-foreground"
-          />
-        }
-      >
-        <Info className="size-3" />
-      </TooltipTrigger>
-      <TooltipContent>{text}</TooltipContent>
-    </Tooltip>
-  )
+  return <HintPopover text={text} label={label} />
 }
 
 export function HintLabel({

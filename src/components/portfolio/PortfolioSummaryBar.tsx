@@ -1,11 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import { formatSignedPercent, gainLossToneClass } from "@/lib/prices"
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip"
+import { HintPopover } from "@/components/common/HintPopover"
 import { MWR_HINT, MWR_LABEL } from "@/lib/constants/returns"
 import { HELD_ASSETS_LABEL } from "@/lib/constants/portfolio"
 
@@ -75,19 +71,14 @@ export function PortfolioSummaryBar({
                   answer — same hidden-not-zeroed convention as the hero's
                   XIRR chip. */}
               {totalMwrPct != null && (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <span className="cursor-default text-sm text-muted-foreground" />
-                    }
-                  >
+                <HintPopover text={MWR_HINT} label={MWR_LABEL} align="start">
+                  <span className="text-sm">
                     {MWR_LABEL}{" "}
                     <span className={gainLossToneClass(totalMwrPct)}>
                       {formatSignedPercent(totalMwrPct)}
                     </span>
-                  </TooltipTrigger>
-                  <TooltipContent>{MWR_HINT}</TooltipContent>
-                </Tooltip>
+                  </span>
+                </HintPopover>
               )}
             </div>
             {/* The split and the income line are desktop detail; the phone

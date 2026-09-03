@@ -51,7 +51,12 @@ export default function UserMenu() {
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button variant="ghost" size="icon-sm" title="Account">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Account"
+              className="max-sm:size-10"
+            >
               <User className="size-4" />
               <span className="sr-only">Account menu</span>
             </Button>
