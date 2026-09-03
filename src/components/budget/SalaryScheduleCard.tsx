@@ -11,7 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useBudgetContext } from "@/contexts/BudgetContext"
-import { formatCurrency } from "@/lib/prices"
+import { useDisplayCurrency } from "@/contexts/DisplayContext"
+import { formatMoney } from "@/lib/prices"
 import {
   SUPPORTED_FIAT_CURRENCIES,
   type FiatCurrency,
@@ -23,9 +24,14 @@ import { monthLabel } from "@/components/budget/display"
  * The salary schedule: default monthly income rows with effective-from
  * months. The latest row at or before a month fills that month's income when
  * it has no explicit entry. Raises are appended as new rows (history stays).
+ *
+ * A row's amount is money in its OWN currency (what was typed, never
+ * re-denominated), and it masks under the privacy toggle like every other
+ * amount on the page.
  */
 export function SalaryScheduleCard() {
   const { incomeDefaults, createDefault, removeDefault } = useBudgetContext()
+  const { obfuscated } = useDisplayCurrency()
   const [month, setMonth] = useState("")
   const [amount, setAmount] = useState("")
   const [currency, setCurrency] = useState<FiatCurrency>(
@@ -74,7 +80,7 @@ export function SalaryScheduleCard() {
                 <span>
                   from <span className="font-medium">{monthLabel(d.effective_from.slice(0, 7))}</span>
                   {": "}
-                  {formatCurrency(d.amount, d.currency as FiatCurrency)} / month
+                  {formatMoney(d.amount, d.currency as FiatCurrency, obfuscated)} / month
                 </span>
                 <Button
                   variant="ghost"
