@@ -127,6 +127,11 @@ export const FILTERABLE_TYPES: TransactionFilterType[] = [
   TRANSACTION_TYPES.TAX,
 ]
 
+/** The one name for recording a transaction — the page button, the row "+",
+ *  the asset header and the dialog itself. */
+export const ADD_TRANSACTION_LABEL = "Add Transaction"
+export const EDIT_TRANSACTION_LABEL = "Edit Transaction"
+
 /** The bulk editor's header actions — labels double as accessible names when
  *  the visible text collapses on a phone. */
 export const ADD_ROW_LABEL = "Add row"

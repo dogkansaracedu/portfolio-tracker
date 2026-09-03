@@ -11,6 +11,7 @@ import type {
   Transaction,
 } from "@/types/database"
 import type { HoldingWithDetails } from "@/lib/queries/holdings"
+import { CATEGORY_LABELS } from "@/lib/constants/assets"
 import type { AssetPnL, HoldingPnL } from "@/lib/pnl/types"
 // Type-only import — erased at build, so no runtime cycle with usePortfolio.
 import type {
@@ -19,17 +20,6 @@ import type {
   GroupBy,
   SortBy,
 } from "@/hooks/usePortfolio"
-
-// ─── Category labels ────────────────────────────────────────────────
-
-export const CATEGORY_LABELS: Record<string, string> = {
-  fiat: "Fiat",
-  crypto: "Crypto",
-  gold: "Gold",
-  stock_us: "US Stocks",
-  stock_bist: "BIST Stocks",
-  fund: "Funds",
-}
 
 // ─── Snapshot-derived lookups ───────────────────────────────────────
 

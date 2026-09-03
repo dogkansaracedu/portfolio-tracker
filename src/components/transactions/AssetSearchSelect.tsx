@@ -15,14 +15,8 @@ import { Badge } from "@/components/ui/badge"
 import { ChevronsUpDown, Check } from "lucide-react"
 import type { Asset } from "@/types/database"
 import { AssetIcon } from "@/components/common/AssetIcon"
+import { CATEGORY_LABELS } from "@/lib/constants/assets"
 
-const CATEGORY_LABELS: Record<string, string> = {
-  fiat: "Fiat",
-  crypto: "Crypto",
-  gold: "Gold",
-  stock_us: "US Stock",
-  stock_bist: "BIST",
-}
 
 interface Props {
   assets: Asset[]
