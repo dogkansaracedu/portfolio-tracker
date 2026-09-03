@@ -94,6 +94,11 @@ tax rate, the unrealized return headlines **net of the tax accrual**, with the
 gross figure and the deducted tax annotated beside it — the same row-level rule
 as the Portfolio page (Component 8). Untaxed assets render plain gross. The
 daily return stays gross (tax is on the cumulative gain, not one day's move).
+The percent beside a net amount is the **net** percent — measured on the same
+money. When a taxed position has no cost base to divide by, there is no net
+percent to show and the percent is **absent** (the hidden-not-zeroed rule, as
+everywhere else): a net amount is never paired with a gross percent, which
+reads as one figure disagreeing with itself.
 
 **Sold-out positions.** When the live balance is zero, the position summary
 states there is no current position and shows the lifetime **total return**

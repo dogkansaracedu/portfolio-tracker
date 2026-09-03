@@ -170,10 +170,16 @@ export function AssetPositionSummary({
   const netUsd = taxed
     ? enriched.unrealizedPnlUsd - enriched.taxAccrualUsd
     : enriched.unrealizedPnlUsd
-  const netPct =
-    taxed && enriched.costBasisUsd > 0
+  // The percent has to measure the same money as the figure beside it. On a
+  // taxed position with no cost base to divide by there is no net ratio, so
+  // the percent is absent rather than the gross one — pairing a net amount
+  // with a gross percent read as a single figure that disagreed with itself.
+  // (Absent, never "—": the hidden-not-zeroed convention.)
+  const netPct = taxed
+    ? enriched.costBasisUsd > 0
       ? (netUsd / enriched.costBasisUsd) * 100
-      : enriched.unrealizedPnlPct
+      : null
+    : enriched.unrealizedPnlPct
 
   const avgCostUsd =
     enriched.totalBalance > 0 ? enriched.costBasisUsd / enriched.totalBalance : null
