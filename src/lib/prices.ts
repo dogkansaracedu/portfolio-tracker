@@ -62,11 +62,16 @@ export function formatCompactCurrency(
 }
 
 /**
- * What a chart's MONEY axis does under the privacy toggle.
+ * Whether a chart's MONEY axis writes its labels, and the gutter they need.
  *
- * Hidden amounts drop the axis labels ENTIRELY — the axis keeps its scale, so
- * the plotted shape is unchanged, but nothing is written beside it. Two reasons
- * this is not a per-tick {@link obfuscate}:
+ * The privacy toggle is the usual reason to drop them, and the rest of this
+ * note is about that case; a caller may also pass `true` when the axis is
+ * calibrated but its labels would say something untrue (the hero's Performance
+ * mode plots a flow-free percent, so money read off that ruler is not money
+ * made). Either way the axis keeps its scale — the plotted shape and anything
+ * anchored to the axis are unchanged, but nothing is written beside it.
+ *
+ * Two reasons this is not a per-tick {@link obfuscate}:
  * - a masked tick is not free. Five identical dot-rows at 11px read as stray
  *   gridlines, and they hold the gutter (up to 56px of a 390px phone chart)
  *   open to say nothing. Dropping them gives that width back to the plot.
@@ -89,10 +94,10 @@ export interface MoneyAxisLabels {
 }
 
 export function moneyAxisLabels(
-  obfuscated: boolean,
+  hidden: boolean,
   visible: { fontSize: number; width?: number }
 ): MoneyAxisLabels {
-  if (obfuscated) return { tick: false, width: 0 }
+  if (hidden) return { tick: false, width: 0 }
   return { tick: { fontSize: visible.fontSize }, width: visible.width }
 }
 

@@ -269,8 +269,8 @@
   chip are gated behind `timeRange !== "1D"` (a single daily index close can't draw
   an intraday line); the 1D series comes from `buildIntradaySeries` (see the
   `useDashboardHero` 1D branch above) and the tooltip shows HH:mm times.
-- Left (currency) axis in P&L mode is still drawn for scale, calibrated so the
-  percent lines aren't clipped. **The round step is picked in percent**:
+- Left (currency) axis in P&L mode is still drawn for scale (unlabelled — see
+  below), calibrated so the percent lines aren't clipped. **The round step is picked in percent**:
   `niceTicks` runs over the *percent* extent (giving 0.5 / 1 / 2 / 5 … steps on
   the axis both lines actually plot on) and the left axis's money ticks are
   derived from it as `(pct / 100) × denom` — the inverse of the old order, which
@@ -281,14 +281,26 @@
   Both `<Area>`s sit on the `compare` (%) axis; Recharts will not build a scale
   for a `<YAxis>` that no graphical item references unless its domain is declared
   authoritative (`parseNumericalUserDomain` bails out on a null data domain while
-  `allowDataOverflow` is false). Without it the axis silently rendered **zero tick
-  labels while still reserving its 56px gutter**, and the `ReferenceLine
-  yAxisId="primary" y={0}` anchored to it drew nothing — from `3ffb6a9` (the TWR
-  race, which moved the money `<Area>` off this axis) until `0.14.2`. `domain` and
-  `ticks` are both derived from the same round percent ticks the right axis uses,
-  so nothing can overflow them and the two axes stay tick-for-tick aligned. The
-  flag is gated on `viewMode === "pnl"`: in Value mode the axis has its own data
-  and an `["auto", "auto"]` domain. Tooltip rows show **You (TWR)** / **You (MWR)**
+  `allowDataOverflow` is false). Without it the axis got no scale at all, which
+  silently took the `ReferenceLine yAxisId="primary" y={0}` anchored to it with
+  it — from `3ffb6a9` (the TWR race, which moved the money `<Area>` off this
+  axis) until `0.14.2`. `domain` and `ticks` are both derived from the same round
+  percent ticks the right axis uses, so nothing can overflow them and the two
+  axes stay tick-for-tick aligned. The flag is gated on `viewMode === "pnl"`: in
+  Value mode the axis has its own data and an `["auto", "auto"]` domain.
+- **It is calibrated in P&L mode but deliberately UNLABELLED** —
+  `moneyAxisLabels(obfuscated || viewMode === "pnl", …)`, the same
+  `tick={false} width={0}` treatment the privacy toggle applies, so the 56px
+  gutter goes to the plot. `pct × denom` is what the percent is worth on the
+  window's **opening balance**, not money made: the plotted line is TWR/MWR with
+  external flows removed, so on any window carrying a deposit the label
+  contradicts the card's own headline money, sign included (measured on the
+  seeded account: TWR/YTD headlines `1.25% -$155.71` while +1.25% sits at +$358;
+  MWR/ALL headlines `-0.87% $182.64` against -$383; only flow-free windows such
+  as 1D and 1M agree). The money answer for this mode lives in the headline and
+  the tooltip, both of which use `delta`/`gainSinceStart`, never the axis. Don't
+  "restore" these labels — `pnlTicks` exists to place the shared gridlines and
+  the zero line, not to be printed. Tooltip rows show **You (TWR)** / **You (MWR)**
   (`youLabel`, built once from `MEASURES` and reused by the legend dot's row —
   one label source, not a second string map) and the index (`benchmarkLabel`). The **You** row shows the
   money gained since the window start beside the percent — the hovered point's

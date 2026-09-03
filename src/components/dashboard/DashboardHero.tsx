@@ -351,8 +351,9 @@ export default function DashboardHero({
   // denom × 100 = position(right). In Performance mode BOTH plotted lines
   // live on the % axis, so the "nice" round step is picked in **percent**
   // (0.5 / 1 / 2 / 5 …) and the money ticks are derived from it — gridlines
-  // at 2.1% and 8.7% cannot be read as a comparison. The left axis then
-  // shows the money equivalent of each round percent, compact-formatted.
+  // at 2.1% and 8.7% cannot be read as a comparison. The derived money ticks
+  // are the scale the left axis is built on; they are deliberately NOT
+  // printed in this mode (see the axis below).
   const axisDomains = useMemo<{
     pnl?: [number, number]
     pct?: [number, number]
@@ -708,23 +709,44 @@ export default function DashboardHero({
                   tickLine={false}
                   minTickGap={24}
                 />
-                {/* The money axis. Hidden amounts drop its labels: the
+                {/* The money axis. It is calibrated in both modes — the zero
+                    reference line below hangs off it, and it holds the shared
+                    scale — but it prints its labels in Value mode only.
+
+                    Two reasons it goes unlabelled in Performance mode. It
+                    would be untrue: the plotted line is TWR/MWR, a percent
+                    with external flows removed, so `pct × denom` is what that
+                    percent is worth on the window's opening balance, not money
+                    made. Measured on real data it contradicts the money the
+                    same card prints two lines above — TWR/YTD headlines
+                    `1.25% -$155.71` while the axis puts 1.25% at +$358, and
+                    MWR/ALL headlines `-0.87% $182.64` against -$383 — the
+                    wrong side of zero, not merely imprecise. And it is not
+                    free: the labels hold a 56px gutter open, a quarter of the
+                    chart on a phone, to restate less precisely a figure the
+                    headline already gives in full.
+
+                    Hidden amounts drop the labels in Value mode too: the
                     headline above is masked, and a labelled axis under a
                     to-scale line hands the same figure back off a ruler. */}
                 <YAxis
                   yAxisId="primary"
-                  {...moneyAxisLabels(obfuscated, { fontSize: 11, width: 56 })}
+                  {...moneyAxisLabels(obfuscated || viewMode === "pnl", {
+                    fontSize: 11,
+                    width: 56,
+                  })}
                   axisLine={false}
                   tickLine={false}
                   domain={axisDomains.pnl ?? ["auto", "auto"]}
                   ticks={axisDomains.pnlTicks}
                   // In Performance mode both plotted series live on the
                   // `compare` (%) axis, so this one carries no data — and a
-                  // dataless axis gets no scale (and therefore no ticks, and
-                  // no zero reference line) unless its domain is declared
-                  // authoritative. It is: the domain and ticks below are
-                  // derived from the same round percent ticks the right axis
-                  // uses, so there is nothing here that could overflow them.
+                  // dataless axis gets no scale at all unless its domain is
+                  // declared authoritative, which silently took the zero
+                  // reference line below with it. It is authoritative: the
+                  // domain and ticks are derived from the same round percent
+                  // ticks the right axis uses, so there is nothing here that
+                  // could overflow them, and the two axes stay tick-aligned.
                   allowDataOverflow={viewMode === "pnl"}
                   tickFormatter={(v: number) => formatCompactCurrency(v, currency)}
                 />
