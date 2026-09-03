@@ -146,7 +146,7 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                     Income
                     <HintPopover
                       text={INCOME_EDIT_COPY.columnHint}
-                      align="end"
+                      align="start"
                     />
                   </span>
                 </TableHead>
