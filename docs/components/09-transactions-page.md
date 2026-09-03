@@ -96,7 +96,10 @@ and portfolio views exactly.
 - **Activity summary.** Above the log, a small set of stats describes the
   **currently filtered** set: transaction count, total buy volume, total sell
   volume. Volumes are normalized to a common currency via dated FX so mixed-
-  currency activity is comparable.
+  currency activity is comparable, then **converted** into the display currency
+  for showing — switching the display currency changes the figure, not just its
+  symbol. They follow the privacy toggle like every other money figure; the count
+  does not.
 - **Edit.** Any transaction is editable. Editing re-runs the same balance-recompute
   and cash-leg reconciliation as creation: the affected [holding](GLOSSARY.md#holding)
   balance(s) are recalculated (on both the old and new asset/platform if they
@@ -163,8 +166,10 @@ and portfolio views exactly.
   sell volume, and the filters collapse behind a single "Filters (n)" trigger
   that counts what the user actually narrowed (the default date window does not
   count towards it) — so the first transaction is on screen without
-  scrolling. From the medium width up the title returns; from the small width up
-  the summary is three cards and the filters are always open.
+  scrolling. From the medium width up the title returns and the filters are always
+  open. The summary keeps its one-strip form until the **large** width, because the
+  navigation rail appears before that and leaves three cards too little room for a
+  converted lira volume; from the large width up it is three stat cards.
 - **Filters.** Date-range presets (Last 7d / Last 30d / This Year / All Time) plus
   free date pickers; an asset picker; a platform picker; type chips (toggle on/off) —
   including a **Transfer** chip carrying the same neutral label and colour as the
@@ -211,7 +216,9 @@ and portfolio views exactly.
 - [ ] Filtering to **Withdrawal** shows no internal transfer pair; the pair appears
       under **Transfer**, and **Deposit** shows only lone incoming transfers.
 - [ ] The activity summary reflects the **filtered** set (count, buy volume, sell
-      volume).
+      volume), and its volumes are converted when the display currency changes.
+- [ ] No summary figure overflows its card or forces the page to scroll sideways at
+      any width, in either display currency.
 - [ ] Editing a transaction updates the affected [Holding](GLOSSARY.md#holding)
       balance(s), reconciles its linked cash leg, and re-derives P&L — no manual
       reload.

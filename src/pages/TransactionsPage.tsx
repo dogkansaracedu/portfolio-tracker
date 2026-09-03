@@ -69,7 +69,7 @@ export default function TransactionsPage() {
       </div>
 
       {/* Summary cards */}
-      <TransactionSummary summary={summary} currency={currency} />
+      <TransactionSummary summary={summary} />
 
       {/* Filters */}
       <TransactionFilters filters={filters} onFiltersChange={setFilters} />
