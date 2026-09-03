@@ -5,9 +5,9 @@
 ## Stack
 
 - **Page**: a single React route, `src/pages/SettingsPage.tsx` — a thin shell of
-  shadcn `Tabs` mounting **Assets**, **Platforms**, and **Snapshots** (its
-  `h1`/subtitle block is `hidden md:block`; on a phone the app header is the
-  only page title), plus a
+  shadcn `Tabs` mounting **Assets**, **Platforms**, and **Snapshots** (its title
+  block is the shared `PageHeading` — `src/components/common/PageHeading.tsx`,
+  `hidden md:block`; on a phone the app header is the only page title), plus a
   one-line `Link` to `BULK_ADD_ROUTE` (`/transactions/edit`, Component 4) under a
   small heading; copy in `SETTINGS_COPY` (`lib/constants/app.ts`). The Assets
   and Platforms tabs render Component 3 components (`AssetList`, `PlatformList`);

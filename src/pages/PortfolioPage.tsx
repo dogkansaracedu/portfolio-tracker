@@ -1,3 +1,4 @@
+import { PageHeading } from "@/components/common/PageHeading"
 import { PortfolioSummaryBar } from "@/components/portfolio/PortfolioSummaryBar"
 import { PortfolioFilters } from "@/components/portfolio/PortfolioFilters"
 import { PortfolioTable } from "@/components/portfolio/PortfolioTable"
@@ -28,14 +29,7 @@ export default function PortfolioPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header — the phone header already names the page, so the title and
-          its subtitle only exist from `md` up. */}
-      <div className="hidden md:block">
-        <h1 className="text-2xl font-bold">Portfolio</h1>
-        <p className="text-muted-foreground">
-          All your assets in one place.
-        </p>
-      </div>
+      <PageHeading title="Portfolio" subtitle="All your assets in one place." />
 
       {/* Summary bar */}
       <PortfolioSummaryBar

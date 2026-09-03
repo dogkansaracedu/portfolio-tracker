@@ -7,6 +7,7 @@ import { useTransactionModal } from "@/contexts/TransactionContext"
 import { TransactionSummary } from "@/components/transactions/TransactionSummary"
 import { TransactionFilters } from "@/components/transactions/TransactionFilters"
 import { TransactionList } from "@/components/transactions/TransactionList"
+import { PageHeading } from "@/components/common/PageHeading"
 import { Button } from "@/components/ui/button"
 import { PlusIcon, TableIcon } from "lucide-react"
 import { BULK_ADD_ROUTE } from "@/lib/constants/app"
@@ -47,14 +48,10 @@ export default function TransactionsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* The phone header already names the page; hiding the title block puts
-            the Add Transaction button inside the first screen. */}
-        <div className="hidden md:block">
-          <h1 className="text-2xl font-bold">Transactions</h1>
-          <p className="text-muted-foreground">
-            View and filter your transaction history.
-          </p>
-        </div>
+        <PageHeading
+          title="Transactions"
+          subtitle="View and filter your transaction history."
+        />
         <div className="flex items-center gap-2">
           <Button
             variant="outline"

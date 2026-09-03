@@ -1,13 +1,14 @@
 import { Link } from "react-router"
 import { ChevronRight } from "lucide-react"
+import { PageHeading } from "@/components/common/PageHeading"
 import { secondaryNavItems } from "@/components/layout/Sidebar"
 
 export default function MorePage() {
   return (
     <div className="space-y-6">
-      {/* The phone header already names this hub, and the hub is only ever
-          seen at phone widths — the heading exists for wider viewports. */}
-      <h1 className="hidden text-2xl font-bold md:block">More</h1>
+      {/* This hub is only ever reached at phone widths, where the header
+          already names it; the heading exists for wider viewports. */}
+      <PageHeading title="More" />
       <nav className="w-full max-w-md divide-y overflow-hidden rounded-lg border">
         {secondaryNavItems.map((item) => (
           <Link
