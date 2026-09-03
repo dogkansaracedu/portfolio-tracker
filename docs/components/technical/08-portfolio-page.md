@@ -19,14 +19,21 @@
   `usePortfolio`, renders summary bar → filters → table; threads `returnMode` +
   `dailyReturnAvailable` to the table and `returnMode`/`onReturnModeChange` to the
   filters.
-- `src/components/portfolio/PortfolioTable.tsx` — desktop `Table` + mobile card
-  list; renders group sections; swaps the return column header label
-  (`RETURN_COLUMN_LABEL_TOTAL` "P&L" ↔ `RETURN_COLUMN_LABEL_DAILY` "Today");
-  `COL_COUNT = 9`.
-- `src/components/portfolio/PortfolioGroupHeader.tsx` — full-width subtotal row;
-  picks `group.totalPnlUsd` (total) vs `group.dailyReturnUsd` + `dailyReturnPct`
-  (daily); renders "—" when `!dailyReturnAvailable`. Both modes stay **gross** —
-  the after-tax treatment lives only in `PortfolioRow`.
+- `src/components/portfolio/PortfolioTable.tsx` — the 9-column `Table` (shown
+  from `xl`, i.e. 1280px, where the 240px sidebar still leaves a container the
+  table's ~992px fits) + the card list (`xl:hidden`, every width below it —
+  between 640 and 1279 the table pushed Value / P&L / Alloc off the edge while
+  the cards show every figure). Swaps the return column header label
+  (`RETURN_COLUMN_LABEL_TOTAL` "P&L" ↔ `RETURN_COLUMN_LABEL_DAILY` "Today").
+  Also holds `MobileGroupHeader`, which renders `useGroupFigures` on one line.
+- `src/components/portfolio/PortfolioGroupHeader.tsx` — the group row as **real
+  cells**: label (`colSpan={2}`), an empty `colSpan={3}` over
+  Quantity/Bought/Price, the subtotal in Value, the return in the return column,
+  an empty `colSpan={2}` over Alloc + the row action. Exports `useGroupFigures`
+  (value / return / "—" rule) so the card list cannot drift from it. Picks
+  `group.totalPnlUsd` (total) vs `group.dailyReturnUsd` + `dailyReturnPct`
+  (daily). Both modes stay **gross** — the after-tax treatment lives only in
+  `PortfolioRow`.
 - `src/components/portfolio/PortfolioRow.tsx` — exports **both** the desktop
   `PortfolioRow` and the mobile `PortfolioRowCard`. Both render
   `<InterestBadge assetId>` next to the ticker — **Component 16's** per-row
@@ -88,8 +95,10 @@
 - Composes `useAssets` + `useHoldings` + `usePrices` + `useSnapshots` + `usePnL`.
   `transactions` and `rates` (destructured `rates: txRates` to avoid colliding
   with `usePrices().rates`) come from `usePnL`'s existing return — no extra fetch.
-- `returnMode` is `useState<ReturnMode>("total")` (alongside `search`/`groupBy`/
-  `sortBy`); `ReturnMode = "total" | "daily"`. Not persisted.
+- `groupBy`, `sortBy` and `returnMode` are `usePersistedState` (localStorage keys
+  `portfolio.groupBy` / `portfolio.sortBy` / `portfolio.returnMode`), the same
+  helper the dashboard hero uses; `search` stays `useState` (per-visit).
+  `ReturnMode = "total" | "daily"`.
 - `snapshotLookups` (latest = `snapshots[len-1]`): per-ticker and per-(ticker,
   platform) `price_usd` maps + a snapshot-recorded `usd_try` fallback. Value =
   `bnBalance.times(snapshotPrice)`, falling back to the live price when the
@@ -165,8 +174,12 @@ Used at both asset and (asset, platform) granularity; group rollups reuse
   the period has no row (`totalBalance > 0` filter), so the visible daily-return
   rows can sum to slightly less than the dashboard hero's 1D delta on an exit day.
   Consistent with how lifetime return also omits sold-out positions.
-- **Daily figures are USD-only** (the return column is USD even when the display
-  toggle is TRY) — matches the P&L column; neither is wired to the currency toggle.
+- **Every money figure follows the display currency** via `useDisplayMoney`
+  (`src/hooks/useDisplayMoney.ts`): the summary bar, the row return (incl. the
+  gross/tax annotations), group subtotals and the daily return. The hook
+  converts a USD-anchored number at today's `usd_try` with BigNumber and applies
+  `obfuscate` — presentation only; nothing upstream of it changes. The two
+  per-unit price columns deliberately bypass it (asset-native prices).
 - **Asset drill-down:** the asset cell (desktop row and mobile card) links to
   the asset detail page `/assets/:assetId` (Component 12); the transactions
   edit route is reachable from there.

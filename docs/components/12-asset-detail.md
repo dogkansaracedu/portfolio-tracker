@@ -167,7 +167,11 @@ trail, cash legs included, remains on the Transactions page.
 
 **Consistency rules.** Display-currency toggle and amount obfuscation apply
 exactly as on the Portfolio page (percentages stay visible when amounts are
-obfuscated). All signed figures use the canonical gain/loss palette. All
+obfuscated) — which means **every money figure on this screen, P&L included,
+renders in the selected display currency**; only the per-unit prices (header
+price, average unit cost) stay asset-native with a USD equivalent. Conversion is
+presentation only; the figures are computed against the
+[USD anchor](GLOSSARY.md#usd-anchor). All signed figures use the canonical gain/loss palette. All
 figures are computed by the same engines as the Portfolio/Dashboard — this
 screen introduces **no new P&L math**, only a new composition of existing
 figures.
@@ -196,17 +200,25 @@ session: selected time range, price-series visibility (neither persisted).
 - **Header row:** back navigation, icon + ticker + name, category/tag badges,
   current price (native + USD), and actions: "record transaction" (pre-filled
   with this asset) and a link to the transaction editor.
-- **Position summary:** a compact stat strip/cards — quantity, value, avg cost,
-  allocation, total return (amount + money-weighted %, the muted ≈%/yr line
-  beneath when available), unrealized return (net headline + gross/tax
-  annotation when taxed), realized (amount + %), daily return. Sold-out: a
-  muted "no current position" line with the lifetime total return and realized
-  P&L.
+- **Position summary:** stat cards in two tiers. The three figures this screen
+  exists to answer — **value, total return and the daily return** — are set
+  larger and come **first**; quantity, average unit cost and allocation are the
+  supporting tier beneath. Every card keeps the same height so the two tiers do
+  not stagger the grid. Total return carries its money-weighted %, and the
+  measure's name (**MWR**) sits inline after it on the same line as the muted
+  ≈%/yr reading — never a third line — with one app-wide explainer reachable by
+  **hover and tap** (a hover-only hint is invisible on a phone). Unrealized
+  shows the net headline + gross/tax annotation when taxed; realized shows
+  amount + %. Sold-out: a muted "no current position" line with the lifetime
+  total return and realized P&L.
 - **Per-platform table:** platform (color dot + name), quantity, cost basis,
   value, return — rendered only when there is at least one nonzero slice.
 - **Chart:** area for value, step line for cost basis on the same axis, line
   for unit price on a secondary axis; tooltip showing date, value, cost basis,
-  and price; range selector above; toggles for the cost-basis and price series.
+  and price; a range selector above in the app's pick-one control idiom, with
+  the cost-basis / price series toggles rendered as **on-off toggles beside it**
+  — visibly a different kind of control, because they are independent switches,
+  not a choice of one. Axis ticks keep enough gap not to overprint.
   Responsive; on small screens the chart stacks above the tables.
 - **Income & costs:** small labeled cards (income / taxes / fees), only the
   nonzero ones.
@@ -240,8 +252,8 @@ session: selected time range, price-series visibility (neither persisted).
       page).
 - [ ] The realized amount carries a % over the sold lots' FIFO cost basis,
       omitted when nothing was realized.
-- [ ] Income (dividends+interest), taxes, and fees show lifetime USD totals;
-      zero-valued cards are omitted.
+- [ ] Income (dividends+interest), taxes, and fees show their lifetime totals in
+      the display currency; zero-valued cards are omitted.
 - [ ] The inline transaction list matches the Transactions page presentation
       (type badges, linked legs, realized annotations), newest first.
 - [ ] No `cash_credit` / `cash_debit` row appears on this screen for any asset;
@@ -250,4 +262,9 @@ session: selected time range, price-series visibility (neither persisted).
 - [ ] A sold-out asset renders fully (realized headline, chart, income/costs,
       transactions); an unknown asset id shows the not-found state.
 - [ ] Display currency, obfuscation (percentages stay visible), and gain/loss
-      colors behave exactly as on the Portfolio page.
+      colors behave exactly as on the Portfolio page — including **zero being
+      neutral**, and P&L rendering in ₺ in TRY mode.
+- [ ] Value, total return and the daily return are visibly the largest figures in
+      the summary, and appear before the supporting ones.
+- [ ] The total return's % is labelled with its measure inline, and the
+      explainer is reachable on a touch screen.

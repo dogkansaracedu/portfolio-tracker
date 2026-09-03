@@ -5,7 +5,9 @@
 ## Stack
 
 - **Page**: a single React route, `src/pages/SettingsPage.tsx` — a thin shell of
-  shadcn `Tabs` mounting **Assets**, **Platforms**, and **Snapshots**. The Assets
+  shadcn `Tabs` mounting **Assets**, **Platforms**, and **Snapshots**, plus a
+  one-line `Link` to `BULK_ADD_ROUTE` (`/transactions/edit`, Component 4) under a
+  small heading; copy in `SETTINGS_COPY` (`lib/constants/app.ts`). The Assets
   and Platforms tabs render Component 3 components (`AssetList`, `PlatformList`);
   this component owns only the **Snapshots** tab.
 - **Preferences via React Context** (not next-themes — see gotcha):
@@ -25,8 +27,8 @@
 
 | File | Role |
 | --- | --- |
-| `src/pages/SettingsPage.tsx` | Shell: `Tabs` = Assets / Platforms / Snapshots. Mounts `AssetList`, `PlatformList` (Component 3) and `SnapshotBackfillCard`. |
-| `src/components/settings/SnapshotBackfillCard.tsx` | The only Component-11-owned UI. `useState` for `granularity` (`"monthly" \| "tx_dates"`), `overwrite`, `running`, `lastResult`. Renders granularity buttons, overwrite checkbox, Run button, and a result/`Stat` panel with a warnings list. |
+| `src/pages/SettingsPage.tsx` | Shell: `Tabs` = Assets / Platforms / Snapshots. Mounts `AssetList`, `PlatformList` (Component 3) and `SnapshotBackfillCard`, then the muted "Import transactions → Bulk add" link. |
+| `src/components/settings/SnapshotBackfillCard.tsx` | The only Component-11-owned UI. `useState` for `granularity` (`"monthly" \| "tx_dates"`), `overwrite`, `running`, `lastResult`. Renders the granularity `SegmentedControl` (the app-wide pick-one idiom), overwrite checkbox, Run button, and a result/`Stat` panel with a warnings list. |
 | `src/contexts/ThemeContext.tsx` | Hand-rolled theme context. `localStorage` key **`"theme"`** (`"light"\|"dark"`); falls back to `prefers-color-scheme`. Effect toggles `.dark` on `<html>` and sets `colorScheme`. Exposes `useTheme()` → `{ theme, toggleTheme, setTheme }`. |
 | `src/components/common/ThemeToggle.tsx` | Ghost icon button (Sun/Moon) calling `toggleTheme()`. Lives in global chrome, not the Settings page. |
 | `src/contexts/DisplayContext.tsx` | Display currency + obfuscation. `localStorage` keys **`"portfolio-display-currency"`** (`"USD"\|"TRY"`, default USD) and **`"portfolio-obfuscated"`**. Exposes `useDisplayCurrency()` → `{ currency, toggleCurrency, obfuscated, toggleObfuscated }`. |
