@@ -586,6 +586,9 @@ What a [vehicle](#vehicle) has really cost since purchase: the sum of every
 [depreciation](#depreciation-vehicle). Cash and capital are shown side by side
 and then summed; the total is null whenever depreciation is.
 
+Every **stored** amount it is built from renders in the currency it was
+recorded in; only the derived aggregates follow the display currency.
+
 Quoted in **two denominators**, because its two halves accrue differently:
 fixed costs (plus depreciation) per **month**, variable costs per **km**. A
 single blended per-km figure is also offered, last, and never without the

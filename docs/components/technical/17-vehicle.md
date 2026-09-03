@@ -2,7 +2,7 @@
 
 > Layer: React/Vite/Supabase implementation. Contract → [../17-vehicle.md](../17-vehicle.md)
 >
-> **Status: built and shipped** (v0.16.0). Every path below is a real pointer.
+> **Status: built and shipped** (v0.16.0; UX-review fixes in v0.16.1). Every path below is a real pointer.
 
 ## Stack
 
@@ -25,26 +25,25 @@
 | `supabase/migrations/20260904120000_vehicle.sql` | Four tables + indexes + RLS. Carries the design rationale in comments (one ledger, blank-means-ignore, nullable amount). |
 | `src/lib/constants/vehicle.ts` | Route and table names, `VEHICLE_DEFAULT_CURRENCY`, `VEHICLE_COST_CATEGORIES` (+ labels, fixed/variable split), `MAINTENANCE_STATUS` (+ `MaintenanceStatus`), `MAINTENANCE_DUE_SOON_PCT` / `MAINTENANCE_OVERDUE_PCT`, `MAINTENANCE_STATUS_RANK` / `_LABELS` / `_BAR_CLASSES` / `_TEXT_CLASSES`, `VEHICLE_ALERT_*`, `FUEL_ECONOMY_*`, `DEFAULT_MAINTENANCE_PLAN` (the seeded plan, each row sourced in a comment), `TSB_KASKO_VALUE_URL`, and **all** user-visible copy (`VEHICLE_COPY`). |
 | `src/lib/vehicle/schedule.ts` | Pure schedule engine: `addDaysIso`, `addMonthsIso`, `odometerReadings`, `odometerView`, `maintenanceItemState`, `maintenancePlanState`, `dueItems`, `nextUpItem`. Types `OdometerReading`, `OdometerView`, `MaintenanceItemState`. |
-| `src/lib/vehicle/costs.ts` | Pure cost engine: `computeOwnershipCost`, `computeOpportunityCost`. Types `OwnershipCost`, `OpportunityCost`, `CategoryTotal`. |
+| `src/lib/vehicle/costs.ts` | Pure cost engine: `computeOwnershipCost`, `computeOpportunityCost`. Types `OwnershipCost`, `OpportunityCost`. |
 | `src/lib/vehicle/fuel.ts` | Pure `computeFuelEconomy` (full-tank segmentation). Types `FuelEconomy`, `FuelSegment`. |
 | `src/lib/vehicle/index.ts` | Barrel, matching `lib/budget` / `lib/retirement`. |
 | `src/lib/vehicle/schedule.test.ts` | Vitest (27 cases): calendar-month clamping, odometer collection and pace, backwards readings, the drive-belt case end to end, the reset rule (only named items, same-day tie, multi-item visit, null amount), the two dimensions incl. dormant, the 90/100% boundaries, threshold scaling, plan ordering. |
-| `src/lib/vehicle/costs.test.ts` | Vitest (15 cases): lira-gain/dollar-loss depreciation, per-date vs today's-rate conversion, null-value propagation, null amounts, the fixed/variable split and both denominators, distance edge cases, opportunity cost incl. null rate and a negative rate. |
+| `src/lib/vehicle/costs.test.ts` | Vitest (14 cases): lira-gain/dollar-loss depreciation, per-date vs today's-rate conversion, null-value propagation, null amounts, the fixed/variable split and both denominators, distance edge cases, opportunity cost incl. null rate and a negative rate. |
 | `src/lib/vehicle/fuel.test.ts` | Vitest (12 cases): the two-full-tank rule, partial fills folded in, distance-weighted average, withheld readings on missing litres or a missing odometer, same-day ordering, per-date fuel pricing. |
 | `src/lib/queries/vehicle.ts` | CRUD for all four tables, plus `seedMaintenancePlan` (one bulk insert from the template) and `setEntryItems` (delete-then-insert the join rows). `fetchCostEntries` nests the join table and flattens it to `item_ids`. |
 | `src/contexts/VehicleContext.tsx` | Provider: `{ vehicles, items, entries, loading, error, refresh, addVehicle, editVehicle, removeVehicle, addItem, editItem, removeItem, seedPlan, addEntry, editEntry, removeEntry }`. Loads all three tables in one `Promise.all`; writes patch the local lists in place. Mounted innermost in `src/main.tsx`. |
 | `src/hooks/useVehicle.ts` | `useVehicle(vehicleId?)` composes the stored rows with rates and the portfolio rate into everything the page renders. `useVehicleAlerts()` is the banner's separate, cheaper path. |
-| `src/components/vehicle/display.ts` | Render-side wording, kept out of the components and out of the pure lib: `NO_DATA`, `formatKm`, `formatVehicleDay`, `statusLabel`, `formatInterval`, `remainingPhrase`, `duePhrase`, `lastDonePhrase`, `formatConsumption`, `formatLitres`, `formatMonths`, `formatUsedPct`, `projectionLabel`. |
-| `src/components/vehicle/MaintenanceChart.tsx` | The chart (one meter per item, with edit/delete) **and** `DueSummary` (the next-visit bundle). |
-| `src/components/vehicle/CostOfOwnershipCard.tsx` | The headline: cash / depreciation / total, the two denominators, the denominators' own values, and the capital-tied-up block. |
-| `src/components/vehicle/CostBreakdown.tsx` | Cash spend by category as ranked bars. |
+| `src/components/vehicle/display.ts` | Render-side wording, kept out of the components and out of the pure lib: `NO_DATA`, `formatKm`, `formatVehicleDay`, `statusLabel`, **`formatMonthSpan`** / **`formatDaySpan`** (the one span convention — days to a quarter, then months, then years), `formatInterval`, `remainingPhrase`, `duePhrase`, `lastDonePhrase`, `formatShortDay` (the narrow-screen date, so a table row keeps room for its actions), `formatConsumptionValue` / `formatConsumption`, `formatLitres`, `formatMonths`, `formatUsedPct`, `projectionLabel`. |
+| `src/components/vehicle/MaintenanceChart.tsx` | The chart (one meter per item, with edit/delete, the item's note behind a `HintPopover`, and `showProjection` gating the projected-date line) **and** `DueSummary` (the next-visit bundle plus its "Log this visit" action). |
+| `src/components/vehicle/CostOfOwnershipCard.tsx` | The headline: cash / depreciation / total, the two denominators, the denominators' own values, and the capital-tied-up block. Takes the `vehicle` so the purchase price and current value render in their **own** recorded currency. |
 | `src/components/vehicle/FuelCard.tsx` | Average / best / worst consumption, litres and price per litre; the withheld-figure explanation. |
 | `src/components/vehicle/VehicleReadingsCard.tsx` | Odometer and market value, both updated in place and stamped today; the pace figure, the backwards-reading warning, and the TSB link. |
 | `src/components/vehicle/CostEntryForm.tsx` | Add/edit a cost entry, including the fuel-only fields and the item checkboxes that reset intervals. |
 | `src/components/vehicle/MaintenanceItemForm.tsx` | Add/edit a plan item — two free numeric interval boxes, both optional. |
 | `src/components/vehicle/VehicleForm.tsx` | Add/edit the car; on create, the caller seeds the default plan. |
-| `src/components/dashboard/VehicleAlerts.tsx` | The two dashboard banners, mirroring `InterestAlerts` (same tones, named-then-summarized list, session dismissal). |
-| `src/pages/VehiclePage.tsx` | Composes the page; owns every dialog and confirmation. |
+| `src/components/dashboard/VehicleAlerts.tsx` | **One** dashboard banner covering both loud statuses (overdue first, taking their tone), borrowing `InterestAlerts`' shape but not its two-banner split. |
+| `src/pages/VehiclePage.tsx` | Composes the page; owns every dialog and confirmation. `vehicleSubtitle` renders the car identity. Layout order: cost card, then the due bundle **beside** the readings card (they share a `lg:grid-cols-2` row — a short list alone at full content width throws its figures a thousand pixels from their labels), then the plan, fuel, ledger. |
 
 Edits to **existing** files:
 
@@ -56,7 +55,7 @@ Edits to **existing** files:
 | `src/lib/constants/navigation.ts` | Secondary nav entry (`Car` icon), between Campaigns and Settings. |
 | `src/pages/DashboardPage.tsx` | `<VehicleAlerts />` under `<InterestAlerts />`. |
 | `docs/components/GLOSSARY.md` | Eleven new entries (vehicle, cost entry, cost category, maintenance item, interval used, status ladder, depreciation, cost of ownership, foregone return, fuel economy). |
-| `package.json` / `CHANGELOG.md` | 0.15.0 → 0.16.0. |
+| `package.json` / `CHANGELOG.md` | 0.15.0 → 0.16.0, then 0.16.1 for the review fixes. |
 
 ## Schema (as shipped)
 
@@ -143,6 +142,30 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
 - `removeItem` also strips the id from every local entry's `item_ids`, mirroring
   the database's cascade on the join table — otherwise the schedule would keep
   anchoring on an item that no longer exists until the next refresh.
+- **Every dialog `<form>` carries `className="contents"`.** Without it the form
+  is a `display: block` box between `DialogContent`'s flex column and
+  `DialogBody`, so the body's `min-h-0 flex-1 overflow-y-auto` is inert and the
+  footer lands below the viewport on a phone (measured 172px below the fold on
+  Add cost). Every dialog in the repo does this; mine did not, until a UX review
+  measured it. The checkbox list's `max-h-44` clamp was a workaround for the
+  same symptom and was removed with the cause.
+- **A `SelectValue` with no children renders the raw value**, so the category
+  trigger read "fuel" and would have read "tax" instead of "Tax (MTV)". The
+  app-wide convention is to resolve the label inside it; both currency triggers
+  pass their value explicitly for the same reason.
+- **A stored fact renders in its own recorded currency.** The cost card's
+  footnote used `useDisplayMoney` for the purchase price and current value,
+  which put the same hand-typed value on screen twice with two different
+  numbers (₺903,600 in the readings card, ₺904,464 in the cost card — the second
+  being a USD normalization re-converted at today's rate). Only derived
+  aggregates follow the display toggle.
+- **`Figure`'s label row is `min-h-6`.** A `HintPopover` trigger is a 40px tap
+  target on a phone against a bare label's 16px, which knocked the figures in a
+  row off their shared baseline — in the one card whose whole argument is that
+  cash and depreciation are comparable halves.
+- **Odometer readings are not masked** by the privacy toggle. The schedule
+  prints dozens of km figures that cannot be masked without destroying it, so
+  masking one reading hid nothing and read as a bug.
 - All three dialogs re-seed on the **closed→open transition, during render**
   (the `wasOpen` pattern from `ScenarioNameDialog` / `InterestPositionForm`), not
   in a `useEffect`: callers build `prefillItemIds` inline, so an effect keyed on
@@ -181,6 +204,24 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
 - **Delete-car shipped** with a confirmation. It was not asked for, but the
   confirmation dialog was already written and an unreachable dialog is a bug;
   the alternative was a CRUD surface with no way to undo a mistyped car.
+- **The category-breakdown card was built and then cut** in the post-build UX
+  review, along with `byCategory` in `costs.ts` and its test. It re-sliced
+  `cashUsd`, which the headline already shows and the ledger already itemizes,
+  and its bars used `bg-primary` — the app's gain colour — on a chart of money
+  spent. Restoring it is one component plus one fold.
+- **`DueSummary` gained a "Log this visit" action** in the same review. The
+  `prefillItemIds` plumbing had shipped with no caller, which made the bundle a
+  list you could read but not act on. `emptyForm` defaults the category to
+  `maintenance` when items are pre-ticked — it had stayed on `fuel`, which
+  filed a servis visit as a fill and showed the litres fields.
+- **Label rows in `Figure` carry `max-sm:min-h-10`, not just `min-h-6`.** The
+  first attempt matched only the bare labels, leaving the row with a
+  `HintPopover` 16px taller — the review caught that the pair still did not
+  share a baseline.
+- **The ledger's date is short below `sm`.** Making it `whitespace-nowrap` (to
+  stop a four-line wrap at 320px) widened the table enough to push the row's
+  delete action outside the scroll container, so the narrow form is the short
+  date rather than a wrapped long one.
 
 ## Open questions / recorded extensions
 

@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.16.1] — 2026-09-04
+- Vehicle page fixes from its UX review: the Save button in all three dialogs
+  was below the fold on a phone, the cost card and the readings card disagreed
+  about the car's current value, the category dropdown showed "fuel" instead of
+  "Fuel", and a dormant maintenance item read "Every Not tracked".
+- Spans now read in one unit everywhere ("Every 2 years", not "Every 24
+  months"; years rather than "1,691 days left"), the fuel figures no longer
+  wrap on a narrow screen, and the car's make/model/year/plate is finally shown
+  — on a phone it was the only thing missing that said which car you were
+  looking at.
+- The two maintenance banners are now one, so the dashboard still leads with
+  your portfolio; "Due at your next service" got a button that logs the whole
+  bundle at once; and the spend-by-category card was dropped as duplication.
+
 ## [0.16.0] — 2026-09-04
 - New **Vehicle** page: what your car has really cost since you bought it — cash
   out **plus** the value it lost — quoted as a fixed cost per month and a

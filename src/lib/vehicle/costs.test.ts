@@ -148,10 +148,9 @@ describe("null amounts", () => {
       entry({ amount: 4400, category: "maintenance", date: "2026-01-01" }),
     ]
     const cost = computeOwnershipCost(brief, entries, RATES, 66000, TODAY)
+    // Only the one real amount lands in the total; the null row adds nothing.
     expect(cost.cashUsd).toBeCloseTo(4400 / 44.0, 4)
-    // The category shows one row, at the one real amount.
-    expect(cost.byCategory).toHaveLength(1)
-    expect(cost.byCategory[0].category).toBe("maintenance")
+    expect(cost.variableUsd).toBeCloseTo(4400 / 44.0, 4)
   })
 })
 
@@ -193,19 +192,6 @@ describe("the two denominators", () => {
     expect(cost.blendedPerKmUsd).toBeCloseTo(cost.totalUsd! / 26000, 6)
   })
 
-  it("ranks the category breakdown by spend and drops empty categories", () => {
-    const cost = computeOwnershipCost(brief, entries, RATES, 66000, TODAY)
-    expect(cost.byCategory.map((c) => c.category)).toEqual([
-      "fuel",
-      "insurance",
-      "maintenance",
-      "tax",
-      "tyres",
-    ])
-    // Shares are of cash spend and sum to 100.
-    const sum = cost.byCategory.reduce((a, c) => a + c.pct, 0)
-    expect(sum).toBeCloseTo(100, 6)
-  })
 })
 
 describe("distance edge cases", () => {

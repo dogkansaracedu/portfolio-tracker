@@ -329,7 +329,6 @@ export const VEHICLE_COPY = {
   blendedPerKm: "Blended per km",
   kmDriven: "Distance driven",
   monthsOwned: "Owned for",
-  breakdownHeading: "Where the money went",
 
   /** Why two denominators — stated once, on the card, rather than per figure. */
   denominatorHint:
@@ -362,22 +361,23 @@ export const VEHICLE_COPY = {
     "Consumption is measured between two full tanks. Log at least two fills with \"filled the tank\" ticked and an odometer reading on each.",
 
   // Maintenance
-  maintenanceHeading: "Maintenance",
   planHeading: "Maintenance plan",
   addItem: "Add item",
   editItem: "Edit item",
   seedPlan: "Start from the Turkish default plan",
   seedPlanHint:
     "Adds the common items with typical Turkish intervals. Your car's bakım kitabı is the real authority — edit anything that differs, and delete what doesn't apply.",
-  intervalUsed: "Interval used",
+  everyPrefix: "Every",
+  dormantCaption: "No interval set — never comes due",
   nextDue: "Next due",
   lastDone: "Last done",
   neverDone: "Never recorded",
   dueNowHeading: "Due at your next service",
+  logVisit: "Log this visit",
   dueNowHint:
     "Items already overdue or within 10% of their interval. Bundle them into one visit.",
   nothingDue: "Nothing due — the closest item is",
-  projectedFrom: "projected from",
+  projectedFrom: "on current pace:",
   perDay: "km/day",
 
   // Odometer
@@ -443,6 +443,12 @@ export const VEHICLE_COPY = {
   fieldPurchaseOdometer: "Odometer at purchase",
   fieldCurrentValue: "Current value (optional)",
   columnAmount: "Amount",
+  atTheTime: "at the time",
+  valuePlaceholder: "Value in",
+  averageSuffix: "average",
+  fullTankSuffix: "full",
+  tankMeasured: "tank measured",
+  tanksMeasured: "tanks measured",
 
   // Dashboard banner
   alertOverdueTitle: "Car maintenance overdue",

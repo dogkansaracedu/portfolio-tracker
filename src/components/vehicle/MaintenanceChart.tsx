@@ -43,6 +43,16 @@ interface Props {
  * Rows arrive loudest-first from `maintenancePlanState`, so what needs doing
  * is at the top without the table needing to sort anything itself.
  */
+/** Whether an item's distance-projected date says anything the due phrase
+ *  beside it does not: it must be in the future, and distance must be the
+ *  dimension that falls due first. */
+function showProjection(state: MaintenanceItemState): boolean {
+  const { projectedDueDate, dueDate, dueKm, status } = state
+  if (projectedDueDate === null || dueKm === null) return false
+  if (status === MAINTENANCE_STATUS.overdue) return false
+  return dueDate === null || projectedDueDate < dueDate
+}
+
 export function MaintenanceChart({ plan, onEdit, onDelete }: Props) {
   if (plan.length === 0) return null
 
@@ -70,18 +80,28 @@ export function MaintenanceChart({ plan, onEdit, onDelete }: Props) {
                 <div className="min-w-0 space-y-0.5">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-sm font-medium">{item.name}</span>
-                    {status !== MAINTENANCE_STATUS.ok &&
-                      status !== MAINTENANCE_STATUS.dormant && (
-                        <Badge
-                          variant="outline"
-                          className={MAINTENANCE_TEXT_CLASSES[status]}
-                        >
-                          {statusLabel(status)}
-                        </Badge>
-                      )}
+                    {status !== MAINTENANCE_STATUS.ok && (
+                      <Badge
+                        variant="outline"
+                        className={MAINTENANCE_TEXT_CLASSES[status]}
+                      >
+                        {statusLabel(status)}
+                      </Badge>
+                    )}
+                    {/* The sourced default notes carry the guidance that
+                        matters ("delete this row if yours has a chain"), so
+                        the row has to surface them somewhere. */}
+                    {item.note && (
+                      <HintPopover label={item.name} text={item.note} />
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Every {formatInterval(item.interval_km, item.interval_months)}
+                    {status === MAINTENANCE_STATUS.dormant
+                      ? VEHICLE_COPY.dormantCaption
+                      : `${VEHICLE_COPY.everyPrefix} ${formatInterval(
+                          item.interval_km,
+                          item.interval_months,
+                        )}`}
                     {" · "}
                     {VEHICLE_COPY.lastDone.toLowerCase()} {lastDonePhrase(state)}
                   </p>
@@ -134,19 +154,18 @@ export function MaintenanceChart({ plan, onEdit, onDelete }: Props) {
                 </span>
                 <span className="text-muted-foreground">
                   {VEHICLE_COPY.nextDue} {duePhrase(state)}
-                  {/* The projected date only earns its place when distance is
-                      what falls due first — otherwise it just repeats the due
-                      date already printed above. */}
-                  {state.projectedDueDate !== null &&
-                    state.dueKm !== null &&
-                    (state.dueDate === null ||
-                      state.projectedDueDate < state.dueDate) && (
-                      <>
-                        {" · "}
-                        {VEHICLE_COPY.projectedFrom} pace:{" "}
-                        {projectionLabel(state.projectedDueDate)}
-                      </>
-                    )}
+                  {/* Earns its place only when the projection is in the future
+                      AND distance is what falls due first: on an overdue row a
+                      past "projected" date contradicts the due point beside
+                      it, and when time governs it just repeats the date
+                      already printed. Hidden below `sm`, where it was the one
+                      line that wrapped on every distance-tracked row. */}
+                  {showProjection(state) && (
+                    <span className="max-sm:hidden">
+                      {" · "}
+                      {VEHICLE_COPY.projectedFrom} {projectionLabel(state.projectedDueDate)}
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
@@ -160,6 +179,8 @@ export function MaintenanceChart({ plan, onEdit, onDelete }: Props) {
 interface DueProps {
   due: MaintenanceItemState[]
   nextUp: MaintenanceItemState | null
+  /** Opens the cost form with these items already ticked. */
+  onLogVisit: (itemIds: string[]) => void
 }
 
 /**
@@ -171,7 +192,7 @@ interface DueProps {
  * due it names the closest item instead of rendering an empty box, so the card
  * always says something true.
  */
-export function DueSummary({ due, nextUp }: DueProps) {
+export function DueSummary({ due, nextUp, onLogVisit }: DueProps) {
   return (
     <Card>
       <CardHeader>
@@ -199,7 +220,8 @@ export function DueSummary({ due, nextUp }: DueProps) {
             )}
           </p>
         ) : (
-          <ul className="space-y-2">
+          <>
+            <ul className="space-y-2">
             {due.map((state) => (
               <li
                 key={state.item.id}
@@ -211,7 +233,19 @@ export function DueSummary({ due, nextUp }: DueProps) {
                 </span>
               </li>
             ))}
-          </ul>
+            </ul>
+            {/* One visit closes the whole bundle, so the action pre-ticks every
+                item listed above rather than making the owner find them in a
+                13-row checkbox list. */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => onLogVisit(due.map((s) => s.item.id))}
+            >
+              {VEHICLE_COPY.logVisit}
+            </Button>
+          </>
         )}
       </CardContent>
     </Card>
