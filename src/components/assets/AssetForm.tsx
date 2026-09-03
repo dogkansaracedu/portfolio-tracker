@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { Asset } from "@/types/database";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -199,135 +200,138 @@ export function AssetForm({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label>Category</Label>
-            <Select
-              value={category}
-              onValueChange={(val) => handleCategoryChange(val as string)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {ASSET_CATEGORIES.find((c) => c.value === category)?.label || "Select a category"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {ASSET_CATEGORIES.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="asset-ticker">Ticker</Label>
-            <Input
-              id="asset-ticker"
-              placeholder="e.g. BTC, AAPL, USD"
-              value={ticker}
-              onChange={(e) => handleTickerChange(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {TICKER_HINTS[category] ?? "Display shorthand for the asset."}
-            </p>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="asset-name">Display Name</Label>
-            <Input
-              id="asset-name"
-              placeholder="e.g. Bitcoin, Apple Inc., US Dollar"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="asset-icon-url">Icon</Label>
-            <div className="flex items-center gap-3">
-              <AssetIcon
-                asset={{ ticker: ticker || "?", category, icon_url: iconUrl }}
-                size="lg"
-              />
-              <Input
-                id="asset-icon-url"
-                className="flex-1"
-                placeholder="Auto-resolved from ticker"
-                value={iconUrl}
-                onChange={(e) => setIconUrl(e.target.value)}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">{ICON_URL_HINT}</p>
-          </div>
-
-          <div className="grid gap-2">
-            <Label>Price Source</Label>
-            <Select
-              value={priceSource}
-              onValueChange={(val) => handlePriceSourceChange(val as string)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {PRICE_SOURCES.find((s) => s.value === priceSource)?.label || "Select a source"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {PRICE_SOURCES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="asset-price-id">Price ID</Label>
-            <Input
-              id="asset-price-id"
-              placeholder="e.g. BTC-USD, bitcoin"
-              value={priceId}
-              onChange={(e) => handlePriceIdChange(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">{PRICE_ID_HINT}</p>
-          </div>
-
-          {category === "fund" && (
+        {/* `contents` keeps the form out of the sheet's flex column, so the
+            body scrolls between a fixed header and a pinned footer. */}
+        <form onSubmit={handleSubmit} className="contents">
+          <DialogBody className="grid gap-4 py-1">
             <div className="grid gap-2">
-              <Label htmlFor="asset-tax-rate">At-source tax rate</Label>
+              <Label>Category</Label>
+              <Select
+                value={category}
+                onValueChange={(val) => handleCategoryChange(val as string)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {ASSET_CATEGORIES.find((c) => c.value === category)?.label || "Select a category"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {ASSET_CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="asset-ticker">Ticker</Label>
               <Input
-                id="asset-tax-rate"
-                type="number"
-                step="0.001"
-                min="0"
-                max="1"
-                placeholder="e.g. 0.175"
-                value={atSourceTaxRate}
-                onChange={(e) => setAtSourceTaxRate(e.target.value)}
+                id="asset-ticker"
+                placeholder="e.g. BTC, AAPL, USD"
+                value={ticker}
+                onChange={(e) => handleTickerChange(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Fraction withheld at source on gains (e.g. 0.175 = 17.5% for a
-                Turkish PPF). Gains show net of this. Leave blank for none.
+                {TICKER_HINTS[category] ?? "Display shorthand for the asset."}
               </p>
             </div>
-          )}
 
-          <div className="grid gap-2">
-            <Label htmlFor="asset-tags">Tags</Label>
-            <Input
-              id="asset-tags"
-              placeholder='e.g. "crypto, usd" or "fiat, try"'
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Comma-separated. Used for cross-cutting queries (e.g. "usd" groups USD + USDT + USDC).
-            </p>
-          </div>
+            <div className="grid gap-2">
+              <Label htmlFor="asset-name">Display Name</Label>
+              <Input
+                id="asset-name"
+                placeholder="e.g. Bitcoin, Apple Inc., US Dollar"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+            </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="grid gap-2">
+              <Label htmlFor="asset-icon-url">Icon</Label>
+              <div className="flex items-center gap-3">
+                <AssetIcon
+                  asset={{ ticker: ticker || "?", category, icon_url: iconUrl }}
+                  size="lg"
+                />
+                <Input
+                  id="asset-icon-url"
+                  className="flex-1"
+                  placeholder="Auto-resolved from ticker"
+                  value={iconUrl}
+                  onChange={(e) => setIconUrl(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{ICON_URL_HINT}</p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Price Source</Label>
+              <Select
+                value={priceSource}
+                onValueChange={(val) => handlePriceSourceChange(val as string)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {PRICE_SOURCES.find((s) => s.value === priceSource)?.label || "Select a source"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {PRICE_SOURCES.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="asset-price-id">Price ID</Label>
+              <Input
+                id="asset-price-id"
+                placeholder="e.g. BTC-USD, bitcoin"
+                value={priceId}
+                onChange={(e) => handlePriceIdChange(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{PRICE_ID_HINT}</p>
+            </div>
+
+            {category === "fund" && (
+              <div className="grid gap-2">
+                <Label htmlFor="asset-tax-rate">At-source tax rate</Label>
+                <Input
+                  id="asset-tax-rate"
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  max="1"
+                  placeholder="e.g. 0.175"
+                  value={atSourceTaxRate}
+                  onChange={(e) => setAtSourceTaxRate(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Fraction withheld at source on gains (e.g. 0.175 = 17.5% for a
+                  Turkish PPF). Gains show net of this. Leave blank for none.
+                </p>
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <Label htmlFor="asset-tags">Tags</Label>
+              <Input
+                id="asset-tags"
+                placeholder='e.g. "crypto, usd" or "fiat, try"'
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Comma-separated. Used for cross-cutting queries (e.g. "usd" groups USD + USDT + USDC).
+              </p>
+            </div>
+          </DialogBody>
+          {error && <p className="pt-2 text-sm text-destructive">{error}</p>}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>

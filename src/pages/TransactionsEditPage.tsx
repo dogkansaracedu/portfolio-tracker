@@ -95,7 +95,7 @@ export default function TransactionsEditPage() {
 
       {/* Footer — the two terminal actions sit together, as in every dialog
           footer in the app: discard on the left, Save on the right. */}
-      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-card px-4 py-4 md:gap-4 md:px-6">
+      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-card px-4 py-4 pb-safe-4 md:gap-4 md:px-6 md:pb-4">
         <Button
           variant="ghost"
           size="sm"
