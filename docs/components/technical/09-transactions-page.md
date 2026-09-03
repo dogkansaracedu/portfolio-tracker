@@ -83,9 +83,14 @@
   the Transfer chip wears exactly the row badge's neutral slate. `USER_PICKABLE_TYPES`
   stays the editor/sheet's list — the pseudo-type must never be selectable there.
 - `TransactionSummary.tsx` — one `figures` array rendered twice: a single
-  `sm:hidden` `Card` holding a 3-column strip (label over value, `text-xs`) for the
-  phone, and the three stat `Card`s from `sm` up. All render in the default
-  foreground: volumes are turnover, so they never go through `gainLossClass`.
+  `lg:hidden` `Card` holding a 3-column strip (label over value, `text-xs`), and the
+  three stat `Card`s from `lg` up. The strip runs to `lg`, not `sm`: the sidebar
+  appears at `md` and leaves each of three cards ~125px of content, which a
+  `text-2xl` converted ₺ volume overflows. Takes no `currency` prop — the volumes
+  arrive in USD and go through `useDisplayMoney().money()` (so they are converted,
+  and obfuscation-aware); `formatCurrency(usd, displayCurrency)` printed the dollar
+  figure behind a lira sign. All render in the default foreground: volumes are
+  turnover, so they never go through `gainLossClass`.
 - `TransactionTypeSelector.tsx` — exports **both** `TransactionTypeSelector` (the
   single-pick chip row used by the add/edit modal) and `TransactionTypeBadge` (the
   colored per-row badge); config from `@/lib/constants/transaction-types`. The chip
@@ -218,9 +223,12 @@
   technical). Delete relies on `ON DELETE CASCADE` for the child but
   still recalcs the child's `(asset, platform)` balance.
 - **Summary is USD-normalized.** Buy/sell volume sum `normalizeToUsd(total, ...)` per
-  row using dated rates from the global SoT, so mixed-currency activity is comparable;
-  it then renders in the display currency. Only 3 stats exist: count, buy volume,
-  sell volume.
+  row using dated rates from the global SoT, so mixed-currency activity is comparable.
+  They therefore leave the hook as **USD** and must cross the display edge
+  (`useDisplayMoney().money()`) to be shown — the same path `PortfolioSummaryBar` and
+  `AssetPositionSummary` use. Formatting them straight into the display currency is a
+  wrong number, not a cosmetic one: in TRY the card was off by the exchange rate.
+  Only 3 stats exist: count, buy volume, sell volume.
 - **Linked-child subtitle is fetched separately.** `TransactionsPage` runs
   `fetchLinkedChildrenForParents(parentIds)` for the currently-visible parents and
   passes `childMap` down; `TransactionAssetLabel` reads the child's `amount` /

@@ -1,11 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/prices"
+import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import type { TransactionLogSummary } from "@/hooks/useTransactionLog"
-import type { DisplayCurrency } from "@/lib/constants/currencies"
 
 interface Props {
   summary: TransactionLogSummary
-  currency: DisplayCurrency
 }
 
 const SUMMARY_LABELS = {
@@ -14,26 +12,33 @@ const SUMMARY_LABELS = {
   sellVolume: "Sell Volume",
 } as const
 
-export function TransactionSummary({ summary, currency }: Props) {
-  // Volumes are turnover, not P&L: the gain/loss palette on this page belongs
+export function TransactionSummary({ summary }: Props) {
+  // The volumes are accumulated in USD (the anchor every figure in this app is
+  // computed in), so they go through the display edge that re-denominates a
+  // USD amount — re-symbolling them would print the dollar figure behind a
+  // lira sign. Turnover, not P&L: the gain/loss palette on this page belongs
   // to the realized figures alone.
+  const { money } = useDisplayMoney()
   const figures = [
     { label: SUMMARY_LABELS.count, value: String(summary.count) },
     {
       label: SUMMARY_LABELS.buyVolume,
-      value: formatCurrency(summary.totalBuyVolume, currency),
+      value: money(summary.totalBuyVolume),
     },
     {
       label: SUMMARY_LABELS.sellVolume,
-      value: formatCurrency(summary.totalSellVolume, currency),
+      value: money(summary.totalSellVolume),
     },
   ]
 
   return (
     <>
-      {/* Phone: one strip, so the first transaction card is in the first
-          screen. Three columns of ~110px hold the longest ₺ string. */}
-      <Card size="sm" className="sm:hidden">
+      {/* One strip below `lg`: on a phone so the first transaction card is in
+          the first screen, and up to `lg` because the 240px sidebar appears at
+          `md` and leaves the three cards ~125px of content each — not enough
+          for a converted ₺ volume at `text-2xl`. Three columns of ~110px hold
+          the longest ₺ string here. */}
+      <Card size="sm" className="lg:hidden">
         <CardContent>
           <div className="grid grid-cols-3 gap-2">
             {figures.map((figure) => (
@@ -50,8 +55,9 @@ export function TransactionSummary({ summary, currency }: Props) {
         </CardContent>
       </Card>
 
-      {/* `sm` and up: the three stat cards. */}
-      <div className="hidden gap-4 sm:grid sm:grid-cols-3">
+      {/* `lg` and up: the three stat cards, where the content beside the
+          sidebar is wide enough to hold them. */}
+      <div className="hidden gap-4 lg:grid lg:grid-cols-3">
         {figures.map((figure) => (
           <Card key={figure.label} size="sm">
             <CardHeader>
