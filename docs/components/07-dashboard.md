@@ -127,7 +127,13 @@ default.**
   can see what a period earned in currency, not just in percent. The window's
   first point reads 0, and the "now" point matches the period delta. The index
   row stays percent-only — an amount would imply the reader's money was in the
-  index.
+  index. **The money scale beside the chart is unlabelled in this mode**: both
+  lines are returns with deposits and withdrawals removed, so a currency amount
+  read off the chart's edge would be what that percent is worth on the window's
+  opening balance, not money made — on any window carrying a deposit it
+  contradicts the headline's own figure, sometimes on the other side of zero.
+  The money answers here are the headline and the hover readout; the freed
+  width goes to the plot, and the percent scale stays.
 - **Measure toggle (TWR | MWR), inside Performance mode:** a small secondary
   switch selects which return measure the percent race plots. **TWR is the
   default** (the fair strategy-vs-index frame above). Switching to **MWR** re-draws

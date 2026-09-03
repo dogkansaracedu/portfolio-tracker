@@ -6,10 +6,14 @@ versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fix
 and patches move only the third digit.
 
 ## [0.14.2] — 2026-09-03
-- The dashboard's Performance chart gets its money scale back: the left axis had
-  been reserving a gutter and printing nothing in it since the chart became a
-  percent race, and the dashed zero line was missing with it. Both are back, and
-  the money and percent axes read off the same gridlines.
+- The dashboard's Performance chart gets its dashed zero line back and stops
+  holding open an empty gutter beside it. The left edge had been reserving room
+  for money labels it never printed; the plot now uses that width instead —
+  a quarter of the chart on a phone.
+- Those money labels stay off in Performance mode deliberately: the lines there
+  have deposits and withdrawals removed, so an amount read off the chart's edge
+  disagreed with the money the headline prints above it, sometimes on the other
+  side of zero. Value mode still shows its money scale as before.
 
 ## [0.14.1] — 2026-09-03
 - Money figures obey the privacy toggle everywhere: the dashboard, retirement,
