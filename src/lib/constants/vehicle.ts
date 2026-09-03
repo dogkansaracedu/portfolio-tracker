@@ -246,7 +246,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
     name: "Spark plugs",
     intervalKm: 60000,
     intervalMonths: null,
-    note: "Highly engine-dependent — VW TR quotes 60k/90k/120k/180k. Check your bakım kitabı.",
+    note: "Petrol engines only — delete this row on a diesel (it has glow plugs, on no scheduled interval). Highly engine-dependent otherwise: VW TR quotes 60k/90k/120k/180k. Check your bakım kitabı.",
   },
   {
     name: "Brake fluid",
@@ -300,7 +300,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
     name: "MTV instalment",
     intervalKm: null,
     intervalMonths: 6,
-    note: "Paid in two equal instalments, January and July (Law 197 art. 9).",
+    note: "Two equal instalments, January and July (Law 197 art. 9). A car registered before 2018 is taxed on engine size × age only, with no vehicle-value tier.",
   },
 ] as const
 
