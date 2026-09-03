@@ -8,8 +8,17 @@ import {
   formatCompactCurrency,
   formatMoney,
   formatSignedMoney,
+  moneyAxisLabels,
+  type MoneyAxisLabels,
 } from "@/lib/prices"
-import { AGE_LABEL, EMPTY_FIGURE, VALUE_VIEW, type ValueView } from "./constants"
+import {
+  AGE_LABEL,
+  CHART_AXIS_FONT_SIZE,
+  CHART_AXIS_WIDTH,
+  EMPTY_FIGURE,
+  VALUE_VIEW,
+  type ValueView,
+} from "./constants"
 import type { DisplayCurrency } from "@/lib/constants/currencies"
 
 /**
@@ -54,6 +63,9 @@ export interface RetirementDisplay {
   /** Formats a value already converted by `chartValue` (tooltips, axis). */
   moneyFromChartValue: (value: number) => string
   axisTick: (value: number) => string
+  /** Spread over a money YAxis: hidden amounts drop its labels (the axis keeps
+   *  its scale). One config for all three charts — see `moneyAxisLabels`. */
+  axisLabels: MoneyAxisLabels
 }
 
 export function useRetirementDisplay(
@@ -103,6 +115,10 @@ export function useRetirementDisplay(
               obfuscated,
             ),
       axisTick: (value: number) => formatCompactCurrency(value, currency),
+      axisLabels: moneyAxisLabels(obfuscated, {
+        fontSize: CHART_AXIS_FONT_SIZE,
+        width: CHART_AXIS_WIDTH,
+      }),
     }
   }, [currency, obfuscated, isReal, toViewUsd, toDisplayNumber])
 }

@@ -62,6 +62,41 @@ export function formatCompactCurrency(
 }
 
 /**
+ * What a chart's MONEY axis does under the privacy toggle.
+ *
+ * Hidden amounts drop the axis labels ENTIRELY — the axis keeps its scale, so
+ * the plotted shape is unchanged, but nothing is written beside it. Two reasons
+ * this is not a per-tick {@link obfuscate}:
+ * - a masked tick is not free. Five identical dot-rows at 11px read as stray
+ *   gridlines, and they hold the gutter (up to 56px of a 390px phone chart)
+ *   open to say nothing. Dropping them gives that width back to the plot.
+ * - the label is what leaks, not the axis. A series drawn to scale beside a
+ *   labelled axis is the masked figures readable off a ruler, which is the
+ *   whole reason the amounts had to go.
+ *
+ * PERCENT axes are not money and stay labelled — the same rule that keeps
+ * percentages visible everywhere else under the toggle.
+ *
+ * Spread the result over the axis: `<YAxis {...moneyAxisLabels(obfuscated,
+ * { fontSize: 11, width: 56 })} tickFormatter={…} />`. The formatter is left
+ * alone deliberately: it simply never runs while the labels are gone.
+ */
+export interface MoneyAxisLabels {
+  /** The chart library's tick config; `false` renders no labels at all. */
+  tick: false | { fontSize: number }
+  /** The gutter the labels need — zero when there are none. */
+  width: number | undefined
+}
+
+export function moneyAxisLabels(
+  obfuscated: boolean,
+  visible: { fontSize: number; width?: number }
+): MoneyAxisLabels {
+  if (obfuscated) return { tick: false, width: 0 }
+  return { tick: { fontSize: visible.fontSize }, width: visible.width }
+}
+
+/**
  * Canonical Tailwind text-color classes for a gain/loss figure — the single
  * source every surface (transactions, portfolio, performance, dashboard) uses
  * so the green/red never drifts. `positive` is typically `value >= 0`.

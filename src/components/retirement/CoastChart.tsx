@@ -108,8 +108,7 @@ export function CoastChart({
               minTickGap={24}
             />
             <YAxis
-              tick={{ fontSize: 11 }}
-              width={60}
+              {...display.axisLabels}
               axisLine={false}
               tickLine={false}
               tickFormatter={display.axisTick}

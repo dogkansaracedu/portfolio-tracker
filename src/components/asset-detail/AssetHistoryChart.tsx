@@ -12,10 +12,16 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TimeRangeSelector } from "@/components/performance/TimeRangeSelector"
 import { Toggle } from "@/components/ui/toggle"
-import { formatCompactCurrency, formatCurrency } from "@/lib/prices"
+import {
+  formatCompactCurrency,
+  formatCurrency,
+  formatMoney,
+  moneyAxisLabels,
+} from "@/lib/prices"
 import { type DisplayCurrency, DEFAULT_CURRENCY } from "@/lib/constants/currencies"
 import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import { SeriesDot } from "@/components/common/SeriesDot"
+import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { MEDIA_QUERY, useMediaQuery } from "@/hooks/useMediaQuery"
 import {
   filterHistoryByRange,
@@ -48,6 +54,7 @@ export function AssetHistoryChart({ history, currency }: Props) {
   // Recharts sizes its plot area in JS, so the axis budget cannot come from a
   // Tailwind variant.
   const isWide = useMediaQuery(MEDIA_QUERY.md)
+  const { obfuscated } = useDisplayCurrency()
 
   const data = useMemo(
     () =>
@@ -120,11 +127,15 @@ export function AssetHistoryChart({ history, currency }: Props) {
                 tick={{ fontSize: 12 }}
                 minTickGap={48}
               />
+              {/* The POSITION value — the private figure here, so hidden
+                  amounts drop its labels (the area keeps its scale). */}
               <YAxis
                 yAxisId="value"
                 className="text-xs"
-                tick={{ fontSize: 12 }}
-                width={isWide ? undefined : 44}
+                {...moneyAxisLabels(obfuscated, {
+                  fontSize: 12,
+                  width: isWide ? undefined : 44,
+                })}
                 tickFormatter={(v: number) =>
                   formatCompactCurrency(v, currency)
                 }
@@ -148,10 +159,13 @@ export function AssetHistoryChart({ history, currency }: Props) {
                 />
               )}
               <Tooltip
+                // Value + Cost are this position's money and mask; the unit
+                // Price is a public market quote and does not, matching the
+                // header price on this same screen.
                 formatter={(value, name) => [
-                  name === "Price"
+                  name === PRICE_SERIES_LABEL
                     ? formatCurrency(Number(value), "USD")
-                    : formatCurrency(Number(value), currency),
+                    : formatMoney(Number(value), currency, obfuscated),
                   String(name),
                 ]}
                 labelFormatter={(label) => String(label)}

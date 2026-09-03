@@ -160,6 +160,17 @@
   renders this percent (its % lenses are the TWR/MWR measure and the MWR chip).
 - `pnlDenom` = portfolio value at the visible start; the hero uses it to calibrate
   the left (currency) axis to the right (%) axis.
+- **Privacy:** the left (money) axis takes `moneyAxisLabels(obfuscated, …)` from
+  `lib/prices` — hidden amounts drop its tick labels and its 56px gutter goes to
+  the plot (measured 1056px → 1112px desktop, 262px → 318px on a phone). The
+  right (%) axis is untouched: percentages are never masked, and reading an
+  amount off it would need `denom`, itself a hidden figure. The tooltip already
+  masked via `formatMoney`.
+- The `approximate` chip is a `HintPopover` (hover AND tap), not a `title=`:
+  `APPROXIMATE_LABEL` / `APPROXIMATE_HINT`, with `max-sm:-my-2.5
+  max-sm:min-h-10` giving it a 40px tap target below `sm` while the chip itself
+  stays inline — the `InterestBadge` idiom. `label` is the chip's own word, so
+  the accessible name reads "What is approximate?".
 - Benchmark overlay (P&L mode, **`measure === "twr"` only**): `closesAtOrBefore`
   (imported from `@/lib/mwr` — the hook's private twin was deleted) two-pointer
   walk fills per-point `benchmarkPct` as cumulative % from the first usable

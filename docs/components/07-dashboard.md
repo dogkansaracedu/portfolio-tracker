@@ -218,7 +218,11 @@ is hidden in the 1-day range.
 
 **Privacy / obfuscation toggle.** A global toggle hides monetary amounts (net
 worth, breakdown values, hero figures, tooltips) by masking them — but
-**percentages stay visible**. Allocation percents, the period/total percent, and
+**percentages stay visible**. The hero chart's **money axis drops its tick
+labels** while amounts are hidden (the line keeps its scale, and the reclaimed
+gutter goes to the plot) and its **percent axis keeps them**: a % scale alone
+yields no amount, since recovering one needs the window's starting value, itself
+a hidden figure. See Component 11 for the app-wide rule. Allocation percents, the period/total percent, and
 benchmark percent are never masked, so the shape of the portfolio is still legible
 with amounts hidden.
 
@@ -316,8 +320,9 @@ display state.
   selected return measure (TWR or MWR) in Performance mode, the period ΔValue in
   value mode — so the line always agrees with the headline; a "not enough data"
   placeholder when the range has < 2 points.
-- **Privacy toggle:** hides currency amounts everywhere on the page while leaving
-  **all percentages visible** (allocation %, period %, total %, benchmark %).
+- **Privacy toggle:** hides currency amounts everywhere on the page — the chart's
+  money axis labels included — while leaving **all percentages visible**
+  (allocation %, period %, total %, benchmark %, and the chart's percent axis).
 - **Currency toggle:** flips every currency figure between USD and TRY.
 - **Gain/loss colors:** canonical gain/loss palette — positive vs. negative drives
   color, zero is neutral; consistent across movers, hero delta, and totals.
@@ -368,7 +373,8 @@ display state.
       percent companion). After-tax detail appears only on the Portfolio page's
       taxed rows.
 - [ ] Toggling privacy **hides amounts but keeps percentages visible** (allocation
-      %, period %, total %, benchmark %).
+      %, period %, total %, benchmark %) — including on the chart, where the money
+      axis loses its labels and the percent axis keeps them.
 - [ ] With < 2 points in the chosen range the hero shows a "not enough data"
       placeholder; with no assets the page shows the welcome/empty state.
 - [ ] A range with no real starting base shows its delta **in the neutral tone**,

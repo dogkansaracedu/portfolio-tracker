@@ -12,7 +12,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTheme } from "@/contexts/ThemeContext"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
-import { formatCompactCurrency, formatMoney } from "@/lib/prices"
+import {
+  formatCompactCurrency,
+  formatMoney,
+  moneyAxisLabels,
+} from "@/lib/prices"
 import type { FiatCurrency } from "@/lib/constants/currencies"
 import type { MonthlyBudgetRow } from "@/lib/budget"
 import {
@@ -78,9 +82,8 @@ export function BudgetTrendChart({ rows, currency }: Props) {
             <YAxis
               className="text-xs"
               // Privacy on → no labels at all (see above), so the formatter
-              // below never runs and the gutter goes back to the bars.
-              tick={obfuscated ? false : { fontSize: 11 }}
-              width={obfuscated ? 0 : 56}
+              // never runs and the gutter goes back to the bars.
+              {...moneyAxisLabels(obfuscated, { fontSize: 11, width: 56 })}
               // Compact: a quarter of the phone chart used to go to ".00".
               tickFormatter={(v: number) => formatCompactCurrency(v, currency)}
             />
