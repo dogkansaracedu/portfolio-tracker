@@ -3,7 +3,7 @@ import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { usePrices } from "@/hooks/usePrices"
 import { bn } from "@/lib/config"
 import { formatMoney, formatSignedMoney } from "@/lib/prices"
-import type { FiatCurrency } from "@/lib/constants/currencies"
+import type { DisplayCurrency } from "@/lib/constants/currencies"
 
 /**
  * The display edge for USD-anchored figures. Every P&L number in this app is
@@ -15,7 +15,8 @@ import type { FiatCurrency } from "@/lib/constants/currencies"
  * rate — the same rate the dashboard hero uses for its own USD→TRY figures.
  */
 export interface DisplayMoney {
-  currency: FiatCurrency
+  /** The toggle's currency, not any fiat — see `DisplayCurrency`. */
+  currency: DisplayCurrency
   obfuscated: boolean
   /** A USD amount as a plain number in the display currency. */
   fromUsd: (usd: number) => number

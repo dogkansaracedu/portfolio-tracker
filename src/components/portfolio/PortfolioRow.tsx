@@ -14,6 +14,7 @@ import {
   obfuscate,
 } from "@/lib/prices"
 import type { EnrichedAsset, ReturnMode } from "@/hooks/usePortfolio"
+import type { DisplayCurrency } from "@/lib/constants/currencies"
 import { assetNativeCurrency } from "@/lib/constants/assets"
 import { DISPLAY_LOCALE } from "@/lib/constants/app"
 import { AssetIcon } from "@/components/common/AssetIcon"
@@ -38,6 +39,56 @@ function formatQuantity(balance: number, category: string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(balance)
+}
+
+/**
+ * Every figure the two layouts show, derived once: the desktop row and the
+ * mobile card are the same row at two widths, and while the daily-return guard
+ * and the after-tax annotation lived in both they were one edit from
+ * disagreeing.
+ *
+ * Net (after-tax) applies only in Total mode — daily return stays gross, since
+ * the tax is on the cumulative gain. Untaxed assets read exactly as gross.
+ * Per-unit cost renders in the asset's OWN currency (TUPRS in ₺, gram gold in
+ * ₺) at the purchase-date rate, so a flat-₺ position under a weaker lira reads
+ * as the USD loss it is; we hold only USD and TRY columns, so a non-TRY native
+ * (EUR) falls back to USD.
+ */
+function rowFigures(
+  asset: EnrichedAsset,
+  returnMode: ReturnMode,
+  dailyReturnAvailable: boolean,
+  currency: DisplayCurrency,
+) {
+  const isDaily = returnMode === "daily"
+  const returnUsd = isDaily ? asset.dailyReturnUsd : asset.unrealizedPnlUsd
+  const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
+  const taxed = !isDaily && asset.taxAccrualUsd > 0
+  const netUsd = taxed ? returnUsd - asset.taxAccrualUsd : returnUsd
+  const showNative = assetNativeCurrency(asset) === "TRY"
+
+  return {
+    displayValue:
+      currency === "USD" ? asset.currentValueUsd : asset.currentValueTry,
+    /** False only in Daily mode with no prior snapshot — no figure exists yet. */
+    showReturn: !isDaily || dailyReturnAvailable,
+    returnUsd,
+    netUsd,
+    netPct:
+      taxed && asset.costBasisUsd > 0
+        ? (netUsd / asset.costBasisUsd) * 100
+        : returnPct,
+    taxed,
+    costUsdPerUnit:
+      asset.totalBalance > 0 ? asset.costBasisUsd / asset.totalBalance : null,
+    costNativePerUnit:
+      showNative &&
+      asset.costBasisNative != null &&
+      asset.nativeCurrency === "TRY" &&
+      asset.totalBalance > 0
+        ? asset.costBasisNative / asset.totalBalance
+        : null,
+  }
 }
 
 // Current per-unit price in the asset's native currency (TRY natives also show
@@ -83,35 +134,16 @@ export function PortfolioRow({
   const hasChildren = childRows.length > 0
   const [open, setOpen] = useState(hasChildren)
 
-  // Per-unit price and cost render in the asset's OWN currency (TUPRS in ₺,
-  // gram gold in ₺) with the USD equivalent in parentheses — price at today's
-  // rate, cost at the purchase-date rate (so a flat-₺ / weaker-lira position
-  // reads as a USD loss). Value, P&L and totals stay in USD / the toggle.
-  // We only have USD + TRY price columns, so non-TRY natives (EUR) show USD.
-  const showNative = assetNativeCurrency(asset) === "TRY"
-  const costUsdPerUnit =
-    asset.totalBalance > 0 ? asset.costBasisUsd / asset.totalBalance : null
-  const costNativePerUnit =
-    showNative &&
-    asset.costBasisNative != null &&
-    asset.nativeCurrency === "TRY" &&
-    asset.totalBalance > 0
-      ? asset.costBasisNative / asset.totalBalance
-      : null
-
-  const displayValue =
-    currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
-  const isDaily = returnMode === "daily"
-  const showReturn = !isDaily || dailyReturnAvailable
-  const returnUsd = isDaily ? asset.dailyReturnUsd : asset.unrealizedPnlUsd
-  const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
-
-  // Net (after-tax) applies only in Total mode — daily return stays gross since
-  // tax is on the cumulative gain. Untaxed assets render exactly as gross.
-  const taxed = !isDaily && asset.taxAccrualUsd > 0
-  const netUsd = taxed ? returnUsd - asset.taxAccrualUsd : returnUsd
-  const netPct =
-    taxed && asset.costBasisUsd > 0 ? (netUsd / asset.costBasisUsd) * 100 : returnPct
+  const {
+    displayValue,
+    showReturn,
+    returnUsd,
+    netUsd,
+    netPct,
+    taxed,
+    costUsdPerUnit,
+    costNativePerUnit,
+  } = rowFigures(asset, returnMode, dailyReturnAvailable, currency)
 
   return (
     <>
@@ -269,33 +301,20 @@ export function PortfolioRowCard({
   const { openTransactionModal } = useTransactionModal()
   const o = (v: string) => obfuscate(v, obfuscated)
 
-  const displayValue =
-    currency === "USD" ? asset.currentValueUsd : asset.currentValueTry
-  const isDaily = returnMode === "daily"
-  const showReturn = !isDaily || dailyReturnAvailable
-  const returnUsd = isDaily ? asset.dailyReturnUsd : asset.unrealizedPnlUsd
-  const returnPct = isDaily ? asset.dailyReturnPct : asset.unrealizedPnlPct
-
-  // Net (after-tax) applies only in Total mode — daily return stays gross.
-  const taxed = !isDaily && asset.taxAccrualUsd > 0
-  const netUsd = taxed ? returnUsd - asset.taxAccrualUsd : returnUsd
-  const netPct =
-    taxed && asset.costBasisUsd > 0 ? (netUsd / asset.costBasisUsd) * 100 : returnPct
-
   // The card is the only layout below the table's width, so it carries the
   // table's whole column set — quantity and cost per unit included. Without
   // them the reader cannot tell how much they hold or what they paid, and the
   // bare price under the ticker reads as a cost basis.
-  const showNativeCost = assetNativeCurrency(asset) === "TRY"
-  const costUsdPerUnit =
-    asset.totalBalance > 0 ? asset.costBasisUsd / asset.totalBalance : null
-  const costNativePerUnit =
-    showNativeCost &&
-    asset.costBasisNative != null &&
-    asset.nativeCurrency === "TRY" &&
-    asset.totalBalance > 0
-      ? asset.costBasisNative / asset.totalBalance
-      : null
+  const {
+    displayValue,
+    showReturn,
+    returnUsd,
+    netUsd,
+    netPct,
+    taxed,
+    costUsdPerUnit,
+    costNativePerUnit,
+  } = rowFigures(asset, returnMode, dailyReturnAvailable, currency)
 
   return (
     <Card size="sm">

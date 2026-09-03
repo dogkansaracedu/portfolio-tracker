@@ -46,7 +46,10 @@
   itself a popover trigger, and an anchor may not contain a control; the card
   therefore links twice to the same asset (the identity row, plus a
   `tabIndex={-1}` link over the rest so the whole block stays tappable). See
-  [technical/16-interest.md](16-interest.md). Each picks
+  [technical/16-interest.md](16-interest.md). Both read their figures from the
+  file-local `rowFigures(asset, returnMode, dailyReturnAvailable, currency)` —
+  one derivation for two widths, so the daily-return guard and the tax
+  annotation cannot disagree between them. It picks
   `unrealizedPnlUsd`/`unrealizedPnlPct` (total) vs `dailyReturnUsd`/`dailyReturnPct`
   (daily). In **Total** mode, taxed rows (`asset.taxAccrualUsd > 0`) show
   `netUsd = returnUsd − taxAccrualUsd` as the headline (percent recomputed over
