@@ -11,13 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useBudgetContext } from "@/contexts/BudgetContext"
+import { useReportedWrite } from "@/hooks/useReportedWrite"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { formatMoney } from "@/lib/prices"
 import {
   SUPPORTED_FIAT_CURRENCIES,
   type FiatCurrency,
 } from "@/lib/constants/currencies"
-import { INCOME_ENTRY_DEFAULT_CURRENCY } from "@/components/budget/constants"
+import {
+  BUDGET_WRITE_FAILED,
+  INCOME_ENTRY_DEFAULT_CURRENCY,
+} from "@/components/budget/constants"
 import { monthLabel } from "@/components/budget/display"
 
 /**
@@ -32,6 +36,7 @@ import { monthLabel } from "@/components/budget/display"
 export function SalaryScheduleCard() {
   const { incomeDefaults, createDefault, removeDefault } = useBudgetContext()
   const { obfuscated } = useDisplayCurrency()
+  const { error, reported } = useReportedWrite(BUDGET_WRITE_FAILED)
   const [month, setMonth] = useState("")
   const [amount, setAmount] = useState("")
   const [currency, setCurrency] = useState<FiatCurrency>(
@@ -47,11 +52,17 @@ export function SalaryScheduleCard() {
     if (!canAdd || saving) return
     setSaving(true)
     try {
-      await createDefault({
-        amount: parsed,
-        currency,
-        effective_from: `${month}-01`,
-      })
+      // The fields clear only once the row lands: they used to clear inside a
+      // `try` whose rejection nobody caught, so a refused append looked like
+      // one that had been accepted and then vanished.
+      const ok = await reported(
+        createDefault({
+          amount: parsed,
+          currency,
+          effective_from: `${month}-01`,
+        }),
+      )
+      if (!ok) return
       setMonth("")
       setAmount("")
     } finally {
@@ -87,7 +98,7 @@ export function SalaryScheduleCard() {
                   size="icon"
                   className="h-7 w-7"
                   aria-label="Delete this salary row"
-                  onClick={() => void removeDefault(d.id)}
+                  onClick={() => void reported(removeDefault(d.id))}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -95,6 +106,8 @@ export function SalaryScheduleCard() {
             ))}
           </ul>
         )}
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
         <div className="flex flex-wrap items-center gap-2">
           <Input

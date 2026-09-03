@@ -58,5 +58,8 @@ export const INCOME_EDIT_COPY = {
   defaultNote: "Falls back to the salary default when every entry is removed.",
 } as const
 
+/** Fallback report when a budget write fails without a message of its own. */
+export const BUDGET_WRITE_FAILED = "Could not save that change"
+
 /** Inline-created income entries are salary-like: TRY unless edited elsewhere. */
 export const INCOME_ENTRY_DEFAULT_CURRENCY = "TRY" as const
