@@ -189,6 +189,39 @@ describe("computeFuelEconomy", () => {
       RATES,
     )
     expect(economy.avgPricePerLitreUsd).toBeNull()
+    expect(economy.latestPricePerLitreUsd).toBeNull()
+  })
+
+  // Straight off the back-filled book: a run of monthly rows whose price
+  // climbs the whole way. The lifetime average is a fact about the history and
+  // the last fill is a fact about now, and in lira those are far enough apart
+  // that using one for the other is a real error, not a rounding one.
+  it("separates the lifetime average from the latest fill's price", () => {
+    const economy = computeFuelEconomy(
+      [
+        fill({ date: "2026-01-01", litres: 100, amount: 4400, odometer: null }),
+        fill({ date: "2026-01-01", litres: 100, amount: 8800, odometer: null }),
+      ],
+      RATES,
+    )
+    // 13,200 TRY over 200 L at 44/USD → $1.50/L across the history…
+    expect(economy.avgPricePerLitreUsd).toBeCloseTo(13200 / 44 / 200, 6)
+    // …but the pump last charged $2.00/L, which is what a month will cost.
+    expect(economy.latestPricePerLitreUsd).toBeCloseTo(8800 / 44 / 100, 6)
+  })
+
+  it("takes the latest price from one fill, never across two", () => {
+    // The newest row priced nothing, so the newest PRICE is the older row's.
+    // Dividing the new row's absent amount by its litres would read as free
+    // fuel; pairing it with the previous row's amount would invent a price.
+    const economy = computeFuelEconomy(
+      [
+        fill({ date: "2026-01-01", litres: 50, amount: 4400, odometer: null }),
+        fill({ date: "2026-01-15", litres: 50, amount: null, odometer: null }),
+      ],
+      RATES,
+    )
+    expect(economy.latestPricePerLitreUsd).toBeCloseTo(4400 / 44 / 50, 6)
   })
 })
 
@@ -356,7 +389,7 @@ describe("a measured price of zero is not a measurement", () => {
       kmPerDay: KM_PER_DAY,
       measuredConsumption: economy.average,
       assumedConsumption: 6.0,
-      measuredPricePerLitreUsd: economy.avgPricePerLitreUsd,
+      measuredPricePerLitreUsd: economy.latestPricePerLitreUsd,
       defaultPricePerLitreUsd: PRICE_USD,
     })
     expect(estimate).not.toBeNull()
