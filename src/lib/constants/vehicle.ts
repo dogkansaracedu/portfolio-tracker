@@ -67,6 +67,31 @@ export const VEHICLE_VARIABLE_CATEGORIES: readonly VehicleCostCategory[] = [
 ]
 
 /**
+ * The recurring obligations of keeping a car on the road, quoted per month.
+ *
+ * Listed explicitly rather than taken as "whatever is not variable", because
+ * that inverted definition swept in the categories that are **neither** — a
+ * tow, a speeding fine, a car-park fee. Dividing a one-off tow by the months
+ * owned prints it as a monthly rate, which asserts it recurs; the owner's
+ * objection was exactly that ("i dont do that every year? it is not fixed.
+ * fixed are insurence, mtv, tuv").
+ *
+ * So the split is three-way: variable per km, fixed per month, and incidental
+ * costs that belong in the totals and in the blended per-km figure but in
+ * neither rate. Depreciation stays on the fixed side — see above.
+ *
+ * A list with this name already existed and named all six non-variable
+ * categories, but **nothing imported it** — the engine reached the same result
+ * through an `else`, so the wrong grouping was never stated anywhere a reader
+ * would check it. This list is now the one the engine actually reads.
+ */
+export const VEHICLE_FIXED_CATEGORIES: readonly VehicleCostCategory[] = [
+  "insurance",
+  "tax",
+  "inspection",
+]
+
+/**
  * Whether an outlay of this category closes its items **without being asked**.
  *
  * Paying MTV means the MTV instalment is done; there is nothing to choose. The
@@ -129,15 +154,6 @@ export const VEHICLE_ODOMETER_CATEGORIES: readonly VehicleCostCategory[] = [
   "fuel",
   "maintenance",
   "inspection",
-  "other",
-]
-
-export const VEHICLE_FIXED_CATEGORIES: readonly VehicleCostCategory[] = [
-  "insurance",
-  "tax",
-  "inspection",
-  "fine",
-  "parking",
   "other",
 ]
 
@@ -720,6 +736,9 @@ export const VEHICLE_COPY = {
   depreciation: "Depreciation",
   runningCostHeading: "Running cost",
   perMonth: "Fixed, per month",
+  /** Reads as "one-offs $78.74 — in the total, in neither rate". */
+  incidental: "one-offs",
+  incidentalNote: "in the total, in neither rate",
   perKm: "Variable",
   blendedPerKm: "Blended",
   kmDriven: "Distance driven",

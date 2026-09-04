@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.23.2] — 2026-09-04
+- **Fixed cost per month means fixed again**: insurance, MTV and muayene only.
+  A tow, a fine or a parking fee is a one-off, and dividing it by the months
+  you have owned the car presented it as something that recurs — your $3,750
+  tow was sitting inside "Fixed, per month". Now $112.25/mo instead of $116.81.
+- One-offs still count: they stay in the cash total, the overall cost of
+  ownership and the blended per-km figure, and now show as their own line so
+  the two rates visibly do not add up to the total.
+
 ## [0.23.1] — 2026-09-04
 - Backfilled 19 months of estimated fuel, March 2025 to now, each month priced
   at **its own** diesel price rather than today's — 1,500 L for ₺89,141. Fuel

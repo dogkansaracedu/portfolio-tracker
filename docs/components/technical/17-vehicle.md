@@ -450,6 +450,20 @@ this is one owner's data, so it is applied directly and is deliberately not a
 migration. The local review seed carries the same rows against its own
 `vehicle_id`.
 
+- **The fixed/variable split reads two explicit lists, never one and an
+  `else`.** `VEHICLE_VARIABLE_CATEGORIES` (fuel, maintenance) and
+  `VEHICLE_FIXED_CATEGORIES` (insurance, tax, inspection); anything in neither
+  accumulates into `incidentalUsd`, which is counted in `cashUsd`, `totalUsd`
+  and `blendedPerKmUsd` but in neither rate. Before this, `computeOwnershipCost`
+  classified with `if variable … else fixed`, which made a tow, a fine and a
+  parking fee into fixed monthly costs — the owner caught it on his own book
+  ($78.74 of towing showing up inside $116.81/mo). A `VEHICLE_FIXED_CATEGORIES`
+  constant naming all six non-variable categories *already existed and was
+  imported by nothing*, so the wrong grouping was never stated anywhere a
+  reader would check. The dead constant is gone and the live one is what the
+  engine reads. Effect on the owner's figures: fixed $116.81 → $112.25/mo,
+  variable and blended unchanged.
+
 ## Open questions / recorded extensions
 
 - **`addDaysIso` / `addMonthsIso` want a shared home.** `addDays` already exists

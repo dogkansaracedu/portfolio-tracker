@@ -201,6 +201,18 @@ export function CostOfOwnershipCard({
               {VEHICLE_COPY.kmDriven}: {formatKm(cost.kmDriven)}
               {" · "}
               {VEHICLE_COPY.monthsOwned} {formatMonths(cost.monthsOwned)}
+              {/* Fixed + variable no longer covers every outlay: a tow, a fine
+              and a car-park fee are in neither rate, because dividing a
+              one-off by the months owned would print it as something that
+              recurs. Said out loud rather than left as a gap between the two
+              rates and the total — the blended figure does include it. */}
+              {cost.incidentalUsd > 0 && (
+                <>
+                  {" · "}
+                  {VEHICLE_COPY.incidental} {money(cost.incidentalUsd)} (
+                  {VEHICLE_COPY.incidentalNote})
+                </>
+              )}
               {" · "}
               {VEHICLE_COPY.purchasePrice.toLowerCase()}{" "}
               {own(Number(vehicle.purchase_price), vehicle.purchase_currency)}
