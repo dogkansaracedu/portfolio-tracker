@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.19.0] — 2026-09-04
+- **Obligations close themselves.** Logging an MTV instalment, an insurance
+  renewal or a muayene fee now resets the matching item without asking — there
+  was never anything to choose. A service visit is the only genuinely
+  ambiguous case, so it stays the only one with a selector.
+- **Tyres is no longer its own cost category** — it is maintenance, which it
+  always was for the fixed/variable split. Existing tyre entries were moved.
+
 ## [0.18.1] — 2026-09-04
 - A cost entry only offers the maintenance items it could plausibly have
   closed: choosing Tax (MTV) no longer lets you tick "Timing belt". Fuel,
