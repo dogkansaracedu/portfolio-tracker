@@ -142,6 +142,22 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
 - `removeItem` also strips the id from every local entry's `item_ids`, mirroring
   the database's cascade on the join table — otherwise the schedule would keep
   anchoring on an item that no longer exists until the next refresh.
+- **Every vehicle write backfills the TCMB rate for its own date**
+  (`ensureRatesFor` in `VehicleContext`, wrapping `ensureHistoricalRate` — the
+  same contract the transaction path uses: non-fatal, the row is already saved).
+  This is not optional here: the vehicle tables carry dates the transaction
+  tables never saw (a purchase predating the portfolio, a valuation read last
+  month, a fill on a day nothing was traded) and `exchange_rates` is backfilled
+  **on demand**, so those days are routinely missing. Found in production — a
+  purchase date sat 18 days past the last known rate, and
+  `getExchangeRateForDate` walked back to it silently, worth a $713 error on the
+  capital half of cost of ownership.
+  **Known wrinkle:** the backfilled row lands in the database but not in the
+  `rates` array this session already holds (it comes from
+  `TransactionDataContext`), so a figure that needed a new rate is correct on
+  the next load rather than immediately. Deliberately not fixed by calling that
+  provider's `refresh()` — it would refetch every transaction to pick up one
+  rate, and couple two providers that are otherwise independent.
 - **Every dialog `<form>` carries `className="contents"`.** Without it the form
   is a `display: block` box between `DialogContent`'s flex column and
   `DialogBody`, so the body's `min-h-0 flex-1 overflow-y-auto` is inert and the

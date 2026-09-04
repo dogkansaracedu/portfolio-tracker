@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react"
 import { useAuth } from "@/hooks/useAuth"
+import { ensureHistoricalRate } from "@/lib/queries/exchangeRates"
 import {
   createCostEntry,
   createMaintenanceItem,
@@ -71,6 +72,32 @@ interface VehicleContextValue {
 const VehicleContext = createContext<VehicleContextValue | null>(null)
 
 /**
+ * Ensure `exchange_rates` carries the TCMB rate for each day this component
+ * will convert a non-USD amount at.
+ *
+ * The vehicle tables store dates the transaction tables never saw — a purchase
+ * from before the portfolio existed, a valuation read last month, a fuel fill
+ * on a day nothing was traded — and the rate table is backfilled **on demand**,
+ * so those days are routinely absent. Without this, `getExchangeRateForDate`
+ * walks back to the nearest earlier day and the figure is quietly wrong: a real
+ * case had a purchase date 18 days past the last known rate, worth a $713 error
+ * on the capital half of cost of ownership, with nothing on screen to say so.
+ *
+ * Non-fatal by construction (same contract as the transaction path): the row is
+ * already saved, and a failed backfill just leaves the nearest-rate fallback in
+ * place.
+ */
+async function ensureRatesFor(
+  entries: { currency?: string | null; date?: string | null }[],
+): Promise<void> {
+  await Promise.allSettled(
+    entries.map(({ currency, date }) =>
+      ensureHistoricalRate(currency, null, date),
+    ),
+  )
+}
+
+/**
  * Single shared fetch of the user's vehicle data (Component 17). Two surfaces
  * read it — the Vehicle page and the dashboard maintenance banner — so it
  * follows the house rule and loads once per session rather than fetching on
@@ -131,6 +158,10 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
     async (data: Omit<VehicleInsert, "user_id">) => {
       if (!user) throw new Error("Not signed in")
       const row = await createVehicle({ ...data, user_id: user.id })
+      await ensureRatesFor([
+        { currency: row.purchase_currency, date: row.purchased_on },
+        { currency: row.current_value_currency, date: row.current_value_at },
+      ])
       setVehicles((prev) => [...prev, row])
       return row
     },
@@ -139,6 +170,10 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
 
   const editVehicle = useCallback(async (id: string, data: VehicleUpdate) => {
     const row = await updateVehicle(id, data)
+    await ensureRatesFor([
+      { currency: row.purchase_currency, date: row.purchased_on },
+      { currency: row.current_value_currency, date: row.current_value_at },
+    ])
     setVehicles((prev) => prev.map((v) => (v.id === id ? row : v)))
     return row
   }, [])
@@ -205,6 +240,7 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
     ) => {
       if (!user) throw new Error("Not signed in")
       const row = await createCostEntry({ ...data, user_id: user.id }, itemIds)
+      await ensureRatesFor([{ currency: row.currency, date: row.date }])
       setEntries((prev) => [...prev, row])
       return row
     },
@@ -218,6 +254,7 @@ export function VehicleProvider({ children }: { children: ReactNode }) {
       itemIds?: string[],
     ) => {
       const row = await updateCostEntry(id, data, itemIds)
+      await ensureRatesFor([{ currency: row.currency, date: row.date }])
       setEntries((prev) => prev.map((e) => (e.id === id ? row : e)))
       return row
     },
