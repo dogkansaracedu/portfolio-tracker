@@ -106,7 +106,10 @@ keep in agreement.
 Three rules on entries:
 
 - **Amounts are recorded in the currency actually paid** and normalized at
-  **each entry's own date's rate**, never at today's. Single amounts render in
+  **each entry's own date's rate**, never at today's. Saving a row also ensures
+  the rate for that day exists, because a car's dates routinely fall outside
+  what the rest of the app has needed — otherwise a conversion silently
+  degrades to the nearest earlier day it does know. Single amounts render in
   their own currency and are never re-denominated; only aggregates convert.
 - **The amount is optional.** An empty amount records that work was done at a
   price no longer remembered — it contributes nothing to any total (it is not
