@@ -141,6 +141,11 @@ never buried by it.
 **A blank interval means that dimension is not tracked.** There is no separate
 "track by distance / time / both" setting; the blank is the instruction:
 
+An **obligation is never offered a distance interval** at all — insurance, tax
+and inspection recur on a calendar and cannot care how far the car was driven,
+so a km figure there could only mislead. Any value typed before the group was
+switched is discarded on save.
+
 | distance | time | meaning |
 |---|---|---|
 | set | blank | distance-only (a drive belt) |

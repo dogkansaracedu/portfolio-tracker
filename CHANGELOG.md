@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.17.3] — 2026-09-04
+- Insurance, tax and inspection no longer ask for a kilometre interval — they
+  recur on a calendar and never on distance, so the field could only mislead.
+- Layout fixes: "Capital tied up" now matches the heading beside it instead of
+  reading as a figure label with a missing value, and the costs table's delete
+  button is reachable on a 320px screen.
+
 ## [0.17.2] — 2026-09-04
 - A maintenance row now reads as one item: the due point sat right-aligned
   across from the remaining figure, which in a narrow column put it closer to
