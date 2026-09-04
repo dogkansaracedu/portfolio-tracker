@@ -220,6 +220,34 @@ export type MaintenanceKind = (typeof MAINTENANCE_KINDS)[number]["value"]
 export const DEFAULT_MAINTENANCE_KIND: MaintenanceKind = "service"
 export const INSPECT_KIND: MaintenanceKind = "inspect"
 
+/**
+ * The periodic service itself. At most one per vehicle (a partial unique
+ * index enforces it), shown as its own surface rather than as a row in the
+ * plan — it is the event the rest of the plan happens AT, not a part.
+ *
+ * Deliberately not offered in the kind picker: there is one service cadence
+ * per car and it is not something to create a second of by hand.
+ */
+export const SERVICE_VISIT_KIND = "service_visit" as const
+
+/** Every kind a stored item can carry — the two a person picks, plus the
+ *  service visit, which is created by the seed rather than chosen. */
+export type MaintenanceItemKind = MaintenanceKind | typeof SERVICE_VISIT_KIND
+
+/**
+ * How many periodic services pass between an item being done, when it is tied
+ * to the service rhythm at all: 1 = every service, 2 = every other.
+ *
+ * This cannot be derived from the km interval — 40,000 km against a 15,000 km
+ * service is 2.67 services, while the trade rule is plainly "every second
+ * one" — so the cadence is its own small fact and has to be stated.
+ *
+ * A hand-added item defaults to every service, because that is what almost
+ * everything in the periodic-service group is. Null (the column default, and
+ * what an obligation or a long-life part keeps) means the item is not tied to
+ * the rhythm at all and runs on its own km/time interval instead.
+ */
+
 // ─── Maintenance status ladder ──────────────────────────────────────
 
 export const MAINTENANCE_STATUS = {
@@ -379,28 +407,33 @@ export const FUEL_ECONOMY_DISTANCE = 100
  */
 export interface MaintenanceItemTemplate {
   name: string
+  /** How many services pass between doings: 1 = every service, 2 = every
+   *  other, null = not tied to the service rhythm. */
+  everyNServices: number | null
   /** The outlay category that closes this without being asked; null when it
    *  is only ever ticked by hand (every real maintenance item). */
   costCategory: VehicleCostCategory | null
   intervalKm: number | null
   intervalMonths: number | null
   group: MaintenanceGroup
-  kind: MaintenanceKind
+  kind: MaintenanceItemKind
   note: string | null
 }
 
 export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   {
     name: "Periodic service",
+    everyNServices: null,
     costCategory: null,
-    kind: "service",
+    kind: SERVICE_VISIT_KIND,
     group: "routine",
     intervalKm: 15000,
     intervalMonths: 12,
     note: "The visit itself, so it can be tracked whether or not any single part was changed. Everything else in this group is normally done at one of these, and the check-only items are looked at during it.",
   },
   {
-    name: "Engine oil & filter",
+    name: "Engine oil",
+    everyNServices: 1,
     costCategory: null,
     kind: "service",
     group: "routine",
@@ -409,7 +442,20 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
     note: "Bosch TR / Toyota TR: 10,000–15,000 km or annually, whichever first.",
   },
   {
+    // Its own row: oil and its filter are bought separately and can be done
+    // separately, and a welded-together item cannot record either alone.
+    name: "Oil filter",
+    everyNServices: 1,
+    costCategory: null,
+    kind: "service",
+    group: "routine",
+    intervalKm: 10000,
+    intervalMonths: 12,
+    note: "Changed with the oil as a rule, but recorded separately so a top-up is not mistaken for a filter change.",
+  },
+  {
     name: "Air filter",
+    everyNServices: 1,
     costCategory: null,
     kind: "service",
     group: "routine",
@@ -419,6 +465,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Cabin (pollen) filter",
+    everyNServices: 1,
     costCategory: null,
     kind: "service",
     group: "routine",
@@ -428,6 +475,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Fuel filter",
+    everyNServices: 2,
     costCategory: null,
     kind: "service",
     group: "routine",
@@ -437,6 +485,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Spark plugs",
+    everyNServices: null,
     costCategory: null,
     kind: "service",
     group: "long_life",
@@ -446,6 +495,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Brake fluid",
+    everyNServices: null,
     costCategory: null,
     kind: "service",
     group: "long_life",
@@ -455,6 +505,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Brake pads",
+    everyNServices: null,
     costCategory: null,
     kind: "inspect",
     group: "long_life",
@@ -464,6 +515,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Brake discs",
+    everyNServices: null,
     costCategory: null,
     kind: "inspect",
     group: "long_life",
@@ -473,6 +525,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Coolant / antifreeze",
+    everyNServices: null,
     costCategory: null,
     kind: "service",
     group: "long_life",
@@ -482,6 +535,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Drive belt (triger kayışı)",
+    everyNServices: null,
     costCategory: null,
     kind: "service",
     group: "long_life",
@@ -491,6 +545,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Automatic transmission oil",
+    everyNServices: null,
     costCategory: null,
     kind: "service",
     group: "long_life",
@@ -500,6 +555,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Tyres",
+    everyNServices: null,
     costCategory: null,
     kind: "service",
     group: "long_life",
@@ -509,6 +565,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Muayene (TÜVTÜRK)",
+    everyNServices: null,
     costCategory: "inspection",
     kind: "service",
     group: "obligations",
@@ -518,6 +575,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Trafik sigortası",
+    everyNServices: null,
     costCategory: "insurance",
     kind: "service",
     group: "obligations",
@@ -527,6 +585,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Kasko",
+    everyNServices: null,
     costCategory: "insurance",
     kind: "service",
     group: "obligations",
@@ -536,6 +595,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "MTV instalment",
+    everyNServices: null,
     costCategory: "tax",
     kind: "service",
     group: "obligations",
@@ -621,6 +681,9 @@ export const VEHICLE_COPY = {
   /** An unrecorded row explains itself on the row rather than in a footnote —
    *  the status badge says "Not recorded", this says what to do about it. */
   unrecordedCaption: "no history yet — this is measured from purchase, so treat it as a floor. Log it once and it starts tracking properly.",
+  fieldEveryNServices: "Every N services",
+  fieldEveryNServicesHint:
+    "How many periodic services pass between this item being done. 1 means every service; 2 means every other one, like a diesel fuel filter. Leave it empty for anything that is not tied to the service rhythm at all \u2014 a drive belt or an annual policy runs on its own km or time interval instead.",
   fieldKind: "At the interval",
   fieldKindHint:
     "Whether the part is replaced at the interval, or just looked at. Brake pads at 30,000 km are usually fine — the interval is a prompt to have them checked, not an instruction to buy pads. Wording only; the due point is worked out the same way either way.",
@@ -628,10 +691,30 @@ export const VEHICLE_COPY = {
   per100km: "/ 100 km",
   lastDone: "Last done",
   neverDone: "Never recorded",
-  dueNowHeading: "Due at your next service",
-  logVisit: "Log this visit",
-  dueNowHint:
-    "Items already overdue or within 10% of their interval. Bundle them into one visit.",
+  serviceHeading: "Next service",
+  serviceEvery: "Every",
+  serviceNever: "No service recorded yet — log one and this starts tracking.",
+  serviceNone: "No service interval set. Add an item and mark it as the periodic service to track one.",
+  serviceDueAt: "due at",
+  serviceDueBy: "or by",
+  serviceProjected: "on current pace",
+  serviceDueThisTime: "due this service",
+  /** The cadence in words. `everyNServices` keeps the literal `{n}` — the call
+   *  site interpolates it, so the string stays a string here. */
+  everyService: "every service",
+  everyOtherService: "every other service",
+  everyNServices: "every {n} services",
+  serviceBundleHeading: "What will be due by then",
+  serviceBundleEmpty: "Nothing else falls due by then — a plain service.",
+  lastServiceHeading: "Last service",
+  lastServiceCovered: "covered",
+  lastServiceNothing: "nothing recorded against it",
+  lastServiceSkipped: "not done then",
+  serviceObligationsHeading: "Also due around then — pay these separately",
+  serviceUnknownHeading: "Worth asking them to check",
+  serviceUnknownHint:
+    "No history recorded for these, so the app cannot say when they were last done. Ask at the next service and log what you learn — each one starts tracking properly from then on.",
+  logService: "Log a service",
   nothingDue: "Nothing due — the closest item is",
   projectedFrom: "on current pace",
   perDay: "km/day",
@@ -723,6 +806,7 @@ export const VEHICLE_COPY = {
   errorOdometerInvalid: "That odometer reading isn't a number.",
   errorLitresInvalid: "That litre figure isn't a number.",
   errorNameRequired: "Give the item a name.",
+  errorEveryNInvalid: "Services between doings has to be a whole number, 1 or more.",
   errorIntervalInvalid: "An interval has to be a positive number.",
   errorPriceRequired: "Enter what you paid for the car.",
   /** Both blank is legal (a dormant item) but worth saying out loud, since an

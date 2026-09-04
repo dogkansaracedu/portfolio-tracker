@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.20.0] — 2026-09-05
+- **The periodic service is its own thing now, not a line in the plan.** It has
+  its own card: when the next one is due, then the more useful answer — what
+  will have fallen due by the time you get there — and a separate list of
+  things worth asking them to check, because nothing has ever been recorded for
+  them. One button logs the visit and closes the lot. The old "Due at your next
+  service" card is gone; it only ever listed what was already late.
+- **An item can be set to every service or every other service.** A diesel fuel
+  filter is every second one, which no kilometre figure can say (40,000 km
+  against a 15,000 km service is 2.67 services). It decides what gets ticked
+  when you log a service and what the service card calls due this time — the
+  meters and the warnings still go by distance and time.
+- **Engine oil and the oil filter are two items.** They are bought separately
+  and can be done separately, and one row could record neither on its own. The
+  history the old row carried counts for both.
+- The card also shows **what the last service covered, and what it skipped** —
+  so "last time was oil and filters, no fuel filter, therefore the fuel filter
+  is this time's job" is on screen rather than something you work out.
+
 ## [0.19.0] — 2026-09-04
 - **Obligations close themselves.** Logging an MTV instalment, an insurance
   renewal or a muayene fee now resets the matching item without asking — there

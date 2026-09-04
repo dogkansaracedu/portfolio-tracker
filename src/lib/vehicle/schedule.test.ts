@@ -6,6 +6,10 @@ import {
   maintenanceItemState,
   maintenancePlanState,
   nextUpItem,
+  nextServiceState,
+  nextServiceBundle,
+  lastServiceSummary,
+  planItems,
   odometerReadings,
   odometerView,
 } from "@/lib/vehicle"
@@ -14,6 +18,7 @@ import {
   MAINTENANCE_DUE_SOON_PCT,
   MAINTENANCE_GROUPS,
   MAINTENANCE_STATUS,
+  SERVICE_VISIT_KIND,
 } from "@/lib/constants/vehicle"
 import type {
   Vehicle,
@@ -87,6 +92,7 @@ function item(over: Partial<VehicleMaintenanceItem> = {}): VehicleMaintenanceIte
     cost_category: null,
     interval_km: 10000,
     interval_months: null,
+    every_n_services: null,
     sort_order: 0,
     note: null,
     is_active: true,
@@ -618,5 +624,341 @@ describe("the unrecorded rung", () => {
     // 100,000 km of a 90,000 interval, from a real record — genuinely overdue.
     expect(state.status).toBe(MAINTENANCE_STATUS.overdue)
     expect(dueItems([state])).toHaveLength(1)
+  })
+})
+
+describe("the service cadence", () => {
+  // "Is it this service's turn?" is a different question from "how far through
+  // its own interval is it", and these pin it as a separate answer: counted in
+  // SERVICES, never folded into the meter or the status. The rule cannot be
+  // derived from the km intervals — 40,000 km against a 15,000 km service is
+  // 2.67 services, while the trade rule is plainly "every second one".
+  const v = vehicle({
+    purchased_on: "2024-01-15",
+    purchase_odometer: 100000,
+    odometer: 150000,
+    odometer_at: TODAY,
+  })
+
+  /** The car's periodic service. Its own cadence is null: it IS the rhythm. */
+  function serviceItem() {
+    return item({
+      name: "Periodic service",
+      item_kind: SERVICE_VISIT_KIND,
+      interval_km: 15000,
+      interval_months: 12,
+      every_n_services: null,
+    })
+  }
+
+  /** A visit that closed the service item and, optionally, some parts. */
+  function service(
+    svc: VehicleMaintenanceItem,
+    date: string,
+    km: number,
+    alsoClosed: VehicleMaintenanceItem[] = [],
+  ) {
+    return entry({
+      date,
+      odometer: km,
+      item_ids: [svc.id, ...alsoClosed.map((i) => i.id)],
+    })
+  }
+
+  function stateOf(
+    target: VehicleMaintenanceItem,
+    items: VehicleMaintenanceItem[],
+    entries: VehicleCostEntry[],
+  ) {
+    const states = maintenancePlanState(
+      items,
+      v,
+      entries,
+      odometerView(v, entries),
+      TODAY,
+    )
+    return states.find((s) => s.item.id === target.id)!
+  }
+
+  it("counts the services recorded since the item was last done", () => {
+    const svc = serviceItem()
+    const oil = item({ name: "Engine oil", every_n_services: 1 })
+    const entries = [
+      // The oil was changed at the first service and not since.
+      service(svc, "2025-02-01", 128000, [oil]),
+      service(svc, "2025-09-01", 142000),
+    ]
+    expect(stateOf(oil, [svc, oil], entries).servicesSince).toBe(1)
+  })
+
+  it("does not count a service on the very day the item was closed", () => {
+    // A service and the work done at it share a date — routinely as two rows,
+    // since one visit can be logged as the visit plus a priced part. Counting
+    // the same-day service would report a service already passed the moment
+    // the work was logged, so "since" is strictly after the completion date.
+    const svc = serviceItem()
+    const oil = item({ name: "Engine oil", every_n_services: 1 })
+    const entries = [
+      service(svc, "2025-09-01", 142000),
+      entry({ date: "2025-09-01", odometer: 142000, item_ids: [oil.id] }),
+    ]
+    expect(stateOf(oil, [svc, oil], entries).servicesSince).toBe(0)
+  })
+
+  it("an every-service item is due again as soon as one service is behind it", () => {
+    // `every_n_services` counts the services INCLUDING the one the item is
+    // done at, so what decides it is which number the UPCOMING service will
+    // be: the (servicesSince + 1)-th. With `servicesSince >= cadence` instead,
+    // an item done at every service would stop being due the instant it was
+    // logged — exactly backwards, and the off-by-one worth pinning.
+    const svc = serviceItem()
+    const oil = item({ name: "Engine oil", every_n_services: 1 })
+    const entries = [service(svc, "2025-09-01", 142000, [oil])]
+    const state = stateOf(oil, [svc, oil], entries)
+    expect(state.servicesSince).toBe(0)
+    expect(state.dueThisService).toBe(true)
+  })
+
+  it("an every-other-service item done at the last service is not due", () => {
+    // The fuel filter's whole point: it was just done, so the next visit is
+    // not its turn. 0 + 1 >= 2 is false.
+    const svc = serviceItem()
+    const fuel = item({ name: "Fuel filter", every_n_services: 2 })
+    const entries = [service(svc, "2025-09-01", 142000, [fuel])]
+    const state = stateOf(fuel, [svc, fuel], entries)
+    expect(state.servicesSince).toBe(0)
+    expect(state.dueThisService).toBe(false)
+  })
+
+  it("an every-other-service item skipped at the last service is due", () => {
+    // The owner's real book: two recorded services (128,000 and 142,000 km),
+    // fuel filter closed by the first only. It did not change at the last
+    // visit, so it is due at the next — 1 + 1 >= 2.
+    const svc = serviceItem()
+    const fuel = item({ name: "Fuel filter", every_n_services: 2 })
+    const entries = [
+      service(svc, "2025-02-01", 128000, [fuel]),
+      service(svc, "2025-09-01", 142000),
+    ]
+    const state = stateOf(fuel, [svc, fuel], entries)
+    expect(state.servicesSince).toBe(1)
+    expect(state.dueThisService).toBe(true)
+  })
+
+  it("stays due once it is more than one service behind", () => {
+    const svc = serviceItem()
+    const fuel = item({ name: "Fuel filter", every_n_services: 2 })
+    const entries = [
+      service(svc, "2024-06-01", 112000, [fuel]),
+      service(svc, "2025-02-01", 128000),
+      service(svc, "2025-09-01", 142000),
+    ]
+    const state = stateOf(fuel, [svc, fuel], entries)
+    expect(state.servicesSince).toBe(2)
+    expect(state.dueThisService).toBe(true)
+  })
+
+  it("counts every service ever recorded for an item with no history", () => {
+    // Nothing has closed it, so it is anchored at the purchase point — a floor
+    // rather than a date anything happened on. Every service since counts.
+    const svc = serviceItem()
+    const fuel = item({ name: "Fuel filter", every_n_services: 2 })
+    const entries = [
+      service(svc, "2025-02-01", 128000),
+      service(svc, "2025-09-01", 142000),
+    ]
+    const state = stateOf(fuel, [svc, fuel], entries)
+    expect(state.anchoredAtPurchase).toBe(true)
+    expect(state.servicesSince).toBe(2)
+    expect(state.dueThisService).toBe(true)
+  })
+
+  it("leaves an item that is not tied to the rhythm out of it entirely", () => {
+    // A drive belt (or an annual policy) runs on its own km/time interval and
+    // has nothing to do with how many services have passed, however many that
+    // is. Null cadence in, null out — and never "due this service".
+    const svc = serviceItem()
+    const belt = item({
+      name: "Drive belt",
+      interval_km: 90000,
+      every_n_services: null,
+    })
+    const entries = [
+      service(svc, "2024-06-01", 112000),
+      service(svc, "2025-02-01", 128000),
+      service(svc, "2025-09-01", 142000),
+    ]
+    const state = stateOf(belt, [svc, belt], entries)
+    expect(state.servicesSince).toBeNull()
+    expect(state.dueThisService).toBe(false)
+  })
+
+  it("answers null for every item when the car has no service visit", () => {
+    // No rhythm to count against, so the question does not arise. A car whose
+    // plan has no periodic-service item still schedules every item on its own
+    // km and months.
+    const oil = item({ name: "Engine oil", every_n_services: 1 })
+    const fuel = item({ name: "Fuel filter", every_n_services: 2 })
+    const entries = [
+      entry({ date: "2025-09-01", odometer: 142000, item_ids: [oil.id] }),
+    ]
+    for (const state of maintenancePlanState(
+      [oil, fuel],
+      v,
+      entries,
+      odometerView(v, entries),
+      TODAY,
+    )) {
+      expect(state.servicesSince).toBeNull()
+      expect(state.dueThisService).toBe(false)
+    }
+  })
+
+  it("only counts entries that closed the service item itself", () => {
+    // A fill, a tax payment, or a part changed off-service is not a service.
+    const svc = serviceItem()
+    const oil = item({ name: "Engine oil", every_n_services: 1 })
+    const entries = [
+      service(svc, "2025-02-01", 128000, [oil]),
+      entry({ date: "2025-04-01", odometer: 133000, category: "fuel" }),
+      entry({ date: "2025-06-01", odometer: 138000, item_ids: [oil.id] }),
+    ]
+    // The June row re-closed the oil but was not a service, so the oil's
+    // anchor moved and no service sits after it.
+    expect(stateOf(oil, [svc, oil], entries).servicesSince).toBe(0)
+  })
+
+  it("does not touch the meter or the status", () => {
+    // The separation is the design: `intervalUsedPct` and `status` stay
+    // distance-and-time. Two identical items differing ONLY in cadence must
+    // read the same on both, or the percentage has quietly become
+    // three-dimensional.
+    const svc = serviceItem()
+    const withCadence = item({
+      name: "A",
+      interval_km: 10000,
+      every_n_services: 2,
+    })
+    const without = item({ name: "B", interval_km: 10000 })
+    const entries = [
+      service(svc, "2025-02-01", 128000, [withCadence, without]),
+      service(svc, "2025-09-01", 142000),
+    ]
+    const a = stateOf(withCadence, [svc, withCadence, without], entries)
+    const b = stateOf(without, [svc, withCadence, without], entries)
+    expect(a.dueThisService).toBe(true)
+    expect(b.dueThisService).toBe(false)
+    // 150,000 - 128,000 against a 10,000 km interval, for both.
+    expect(a.intervalUsedPct).toBe(b.intervalUsedPct)
+    expect(a.status).toBe(b.status)
+    expect(a.status).toBe(MAINTENANCE_STATUS.overdue)
+  })
+
+  it("is answered by the plan, not by one item on its own", () => {
+    // `maintenanceItemState` is only ever handed one item, so it cannot see
+    // the car's service visit; it reports the honest null rather than a
+    // guess, and `maintenancePlanState` fills both fields in.
+    const svc = serviceItem()
+    const oil = item({ name: "Engine oil", every_n_services: 1 })
+    const entries = [service(svc, "2025-02-01", 128000, [oil])]
+    const alone = maintenanceItemState(
+      oil,
+      v,
+      entries,
+      odometerView(v, entries),
+      TODAY,
+    )
+    expect(alone.servicesSince).toBeNull()
+    expect(alone.dueThisService).toBe(false)
+    expect(stateOf(oil, [svc, oil], entries).dueThisService).toBe(true)
+  })
+})
+
+describe("the periodic service as a surface", () => {
+  // The owner's own reasoning, which the card has to be able to say back:
+  // "when was the last periodic service? 142k, 16 Feb. what was changed?
+  // oil, filters, no fuel filter. so I need the fuel filter this time."
+  const v = vehicle({
+    purchased_on: "2025-03-28",
+    purchase_odometer: 128000,
+    odometer: 153000,
+    odometer_at: "2026-09-04",
+  })
+  const svc = item({
+    name: "Periodic service",
+    item_kind: "service_visit",
+    interval_km: 15000,
+    interval_months: 12,
+  })
+  const oil = item({ name: "Engine oil", interval_km: 15000, every_n_services: 1 })
+  const fuel = item({ name: "Fuel filter", interval_km: 30000, every_n_services: 2 })
+  const pads = item({
+    name: "Brake pads",
+    item_group: "long_life",
+    item_kind: "inspect",
+    interval_km: 30000,
+  })
+  const mtv = item({
+    name: "MTV instalment",
+    item_group: "obligations",
+    interval_km: null,
+    interval_months: 6,
+  })
+  const plan = [svc, oil, fuel, pads, mtv]
+  const entries = [
+    entry({ date: "2025-04-11", odometer: 128000, item_ids: [svc.id, oil.id, fuel.id] }),
+    entry({ date: "2026-02-16", odometer: 142000, item_ids: [svc.id, oil.id] }),
+    // A RECORDED obligation, long enough ago to be genuinely overdue. Without
+    // a record it would be `unrecorded` and belong in `unknown` instead —
+    // which is itself the right answer, just not what this block tests.
+    entry({ date: "2025-04-11", odometer: null, item_ids: [mtv.id] }),
+  ]
+  const states = maintenancePlanState(plan, v, entries, odometerView(v, entries), "2026-09-05")
+  const service = nextServiceState(states)
+
+  it("finds the service visit and keeps it out of the plan", () => {
+    expect(service?.item.name).toBe("Periodic service")
+    // The plan is the parts; the visit is the event they happen at.
+    expect(planItems(states).map((s) => s.item.name)).not.toContain(
+      "Periodic service",
+    )
+  })
+
+  it("summarises what the last service covered and skipped", () => {
+    const last = lastServiceSummary(states, entries, service)
+    expect(last?.km).toBe(142000)
+    expect(last?.date).toBe("2026-02-16")
+    expect(last?.covered).toEqual(["Engine oil"])
+    // The deduction: only rhythm items can be "skipped". A timing belt was
+    // not skipped at a service, it simply was not due.
+    expect(last?.skipped).toEqual(["Fuel filter"])
+  })
+
+  it("has no last service to summarise before one is recorded", () => {
+    const bare = maintenancePlanState([svc, oil], v, [], odometerView(v, []), "2026-09-05")
+    expect(lastServiceSummary(bare, [], nextServiceState(bare))).toBeNull()
+  })
+
+  it("puts the skipped every-other item in the next bundle", () => {
+    const { due } = nextServiceBundle(states, service)
+    expect(due.map((s) => s.item.name)).toContain("Fuel filter")
+    expect(due.map((s) => s.item.name)).toContain("Engine oil")
+  })
+
+  it("never lets an obligation into the bundle a service entry closes", () => {
+    // Regression: three payees on three dates cannot be one payment, and the
+    // entry's `maintenance` category would file a tax bill as a per-km cost.
+    const { due, obligations } = nextServiceBundle(states, service)
+    expect(due.map((s) => s.item.name)).not.toContain("MTV instalment")
+    expect(obligations.map((s) => s.item.name)).toContain("MTV instalment")
+  })
+
+  it("keeps a wear item off the service rhythm", () => {
+    // The owner's correction: pads have a lifetime, so they are not a service
+    // checklist entry. They surface on their own interval, and a check that
+    // finds life left postpones them.
+    const padState = states.find((s) => s.item.name === "Brake pads")!
+    expect(padState.item.every_n_services).toBeNull()
+    expect(padState.dueThisService).toBe(false)
   })
 })

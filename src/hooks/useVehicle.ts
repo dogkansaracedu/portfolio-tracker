@@ -7,10 +7,16 @@ import {
   computeOwnershipCost,
   dueItems,
   maintenancePlanState,
+  lastServiceSummary,
+  nextServiceBundle,
+  nextServiceState,
   nextUpItem,
+  planItems,
   odometerView,
   type FuelEconomy,
+  type LastServiceSummary,
   type MaintenanceItemState,
+  type NextServiceBundle,
   type OdometerView,
   type OpportunityCost,
   type OwnershipCost,
@@ -35,11 +41,17 @@ export interface VehicleView {
   entries: VehicleCostEntry[]
 
   odometer: OdometerView | null
-  /** Every active item's state, loudest first. */
+  /** The parts, loudest first — the service visit is not one of them. */
   plan: MaintenanceItemState[]
-  /** Overdue or within 10% of due — the next-visit bundle. */
-  due: MaintenanceItemState[]
-  /** The closest item that isn't due yet. */
+  /** The periodic service itself; null when the car has no cadence set. */
+  service: MaintenanceItemState | null
+  /** What the next service should cover, and what to ask about. */
+  serviceBundle: NextServiceBundle
+  /** What the last one covered — and what it skipped, which is the deduction
+   *  an owner actually makes. Null until one has been recorded. */
+  lastService: LastServiceSummary | null
+  /** The closest item not due by the next service — what to say when that
+   *  service is otherwise a plain one. */
   nextUp: MaintenanceItemState | null
 
   cost: OwnershipCost | null
@@ -92,7 +104,7 @@ export function useVehicle(vehicleId?: string): VehicleView {
     [vehicle, scopedEntries],
   )
 
-  const plan = useMemo(
+  const allStates = useMemo(
     () =>
       vehicle && odometer
         ? maintenancePlanState(
@@ -104,6 +116,17 @@ export function useVehicle(vehicleId?: string): VehicleView {
           )
         : [],
     [scopedItems, vehicle, scopedEntries, odometer, today],
+  )
+
+  const service = useMemo(() => nextServiceState(allStates), [allStates])
+  const plan = useMemo(() => planItems(allStates), [allStates])
+  const serviceBundle = useMemo(
+    () => nextServiceBundle(allStates, service),
+    [allStates, service],
+  )
+  const lastService = useMemo(
+    () => lastServiceSummary(allStates, scopedEntries, service),
+    [allStates, scopedEntries, service],
   )
 
   const cost = useMemo(
@@ -151,7 +174,9 @@ export function useVehicle(vehicleId?: string): VehicleView {
     entries: ledger,
     odometer,
     plan,
-    due: dueItems(plan),
+    service,
+    serviceBundle,
+    lastService,
     nextUp: nextUpItem(plan),
     cost,
     opportunity,

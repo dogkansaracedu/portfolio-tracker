@@ -50,6 +50,7 @@ interface FormState {
   name: string
   group: MaintenanceGroup
   kind: MaintenanceKind
+  everyNServices: string
   intervalKm: string
   intervalMonths: string
   note: string
@@ -60,6 +61,7 @@ function emptyForm(): FormState {
     name: "",
     group: DEFAULT_MAINTENANCE_GROUP,
     kind: DEFAULT_MAINTENANCE_KIND,
+    everyNServices: "",
     intervalKm: "",
     intervalMonths: "",
     note: "",
@@ -75,6 +77,8 @@ function formFromItem(item: VehicleMaintenanceItem): FormState {
     kind: (MAINTENANCE_KINDS.some((k) => k.value === item.item_kind)
       ? item.item_kind
       : DEFAULT_MAINTENANCE_KIND) as MaintenanceKind,
+    everyNServices:
+      item.every_n_services === null ? "" : String(item.every_n_services),
     intervalKm: item.interval_km === null ? "" : String(item.interval_km),
     intervalMonths:
       item.interval_months === null ? "" : String(item.interval_months),
@@ -140,6 +144,14 @@ export function MaintenanceItemForm({
       return setError(VEHICLE_COPY.errorIntervalInvalid)
     }
 
+    // Blank means "not tied to the service rhythm", which is a belt or an
+    // annual policy — not a zero.
+    const everyN =
+      form.everyNServices.trim() === "" ? null : Number(form.everyNServices)
+    if (everyN !== null && (!Number.isInteger(everyN) || everyN < 1)) {
+      return setError(VEHICLE_COPY.errorEveryNInvalid)
+    }
+
     setSubmitting(true)
     setError(null)
     try {
@@ -148,6 +160,7 @@ export function MaintenanceItemForm({
         name: form.name.trim(),
         item_group: form.group,
         item_kind: form.kind,
+        every_n_services: everyN,
         interval_km: km === null ? null : km.toFixed(),
         interval_months: months === null ? null : months.toFixed(),
         note: form.note.trim() || null,
@@ -278,6 +291,30 @@ export function MaintenanceItemForm({
                 />
               </div>
             </div>
+            {/* Only meaningful for something done AT a service, which is not
+                an obligation — a policy renewal has no service rhythm. */}
+            {!isObligation && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="item-every-n">
+                    {VEHICLE_COPY.fieldEveryNServices}
+                  </Label>
+                  <HintPopover
+                    label={VEHICLE_COPY.fieldEveryNServices}
+                    text={VEHICLE_COPY.fieldEveryNServicesHint}
+                  />
+                </div>
+                <Input
+                  id="item-every-n"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  value={form.everyNServices}
+                  onChange={(e) => set("everyNServices", e.target.value)}
+                />
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="item-note">{VEHICLE_COPY.fieldNote}</Label>
               <Textarea

@@ -460,6 +460,12 @@ export interface VehicleMaintenanceItem {
   interval_km: number | null;
   /** Null = time is not tracked. Both null = dormant, never becomes due. */
   interval_months: number | null;
+  /** How many periodic services pass between this item being done: 1 = every
+   *  service, 2 = every other. Null = not tied to the service rhythm at all
+   *  (a belt, an annual policy), which runs on its own km/time interval
+   *  instead. Drives the pre-tick and the "due this service" line only; never
+   *  the interval-used percentage. */
+  every_n_services: number | null;
   sort_order: number;
   note: string | null;
   is_active: boolean;
@@ -578,6 +584,7 @@ export type VehicleMaintenanceItemInsert = Omit<
   | "item_group"
   | "item_kind"
   | "cost_category"
+  | "every_n_services"
   | "created_at"
 > &
   VehicleMaintenanceItemNumerics & {
@@ -586,6 +593,7 @@ export type VehicleMaintenanceItemInsert = Omit<
     item_group?: string;
     item_kind?: string;
     cost_category?: string | null;
+    every_n_services?: number | null;
   };
 
 export type VehicleMaintenanceItemUpdate = Partial<
