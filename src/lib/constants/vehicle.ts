@@ -305,6 +305,20 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
     note: "Time-based, not distance-based. VW TR: 3 years from new, then every 2.",
   },
   {
+    name: "Brake pads",
+    group: "long_life",
+    intervalKm: 30000,
+    intervalMonths: null,
+    note: "A WEAR item, not a scheduled one: how long pads last depends entirely on how the car is driven, and typical figures run 30,000-70,000 km. Seeded at the low end deliberately, because brakes are the one place where being early costs a service and being late costs more than that. Renault Türkiye's only published brake figure is an INSPECTION every 2 years or 20,000 km — so treat this as a prompt to have them looked at, and set your own number once you know how yours wear.",
+  },
+  {
+    name: "Brake discs",
+    group: "long_life",
+    intervalKm: 80000,
+    intervalMonths: null,
+    note: "Usually replaced on every second or third pad change rather than on a schedule of its own; typical figures run 80,000-120,000 km, and warping or a lip on the edge decides it long before any odometer reading does. Seeded at the low end, same reasoning as the pads.",
+  },
+  {
     name: "Coolant / antifreeze",
     group: "long_life",
     intervalKm: 40000,
@@ -382,6 +396,7 @@ export const VEHICLE_COPY = {
   totalCost: "Total cost",
   cashCost: "Cash spent",
   depreciation: "Depreciation",
+  runningCostHeading: "Running cost",
   perMonth: "Fixed, per month",
   perKm: "Variable, per km",
   blendedPerKm: "Blended per km",
@@ -431,7 +446,7 @@ export const VEHICLE_COPY = {
   fieldGroupHint:
     "Which part of the plan this belongs to. About kind, not how often: the fuel filter is an every-service consumable even though it is changed every other service — its interval decides when it is actually due.",
   dormantCaption: "No interval set — never comes due",
-  nextDue: "Next due",
+  nextDue: "next due",
   lastDone: "Last done",
   neverDone: "Never recorded",
   dueNowHeading: "Due at your next service",
@@ -439,7 +454,7 @@ export const VEHICLE_COPY = {
   dueNowHint:
     "Items already overdue or within 10% of their interval. Bundle them into one visit.",
   nothingDue: "Nothing due — the closest item is",
-  projectedFrom: "on current pace:",
+  projectedFrom: "on current pace",
   perDay: "km/day",
 
   // Odometer

@@ -110,7 +110,13 @@ export function CostLedger({ entries, items, onEdit, onDelete }: Props) {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="align-top">
+                  {/* This cell is prose, not a figure. The table primitive
+                      sets `whitespace-nowrap` on every cell above `sm`, and
+                      "Resets: Engine oil & filter, Air filter, …" plus a note
+                      gave the column 535px of unwrappable width — enough to
+                      push the row's own actions outside the scroll container
+                      at 1024 and 768. It wraps at every width. */}
+                  <TableCell className="align-top whitespace-normal">
                     <div>
                       {VEHICLE_COST_CATEGORY_LABELS[entry.category] ??
                         entry.category}
