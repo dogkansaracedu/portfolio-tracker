@@ -68,6 +68,26 @@ export const VEHICLE_VARIABLE_CATEGORIES: readonly VehicleCostCategory[] = [
   "tyres",
 ]
 
+/**
+ * The categories where an odometer reading means something — the car was
+ * physically there and its mileage is part of the record. Fuel needs it to
+ * measure consumption at all; a servis and a tyre change are recorded against
+ * it; TÜVTÜRK writes the reading on the inspection report itself.
+ *
+ * Everything else is paid online or at a desk: the mileage at which an
+ * insurance policy was renewed, a tax instalment settled or a fine paid is not
+ * information, so the field is not offered. `other` keeps it, being unknown by
+ * definition. A reading can always be recorded on its own from the odometer
+ * card, which is what that card is for.
+ */
+export const VEHICLE_ODOMETER_CATEGORIES: readonly VehicleCostCategory[] = [
+  "fuel",
+  "maintenance",
+  "tyres",
+  "inspection",
+  "other",
+]
+
 export const VEHICLE_FIXED_CATEGORIES: readonly VehicleCostCategory[] = [
   "insurance",
   "tax",

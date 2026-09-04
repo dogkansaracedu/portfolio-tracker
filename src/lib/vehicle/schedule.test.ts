@@ -480,3 +480,33 @@ describe("the seeded plan's groups", () => {
     }
   })
 })
+
+describe("what a row shows about distance", () => {
+  // The owner's rule: do not put a kilometre figure on screen where distance
+  // is not part of the item. These pin the two places it could leak.
+  const v = vehicle({ purchase_odometer: 0, odometer: 9500, odometer_at: TODAY })
+
+  it("gives a time-only item no due odometer and no distance remaining", () => {
+    const kasko = item({ interval_km: null, interval_months: 12 })
+    const paid = entry({ date: "2026-07-30", odometer: 9000, item_ids: [kasko.id] })
+    const state = maintenanceItemState(
+      kasko, v, [paid], odometerView(v, [paid]), TODAY,
+    )
+    // The entry carried an odometer — it still feeds "current km" — but the
+    // item exposes no distance figures of its own.
+    expect(state.dueKm).toBeNull()
+    expect(state.kmRemaining).toBeNull()
+    expect(state.lastDoneKm).toBe(9000)
+    expect(state.dueDate).toBe("2027-07-30")
+  })
+
+  it("still tracks distance for an item that has a km interval", () => {
+    const oil = item({ interval_km: 10000, interval_months: null })
+    const done = entry({ date: "2026-01-01", odometer: 5000, item_ids: [oil.id] })
+    const state = maintenanceItemState(
+      oil, v, [done], odometerView(v, [done]), TODAY,
+    )
+    expect(state.dueKm).toBe(15000)
+    expect(state.kmRemaining).toBe(5500)
+  })
+})

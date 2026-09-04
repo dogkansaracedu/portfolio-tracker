@@ -141,12 +141,20 @@ export function duePhrase(state: MaintenanceItemState): string {
   return parts.length > 0 ? parts.join(" or ") : NO_DATA
 }
 
-/** "Last done at 130,000 km, 10 Mar 2025" — or that it never was. */
+/**
+ * "130,000 km, 10 Mar 2025" — or just the date, or that it never happened.
+ *
+ * An item that does not track distance never shows an odometer here. The
+ * reading at which an insurance policy was renewed or a tax instalment paid is
+ * not information, it is noise sitting next to the one figure that matters.
+ */
 export function lastDonePhrase(state: MaintenanceItemState): string {
   if (state.anchoredAtPurchase) {
     return `${VEHICLE_COPY.neverDone} — measured from purchase`
   }
-  return `${formatKm(state.lastDoneKm)}, ${formatVehicleDay(state.lastDoneDate)}`
+  const day = formatVehicleDay(state.lastDoneDate)
+  if (state.item.interval_km === null) return day
+  return `${formatKm(state.lastDoneKm)}, ${day}`
 }
 
 /** Just the figure — "7.0" — so a card can put the unit on its own line and
