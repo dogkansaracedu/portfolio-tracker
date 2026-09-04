@@ -179,8 +179,9 @@ export function useVehicle(vehicleId?: string): VehicleView {
     //
     // The replacement is the price of the LAST fill, not the lifetime average.
     // A back-filled history of monthly rows spanning ₺48–₺89/L averages to
-    // about ₺59, which would have projected next month a third light; the most
-    // recent fill is the only measurement that answers "what will it cost now".
+    // $1.38 against the last fill's $1.84 — which would have projected next
+    // month a quarter light, $120 instead of $160. The most recent fill is the
+    // only measurement that answers "what will it cost now".
     const defaultPriceUsd = normalizeToUsd(
       DEFAULT_FUEL_PRICE.tryPerLitre,
       "TRY",

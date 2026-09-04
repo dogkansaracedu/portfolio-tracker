@@ -58,10 +58,14 @@ export interface FuelEconomy {
    * Separate from the lifetime average because the two answer different
    * questions, and in a currency that loses a third of its value in a year the
    * gap between them is not a rounding difference. A lifetime average over
-   * seventeen months of Turkish diesel sits about a third below what the pump
-   * charges today; using it to project next month's cost understates it by
+   * seventeen months of Turkish diesel sits a quarter below what the pump
+   * charges today, so using it to project next month's cost understates it by
    * that much. The average still belongs on the card as a history figure — it
    * just cannot forecast.
+   *
+   * A quarter, not the third the raw lira prices suggest: every fill is
+   * normalized at its OWN date's rate, and the lira fell over the same span
+   * the price rose, so converting first absorbs part of the gap.
    */
   latestPricePerLitreUsd: number | null
   /** Total fuel spend, USD at each fill's own date. */
