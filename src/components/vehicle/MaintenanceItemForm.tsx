@@ -26,6 +26,7 @@ import { bn } from "@/lib/config"
 import {
   DEFAULT_MAINTENANCE_GROUP,
   MAINTENANCE_GROUPS,
+  OBLIGATIONS_GROUP,
   MAINTENANCE_GROUP_LABELS,
   VEHICLE_COPY,
   type MaintenanceGroup,
@@ -111,11 +112,15 @@ export function MaintenanceItemForm({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
+  const isObligation = form.group === OBLIGATIONS_GROUP
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) return setError(VEHICLE_COPY.errorNameRequired)
 
-    const hasKm = form.intervalKm.trim() !== ""
+    // Forced null for an obligation even if a km figure was typed before the
+    // group was switched — the field it came from is no longer shown.
+    const hasKm = !isObligation && form.intervalKm.trim() !== ""
     const km = hasKm ? bn(form.intervalKm) : null
     if (km && (!km.isFinite() || !km.isGreaterThan(0))) {
       return setError(VEHICLE_COPY.errorIntervalInvalid)
@@ -196,19 +201,27 @@ export function MaintenanceItemForm({
                 </SelectContent>
               </Select>
             </div>
-            {/* The two intervals side by side from `sm`, stacked on a phone. */}
+            {/* The two intervals side by side from `sm`, stacked on a phone.
+                An obligation gets only the time box: insurance, tax and
+                inspection recur on a calendar and do not care how far the car
+                was driven, so offering a km interval invites a figure that can
+                only mislead. */}
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="item-km">{VEHICLE_COPY.fieldIntervalKm}</Label>
-                <Input
-                  id="item-km"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={form.intervalKm}
-                  onChange={(e) => set("intervalKm", e.target.value)}
-                />
-              </div>
+              {!isObligation && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="item-km">
+                    {VEHICLE_COPY.fieldIntervalKm}
+                  </Label>
+                  <Input
+                    id="item-km"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={form.intervalKm}
+                    onChange={(e) => set("intervalKm", e.target.value)}
+                  />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="item-months">
                   {VEHICLE_COPY.fieldIntervalMonths}

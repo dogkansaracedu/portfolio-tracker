@@ -151,6 +151,10 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   existed groups itself; anything unrecognised keeps the `routine` default,
   which is the only value that never hides a real maintenance item under
   paperwork.
+- **`OBLIGATIONS_GROUP` is a named constant, not a string literal at the call
+  site.** `MaintenanceItemForm` drops the km input for that group and forces
+  `interval_km` null on save; the name keeps the form and the constants from
+  drifting.
 - **Desktop layout is where the groups pay off twice.** `MaintenanceChart`
   renders its groups as grid COLUMNS (`md:grid-cols-2 xl:grid-cols-3`,
   `items-start` so the uneven 4/6/4 columns do not stretch), collapsing to the
