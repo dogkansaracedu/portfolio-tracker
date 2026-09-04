@@ -4,6 +4,8 @@ import {
   MAINTENANCE_GROUPS,
   VEHICLE_CATEGORY_CLOSES,
   VEHICLE_COST_CATEGORIES,
+  VEHICLE_COST_GROUPS,
+  VEHICLE_VARIABLE_CATEGORIES,
 } from "@/lib/constants/vehicle"
 import type {
   ExchangeRate,
@@ -338,5 +340,84 @@ describe("which items an outlay offers", () => {
 
   it("offers nothing at all for a fill", () => {
     expect(offer("fuel")).toEqual({ auto: [], select: [] })
+  })
+})
+
+describe("cash in four buckets", () => {
+  const priced = [
+    entry({ date: "2026-01-01", amount: 44000, category: "fuel" }),
+    entry({ date: "2026-01-01", amount: 8800, category: "maintenance" }),
+    entry({ date: "2026-01-01", amount: 22000, category: "insurance" }),
+    entry({ date: "2026-01-01", amount: 8800, category: "tax" }),
+    entry({ date: "2026-01-01", amount: 4400, category: "inspection" }),
+    entry({ date: "2026-01-01", amount: 2200, category: "fine" }),
+    entry({ date: "2026-01-01", amount: 1100, category: "parking" }),
+  ]
+
+  it("folds nine categories into four, largest first", () => {
+    const { byGroup } = computeOwnershipCost(brief, priced, RATES, 66000, TODAY)
+    // All at the 2026-01-01 rate of 44.0, so the lira figures rank directly:
+    // fuel ₺44,000 · obligations ₺22,000 + ₺8,800 + ₺4,400 = ₺35,200 ·
+    // maintenance ₺8,800 · other ₺2,200 + ₺1,100 = ₺3,300.
+    expect(byGroup.map((g) => g.group)).toEqual([
+      "fuel",
+      "obligations",
+      "maintenance",
+      "other",
+    ])
+    expect(byGroup[0].usd).toBeCloseTo(44000 / 44, 6)
+    expect(byGroup[1].usd).toBeCloseTo(35200 / 44, 6)
+  })
+
+  it("totals to the cash figure — a breakdown that does not is a lie", () => {
+    const cost = computeOwnershipCost(brief, priced, RATES, 66000, TODAY)
+    const summed = cost.byGroup.reduce((a, g) => a + g.usd, 0)
+    expect(summed).toBeCloseTo(cost.cashUsd, 6)
+    expect(cost.byGroup.reduce((a, g) => a + g.pct, 0)).toBeCloseTo(100, 6)
+  })
+
+  it("drops empty buckets rather than printing zeroes", () => {
+    const { byGroup } = computeOwnershipCost(
+      brief,
+      [entry({ date: "2026-01-01", amount: 4400, category: "fuel" })],
+      RATES,
+      66000,
+      TODAY,
+    )
+    expect(byGroup).toHaveLength(1)
+    expect(byGroup[0].group).toBe("fuel")
+  })
+
+  it("counts an unknown category into other rather than losing it", () => {
+    // The buckets must total to cash even if a category arrives that no
+    // bucket claims — silently dropping spend is the one thing a breakdown
+    // must never do.
+    const odd = [entry({ date: "2026-01-01", amount: 4400, category: "tyres" })]
+    const cost = computeOwnershipCost(brief, odd, RATES, 66000, TODAY)
+    expect(cost.byGroup.map((g) => g.group)).toEqual(["other"])
+    expect(cost.byGroup[0].usd).toBeCloseTo(cost.cashUsd, 6)
+  })
+
+  it("excludes unpriced entries and says how many", () => {
+    const mixed = [
+      entry({ date: "2026-01-01", amount: 4400, category: "fuel" }),
+      entry({ date: "2026-01-01", amount: null, category: "maintenance" }),
+      entry({ date: "2026-01-01", amount: null, category: "maintenance" }),
+    ]
+    const cost = computeOwnershipCost(brief, mixed, RATES, 66000, TODAY)
+    expect(cost.unpricedEntries).toBe(2)
+    // The two unpriced rows contribute nothing, so maintenance has no bucket.
+    expect(cost.byGroup.map((g) => g.group)).toEqual(["fuel"])
+  })
+
+  it("keeps each bucket on one side of the fixed/variable split", () => {
+    // The two cuts answer different questions and must never contradict:
+    // fuel and maintenance are variable, obligations and other are fixed.
+    for (const g of VEHICLE_COST_GROUPS) {
+      const variable = g.categories.map((c) =>
+        VEHICLE_VARIABLE_CATEGORIES.includes(c),
+      )
+      expect(new Set(variable).size).toBe(1)
+    }
   })
 })

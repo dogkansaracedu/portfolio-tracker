@@ -36,13 +36,24 @@ import { DAYS_PER_YEAR } from "@/lib/xirr"
 // implementation of `(1 + r)^years`.
 import { compoundFactor } from "@/lib/retirement/projection"
 import {
+  VEHICLE_COST_GROUPS,
+  VEHICLE_COST_GROUP_OF,
   VEHICLE_VARIABLE_CATEGORIES,
   type VehicleCostCategory,
+  type VehicleCostGroup,
 } from "@/lib/constants/vehicle"
 import type { ExchangeRate, Vehicle, VehicleCostEntry } from "@/types/database"
 
 /** Average days in a month, for turning a span into whole-ish months. */
 const DAYS_PER_MONTH = DAYS_PER_YEAR / 12
+
+export interface GroupTotal {
+  group: VehicleCostGroup
+  label: string
+  usd: number
+  /** Share of total cash spend, 0–100. */
+  pct: number
+}
 
 export interface OwnershipCost {
   /** Cash actually paid out, all entries at their own date's rate. */
@@ -85,6 +96,16 @@ export interface OwnershipCost {
   variablePerKmUsd: number | null
   /** Total ÷ km driven — offered last, and never without its distance. */
   blendedPerKmUsd: number | null
+
+  /**
+   * Cash spend in the four buckets — fuel, maintenance, the obligations,
+   * everything else — largest first, empty buckets dropped.
+   *
+   * Cash only: depreciation is not an outlay and has its own place in the
+   * headline. Four rather than the nine categories, because nine rows of
+   * spend is a table nobody reads and four is the question actually asked.
+   */
+  byGroup: GroupTotal[]
 }
 
 /** One entry's amount in USD at its own date. Null-amount rows contribute
@@ -128,11 +149,17 @@ export function computeOwnershipCost(
   let variable = BN_ZERO
   let fixedCash = BN_ZERO
   let unpricedEntries = 0
+  const byGroupUsd = new Map<string, BigNumber>()
 
   for (const entry of entries) {
     if (entry.amount === null || entry.amount === undefined) unpricedEntries++
     const usd = entryUsd(entry, rates)
     if (usd.isZero()) continue
+
+    // An unrecognised category falls into `other` rather than vanishing: the
+    // buckets must total to the cash figure or the breakdown lies.
+    const group = VEHICLE_COST_GROUP_OF[entry.category] ?? "other"
+    byGroupUsd.set(group, (byGroupUsd.get(group) ?? BN_ZERO).plus(usd))
     cash = cash.plus(usd)
 
     if (
@@ -173,9 +200,22 @@ export function computeOwnershipCost(
       ? total.div(bn(kmDriven)).toNumber()
       : null
 
+  const byGroup: GroupTotal[] = VEHICLE_COST_GROUPS.map((g) => {
+    const usd = byGroupUsd.get(g.value)
+    return {
+      group: g.value,
+      label: g.label,
+      usd: usd ? usd.toNumber() : 0,
+      pct: usd && cash.gt(BN_ZERO) ? usd.div(cash).times(100).toNumber() : 0,
+    }
+  })
+    .filter((row) => row.usd > 0)
+    .sort((a, b) => b.usd - a.usd)
+
   return {
     cashUsd: cash.toNumber(),
     unpricedEntries,
+    byGroup,
     depreciationUsd: depreciation === null ? null : depreciation.toNumber(),
     totalUsd: total === null ? null : total.toNumber(),
     purchaseUsd: purchaseUsd.toNumber(),
