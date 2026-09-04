@@ -271,6 +271,20 @@ export default function VehiclePage() {
         >
           {VEHICLE_COPY.editVehicle}
         </Button>
+        {/* A second car was storable, scopable and switchable from the day
+            this shipped — but this button existed only in the empty state, so
+            the switcher above could never appear. The whole multi-car path was
+            unreachable for want of an entry point. */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setEditingVehicle(false)
+            setVehicleFormOpen(true)
+          }}
+        >
+          {VEHICLE_COPY.addVehicle}
+        </Button>
         <Button
           size="sm"
           variant="ghost"
@@ -352,7 +366,13 @@ export default function VehiclePage() {
           if (!open) setEditingVehicle(false)
         }}
         vehicle={editingVehicle ? vehicle : null}
-        onCreated={(id) => void reported(seedPlan(id))}
+        /* Land on the car just created rather than leaving the page on the
+           previous one — otherwise adding a second car looks like nothing
+           happened until the switcher is noticed. */
+        onCreated={(id) => {
+          setSelectedId(id)
+          void reported(seedPlan(id))
+        }}
       />
       <CostEntryForm
         open={costFormOpen}

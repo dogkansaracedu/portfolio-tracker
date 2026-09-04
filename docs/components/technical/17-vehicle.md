@@ -450,6 +450,24 @@ this is one owner's data, so it is applied directly and is deliberately not a
 migration. The local review seed carries the same rows against its own
 `vehicle_id`.
 
+- **The two per-distance running-cost figures carry their own `HintPopover`.**
+  `perKmHint` / `blendedPerKmHint` in the copy module, passed
+  through `Figure`'s existing `hint` prop — no new component, and the label row
+  already reserved `max-sm:min-h-10` for a trigger, so the card does not grow.
+  Added because the owner asked what "Variable" and "Blended" meant twice; he
+  chose an explainer over renaming the labels. `HintPopover` (not `Tooltip`) is
+  the app's one explainer affordance precisely because it has a tap path.
+  Review cut a third hint on the fixed figure (its label already names its
+  denominator, and six glyphs on one card reads as every-figure-needs-
+  defending) and caught `blendedPerKmHint` claiming "the all-in cost of a km"
+  next to a figure printed `/ 100 km` — a 100× disagreement in the one place
+  the per-100 km decision exists to prevent that misreading. Hints are worded
+  in the unit their figure is printed in.
+- **The cost-rate terms live in `docs/components/17-vehicle-glossary.md`, not
+  the shared `GLOSSARY.md`.** The owner's call: "dont touch glossarry for this
+  job. this is kind of another app or module." The vehicle terms already in the
+  shared glossary were left where they are — moving them would be a refactor
+  nobody asked for.
 - **The fixed/variable split reads two explicit lists, never one and an
   `else`.** `VEHICLE_VARIABLE_CATEGORIES` (fuel, maintenance) and
   `VEHICLE_FIXED_CATEGORIES` (insurance, tax, inspection); anything in neither
