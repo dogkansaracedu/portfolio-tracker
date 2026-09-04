@@ -6,12 +6,14 @@ import {
   VEHICLE_COPY,
 } from "@/lib/constants/vehicle"
 import type { FuelEconomy, MonthlyFuelEstimate } from "@/lib/vehicle"
+import { daysBetweenIsoDays } from "@/lib/campaigns"
+import { homeDayIso } from "@/lib/config"
 import {
   NO_DATA,
   formatConsumptionValue,
+  formatDaySpan,
   formatKm,
   formatLitres,
-  formatVehicleDay,
 } from "@/components/vehicle/display"
 
 interface Props {
@@ -104,7 +106,7 @@ export function FuelCard({ fuel, monthly }: Props) {
                 {" · "}
                 {monthly.priceMeasured
                   ? `${money(monthly.pricePerLitreUsd)}/L ${VEHICLE_COPY.estimateMeasured}`
-                  : `${VEHICLE_COPY.estimateAssumedPrice} ${money(monthly.pricePerLitreUsd)}/L ${VEHICLE_COPY.estimatePriceAsOf} ${formatVehicleDay(DEFAULT_FUEL_PRICE.asOf)}`}
+                  : `${VEHICLE_COPY.estimateAssumedPrice} ${money(monthly.pricePerLitreUsd)}/L, ${VEHICLE_COPY.estimatePriceAge} ${formatDaySpan(daysBetweenIsoDays(DEFAULT_FUEL_PRICE.asOf, homeDayIso()))} ${VEHICLE_COPY.estimatePriceAgo}`}
               </p>
               {!monthly.priceMeasured && (
                 <p className="text-xs text-muted-foreground">
