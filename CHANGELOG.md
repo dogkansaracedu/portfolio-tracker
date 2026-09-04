@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.17.0] — 2026-09-04
+- The maintenance plan is now grouped: **every service** (oil and filters),
+  **long-term** (belts, fluids, tyres) and **insurance, tax & inspection**. A
+  fourteen-row plan was a flat list of three quite different kinds of thing.
+- Group membership is about kind, not how often — the fuel filter sits with the
+  every-service consumables even though it is changed every other service, and
+  its own interval still decides when it is due. New items get a group picker,
+  and an existing plan groups itself.
+- Grouping never changes a due date, and "Due at your next service" still
+  ignores groups, so nothing urgent gets buried by the tidying.
+
 ## [0.16.1] — 2026-09-04
 - Vehicle page fixes from its UX review: the Save button in all three dialogs
   was below the fold on a phone, the cost card and the readings card disagreed

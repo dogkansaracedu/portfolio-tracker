@@ -444,6 +444,10 @@ export interface VehicleMaintenanceItem {
   user_id: string;
   vehicle_id: string;
   name: string;
+  /** Which part of the plan this belongs to — a `MaintenanceGroup`. Distinct
+   *  from a cost entry's `category`: that says what an outlay was for, this
+   *  says what kind of item it is. */
+  item_group: string;
   /** Null = distance is not tracked for this item. */
   interval_km: number | null;
   /** Null = time is not tracked. Both null = dormant, never becomes due. */
@@ -563,11 +567,13 @@ export type VehicleMaintenanceItemInsert = Omit<
   | "interval_months"
   | "sort_order"
   | "is_active"
+  | "item_group"
   | "created_at"
 > &
   VehicleMaintenanceItemNumerics & {
     sort_order?: number;
     is_active?: boolean;
+    item_group?: string;
   };
 
 export type VehicleMaintenanceItemUpdate = Partial<

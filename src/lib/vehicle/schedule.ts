@@ -342,7 +342,11 @@ export function maintenanceItemState(
 }
 
 /** Every active item's state, loudest first, then by how far through the
- *  interval it is, then by name — a stable order for a table. */
+ *  interval it is, then by name — a stable order for a list.
+ *
+ *  Note this does NOT sort by group: the chart groups the rows itself, in the
+ *  order the constants declare, and applying that order here too would make
+ *  the sort depend on a display concern the engine has no business knowing. */
 export function maintenancePlanState(
   items: VehicleMaintenanceItem[],
   vehicle: Vehicle,
