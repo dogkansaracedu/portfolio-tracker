@@ -18,6 +18,9 @@
 
 import { bn, BN_ZERO } from "@/lib/config"
 import { normalizeToUsd } from "@/lib/pnl/currency"
+// One definition of a month, shared with `computeOwnershipCost` so "per
+// month" means the same thing wherever this component prints it.
+import { DAYS_PER_MONTH } from "@/lib/xirr"
 import {
   FUEL_CATEGORY,
   FUEL_ECONOMY_DISTANCE,
@@ -67,13 +70,6 @@ function fuelEntries(entries: VehicleCostEntry[]): VehicleCostEntry[] {
           ? -1
           : 1,
     )
-}
-
-/** Whether there is anything to show at all — any litre or any lira of fuel.
- *  One predicate, so the card and the layout that reserves room for it cannot
- *  disagree: reserving a column for a card that hides itself leaves a hole. */
-export function hasFuelData(fuel: FuelEconomy): boolean {
-  return fuel.totalLitres > 0 || fuel.totalFuelUsd > 0
 }
 
 export function computeFuelEconomy(
@@ -174,9 +170,113 @@ export function computeFuelEconomy(
     worst: sorted.length > 1 ? sorted[sorted.length - 1] : null,
     segments,
     totalLitres: totalLitres.toNumber(),
-    avgPricePerLitreUsd: totalLitres.gt(BN_ZERO)
+    // Null, not zero, when litres were logged without amounts: spend of zero
+    // over real litres is an absent price, not a free one. Returning the zero
+    // made a measurement WORSE than no measurement — the caller would refuse
+    // to estimate at all rather than fall back to its default.
+    avgPricePerLitreUsd: totalLitres.gt(BN_ZERO) && totalSpend.gt(BN_ZERO)
       ? totalSpend.div(totalLitres).toNumber()
       : null,
     totalFuelUsd: totalSpend.toNumber(),
+  }
+}
+
+// ─── Monthly estimate ───────────────────────────────────────────────
+
+export interface MonthlyFuelEstimate {
+  /** Distance assumed per month, from the car's own observed pace. */
+  km: number
+  /** Litres that distance implies at the consumption figure used. */
+  litres: number
+  /** Cost of those litres, USD (the app's anchor). */
+  costUsd: number
+  /** Litres per 100 km actually used in the sum. */
+  consumption: number
+  /** Whether `consumption` was MEASURED from full-tank data or ASSUMED. */
+  consumptionMeasured: boolean
+  /** Price per litre used, USD. */
+  pricePerLitreUsd: number
+  /** Whether `pricePerLitreUsd` came from the owner's own fills or a
+   *  default. */
+  priceMeasured: boolean
+}
+
+/** Whether a figure can carry the sum: present, finite and above zero.
+ *  Checked on the raw input, because `bn` turns a NaN into a zero and a zero
+ *  passes a BigNumber comparison as a plausible-looking nothing. */
+function usable(value: number | null): boolean {
+  return value !== null && Number.isFinite(value) && value > 0
+}
+
+/**
+ * Roughly what fuel costs per month at the pace the odometer says the car is
+ * actually being driven.
+ *
+ * Consumption and price resolve **independently**, because they are measured
+ * by different things: any single fill that recorded both its litres and its
+ * amount gives a real price per litre, while consumption needs two fills to
+ * close a full tank. Having the one without the other is the normal case, not
+ * an edge, so each figure carries its own flag — an assumed 6.0 L/100km and a
+ * measured 6.0 are the same number making very different claims, and only the
+ * flag tells them apart.
+ *
+ * Null when the pace is unknown: with no observed distance there is nothing to
+ * price, and a "typical" mileage would be a figure about somebody else's car —
+ * the one thing this component refuses to do anywhere. Null too when the
+ * consumption or price left to work with is not a positive, finite number,
+ * since a zero consumption would report free motoring and a negative price is
+ * not a price.
+ */
+/**
+ * Why a null is safe to describe as "no pace yet" at the display edge.
+ *
+ * After resolution, consumption is either a measured segment average (positive
+ * by construction — it is litres over distance, both positive) or the caller's
+ * assumed figure, a positive constant. Price is either a measured average
+ * (now null rather than zero when spend is absent) or the caller's default.
+ * So the only input that can genuinely be missing is the pace, and the card's
+ * single explanation is accurate.
+ *
+ * The guards on the other two stay anyway: they are cheap, and a future caller
+ * passing a junk fallback should get nothing rather than an absurd figure.
+ * They are unreachable, not unnecessary.
+ */
+export function estimateMonthlyFuel(args: {
+  /** From `OdometerView.kmPerDay`; null when the car's pace is unknown. */
+  kmPerDay: number | null
+  /** The measured average from `computeFuelEconomy`, or null. */
+  measuredConsumption: number | null
+  /** Fallback L/100km when nothing is measured. */
+  assumedConsumption: number
+  /** The owner's own measured price per litre in USD, or null. */
+  measuredPricePerLitreUsd: number | null
+  /** Fallback price per litre in USD. */
+  defaultPricePerLitreUsd: number
+}): MonthlyFuelEstimate | null {
+  const { kmPerDay, measuredConsumption, measuredPricePerLitreUsd } = args
+
+  const consumptionMeasured = measuredConsumption !== null
+  const consumption = measuredConsumption ?? args.assumedConsumption
+  const priceMeasured = measuredPricePerLitreUsd !== null
+  const price = measuredPricePerLitreUsd ?? args.defaultPricePerLitreUsd
+
+  // `odometerView` already withholds a zero or backwards pace, so in practice
+  // only the null arrives here; the rest of the guard costs nothing and keeps
+  // an unusable figure from being multiplied into a monthly cost.
+  if (!usable(kmPerDay)) return null
+  if (!usable(consumption) || !usable(price)) return null
+
+  const km = bn(kmPerDay).times(bn(DAYS_PER_MONTH))
+  const litres = km.times(bn(consumption)).div(bn(FUEL_ECONOMY_DISTANCE))
+  const cost = litres.times(bn(price))
+
+  return {
+    km: km.toNumber(),
+    litres: litres.toNumber(),
+    costUsd: cost.toNumber(),
+    consumption,
+    consumptionMeasured,
+    pricePerLitreUsd: price,
+    priceMeasured,
   }
 }

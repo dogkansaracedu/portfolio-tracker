@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.22.0] — 2026-09-05
+- **Click a bucket in the costs table to filter the rows to it** — click it
+  again to clear. The unpriced entries get their own chip, so the rows missing
+  a price are findable.
+- **Fuel now shows roughly what a month costs**, from how far the car actually
+  goes. It says which of its inputs are measured and which assumed: your own
+  fills replace the assumed consumption and the stored pump price the moment
+  one records both litres and an amount. The stored price is shown with the
+  date it was read, never as current — Turkish diesel duty was rising monthly,
+  so it ages fast.
+
 ## [0.21.0] — 2026-09-05
 - The costs table now totals your spending into four buckets — **fuel,
   maintenance, insurance/tax/inspection, and other** — with each one's share,

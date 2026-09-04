@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { computeFuelEconomy } from "@/lib/vehicle"
+import { computeFuelEconomy, estimateMonthlyFuel } from "@/lib/vehicle"
 import type { ExchangeRate, VehicleCostEntry } from "@/types/database"
 
 // Consumption is only measurable between two full tanks. These cases pin that
@@ -189,5 +189,181 @@ describe("computeFuelEconomy", () => {
       RATES,
     )
     expect(economy.avgPricePerLitreUsd).toBeNull()
+  })
+})
+
+// The monthly estimate multiplies three figures, two of which may be a
+// measurement or a fallback. What matters is which one it reached for and
+// whether it says so — so these cases pin the precedence and the flags, and
+// the arithmetic once, by hand.
+//
+// The figures are literals rather than the real ASSUMED_CONSUMPTION and
+// DEFAULT_FUEL_PRICE: the pump price constant is expected to be edited as it
+// goes stale, and a hand-checked expectation must not move with it.
+
+/** The owner's own observed pace, the case the card actually shows. */
+const KM_PER_DAY = 47.6
+/** ~81 TRY/L at ~48 TRY/USD — the shape of the real default, pinned here. */
+const PRICE_USD = 1.69
+
+function estimateArgs(
+  over: Partial<Parameters<typeof estimateMonthlyFuel>[0]> = {},
+): Parameters<typeof estimateMonthlyFuel>[0] {
+  return {
+    kmPerDay: KM_PER_DAY,
+    measuredConsumption: null,
+    assumedConsumption: 6.0,
+    measuredPricePerLitreUsd: null,
+    defaultPricePerLitreUsd: PRICE_USD,
+    ...over,
+  }
+}
+
+describe("estimateMonthlyFuel", () => {
+  it("will not invent a distance it has never observed", () => {
+    // One odometer reading gives no pace, and a "typical" mileage would be a
+    // figure about somebody else's car. Nothing to price, so nothing shown.
+    expect(estimateMonthlyFuel(estimateArgs({ kmPerDay: null }))).toBeNull()
+  })
+
+  it("costs the month by hand at the owner's own pace", () => {
+    const estimate = estimateMonthlyFuel(estimateArgs())
+    // 47.6 km/day × 30.4375 days = 1448.825 km; at 6.0 L/100km that is
+    // 86.9295 L; at $1.69/L that is $146.910855.
+    expect(estimate?.km).toBeCloseTo(1448.825, 6)
+    expect(estimate?.litres).toBeCloseTo(86.9295, 6)
+    expect(estimate?.costUsd).toBeCloseTo(146.910855, 6)
+  })
+
+  it("counts a month as 365.25/12 days, not 30", () => {
+    const estimate = estimateMonthlyFuel(estimateArgs({ kmPerDay: 1 }))
+    // The same basis the fixed-cost-per-month figure uses; a flat 30 would
+    // make the two numbers on one card disagree about what a month is.
+    expect(estimate?.km).toBeCloseTo(365.25 / 12, 10)
+    expect(estimate?.km).not.toBeCloseTo(30, 3)
+  })
+
+  it("prefers a measured consumption over the assumed one", () => {
+    const estimate = estimateMonthlyFuel(
+      estimateArgs({ measuredConsumption: 7.5, assumedConsumption: 6.0 }),
+    )
+    expect(estimate?.consumption).toBe(7.5)
+    expect(estimate?.consumptionMeasured).toBe(true)
+    // And the litres follow the figure used, not the fallback: 1448.825 km at
+    // 7.5 L/100km = 108.661875 L.
+    expect(estimate?.litres).toBeCloseTo(108.661875, 6)
+  })
+
+  it("prefers the owner's own price over the default", () => {
+    const estimate = estimateMonthlyFuel(
+      estimateArgs({
+        measuredPricePerLitreUsd: 1.5,
+        defaultPricePerLitreUsd: PRICE_USD,
+      }),
+    )
+    expect(estimate?.pricePerLitreUsd).toBe(1.5)
+    expect(estimate?.priceMeasured).toBe(true)
+    // 86.9295 L × $1.50 = $130.39425.
+    expect(estimate?.costUsd).toBeCloseTo(130.39425, 6)
+  })
+
+  it("takes a measured price with an assumed consumption", () => {
+    // The normal state of the data, not an edge: a fill that recorded litres
+    // and an amount gives a real price straight away, while consumption waits
+    // for two fills to close a full tank. The two resolve independently, so
+    // one flag is true while the other is false.
+    const estimate = estimateMonthlyFuel(
+      estimateArgs({
+        measuredConsumption: null,
+        measuredPricePerLitreUsd: 1.8,
+      }),
+    )
+    expect(estimate?.consumption).toBe(6.0)
+    expect(estimate?.consumptionMeasured).toBe(false)
+    expect(estimate?.pricePerLitreUsd).toBe(1.8)
+    expect(estimate?.priceMeasured).toBe(true)
+  })
+
+  it("says nothing rather than report free motoring", () => {
+    // A zero L/100km would price a month of driving at nothing, and a
+    // negative one is not a consumption figure at all.
+    expect(
+      estimateMonthlyFuel(estimateArgs({ measuredConsumption: 0 })),
+    ).toBeNull()
+    expect(
+      estimateMonthlyFuel(estimateArgs({ assumedConsumption: 0 })),
+    ).toBeNull()
+    expect(
+      estimateMonthlyFuel(estimateArgs({ measuredConsumption: -6 })),
+    ).toBeNull()
+  })
+
+  it("says nothing rather than price litres at zero or below", () => {
+    expect(
+      estimateMonthlyFuel(estimateArgs({ measuredPricePerLitreUsd: 0 })),
+    ).toBeNull()
+    expect(
+      estimateMonthlyFuel(estimateArgs({ defaultPricePerLitreUsd: -1.69 })),
+    ).toBeNull()
+  })
+
+  it("refuses a figure that is not a number", () => {
+    // A NaN would otherwise become a zero on the way into BigNumber and read
+    // as a real, cheap month; an Infinity would print an infinite cost.
+    expect(
+      estimateMonthlyFuel(estimateArgs({ measuredConsumption: Number.NaN })),
+    ).toBeNull()
+    expect(
+      estimateMonthlyFuel(
+        estimateArgs({ measuredPricePerLitreUsd: Number.POSITIVE_INFINITY }),
+      ),
+    ).toBeNull()
+    expect(
+      estimateMonthlyFuel(estimateArgs({ kmPerDay: Number.NaN })),
+    ).toBeNull()
+  })
+})
+
+describe("a measured price of zero is not a measurement", () => {
+  it("reports no price per litre when litres were logged without amounts", () => {
+    // Reachable from a real book: `computeFuelEconomy` divides spend by litres,
+    // so fills recording litres but no cost used to yield 0 — and a zero then
+    // made the measurement WORSE than none, because the monthly estimate
+    // refused to run rather than falling back to its default.
+    const economy = computeFuelEconomy(
+      [
+        fill({ date: "2026-01-01", odometer: 50000, litres: 40, amount: null }),
+        fill({ date: "2026-01-15", odometer: 50500, litres: 35, amount: null }),
+      ],
+      RATES,
+    )
+    expect(economy.totalLitres).toBe(75)
+    expect(economy.totalFuelUsd).toBe(0)
+    expect(economy.avgPricePerLitreUsd).toBeNull()
+    // The consumption reading is unaffected — it needs litres, not amounts.
+    expect(economy.average).toBeCloseTo(7, 6)
+  })
+
+  it("still estimates a month, on the default price, and says so", () => {
+    const economy = computeFuelEconomy(
+      [
+        fill({ date: "2026-01-01", odometer: 50000, litres: 40, amount: null }),
+        fill({ date: "2026-01-15", odometer: 50500, litres: 35, amount: null }),
+      ],
+      RATES,
+    )
+    const estimate = estimateMonthlyFuel({
+      kmPerDay: KM_PER_DAY,
+      measuredConsumption: economy.average,
+      assumedConsumption: 6.0,
+      measuredPricePerLitreUsd: economy.avgPricePerLitreUsd,
+      defaultPricePerLitreUsd: PRICE_USD,
+    })
+    expect(estimate).not.toBeNull()
+    // Consumption came from his own tanks; the price did not.
+    expect(estimate!.consumptionMeasured).toBe(true)
+    expect(estimate!.consumption).toBeCloseTo(7, 6)
+    expect(estimate!.priceMeasured).toBe(false)
+    expect(estimate!.pricePerLitreUsd).toBe(PRICE_USD)
   })
 })

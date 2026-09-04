@@ -31,7 +31,7 @@ import BigNumber from "bignumber.js"
 import { bn, BN_ZERO, homeDayIso } from "@/lib/config"
 import { normalizeToUsd } from "@/lib/pnl/currency"
 import { daysBetweenIsoDays } from "@/lib/campaigns"
-import { DAYS_PER_YEAR } from "@/lib/xirr"
+import { DAYS_PER_MONTH, DAYS_PER_YEAR } from "@/lib/xirr"
 // Pure compounding helper, reused rather than restated — the app has one
 // implementation of `(1 + r)^years`.
 import { compoundFactor } from "@/lib/retirement/projection"
@@ -43,9 +43,6 @@ import {
   type VehicleCostGroup,
 } from "@/lib/constants/vehicle"
 import type { ExchangeRate, Vehicle, VehicleCostEntry } from "@/types/database"
-
-/** Average days in a month, for turning a span into whole-ish months. */
-const DAYS_PER_MONTH = DAYS_PER_YEAR / 12
 
 export interface GroupTotal {
   group: VehicleCostGroup

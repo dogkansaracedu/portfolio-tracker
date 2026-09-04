@@ -14,8 +14,11 @@ import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import { formatCurrency, obfuscate } from "@/lib/prices"
 import {
+  UNPRICED_FILTER,
   VEHICLE_COPY,
   VEHICLE_COST_CATEGORY_LABELS,
+  VEHICLE_COST_GROUP_OF,
+  type VehicleCostGroup,
 } from "@/lib/constants/vehicle"
 import { isFiatCurrency } from "@/lib/constants/currencies"
 import type { GroupTotal } from "@/lib/vehicle"
@@ -54,6 +57,58 @@ interface Props {
  * An entry with no amount shows a dash, not a zero: it records that work was
  * done at a price no longer known.
  */
+/** `null` = every row; a bucket value; or the unpriced rows. */
+type LedgerFilter = VehicleCostGroup | typeof UNPRICED_FILTER | null
+
+/**
+ * One clickable bucket total.
+ *
+ * A real `<button>` with `aria-pressed`, not a styled div: it changes what the
+ * table below shows, and that has to be reachable by keyboard and announced as
+ * a toggle. `min-h-10` below `sm` keeps it a comfortable tap target — the
+ * figure's own text is 20px, which is not.
+ *
+ * The unselected buckets dim rather than hide, so the totals stay readable
+ * while a filter is on; the whole point of the row is the comparison between
+ * them, and a filter that erases three quarters of it would defeat itself.
+ */
+function BucketButton({
+  label,
+  figure,
+  share,
+  active,
+  dimmed,
+  onClick,
+}: {
+  label: string
+  figure: string
+  share?: string
+  active: boolean
+  dimmed: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`space-y-0.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-muted max-sm:min-h-10 ${
+        active ? "bg-muted" : ""
+      } ${dimmed ? "opacity-50" : ""}`}
+    >
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-sm font-medium tabular-nums">
+        {figure}
+        {share && (
+          <span className="ml-1.5 font-normal text-muted-foreground">
+            {share}
+          </span>
+        )}
+      </p>
+    </button>
+  )
+}
+
 export function CostLedger({
   entries,
   byGroup,
@@ -65,10 +120,25 @@ export function CostLedger({
   const { obfuscated } = useDisplayCurrency()
   const { money } = useDisplayMoney()
   const [showAll, setShowAll] = useState(false)
+  /** Which bucket's rows to show, or `unpriced`, or everything. */
+  const [filter, setFilter] = useState<LedgerFilter>(null)
 
   if (entries.length === 0) return null
 
-  const visible = showAll ? entries : entries.slice(0, DEFAULT_VISIBLE_ENTRIES)
+  /** Clicking the active bucket clears it — a filter you cannot get out of is
+   *  a trap, and there is no other affordance for "show me everything". */
+  const toggle = (next: LedgerFilter) =>
+    setFilter((prev) => (prev === next ? null : next))
+
+  const matches = (entry: VehicleCostEntry) =>
+    filter === null
+      ? true
+      : filter === UNPRICED_FILTER
+        ? entry.amount === null
+        : (VEHICLE_COST_GROUP_OF[entry.category] ?? "other") === filter
+
+  const filtered = entries.filter(matches)
+  const visible = showAll ? filtered : filtered.slice(0, DEFAULT_VISIBLE_ENTRIES)
   const itemName = (id: string) =>
     items.find((i) => i.id === id)?.name ?? null
 
@@ -91,25 +161,24 @@ export function CostLedger({
         {byGroup.length > 0 && (
           <div className="flex flex-wrap gap-x-6 gap-y-2 border-b pb-3">
             {byGroup.map((row) => (
-              <div key={row.group} className="space-y-0.5">
-                <p className="text-xs text-muted-foreground">{row.label}</p>
-                <p className="text-sm font-medium tabular-nums">
-                  {money(row.usd)}
-                  <span className="ml-1.5 font-normal text-muted-foreground">
-                    {row.pct.toFixed(0)}%
-                  </span>
-                </p>
-              </div>
+              <BucketButton
+                key={row.group}
+                label={row.label}
+                figure={money(row.usd)}
+                share={`${row.pct.toFixed(0)}%`}
+                active={filter === row.group}
+                dimmed={filter !== null && filter !== row.group}
+                onClick={() => toggle(row.group)}
+              />
             ))}
             {unpricedEntries > 0 && (
-              <div className="space-y-0.5">
-                <p className="text-xs text-muted-foreground">
-                  {VEHICLE_COPY.unpricedNote}
-                </p>
-                <p className="text-sm font-medium tabular-nums text-muted-foreground">
-                  {unpricedEntries}
-                </p>
-              </div>
+              <BucketButton
+                label={VEHICLE_COPY.unpricedNote}
+                figure={String(unpricedEntries)}
+                active={filter === UNPRICED_FILTER}
+                dimmed={filter !== null && filter !== UNPRICED_FILTER}
+                onClick={() => toggle(UNPRICED_FILTER)}
+              />
             )}
           </div>
         )}
@@ -231,18 +300,24 @@ export function CostLedger({
           </TableBody>
         </Table>
 
-        {entries.length > DEFAULT_VISIBLE_ENTRIES && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-2"
-            onClick={() => setShowAll((prev) => !prev)}
-          >
-            {showAll
-              ? VEHICLE_COPY.showLess
-              : `${VEHICLE_COPY.showAll} ${entries.length}`}
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {filtered.length > DEFAULT_VISIBLE_ENTRIES && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAll((prev) => !prev)}
+            >
+              {showAll
+                ? VEHICLE_COPY.showLess
+                : `${VEHICLE_COPY.showAll} ${filtered.length}`}
+            </Button>
+          )}
+          {filter !== null && (
+            <Button variant="ghost" size="sm" onClick={() => setFilter(null)}>
+              {VEHICLE_COPY.clearFilter}
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
