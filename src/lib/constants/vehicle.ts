@@ -178,6 +178,49 @@ export type MaintenanceGroup = (typeof MAINTENANCE_GROUPS)[number]["value"]
 export const MAINTENANCE_GROUP_LABELS: Record<string, string> =
   Object.fromEntries(MAINTENANCE_GROUPS.map((g) => [g.value, g.label]))
 
+/**
+ * The four buckets the ledger totals by: fuel, maintenance, the recurring
+ * obligations, and everything else.
+ *
+ * Coarser than the nine categories on purpose. Nine rows of spend is a table
+ * nobody reads — an earlier version of this breakdown was cut for exactly
+ * that — while four is the question actually being asked: how much of this car
+ * is petrol, how much is keeping it running, how much is the state and the
+ * insurer, and how much is neither.
+ *
+ * The obligations bucket reuses the maintenance group's own label rather than
+ * inventing a second name for the same family. One concept, one term.
+ *
+ * Each bucket sits wholly inside one side of the fixed/variable split, so the
+ * two cuts never contradict each other: fuel and maintenance are variable,
+ * obligations and other are fixed. This answers "where did the money go"; the
+ * split answers "which denominator does it belong under".
+ */
+export const VEHICLE_COST_GROUPS = [
+  { value: "fuel", label: "Fuel", categories: ["fuel"] },
+  { value: "maintenance", label: "Maintenance", categories: ["maintenance"] },
+  {
+    value: "obligations",
+    label: MAINTENANCE_GROUP_LABELS.obligations,
+    categories: ["insurance", "tax", "inspection"],
+  },
+  { value: "other", label: "Other", categories: ["fine", "parking", "other"] },
+] as const satisfies readonly {
+  value: string
+  label: string
+  categories: readonly VehicleCostCategory[]
+}[]
+
+export type VehicleCostGroup = (typeof VEHICLE_COST_GROUPS)[number]["value"]
+
+/** Category → bucket, derived so the two lists cannot disagree. */
+export const VEHICLE_COST_GROUP_OF: Record<string, VehicleCostGroup> =
+  Object.fromEntries(
+    VEHICLE_COST_GROUPS.flatMap((g) =>
+      g.categories.map((c) => [c, g.value as VehicleCostGroup]),
+    ),
+  )
+
 /** A hand-added item is usually a service consumable, and it is the one value
  *  that never hides anything: a long-life part mis-filed here still shows its
  *  own interval, where defaulting to `obligations` would file real maintenance

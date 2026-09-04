@@ -298,6 +298,8 @@ export default function VehiclePage() {
 
       <CostLedger
         entries={entries}
+        byGroup={cost?.byGroup ?? []}
+        unpricedEntries={cost?.unpricedEntries ?? 0}
         items={items}
         onEdit={openEditCost}
         onDelete={setDeletingEntry}

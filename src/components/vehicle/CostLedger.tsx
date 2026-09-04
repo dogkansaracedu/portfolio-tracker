@@ -11,12 +11,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
+import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import { formatCurrency, obfuscate } from "@/lib/prices"
 import {
   VEHICLE_COPY,
   VEHICLE_COST_CATEGORY_LABELS,
 } from "@/lib/constants/vehicle"
 import { isFiatCurrency } from "@/lib/constants/currencies"
+import type { GroupTotal } from "@/lib/vehicle"
 import type { VehicleCostEntry, VehicleMaintenanceItem } from "@/types/database"
 import {
   NO_DATA,
@@ -31,6 +33,10 @@ const DEFAULT_VISIBLE_ENTRIES = 12
 interface Props {
   /** Newest first. */
   entries: VehicleCostEntry[]
+  /** Cash spend in the four buckets, largest first. */
+  byGroup: GroupTotal[]
+  /** Entries recorded without a price — the totals exclude them. */
+  unpricedEntries: number
   items: VehicleMaintenanceItem[]
   onEdit: (entry: VehicleCostEntry) => void
   onDelete: (entry: VehicleCostEntry) => void
@@ -48,8 +54,16 @@ interface Props {
  * An entry with no amount shows a dash, not a zero: it records that work was
  * done at a price no longer known.
  */
-export function CostLedger({ entries, items, onEdit, onDelete }: Props) {
+export function CostLedger({
+  entries,
+  byGroup,
+  unpricedEntries,
+  items,
+  onEdit,
+  onDelete,
+}: Props) {
   const { obfuscated } = useDisplayCurrency()
+  const { money } = useDisplayMoney()
   const [showAll, setShowAll] = useState(false)
 
   if (entries.length === 0) return null
@@ -65,7 +79,41 @@ export function CostLedger({ entries, items, onEdit, onDelete }: Props) {
           {VEHICLE_COPY.ledgerHeading}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
+        {/* Where the money went, in four buckets. Plain figures, no bars: the
+            earlier nine-category version was cut partly because its bars used
+            the app's gain colour on a chart of money spent, and partly because
+            nine rows of spend is a table nobody reads. Four is the question
+            being asked.
+
+            Cash only — depreciation is not an outlay and leads the cost card
+            instead. Wraps to two rows on a phone rather than shrinking. */}
+        {byGroup.length > 0 && (
+          <div className="flex flex-wrap gap-x-6 gap-y-2 border-b pb-3">
+            {byGroup.map((row) => (
+              <div key={row.group} className="space-y-0.5">
+                <p className="text-xs text-muted-foreground">{row.label}</p>
+                <p className="text-sm font-medium tabular-nums">
+                  {money(row.usd)}
+                  <span className="ml-1.5 font-normal text-muted-foreground">
+                    {row.pct.toFixed(0)}%
+                  </span>
+                </p>
+              </div>
+            ))}
+            {unpricedEntries > 0 && (
+              <div className="space-y-0.5">
+                <p className="text-xs text-muted-foreground">
+                  {VEHICLE_COPY.unpricedNote}
+                </p>
+                <p className="text-sm font-medium tabular-nums text-muted-foreground">
+                  {unpricedEntries}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* `Table` brings its own overflow container. Below `sm` the cells lose
             their side padding and may wrap, which is what lets the four
             columns fit a 320px screen without the page scrolling sideways.
