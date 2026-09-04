@@ -130,13 +130,13 @@ One [maintenance item](GLOSSARY.md#maintenance-item) per recurring job, each
 with its own intervals — per item, not per mileage milestone.
 
 Items carry a [group](GLOSSARY.md#maintenance-group), and the plan is read a
-group at a time: **every-service** consumables, **long-term** parts, and the
+group at a time: **periodic-service** consumables, **long-term** parts, and the
 **insurance, tax & inspection** obligations that recur on a clock but are not
 maintenance. A plan of fourteen rows is otherwise a flat list of three quite
 different kinds of thing.
 
 Group membership is about **kind, not interval length** — a fuel filter replaced
-every *other* service still sits with the every-service consumables, because
+every *other* service still sits with the periodic-service consumables, because
 that is what it is and where its owner looks for it; its interval decides when
 it is actually due. Grouping is presentation only: it never changes a due point,
 and the due-at-next-service bundle ignores groups, so an overdue obligation is
