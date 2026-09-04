@@ -8,6 +8,7 @@ import {
   MAINTENANCE_GROUPS,
   MAINTENANCE_STATUS,
   MAINTENANCE_TEXT_CLASSES,
+  OBLIGATIONS_GROUP,
   VEHICLE_COPY,
 } from "@/lib/constants/vehicle"
 import type { MaintenanceItemState } from "@/lib/vehicle"
@@ -15,8 +16,9 @@ import {
   NO_DATA,
   duePhrase,
   formatInterval,
-  formatUsedPct,
   lastDonePhrase,
+  lastLabel,
+  nextLabel,
   projectionLabel,
   remainingPhrase,
   statusLabel,
@@ -52,7 +54,7 @@ function showProjection(state: MaintenanceItemState): boolean {
  * never `gainLossClass`: maintenance is neither a gain nor a loss, the rule
  * Components 15 and 16 already follow for rates.
  *
- * Groups are divider headings inside one card, not three cards: fourteen rows
+ * Groups are divider headings inside one card, not three cards: seventeen rows
  * split across three cards would triple the page's chrome, and the groups are
  * read together. Rows arrive loudest-first from `maintenancePlanState`, so
  * within a group what needs doing is on top; grouping never buries an overdue
@@ -77,11 +79,11 @@ export function MaintenanceChart({ plan, onEdit, onDelete }: Props) {
           />
         </CardTitle>
       </CardHeader>
-      {/* The groups become COLUMNS from `lg` up. Fourteen rows stacked in one
+      {/* The groups become COLUMNS from `lg` up. Seventeen rows stacked in one
           column is most of a desktop screen for a card whose whole job is to
           be scanned at a glance, and the groups are independent lists — so
           they sit beside each other rather than below.
-          `items-start` keeps the uneven 4/6/4 columns from stretching to the
+          `items-start` keeps the uneven columns from stretching to the
           tallest. Measured: at 1440 (352px columns) the card is 812px against
           2,972px single-column, every row a uniform 108px.
           It starts at `lg`, NOT `md`: two-up at 768 gives 208px columns, where
@@ -177,8 +179,10 @@ function ItemRow({ state, onEdit, onDelete }: RowProps) {
                   item.interval_km,
                   item.interval_months,
                 )}`}
-            {" · "}
-            {VEHICLE_COPY.lastDone.toLowerCase()} {lastDonePhrase(state)}
+            {status === MAINTENANCE_STATUS.unrecorded ? " · " : " · "}
+            {status === MAINTENANCE_STATUS.unrecorded
+              ? lastDonePhrase(state)
+              : `${lastLabel(state).toLowerCase()} ${lastDonePhrase(state)}`}
           </p>
         </div>
         {/* Icon-only actions keep the row height down; both stay comfortably
@@ -231,14 +235,10 @@ function ItemRow({ state, onEdit, onDelete }: RowProps) {
           {remainingPhrase(state)}
         </span>
         <span className="text-muted-foreground">
-          {intervalUsedPct !== null && (
-            <>
-              {" · "}
-              {formatUsedPct(intervalUsedPct)} used
-            </>
-          )}
+          {/* "% used" is gone: the meter beside it already encodes exactly
+              that, and printing both made the row restate one fact twice. */}
           {" · "}
-          {VEHICLE_COPY.nextDue} {duePhrase(state)}
+          {nextLabel(state)} {duePhrase(state)}
           {showProjection(state) && (
             <>
               {" · "}
@@ -270,6 +270,10 @@ interface DueProps {
  * an empty box, so the card always says something true.
  */
 export function DueSummary({ due, nextUp, onLogVisit }: DueProps) {
+  const visitItems = due
+    .filter((s) => s.item.item_group !== OBLIGATIONS_GROUP)
+    .map((s) => s.item.id)
+
   return (
     <Card>
       <CardHeader>
@@ -313,17 +317,27 @@ export function DueSummary({ due, nextUp, onLogVisit }: DueProps) {
                 </li>
               ))}
             </ul>
-            {/* One visit closes the whole bundle, so the action pre-ticks every
-                item listed above rather than making the owner find them in a
-                fourteen-row checkbox list. */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => onLogVisit(due.map((s) => s.item.id))}
-            >
-              {VEHICLE_COPY.logVisit}
-            </Button>
+            {/* One visit closes the bundle, so the action pre-ticks the items
+                listed above rather than making the owner find them in a
+                sixteen-row checkbox list.
+
+                Obligations are deliberately excluded: an insurance renewal, a
+                tax instalment and an inspection fee go to three different
+                payees on three different dates, so bundling them into one
+                entry would invent a payment — and the entry's category
+                (`maintenance`) would file them as a per-km running cost,
+                corrupting the fixed/variable split the cost card is built on.
+                They are logged individually. */}
+            {visitItems.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => onLogVisit(visitItems)}
+              >
+                {VEHICLE_COPY.logVisit}
+              </Button>
+            )}
           </>
         )}
       </CardContent>

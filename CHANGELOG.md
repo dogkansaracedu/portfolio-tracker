@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.18.0] — 2026-09-04
+- Items now say whether the interval means **replace** or just **check**. Brake
+  pads at 30,000 km are usually fine, so their interval is a prompt to have
+  them looked at — they read "next check", not "next due", and recording a
+  check resets the reminder without claiming a part was fitted.
+- **The periodic service is a tracked item** — 1 year or 15,000 km, whichever
+  first — so the visit itself is on the plan, and the check-only items share
+  its cadence.
+- An item nothing has ever recorded now reads **"Not recorded"** instead of a
+  red "Overdue". It was asserting a missed service from a date that had never
+  been entered, filling the due list and raising a dashboard alarm. It still
+  shows its from-purchase estimate; it just no longer claims it as fact.
+- "Log this visit" no longer files insurance and road tax as per-km
+  maintenance, the cash total says how many entries have no price recorded,
+  and the per-km figures are quoted per 100 km (at 2dp "$0.01 / km" was one
+  significant digit for a headline number).
+
 ## [0.17.5] — 2026-09-04
 - The maintenance plan's first group is **Periodic service**, not "Every
   service" — it is what the work is actually called (periyodik bakım).
