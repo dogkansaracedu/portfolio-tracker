@@ -747,14 +747,6 @@ export const VEHICLE_COPY = {
   monthlyFuelHeading: "Fuel, per month",
   monthlyFuelUnavailable:
     "Needs a second odometer reading before the app knows how far you drive in a month.",
-  estimateMeasured: "from your own fills",
-  estimateAssumedConsumption: "assuming",
-  estimateAssumedPrice: "at",
-  estimatePriceAsOf: "as of",
-  estimatePriceAge: "read",
-  estimatePriceAgo: "ago",
-  estimateStaleWarning:
-    "A stored pump price ages fast: motorin rose 7.76 TL/L in one night in September 2026, and the duty on it is legislated to step up about 3.60 TL/L at the pump every month to January 2027. Log a fill with its litres and amount and this switches to what you actually paid.",
   economyAverage: "Average",
   economyBest: "Best",
   economyWorst: "Worst",

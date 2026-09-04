@@ -474,14 +474,17 @@ correct; silence about it is what makes owners conclude the feature is broken.
 A monthly figure, from the car's **own observed pace** — distance per month ×
 consumption × price per litre.
 
-**Measured beats assumed, independently for each input.** Consumption comes
-from full-tank data when there is any and from a stated assumption otherwise;
-the price comes from the owner's own fills when one recorded both litres and an
-amount, and from a stored pump price otherwise. The two are independent — a
-measured price with an assumed consumption is the normal early state — and the
-figure always says which of the two it used. A number built on two guesses
-presented as though it were a reading is the failure this component avoids
-everywhere else.
+It is **rough, and presented as rough** — a leading `≈` and its three inputs
+printed underneath it. Anyone reading "6.0 L/100km · ₺88.88/L" can see exactly
+what the figure rests on, and that is the whole disclosure it needs.
+
+**Measured beats assumed, independently for each input, and silently.**
+Consumption comes from full-tank data when there is any and from a stated
+assumption otherwise; the price comes from the owner's own fills when one
+recorded both litres and an amount, and from a stored pump price otherwise. The
+inputs are shown, so which of the two supplied them does not need announcing —
+an earlier version labelled each one and carried a paragraph on how fast a
+stored pump price ages, which was more caveat than a rough estimate is worth.
 
 **Nothing is shown at all without an observed pace.** No typical annual
 mileage is substituted: the whole estimate hangs off how far this car actually
@@ -490,12 +493,11 @@ the only reachable reason for the figure to be absent, which is why the one
 explanation offered is accurate — a measured consumption is positive by
 construction, and the fallbacks are constants.
 
-**The stored pump price is displayed with the date it was read**, and never
-presented as current. It is a fallback of last resort: Turkish diesel duty was
-stepping up monthly through late 2026, so a stored price ages unusually fast,
-and there is no key-free public source to refresh it from. Logging one fill
-with its litres and its amount replaces it with what the owner actually paid,
-which is the intended path.
+The stored pump price is a fallback of last resort, and it ages fast — Turkish
+diesel moved 9.6% in one night in September 2026 and its duty is legislated to
+climb monthly into 2027. That is a reason to prefer the owner's own fills, not
+a reason to bury the estimate in warnings: logging one fill with its litres and
+its amount replaces the stored figure with what was actually paid.
 
 ### Distance is shown only where distance applies
 
