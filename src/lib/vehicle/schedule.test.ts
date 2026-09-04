@@ -10,7 +10,9 @@ import {
   odometerView,
 } from "@/lib/vehicle"
 import {
+  DEFAULT_MAINTENANCE_PLAN,
   MAINTENANCE_DUE_SOON_PCT,
+  MAINTENANCE_GROUPS,
   MAINTENANCE_STATUS,
 } from "@/lib/constants/vehicle"
 import type {
@@ -80,6 +82,7 @@ function item(over: Partial<VehicleMaintenanceItem> = {}): VehicleMaintenanceIte
     user_id: "u1",
     vehicle_id: "v1",
     name: "Item",
+    item_group: "routine",
     interval_km: 10000,
     interval_months: null,
     sort_order: 0,
@@ -444,5 +447,36 @@ describe("maintenancePlanState / dueItems / nextUpItem", () => {
 
   it("names the closest not-yet-due item, ignoring dormant ones", () => {
     expect(nextUpItem(states)?.item.name).toBe("Fine thing")
+  })
+})
+
+describe("the seeded plan's groups", () => {
+  it("assigns every template row a real group", () => {
+    const valid = new Set<string>(MAINTENANCE_GROUPS.map((g) => g.value))
+    for (const t of DEFAULT_MAINTENANCE_PLAN) {
+      expect(valid.has(t.group)).toBe(true)
+    }
+  })
+
+  it("files the fuel filter as an every-service item", () => {
+    // Deliberate, and the one placement worth pinning: it is replaced every
+    // OTHER service, but it is a service consumable and that is where its
+    // owner looks for it. Its 40,000 km interval still decides when it is due.
+    const fuel = DEFAULT_MAINTENANCE_PLAN.find((t) => t.name === "Fuel filter")
+    expect(fuel?.group).toBe("routine")
+    expect(fuel?.intervalKm).toBe(40000)
+  })
+
+  it("keeps the legal obligations out of maintenance", () => {
+    const obligations = DEFAULT_MAINTENANCE_PLAN.filter(
+      (t) => t.group === "obligations",
+    ).map((t) => t.name)
+    expect(obligations).toHaveLength(4)
+    // All four are time-only: none of them cares how far the car was driven.
+    for (const name of obligations) {
+      const t = DEFAULT_MAINTENANCE_PLAN.find((x) => x.name === name)!
+      expect(t.intervalKm).toBeNull()
+      expect(t.intervalMonths).not.toBeNull()
+    }
   })
 })

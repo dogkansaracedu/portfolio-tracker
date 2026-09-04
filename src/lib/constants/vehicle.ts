@@ -77,6 +77,49 @@ export const VEHICLE_FIXED_CATEGORIES: readonly VehicleCostCategory[] = [
   "other",
 ]
 
+// ─── Maintenance groups ─────────────────────────────────────────────
+
+/**
+ * Which part of the plan an item belongs to.
+ *
+ * Deliberately **not** called a category: {@link VEHICLE_COST_CATEGORIES}
+ * already owns that word for what an outlay was *for*, and one concept per
+ * term is a house rule. The two are different axes — an `inspection` cost
+ * closes an `obligations` item, and a `maintenance` cost can close either a
+ * `routine` or a `long_life` one.
+ *
+ * Membership is about **kind, not interval length**: the fuel filter is
+ * `routine` even though it is replaced every *other* service, because it is a
+ * service consumable and that is where its owner looks for it. Its interval is
+ * what actually decides when it comes due.
+ *
+ * Order is display order, most-frequently-consulted first: the every-service
+ * items change several times a year, the long-life parts once in several
+ * years, and the obligations run on a calendar the owner already knows. An
+ * overdue obligation is never buried by that ordering — the due-at-next-service
+ * bundle sits above the plan and ignores groups entirely.
+ */
+export const MAINTENANCE_GROUPS = [
+  { value: "routine", label: "Every service" },
+  { value: "long_life", label: "Long-term" },
+  { value: "obligations", label: "Insurance, tax & inspection" },
+] as const
+
+export type MaintenanceGroup = (typeof MAINTENANCE_GROUPS)[number]["value"]
+
+export const MAINTENANCE_GROUP_LABELS: Record<string, string> =
+  Object.fromEntries(MAINTENANCE_GROUPS.map((g) => [g.value, g.label]))
+
+/** A hand-added item is usually a service consumable, and it is the one value
+ *  that never hides anything: a long-life part mis-filed here still shows its
+ *  own interval, where defaulting to `obligations` would file real maintenance
+ *  under paperwork. Mirrors the column default. */
+export const DEFAULT_MAINTENANCE_GROUP: MaintenanceGroup = "routine"
+
+/** Rank for sorting, from {@link MAINTENANCE_GROUPS}' own order. */
+export const MAINTENANCE_GROUP_RANK: Record<string, number> =
+  Object.fromEntries(MAINTENANCE_GROUPS.map((g, i) => [g.value, i]))
+
 // ─── Maintenance status ladder ──────────────────────────────────────
 
 export const MAINTENANCE_STATUS = {
@@ -214,90 +257,105 @@ export interface MaintenanceItemTemplate {
   name: string
   intervalKm: number | null
   intervalMonths: number | null
+  group: MaintenanceGroup
   note: string | null
 }
 
 export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   {
     name: "Engine oil & filter",
+    group: "routine",
     intervalKm: 10000,
     intervalMonths: 12,
     note: "Bosch TR / Toyota TR: 10,000–15,000 km or annually, whichever first.",
   },
   {
     name: "Air filter",
+    group: "routine",
     intervalKm: 20000,
     intervalMonths: 24,
     note: "Bosch TR: 20,000–30,000 km.",
   },
   {
     name: "Cabin (pollen) filter",
+    group: "routine",
     intervalKm: 20000,
     intervalMonths: 24,
     note: "Bosch TR: 20,000–30,000 km.",
   },
   {
     name: "Fuel filter",
+    group: "routine",
     intervalKm: 40000,
     intervalMonths: 48,
     note: "Bosch TR: 40,000–50,000 km. VW diesel schedules it every 20,000.",
   },
   {
     name: "Spark plugs",
+    group: "long_life",
     intervalKm: 60000,
     intervalMonths: null,
     note: "Petrol engines only — delete this row on a diesel (it has glow plugs, on no scheduled interval). Highly engine-dependent otherwise: VW TR quotes 60k/90k/120k/180k. Check your bakım kitabı.",
   },
   {
     name: "Brake fluid",
+    group: "long_life",
     intervalKm: null,
     intervalMonths: 24,
     note: "Time-based, not distance-based. VW TR: 3 years from new, then every 2.",
   },
   {
     name: "Coolant / antifreeze",
+    group: "long_life",
     intervalKm: 40000,
     intervalMonths: 48,
     note: "Bosch TR: 40,000–50,000 km; sources differ on the time interval (2–4 years).",
   },
   {
     name: "Drive belt (triger kayışı)",
+    group: "long_life",
     intervalKm: 90000,
     intervalMonths: 72,
     note: "Bosch TR: 60,000–120,000 km or 4–6 years, whichever first. Chain-driven engines need no replacement — delete this row if yours has a chain.",
   },
   {
     name: "Automatic transmission oil",
+    group: "long_life",
     intervalKm: 50000,
     intervalMonths: 60,
     note: "Bosch TR: 50,000–60,000 km. Remove if your car is manual.",
   },
   {
     name: "Tyres",
+    group: "long_life",
     intervalKm: 100000,
     intervalMonths: 60,
     note: "Usually age-driven (5–6 years) before km. Legal minimum tread in Turkey is 1.6 mm.",
   },
   {
     name: "Muayene (TÜVTÜRK)",
+    group: "obligations",
     intervalKm: null,
     intervalMonths: 24,
     note: "Private cars: first at 3 years, then every 2. Late costs 5% of the fee per month.",
   },
   {
     name: "Trafik sigortası",
+    group: "obligations",
     intervalKm: null,
     intervalMonths: 12,
     note: "Compulsory. Premiums are capped monthly by SEDDK per province and hasarsızlık basamağı.",
   },
   {
     name: "Kasko",
+    group: "obligations",
     intervalKm: null,
     intervalMonths: 12,
     note: "Optional, free tariff — there is no published kasko price list, so record what you actually paid.",
   },
   {
     name: "MTV instalment",
+    group: "obligations",
     intervalKm: null,
     intervalMonths: 6,
     note: "Two equal instalments, January and July (Law 197 art. 9). A car registered before 2018 is taxed on engine size × age only, with no vehicle-value tier.",
@@ -368,6 +426,10 @@ export const VEHICLE_COPY = {
   seedPlanHint:
     "Adds the common items with typical Turkish intervals. Your car's bakım kitabı is the real authority — edit anything that differs, and delete what doesn't apply.",
   everyPrefix: "Every",
+  ungroupedHeading: "Other",
+  fieldGroup: "Part of the plan",
+  fieldGroupHint:
+    "Which part of the plan this belongs to. About kind, not how often: the fuel filter is an every-service consumable even though it is changed every other service — its interval decides when it is actually due.",
   dormantCaption: "No interval set — never comes due",
   nextDue: "Next due",
   lastDone: "Last done",

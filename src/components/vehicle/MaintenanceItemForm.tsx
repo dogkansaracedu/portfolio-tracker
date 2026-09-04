@@ -9,13 +9,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { HintPopover } from "@/components/common/HintPopover"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useVehicleContext } from "@/contexts/VehicleContext"
 import { bn } from "@/lib/config"
-import { VEHICLE_COPY } from "@/lib/constants/vehicle"
+import {
+  DEFAULT_MAINTENANCE_GROUP,
+  MAINTENANCE_GROUPS,
+  MAINTENANCE_GROUP_LABELS,
+  VEHICLE_COPY,
+  type MaintenanceGroup,
+} from "@/lib/constants/vehicle"
 import type { VehicleMaintenanceItem } from "@/types/database"
 
 interface Props {
@@ -30,18 +44,28 @@ interface Props {
 
 interface FormState {
   name: string
+  group: MaintenanceGroup
   intervalKm: string
   intervalMonths: string
   note: string
 }
 
 function emptyForm(): FormState {
-  return { name: "", intervalKm: "", intervalMonths: "", note: "" }
+  return {
+    name: "",
+    group: DEFAULT_MAINTENANCE_GROUP,
+    intervalKm: "",
+    intervalMonths: "",
+    note: "",
+  }
 }
 
 function formFromItem(item: VehicleMaintenanceItem): FormState {
   return {
     name: item.name,
+    group: (MAINTENANCE_GROUPS.some((g) => g.value === item.item_group)
+      ? item.item_group
+      : DEFAULT_MAINTENANCE_GROUP) as MaintenanceGroup,
     intervalKm: item.interval_km === null ? "" : String(item.interval_km),
     intervalMonths:
       item.interval_months === null ? "" : String(item.interval_months),
@@ -109,6 +133,7 @@ export function MaintenanceItemForm({
       const payload = {
         vehicle_id: vehicleId,
         name: form.name.trim(),
+        item_group: form.group,
         interval_km: km === null ? null : km.toFixed(),
         interval_months: months === null ? null : months.toFixed(),
         note: form.note.trim() || null,
@@ -144,6 +169,32 @@ export function MaintenanceItemForm({
                 onChange={(e) => set("name", e.target.value)}
                 required
               />
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1">
+                <Label htmlFor="item-group">{VEHICLE_COPY.fieldGroup}</Label>
+                <HintPopover
+                  label={VEHICLE_COPY.fieldGroup}
+                  text={VEHICLE_COPY.fieldGroupHint}
+                />
+              </div>
+              <Select
+                value={form.group}
+                onValueChange={(v) => set("group", v as MaintenanceGroup)}
+              >
+                <SelectTrigger id="item-group" className="w-full">
+                  <SelectValue>
+                    {MAINTENANCE_GROUP_LABELS[form.group]}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {MAINTENANCE_GROUPS.map((g) => (
+                    <SelectItem key={g.value} value={g.value}>
+                      {g.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             {/* The two intervals side by side from `sm`, stacked on a phone. */}
             <div className="grid gap-4 sm:grid-cols-2">

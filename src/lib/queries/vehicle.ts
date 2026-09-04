@@ -145,6 +145,7 @@ export async function seedMaintenancePlan(
       user_id: userId,
       vehicle_id: vehicleId,
       name: t.name,
+      item_group: t.group,
       interval_km: t.intervalKm,
       interval_months: t.intervalMonths,
       sort_order: index,

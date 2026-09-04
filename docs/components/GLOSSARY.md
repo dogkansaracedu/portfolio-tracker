@@ -530,8 +530,9 @@ whether or not the car moves (insurance, tax, inspection, fines, parking,
 other), and [depreciation](#depreciation-vehicle) joins them.
 
 ### Maintenance item
-One recurring service item in a [vehicle](#vehicle)'s plan: a name, an interval
-in distance, an interval in time, and a note. **Either interval may be absent,
+One recurring service item in a [vehicle](#vehicle)'s plan: a name, a
+[group](#maintenance-group), an interval in distance, an interval in time, and
+a note. **Either interval may be absent,
 and absence means that dimension is not tracked** — distance-only for a drive
 belt, time-only for brake fluid or an inspection, both for an oil change
 (whichever comes first), neither for a dormant item that never becomes due.
@@ -540,6 +541,31 @@ There is no separate "track by" setting; the blank *is* the instruction.
 Intervals are the owner's own figures. No free source of manufacturer service
 schedules exists, so the app seeds a plan of typical intervals for the local
 market and treats the car's own service book as the authority.
+
+### Maintenance group
+Which part of a [vehicle](#vehicle)'s plan a [maintenance item](#maintenance-item)
+belongs to. Three, in display order:
+
+| Group | What it holds |
+|---|---|
+| **Every service** | the consumables replaced at each service — oil, filters |
+| **Long-term** | parts replaced once in several years — belts, fluids, tyres |
+| **Insurance, tax & inspection** | recurring obligations that are not maintenance at all |
+
+Membership is about **kind, not interval length**. A fuel filter replaced every
+*other* service is still an every-service consumable, because that is what it is
+and where its owner looks for it; its own interval does the work of deciding
+when it comes due.
+
+Deliberately **not** called a category: a
+[cost category](#cost-category) already owns that word, and it describes an
+*outlay* rather than an *item*. The two are different axes — an inspection cost
+closes an obligations item, and a maintenance cost can close either an
+every-service or a long-term one.
+
+Grouping is presentation, not logic: it changes how the plan is read, never
+when anything is due, and the [due-at-next-service](#maintenance-status-ladder)
+bundle ignores groups entirely so an overdue obligation is never buried.
 
 ### Interval used
 How much of a [maintenance item](#maintenance-item)'s interval has been

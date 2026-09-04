@@ -2,7 +2,8 @@
 
 > Layer: React/Vite/Supabase implementation. Contract → [../17-vehicle.md](../17-vehicle.md)
 >
-> **Status: built and shipped** (v0.16.0; UX-review fixes in v0.16.1). Every path below is a real pointer.
+> **Status: built and shipped** (v0.16.0; UX-review fixes in v0.16.1; grouped
+> maintenance plan in v0.17.0). Every path below is a real pointer.
 
 ## Stack
 
@@ -23,7 +24,8 @@
 | Path | Role |
 |---|---|
 | `supabase/migrations/20260904120000_vehicle.sql` | Four tables + indexes + RLS. Carries the design rationale in comments (one ledger, blank-means-ignore, nullable amount). |
-| `src/lib/constants/vehicle.ts` | Route and table names, `VEHICLE_DEFAULT_CURRENCY`, `VEHICLE_COST_CATEGORIES` (+ labels, fixed/variable split), `MAINTENANCE_STATUS` (+ `MaintenanceStatus`), `MAINTENANCE_DUE_SOON_PCT` / `MAINTENANCE_OVERDUE_PCT`, `MAINTENANCE_STATUS_RANK` / `_LABELS` / `_BAR_CLASSES` / `_TEXT_CLASSES`, `VEHICLE_ALERT_*`, `FUEL_ECONOMY_*`, `DEFAULT_MAINTENANCE_PLAN` (the seeded plan, each row sourced in a comment), `TSB_KASKO_VALUE_URL`, and **all** user-visible copy (`VEHICLE_COPY`). |
+| `supabase/migrations/20260904160000_vehicle_maintenance_groups.sql` | Adds `item_group` (CHECKed to three values, defaulting to `routine`) and backfills a seeded plan **by name**, so an existing plan groups itself. |
+| `src/lib/constants/vehicle.ts` | Route and table names, `VEHICLE_DEFAULT_CURRENCY`, `VEHICLE_COST_CATEGORIES` (+ labels, fixed/variable split), `MAINTENANCE_GROUPS` (+ `MaintenanceGroup`, `_LABELS`, `_RANK`, `DEFAULT_MAINTENANCE_GROUP`), `MAINTENANCE_STATUS` (+ `MaintenanceStatus`), `MAINTENANCE_DUE_SOON_PCT` / `MAINTENANCE_OVERDUE_PCT`, `MAINTENANCE_STATUS_RANK` / `_LABELS` / `_BAR_CLASSES` / `_TEXT_CLASSES`, `VEHICLE_ALERT_*`, `FUEL_ECONOMY_*`, `DEFAULT_MAINTENANCE_PLAN` (the seeded plan, each row sourced in a comment), `TSB_KASKO_VALUE_URL`, and **all** user-visible copy (`VEHICLE_COPY`). |
 | `src/lib/vehicle/schedule.ts` | Pure schedule engine: `addDaysIso`, `addMonthsIso`, `odometerReadings`, `odometerView`, `maintenanceItemState`, `maintenancePlanState`, `dueItems`, `nextUpItem`. Types `OdometerReading`, `OdometerView`, `MaintenanceItemState`. |
 | `src/lib/vehicle/costs.ts` | Pure cost engine: `computeOwnershipCost`, `computeOpportunityCost`. Types `OwnershipCost`, `OpportunityCost`. |
 | `src/lib/vehicle/fuel.ts` | Pure `computeFuelEconomy` (full-tank segmentation). Types `FuelEconomy`, `FuelSegment`. |
@@ -142,6 +144,19 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
 - `removeItem` also strips the id from every local entry's `item_ids`, mirroring
   the database's cascade on the join table — otherwise the schedule would keep
   anchoring on an item that no longer exists until the next refresh.
+- **`item_group`, not `category`.** `vehicle_cost_entries.category` already owns
+  that word for what an outlay was *for*; one concept per term is a house rule,
+  and the two really are different axes. The migration backfills existing plans
+  **by name** rather than by position, so a plan seeded before the column
+  existed groups itself; anything unrecognised keeps the `routine` default,
+  which is the only value that never hides a real maintenance item under
+  paperwork.
+- **The chart groups; the engine does not.** `maintenancePlanState` still sorts
+  purely by status and interval-used, and `MaintenanceChart` partitions the
+  result in `MAINTENANCE_GROUPS` order. Sorting by group inside the engine would
+  make a pure function depend on a display concern. The chart also renders an
+  "Other" section for any group value not in the constants, so a value added to
+  the CHECK but not to the array cannot make rows silently vanish.
 - **Every vehicle write backfills the TCMB rate for its own date**
   (`ensureRatesFor` in `VehicleContext`, wrapping `ensureHistoricalRate` — the
   same contract the transaction path uses: non-fatal, the row is already saved).
