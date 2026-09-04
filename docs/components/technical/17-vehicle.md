@@ -151,6 +151,12 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   existed groups itself; anything unrecognised keeps the `routine` default,
   which is the only value that never hides a real maintenance item under
   paperwork.
+- **Two constants gate every km figure**, so "no distance dimension" is stated
+  once each side: `OBLIGATIONS_GROUP` (no km interval on the item form) and
+  `VEHICLE_ODOMETER_CATEGORIES` (no reading on the cost form). `lastDonePhrase`
+  is the third place and reads `item.interval_km === null` directly. Both forms
+  also null the value on save, since a field that has gone away can still hold
+  what was typed before the category or group changed.
 - **`OBLIGATIONS_GROUP` is a named constant, not a string literal at the call
   site.** `MaintenanceItemForm` drops the km input for that group and forces
   `interval_km` null on save; the name keeps the form and the constants from

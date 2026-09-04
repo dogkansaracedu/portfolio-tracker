@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.17.4] — 2026-09-04
+- No kilometre figure appears against anything that has no distance dimension:
+  a time-only item like MTV or kasko no longer shows an odometer on its
+  last-done line, and the cost form asks for a reading only where the car was
+  actually there — not on a policy renewal or a tax instalment paid at a desk.
+
 ## [0.17.3] — 2026-09-04
 - Insurance, tax and inspection no longer ask for a kilometre interval — they
   recur on a calendar and never on distance, so the field could only mislead.

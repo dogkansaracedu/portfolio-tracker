@@ -117,8 +117,12 @@ Three rules on entries:
   price no longer remembered — it contributes nothing to any total (it is not
   zero) and still resets whatever the row closes. This is exactly how a
   remembered-but-unpriced past service is entered.
-- **An odometer reading is optional but always offered**, because every reading
-  sharpens the projections.
+- **An odometer reading is offered only where it is part of the record** — a
+  fill, a service, tyres, an inspection. A policy renewal or a tax instalment
+  is paid at a desk, and the mileage it happened at is not information, so the
+  field is not shown. Where it is offered it stays optional, because every
+  reading sharpens the projections. A reading can always be recorded on its own
+  from the odometer card.
 
 ### The maintenance plan
 
@@ -279,6 +283,15 @@ Best and worst spans are named; with only one span there is an average but no
 
 **Where a figure is withheld, the reason is shown.** The honest blank is
 correct; silence about it is what makes owners conclude the feature is broken.
+
+### Distance is shown only where distance applies
+
+A kilometre figure never appears against something that has no distance
+dimension. That means: an obligation is offered no km interval; an item with no
+km interval shows no due odometer, no distance remaining, and **no odometer on
+its last-done line** (the reading at which a tax bill was paid is noise beside
+the date that matters); and the cost form asks for a reading only for the kinds
+of outlay where the car was actually there.
 
 ### Display rules
 
