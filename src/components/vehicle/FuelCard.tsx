@@ -25,10 +25,6 @@ interface Props {
 export function FuelCard({ fuel }: Props) {
   const { money } = useDisplayMoney()
 
-  // No fills at all — nothing to say yet, so the card stays off the page
-  // rather than rendering an empty shell.
-  if (fuel.totalLitres === 0 && fuel.totalFuelUsd === 0) return null
-
   return (
     <Card>
       <CardHeader>

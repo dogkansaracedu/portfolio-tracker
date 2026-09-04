@@ -77,7 +77,18 @@ export function MaintenanceChart({ plan, onEdit, onDelete }: Props) {
           />
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-5">
+      {/* The groups become COLUMNS from `lg` up. Fourteen rows stacked in one
+          column is most of a desktop screen for a card whose whole job is to
+          be scanned at a glance, and the groups are independent lists — so
+          they sit beside each other rather than below.
+          `items-start` keeps the uneven 4/6/4 columns from stretching to the
+          tallest. Measured: at 1440 (352px columns) the card is 812px against
+          2,972px single-column, every row a uniform 108px.
+          It starts at `lg`, NOT `md`: two-up at 768 gives 208px columns, where
+          the interval caption wraps to three or four lines and the hint icon
+          falls onto a line of its own — measured 444px TALLER than one column.
+          A breakpoint that makes the page longer is worse than no breakpoint. */}
+      <CardContent className="grid items-start gap-x-8 gap-y-5 lg:grid-cols-2 xl:grid-cols-3">
         {MAINTENANCE_GROUPS.map((group) => {
           const rows = plan.filter((s) => s.item.item_group === group.value)
           if (rows.length === 0) return null
@@ -123,13 +134,22 @@ interface RowProps {
   onDelete: (state: MaintenanceItemState) => void
 }
 
-/** One plan item: name, status, interval caption, meter, and what is left. */
+/**
+ * One plan item: name, status, interval caption, meter, and what is left.
+ *
+ * Everything below the meter is a **single left-aligned flow**, and the row
+ * carries a bottom rule. Both are about ownership: the due point used to be
+ * right-aligned across from the remaining figure, which in a 352px column put
+ * it nearer the *next* item's name than its own, and a reader could not tell
+ * whose "next due" they were looking at. Alignment plus a divider settles it
+ * without labelling every line.
+ */
 function ItemRow({ state, onEdit, onDelete }: RowProps) {
   const { item, status, intervalUsedPct } = state
   const pct = intervalUsedPct ?? 0
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 border-b pb-3 last:border-b-0 last:pb-0">
       {/* Name + status on one line, actions pinned right. The name wraps
           rather than truncating: "Timing belt (triger kayışı)" must stay
           readable on a phone. */}
@@ -195,35 +215,39 @@ function ItemRow({ state, onEdit, onDelete }: RowProps) {
         />
       </div>
 
-      {/* Reading order on a narrow screen: what's left, then where it falls
-          due. Both wrap onto their own line under `sm`. */}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-xs">
+      {/* One left-aligned sentence, wrapping as needed: what's left, how much
+          of the interval that is, where it falls due, and — only when distance
+          falls due first and the projection is still ahead — roughly when.
+          The remaining figure keeps its prominence through colour rather than
+          position, so nothing needs to be pushed to an edge.
+
+          The projection is folded in here rather than given its own line: it
+          earns a mention only for a km-first item (on an overdue row a past
+          "projected" date contradicts the due point, and when time governs it
+          repeats the date already printed), and for a km-ONLY item like the
+          coolant it is the single thing that puts a date on it at all. */}
+      <p className="text-xs">
         <span className={MAINTENANCE_TEXT_CLASSES[status]}>
           {remainingPhrase(state)}
-          {intervalUsedPct !== null && (
-            <span className="text-muted-foreground">
-              {" · "}
-              {formatUsedPct(intervalUsedPct)} used
-            </span>
-          )}
         </span>
         <span className="text-muted-foreground">
+          {intervalUsedPct !== null && (
+            <>
+              {" · "}
+              {formatUsedPct(intervalUsedPct)} used
+            </>
+          )}
+          {" · "}
           {VEHICLE_COPY.nextDue} {duePhrase(state)}
-          {/* Earns its place only when the projection is in the future AND
-              distance falls due first: on an overdue row a past "projected"
-              date contradicts the due point beside it, and when time governs
-              it just repeats the date already printed. Hidden below `sm`,
-              where it was the one line that wrapped on every distance-tracked
-              row. */}
           {showProjection(state) && (
-            <span className="max-sm:hidden">
+            <>
               {" · "}
               {VEHICLE_COPY.projectedFrom}{" "}
               {projectionLabel(state.projectedDueDate)}
-            </span>
+            </>
           )}
         </span>
-      </div>
+      </p>
     </div>
   )
 }

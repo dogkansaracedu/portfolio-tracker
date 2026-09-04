@@ -69,6 +69,13 @@ function fuelEntries(entries: VehicleCostEntry[]): VehicleCostEntry[] {
     )
 }
 
+/** Whether there is anything to show at all — any litre or any lira of fuel.
+ *  One predicate, so the card and the layout that reserves room for it cannot
+ *  disagree: reserving a column for a card that hides itself leaves a hole. */
+export function hasFuelData(fuel: FuelEconomy): boolean {
+  return fuel.totalLitres > 0 || fuel.totalFuelUsd > 0
+}
+
 export function computeFuelEconomy(
   entries: VehicleCostEntry[],
   rates: ExchangeRate[],

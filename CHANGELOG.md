@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.17.2] — 2026-09-04
+- A maintenance row now reads as one item: the due point sat right-aligned
+  across from the remaining figure, which in a narrow column put it closer to
+  the next item's name than its own. Everything under the meter is one
+  left-aligned sentence, and each row carries a divider.
+- Brake pads and discs join the default plan — a maintenance plan without
+  brakes in it was a real gap. Both are wear items, so both are seeded at the
+  low end of their range with a note saying why.
+
+## [0.17.1] — 2026-09-04
+- The Vehicle page uses a desktop screen instead of ignoring it: the
+  maintenance plan's three groups become three columns, and the due-list,
+  odometer/value and fuel cards share one band rather than stacking. Far less
+  scrolling on a wide screen; a phone is unchanged.
+- Inside the cost-of-ownership card, the per-month/per-km figures and the
+  capital-tied-up block now sit side by side on a wide screen.
+
 ## [0.17.0] — 2026-09-04
 - The maintenance plan is now grouped: **every service** (oil and filters),
   **long-term** (belts, fluids, tyres) and **insurance, tax & inspection**. A
