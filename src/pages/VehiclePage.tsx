@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ComponentProps } from "react"
 import { Plus } from "lucide-react"
 import { PageHeading } from "@/components/common/PageHeading"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,10 @@ import { SegmentedControl } from "@/components/common/SegmentedControl"
 import { useVehicle } from "@/hooks/useVehicle"
 import { useVehicleContext } from "@/contexts/VehicleContext"
 import { useReportedWrite } from "@/hooks/useReportedWrite"
-import { VEHICLE_COPY } from "@/lib/constants/vehicle"
+import { FUEL_CATEGORY, VEHICLE_COPY } from "@/lib/constants/vehicle"
+import { fromUsdOnDate } from "@/lib/pnl/currency"
+import { homeDayIso } from "@/lib/config"
+import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { CostOfOwnershipCard } from "@/components/vehicle/CostOfOwnershipCard"
 import { CostEntryForm } from "@/components/vehicle/CostEntryForm"
 import { CostLedger } from "@/components/vehicle/CostLedger"
@@ -67,6 +70,7 @@ export default function VehiclePage() {
     VEHICLE_COPY.writeFailed,
   )
 
+  const { rates } = useTransactionData()
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
   const {
     vehicles,
@@ -96,6 +100,9 @@ export default function VehiclePage() {
     null,
   )
   const [prefillItemIds, setPrefillItemIds] = useState<string[]>([])
+  const [prefillValues, setPrefillValues] = useState<
+    ComponentProps<typeof CostEntryForm>["prefillValues"]
+  >(undefined)
   const [itemFormOpen, setItemFormOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<VehicleMaintenanceItem | null>(
     null,
@@ -156,6 +163,29 @@ export default function VehiclePage() {
   const openAddCost = (itemIds: string[] = []) => {
     setEditingEntry(null)
     setPrefillItemIds(itemIds)
+    setPrefillValues(undefined)
+    setCostFormOpen(true)
+  }
+
+  /**
+   * Turn the monthly estimate into a real entry.
+   *
+   * The amount is prefilled in lira, since that is the currency every cost of
+   * running a car here is paid in and the form defaults to it. The estimate is
+   * USD-anchored, so it converts back at today's rate — the one place in this
+   * component that is right, because the row being created is dated today.
+   */
+  const openLogMonthlyFuel = () => {
+    if (!monthlyFuel) return
+    setEditingEntry(null)
+    setPrefillItemIds([])
+    setPrefillValues({
+      category: FUEL_CATEGORY,
+      amount: fromUsdOnDate(monthlyFuel.costUsd, "TRY", homeDayIso(), rates)
+        .toFixed(0),
+      litres: monthlyFuel.litres.toFixed(1),
+      note: VEHICLE_COPY.monthlyFuelNote,
+    })
     setCostFormOpen(true)
   }
 
@@ -281,7 +311,13 @@ export default function VehiclePage() {
         {odometer && (
           <VehicleReadingsCard vehicle={vehicle} odometer={odometer} />
         )}
-        {fuel && <FuelCard fuel={fuel} monthly={monthlyFuel} />}
+        {fuel && (
+          <FuelCard
+            fuel={fuel}
+            monthly={monthlyFuel}
+            onLogMonth={openLogMonthlyFuel}
+          />
+        )}
       </div>
 
       {/* 3. The plan it all comes from, then the ledger. */}
@@ -325,6 +361,7 @@ export default function VehiclePage() {
         items={items}
         entry={editingEntry}
         prefillItemIds={prefillItemIds}
+        prefillValues={prefillValues}
       />
       <MaintenanceItemForm
         open={itemFormOpen}

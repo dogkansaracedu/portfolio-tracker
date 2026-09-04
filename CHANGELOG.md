@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.23.0] — 2026-09-05
+- **"Log a month of fuel"** turns the monthly estimate into a real cost entry,
+  prefilled and editable — one rough row a month instead of a receipt per fill,
+  so fuel actually lands in your total cost of ownership. Everything else
+  (price per litre, consumption) is then derived from what you logged.
+
 ## [0.22.2] — 2026-09-05
 - The monthly fuel figure is just a rough figure again: "≈ ₺7,726" with its
   three inputs under it. The per-input measured/assumed labels and the

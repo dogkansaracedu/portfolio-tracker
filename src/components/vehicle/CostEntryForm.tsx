@@ -50,6 +50,17 @@ interface Props {
   entry?: VehicleCostEntry | null
   /** Seed the item checkboxes — used by "log this item as done". */
   prefillItemIds?: string[]
+  /**
+   * Seed the values themselves. The monthly fuel estimate uses this to fill
+   * in a real cost entry, which is the point of the estimate: a figure on a
+   * card changes no total, a logged row changes cost of ownership.
+   */
+  prefillValues?: {
+    category?: VehicleCostCategory
+    amount?: string
+    litres?: string
+    note?: string
+  }
 }
 
 /** The dialog's own string-shaped state — inputs never hold numbers. */
@@ -65,20 +76,24 @@ interface FormState {
   itemIds: string[]
 }
 
-function emptyForm(prefillItemIds: string[] = []): FormState {
+function emptyForm(
+  prefillItemIds: string[] = [],
+  values: Props["prefillValues"] = undefined,
+): FormState {
+  const category =
+    values?.category ??
+    // A row that closes maintenance items is a service visit, not a fill.
+    (prefillItemIds.length > 0 ? "maintenance" : FUEL_CATEGORY)
   return {
     date: homeDayIso(),
-    // A row that closes maintenance items is a service visit, not a fill —
-    // "Log this visit" arrives with items already ticked, and leaving the
-    // category on fuel filed it wrongly and showed the litres fields.
-    category: prefillItemIds.length > 0 ? "maintenance" : FUEL_CATEGORY,
-    amount: "",
+    category,
+    amount: values?.amount ?? "",
     // Every cost of running a car in Turkey is paid in lira; still editable.
     currency: VEHICLE_DEFAULT_CURRENCY,
     odometer: "",
-    litres: "",
+    litres: values?.litres ?? "",
     isFullTank: false,
-    note: "",
+    note: values?.note ?? "",
     itemIds: prefillItemIds,
   }
 }
@@ -121,6 +136,7 @@ export function CostEntryForm({
   items,
   entry,
   prefillItemIds,
+  prefillValues,
 }: Props) {
   const { addEntry, editEntry } = useVehicleContext()
   const [form, setForm] = useState<FormState>(() => emptyForm())
@@ -137,7 +153,11 @@ export function CostEntryForm({
   if (open !== wasOpen) {
     setWasOpen(open)
     if (open) {
-      setForm(entry ? formFromEntry(entry) : emptyForm(prefillItemIds ?? []))
+      setForm(
+        entry
+          ? formFromEntry(entry)
+          : emptyForm(prefillItemIds ?? [], prefillValues),
+      )
       setError(null)
     }
   }
