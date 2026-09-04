@@ -38,7 +38,15 @@ keep.
 
 Surfaces it appears on: Component 7 (dashboard warnings).
 
-## Concepts used — links into [GLOSSARY](GLOSSARY.md)
+## Concepts used
+
+The cost-rate vocabulary this component introduces — variable, fixed, one-off
+and blended — is defined in its own
+[module glossary](17-vehicle-glossary.md), with a worked example. A car is
+close enough to its own module that pushing those four terms into the shared
+file would not have earned their place there.
+
+Portfolio-wide terms still link into [GLOSSARY](GLOSSARY.md):
 
 - [Vehicle](GLOSSARY.md#vehicle) — the car record.
 - [Cost entry](GLOSSARY.md#cost-entry) / [Cost category](GLOSSARY.md#cost-category)
@@ -426,7 +434,25 @@ would present it as a recurring monthly cost the owner does not actually
 carry. Those one-offs stay in the cash figure, the total and the blended
 per-km figure, and appear beside the two rates as their own small line, so the
 fact that fixed and variable do not add up to the total is stated rather than
-left to be discovered.
+left to be discovered. All four terms are defined in the
+[module glossary](17-vehicle-glossary.md).
+
+**Each rate explains itself where it is shown.** The labels name the accounting
+class, which is not the same as saying what is inside — so each carries the
+app's one explainer affordance, opening on hover with a mouse and on tap with a
+finger. What each contains, and **whether it is marginal**, is the part that
+changes a decision: one of these figures answers "should I drive or fly" and
+the other cannot, and nothing about the words "Variable" and "Blended" says
+which. The card-level note on why there are two denominators at all stays where
+it is, on the heading.
+
+Only the two per-distance rates carry one. The fixed figure already names its
+own denominator in its label, was not what got asked about, and has the
+one-offs clause beneath it saying what it excludes — a third explainer would
+have made six on one card, which reads as every figure needing defence. Each
+hint is also worded in the unit its figure is printed in: an explainer that
+says "per km" beside a number quoted per 100 km is the exact misreading the
+per-100 km choice exists to prevent.
 
 With no current value recorded there is no depreciation, therefore no total, no
 fixed-per-month and no blended per-km — all render as unknown, with the reason

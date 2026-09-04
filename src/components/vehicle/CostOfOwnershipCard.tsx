@@ -118,7 +118,7 @@ export function CostOfOwnershipCard({
   const perKm = (usd: number | null) =>
     usd === null ? NO_DATA : `${money(usd * 100)} ${VEHICLE_COPY.per100km}`
   const perMonth = (usd: number | null) =>
-    usd === null ? NO_DATA : `${money(usd)} / mo`
+    usd === null ? NO_DATA : `${money(usd)} ${VEHICLE_COPY.perMonthSuffix}`
 
   return (
     <Card>
@@ -188,10 +188,12 @@ export function CostOfOwnershipCard({
               <Figure
                 label={VEHICLE_COPY.perKm}
                 value={perKm(cost.variablePerKmUsd)}
+                hint={VEHICLE_COPY.perKmHint}
               />
               <Figure
                 label={VEHICLE_COPY.blendedPerKm}
                 value={perKm(cost.blendedPerKmUsd)}
+                hint={VEHICLE_COPY.blendedPerKmHint}
               />
             </div>
 

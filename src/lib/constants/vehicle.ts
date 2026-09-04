@@ -744,7 +744,34 @@ export const VEHICLE_COPY = {
   kmDriven: "Distance driven",
   monthsOwned: "Owned for",
 
-  /** Why two denominators — stated once, on the card, rather than per figure. */
+  /**
+   * What the two per-km rates contain, and whether they are marginal.
+   *
+   * The card-level {@link denominatorHint} explains *why* there are two
+   * denominators, but it sits on the card title and says nothing about what
+   * goes into any one figure — so "Variable" and "Blended" were labels naming
+   * an accounting concept rather than a thing, and had to be asked about
+   * twice. Whether a figure is marginal is the part that changes a decision:
+   * one of these answers "should I drive to Izmir", the other cannot.
+   *
+   * Deliberately only these two. "Fixed, per month" already names its own
+   * denominator, was not what got asked about, and the caption underneath
+   * already says what it leaves out — a third glyph would have made six on one
+   * card and turned the row into every-figure-needs-explaining.
+   *
+   * Both are phrased in the unit the figure is actually printed in. An earlier
+   * blended hint said "the all-in cost of a km" beside a number reading
+   * `$20.68 / 100 km` — a 100× disagreement between a figure and its own
+   * explainer, in the one place the per-100 km decision exists to prevent
+   * exactly that misreading.
+   */
+  perKmHint:
+    "Fuel and maintenance ÷ the distance driven. This is the marginal cost: drive 100 km more and you spend about this much more. It is a lifetime average, so it sits below today's cost after fuel has risen.",
+  blendedPerKmHint:
+    "Every cost plus depreciation ÷ the distance driven — the all-in cost of 100 km. Not a marginal cost: driving more does not add this much, it spreads the fixed half thinner and pushes this figure down.",
+
+  /** Why there are two denominators at all. What each one *contains* is a
+   *  per-figure hint above; this stays on the card, stated once. */
   denominatorHint:
     "Costs that scale with distance are shown per km; costs that accrue whether or not you drive — insurance, MTV, muayene, depreciation — are shown per month. A single blended per-km figure moves by a third on the mileage assumption alone, so it is shown last, with the distance it assumes.",
 
@@ -807,6 +834,11 @@ export const VEHICLE_COPY = {
   unpricedNote: "unpriced",
   clearFilter: "Show all rows",
   per100km: "/ 100 km",
+  /** NOTE: `src/components/retirement/constants.ts` carries
+   *  `perMonthSuffix: "/mo"` — the same unit without the space. Two
+   *  conventions for one thing; recorded rather than restyled from here, since
+   *  the spacing change belongs to that page's copy, not this one's. */
+  perMonthSuffix: "/ mo",
   lastDone: "Last done",
   neverDone: "Never recorded",
   serviceHeading: "Next service",
