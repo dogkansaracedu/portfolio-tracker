@@ -2,7 +2,7 @@
 
 > Layer: behavioral (tech-agnostic). Implementation → [technical/17-vehicle.md](technical/17-vehicle.md)
 >
-> **Status: built** (v0.16.0, reviewed and corrected in v0.16.1). The contract below describes the shipped
+> **Status: built** (v0.16.0, corrected in v0.16.1, grouped plan in v0.17.0). The contract below describes the shipped
 > behavior.
 
 ## Purpose
@@ -40,6 +40,7 @@ Surfaces it appears on: Component 7 (dashboard warnings).
 - [Vehicle](GLOSSARY.md#vehicle) — the car record.
 - [Cost entry](GLOSSARY.md#cost-entry) / [Cost category](GLOSSARY.md#cost-category)
 - [Maintenance item](GLOSSARY.md#maintenance-item) /
+  [Maintenance group](GLOSSARY.md#maintenance-group) /
   [Interval used](GLOSSARY.md#interval-used) /
   [Maintenance status ladder](GLOSSARY.md#maintenance-status-ladder)
 - [Depreciation (vehicle)](GLOSSARY.md#depreciation-vehicle) /
@@ -122,6 +123,19 @@ Three rules on entries:
 
 One [maintenance item](GLOSSARY.md#maintenance-item) per recurring job, each
 with its own intervals — per item, not per mileage milestone.
+
+Items carry a [group](GLOSSARY.md#maintenance-group), and the plan is read a
+group at a time: **every-service** consumables, **long-term** parts, and the
+**insurance, tax & inspection** obligations that recur on a clock but are not
+maintenance. A plan of fourteen rows is otherwise a flat list of three quite
+different kinds of thing.
+
+Group membership is about **kind, not interval length** — a fuel filter replaced
+every *other* service still sits with the every-service consumables, because
+that is what it is and where its owner looks for it; its interval decides when
+it is actually due. Grouping is presentation only: it never changes a due point,
+and the due-at-next-service bundle ignores groups, so an overdue obligation is
+never buried by it.
 
 **A blank interval means that dimension is not tracked.** There is no separate
 "track by distance / time / both" setting; the blank is the instruction:
