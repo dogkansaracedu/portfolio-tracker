@@ -52,6 +52,18 @@ export interface FuelEconomy {
   totalLitres: number
   /** Total fuel spend ÷ total litres, in USD at each fill's own date. */
   avgPricePerLitreUsd: number | null
+  /**
+   * Price per litre from the **most recent** fill that priced its litres, USD.
+   *
+   * Separate from the lifetime average because the two answer different
+   * questions, and in a currency that loses a third of its value in a year the
+   * gap between them is not a rounding difference. A lifetime average over
+   * seventeen months of Turkish diesel sits about a third below what the pump
+   * charges today; using it to project next month's cost understates it by
+   * that much. The average still belongs on the card as a history figure — it
+   * just cannot forecast.
+   */
+  latestPricePerLitreUsd: number | null
   /** Total fuel spend, USD at each fill's own date. */
   totalFuelUsd: number
 }
@@ -80,6 +92,8 @@ export function computeFuelEconomy(
 
   let totalLitres = BN_ZERO
   let totalSpend = BN_ZERO
+  // `fills` is date-ascending, so the last fill to price its own litres wins.
+  let latestPricePerLitreUsd: number | null = null
   for (const fill of fills) {
     if (fill.litres !== null && fill.litres !== undefined) {
       totalLitres = totalLitres.plus(bn(Number(fill.litres)))
@@ -88,6 +102,24 @@ export function computeFuelEconomy(
       totalSpend = totalSpend.plus(
         normalizeToUsd(Number(fill.amount), fill.currency, fill.date, rates),
       )
+    }
+    // Both halves have to come from the SAME fill: one row's litres over
+    // another row's amount is not a price anybody paid.
+    if (
+      fill.litres !== null &&
+      fill.litres !== undefined &&
+      fill.amount !== null &&
+      fill.amount !== undefined &&
+      Number(fill.litres) > 0
+    ) {
+      latestPricePerLitreUsd = normalizeToUsd(
+        Number(fill.amount),
+        fill.currency,
+        fill.date,
+        rates,
+      )
+        .div(bn(Number(fill.litres)))
+        .toNumber()
     }
   }
 
@@ -177,6 +209,7 @@ export function computeFuelEconomy(
     avgPricePerLitreUsd: totalLitres.gt(BN_ZERO) && totalSpend.gt(BN_ZERO)
       ? totalSpend.div(totalLitres).toNumber()
       : null,
+    latestPricePerLitreUsd,
     totalFuelUsd: totalSpend.toNumber(),
   }
 }

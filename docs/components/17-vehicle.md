@@ -497,6 +497,20 @@ inputs are shown, so which of the two supplied them does not need announcing —
 an earlier version labelled each one and carried a paragraph on how fast a
 stored pump price ages, which was more caveat than a rough estimate is worth.
 
+**The measured price is the last fill's, not the lifetime average.** The two
+are different claims: the average is a fact about the history, the last fill a
+fact about what fuel costs now, and only the second can forecast a month. In a
+currency that loses a third of its value in a year the distance between them is
+not a rounding difference — a history of monthly rows running from ₺48 to ₺89
+per litre averages near ₺59, which would project the coming month a third
+light. The average is still shown, labelled as an average, because the total
+litres and the lifetime price per litre are genuinely historical figures.
+
+**A price needs both halves from the same fill.** One row's litres divided by
+another row's amount is not a price anybody paid, so a fill that recorded
+litres but no cost leaves the previous fill's price standing rather than
+reading as free fuel.
+
 **Nothing is shown at all without an observed pace.** No typical annual
 mileage is substituted: the whole estimate hangs off how far this car actually
 goes, and inventing that would make the rest of it decoration. That is also

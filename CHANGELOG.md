@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.23.1] — 2026-09-04
+- Backfilled 19 months of estimated fuel, March 2025 to now, each month priced
+  at **its own** diesel price rather than today's — 1,500 L for ₺89,141. Fuel
+  is now 52% of the cash you have spent on the car, and cost of ownership
+  finally reads like the real thing.
+- The monthly fuel estimate now prices off your **last** fill instead of the
+  lifetime average. Averaged over 17 months of lira the old figure projected
+  the coming month about a third light.
+
 ## [0.23.0] — 2026-09-05
 - **"Log a month of fuel"** turns the monthly estimate into a real cost entry,
   prefilled and editable — one rough row a month instead of a receipt per fill,

@@ -176,6 +176,11 @@ export function useVehicle(vehicleId?: string): VehicleView {
     // day's rate like every other figure here — not today's. It is a fallback
     // only: the owner's own fills replace it the moment one records both
     // litres and an amount.
+    //
+    // The replacement is the price of the LAST fill, not the lifetime average.
+    // A back-filled history of monthly rows spanning ₺48–₺89/L averages to
+    // about ₺59, which would have projected next month a third light; the most
+    // recent fill is the only measurement that answers "what will it cost now".
     const defaultPriceUsd = normalizeToUsd(
       DEFAULT_FUEL_PRICE.tryPerLitre,
       "TRY",
@@ -186,7 +191,7 @@ export function useVehicle(vehicleId?: string): VehicleView {
       kmPerDay: odometer.kmPerDay,
       measuredConsumption: fuel?.average ?? null,
       assumedConsumption: ASSUMED_CONSUMPTION,
-      measuredPricePerLitreUsd: fuel?.avgPricePerLitreUsd ?? null,
+      measuredPricePerLitreUsd: fuel?.latestPricePerLitreUsd ?? null,
       defaultPricePerLitreUsd: defaultPriceUsd,
     })
   }, [odometer, fuel, rates])
