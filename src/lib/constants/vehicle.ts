@@ -422,24 +422,39 @@ export const FUEL_ECONOMY_DISTANCE = 100
 export const ASSUMED_CONSUMPTION = 6.0
 
 /**
- * Pump price used when the owner's own fills cannot supply one, in lira per
- * litre, with the day it was read.
+ * Pump price used when the owner's own fills cannot supply one — motorin, lira
+ * per litre, VAT included, İstanbul Avrupa, with the day it was read.
  *
- * **This figure goes stale, and unusually fast.** Turkish diesel carried a
- * monthly ÖTV staircase through late 2026 — the maktu duty was cut to zero in
- * August 2026 and then stepped up roughly 3 TL/L a month, each step landing
- * about 3.60 TL/L at the pump once VAT is applied. A constant is therefore the
- * wrong shape for this number in the long run and the right shape only because
- * there is no key-free source to fetch it from: EPDK publishes province-level
- * dealer prices through a JSF query form rather than an API.
+ * **This figure goes stale faster than almost any other number in the app**,
+ * from two independent directions:
  *
- * So it is stored WITH its date and displayed WITH its date, and the moment
- * the owner logs a fill carrying both litres and an amount, his own price
- * replaces it. Never present this as current.
+ *  - **Market.** Motorin rose **+7.76 TL/L overnight on 4 September 2026** —
+ *    9.6% in one night — on Brent at 95–96 USD/bbl and a diesel crack-spread
+ *    blowout. Even the previous day's press forecast (+8.24) missed by half a
+ *    lira. EPDK's own monthly averages moved ±9% month-over-month repeatedly
+ *    through 2026 (Apr 74.17 → May 68.34 → Jun 65.42 → Jul 71.41 → Aug 79.77).
+ *  - **Duty, and this part is legislated rather than guessed.** A
+ *    Cumhurbaşkanı Kararı (reported RG 13.08.2026) put the maktu ÖTV on
+ *    motorin on a monthly staircase: 0.00 for 13–31 Aug 2026, then 3.00 in
+ *    September, 6.00 in October, 9.00 in November, 12.00 in December and
+ *    13.9006 from January 2027. Each 3.00 step is about +3.60 at the pump once
+ *    VAT applies — so from tax alone this figure is ~4% low by 1 October, ~8%
+ *    by 1 November and ~15% by January, with market drift on top.
+ *
+ * A constant is the wrong shape for this number. It is here because the
+ * official source cannot be fetched — EPDK's province-level dealer report now
+ * redirects to an e-Devlet login, and its public query page is a JSF form
+ * requiring a POST with ViewState, with no JSON, no XML and no stable GET.
+ * Distributor APIs do exist without a key (Opet publishes plain JSON per
+ * province) and would be the real fix; see the component's technical doc.
+ *
+ * Until then: stored WITH its date, displayed WITH its date and its age, and
+ * replaced by the owner's own price the moment one fill records both litres
+ * and an amount. Never present it as current.
  */
 export const DEFAULT_FUEL_PRICE = {
-  tryPerLitre: 81.07,
-  asOf: "2026-09-01",
+  tryPerLitre: 88.88,
+  asOf: "2026-09-04",
 } as const
 
 // ─── The default maintenance plan ───────────────────────────────────
@@ -736,8 +751,10 @@ export const VEHICLE_COPY = {
   estimateAssumedConsumption: "assuming",
   estimateAssumedPrice: "at",
   estimatePriceAsOf: "as of",
+  estimatePriceAge: "read",
+  estimatePriceAgo: "ago",
   estimateStaleWarning:
-    "Turkish diesel duty was stepping up monthly through late 2026, so a stored pump price ages quickly. Log a fill with its litres and amount and this switches to what you actually paid.",
+    "A stored pump price ages fast: motorin rose 7.76 TL/L in one night in September 2026, and the duty on it is legislated to step up about 3.60 TL/L at the pump every month to January 2027. Log a fill with its litres and amount and this switches to what you actually paid.",
   economyAverage: "Average",
   economyBest: "Best",
   economyWorst: "Worst",

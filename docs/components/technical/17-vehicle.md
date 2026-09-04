@@ -218,6 +218,15 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   imported by both `costs.ts` and `fuel.ts`. It was briefly declared in each,
   which is exactly the drift a shared constant exists to prevent — a month has
   to mean one thing wherever this component divides by it.
+- **`DEFAULT_FUEL_PRICE` is a constant only because the official source is
+  shut.** EPDK's province dealer report now redirects to an e-Devlet login and
+  its public page is a JSF POST form with no JSON and no stable GET. Two
+  key-free distributor endpoints DO exist and would be the real fix —
+  `api.opet.com.tr/api/fuelprices/prices?ProvinceCode=934` (plain JSON, no
+  timestamp field) and `ucuzyakitbul.com.tr/api/prices/national` (documented
+  public, carries an ISO date) — which would want an edge function, following
+  `fetch-prices`. Not built. Sources and the legislated duty schedule are in
+  `docs/prior-art/vehicle-cost-of-ownership.md`.
 - **`avgPricePerLitreUsd` is null, not zero, when litres were logged without
   amounts.** It divides spend by litres, so an amount-less book produced a
   literal zero — and a zero made the measurement *worse* than none, because
