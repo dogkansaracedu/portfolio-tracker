@@ -24,6 +24,8 @@
 | Path | Role |
 |---|---|
 | `supabase/migrations/20260904120000_vehicle.sql` | Four tables + indexes + RLS. Carries the design rationale in comments (one ledger, blank-means-ignore, nullable amount). |
+| `supabase/migrations/20260904190000_vehicle_item_kind.sql` | Adds `item_kind` (service / inspect) and moves the brake items onto the periodic-service cadence. |
+| `supabase/migrations/20260904220000_vehicle_auto_close.sql` | Adds `cost_category` (the auto-close link) and folds the `tyres` cost category into `maintenance`. |
 | `supabase/migrations/20260904160000_vehicle_maintenance_groups.sql` | Adds `item_group` (CHECKed to three values, defaulting to `routine`) and backfills a seeded plan **by name**, so an existing plan groups itself. |
 | `src/lib/constants/vehicle.ts` | Route and table names, `VEHICLE_DEFAULT_CURRENCY`, `VEHICLE_COST_CATEGORIES` (+ labels, fixed/variable split), `MAINTENANCE_GROUPS` (+ `MaintenanceGroup`, `_LABELS`, `_RANK`, `DEFAULT_MAINTENANCE_GROUP`), `MAINTENANCE_STATUS` (+ `MaintenanceStatus`), `MAINTENANCE_DUE_SOON_PCT` / `MAINTENANCE_OVERDUE_PCT`, `MAINTENANCE_STATUS_RANK` / `_LABELS` / `_BAR_CLASSES` / `_TEXT_CLASSES`, `VEHICLE_ALERT_*`, `FUEL_ECONOMY_*`, `DEFAULT_MAINTENANCE_PLAN` (the seeded plan, each row sourced in a comment), `TSB_KASKO_VALUE_URL`, and **all** user-visible copy (`VEHICLE_COPY`). |
 | `src/lib/vehicle/schedule.ts` | Pure schedule engine: `addDaysIso`, `addMonthsIso`, `odometerReadings`, `odometerView`, `maintenanceItemState`, `maintenancePlanState`, `dueItems`, `nextUpItem`. Types `OdometerReading`, `OdometerView`, `MaintenanceItemState`. |
@@ -151,6 +153,17 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   existed groups itself; anything unrecognised keeps the `routine` default,
   which is the only value that never hides a real maintenance item under
   paperwork.
+- **`vehicle_maintenance_items.cost_category` is the auto-close link**:
+  nullable, un-CHECKed (it mirrors `vehicle_cost_entries.category`, and two
+  constraints over one vocabulary drift the moment either changes), and NULL
+  means "only ever closed by hand", which is every real maintenance item. The
+  form auto-closes when exactly one item claims the entry's category, and
+  keeps unclaimed items selectable so they cannot become unreachable — the
+  case that made this necessary was a renamed obligation claiming nothing.
+- **Tyres is no longer a cost category.** It existed because AAA breaks tyres
+  out separately, but the breakdown card that would have shown it is gone and
+  both tyres and maintenance are variable costs, so the split bought a dropdown
+  row and changed no figure.
 - **`VEHICLE_CATEGORY_CLOSES` maps a cost category to the item groups it can
   close**, which is the third axis in play and the one that stops the form
   offering nonsense: `tax` → `obligations` only, `fuel`/`fine`/`parking` → `[]`
