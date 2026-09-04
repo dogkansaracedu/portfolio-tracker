@@ -474,6 +474,17 @@ correct; silence about it is what makes owners conclude the feature is broken.
 A monthly figure, from the car's **own observed pace** — distance per month ×
 consumption × price per litre.
 
+**Its purpose is to fill in a cost entry, not to be read.** A figure on a card
+changes no total; a logged row changes cost of ownership, which is the thing
+being asked for. So the estimate carries one action that opens the normal cost
+form prefilled with the month's amount and litres — one rough entry a month
+instead of a receipt per fill. The row that results is an ordinary row: the
+owner's, editable, deletable, and indistinguishable from a fill logged by hand.
+
+That is also why the app does not try to know pump prices. The owner logs
+roughly, and everything else — price per litre, consumption, the fuel share of
+running cost — is derived from those logs.
+
 It is **rough, and presented as rough** — a leading `≈` and its three inputs
 printed underneath it. Anyone reading "6.0 L/100km · ₺88.88/L" can see exactly
 what the figure rests on, and that is the whole disclosure it needs.

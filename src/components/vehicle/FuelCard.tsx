@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayMoney } from "@/hooks/useDisplayMoney"
 import { FUEL_ECONOMY_UNIT, VEHICLE_COPY } from "@/lib/constants/vehicle"
@@ -13,6 +14,8 @@ interface Props {
   fuel: FuelEconomy
   /** Roughly what a month costs; null until the car's pace is known. */
   monthly: MonthlyFuelEstimate | null
+  /** Opens a cost entry prefilled with the month's estimate. */
+  onLogMonth: () => void
 }
 
 /**
@@ -25,7 +28,7 @@ interface Props {
  * feature ("I get a zero for mpg. What's up with that?"). The honest blank is
  * correct; the silence is what costs trust.
  */
-export function FuelCard({ fuel, monthly }: Props) {
+export function FuelCard({ fuel, monthly, onLogMonth }: Props) {
   const { money } = useDisplayMoney()
 
   return (
@@ -96,6 +99,19 @@ export function FuelCard({ fuel, monthly }: Props) {
                 {formatConsumptionValue(monthly.consumption)}{" "}
                 {FUEL_ECONOMY_UNIT} · {money(monthly.pricePerLitreUsd)}/L
               </p>
+              {/* The estimate's actual job. A figure on a card changes no
+                  total; a logged row changes cost of ownership, which is what
+                  the owner is after — one rough entry a month rather than a
+                  receipt per fill. It opens the normal form prefilled, so the
+                  row is his, editable, and indistinguishable from any other. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-1"
+                onClick={onLogMonth}
+              >
+                {VEHICLE_COPY.logMonthlyFuel}
+              </Button>
             </>
           )}
         </div>
