@@ -745,6 +745,8 @@ export const VEHICLE_COPY = {
   // Fuel economy
   fuelHeading: "Fuel",
   monthlyFuelHeading: "Fuel, per month",
+  logMonthlyFuel: "Log a month of fuel",
+  monthlyFuelNote: "Rough monthly estimate.",
   monthlyFuelUnavailable:
     "Needs a second odometer reading before the app knows how far you drive in a month.",
   economyAverage: "Average",
