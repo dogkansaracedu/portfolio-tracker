@@ -148,6 +148,7 @@ export async function seedMaintenancePlan(
       item_group: t.group,
       item_kind: t.kind,
       cost_category: t.costCategory,
+      every_n_services: t.everyNServices,
       interval_km: t.intervalKm,
       interval_months: t.intervalMonths,
       sort_order: index,

@@ -27,6 +27,8 @@ import {
   MAINTENANCE_DUE_SOON_PCT,
   MAINTENANCE_OVERDUE_PCT,
   MAINTENANCE_WARNING_STATUSES,
+  OBLIGATIONS_GROUP,
+  SERVICE_VISIT_KIND,
   type MaintenanceStatus,
 } from "@/lib/constants/vehicle"
 import type {
@@ -211,6 +213,17 @@ export interface MaintenanceItemState {
    * km/day).
    */
   projectedDueDate: string | null
+  /**
+   * How many recorded service visits have happened since this item was last
+   * closed. Null when the item is not tied to the service rhythm
+   * (`every_n_services` is null) or when the car has no service-visit item.
+   */
+  servicesSince: number | null
+  /**
+   * Whether it is this service's turn, by the service-count rule alone.
+   * False when `servicesSince` is null.
+   */
+  dueThisService: boolean
 }
 
 /**
@@ -344,7 +357,70 @@ export function maintenanceItemState(
     intervalUsedPct,
     status,
     projectedDueDate,
+    // The service cadence is deliberately NOT computed here. It is a question
+    // about the plan, not about one item: answering it needs the car's
+    // service-visit item and every entry that closed it, and this function is
+    // only ever handed one item. Threading the service item through every
+    // caller to compute a field the whole-plan function already has the
+    // material for would be the wrong shape, so `maintenancePlanState`
+    // overwrites both fields — see `serviceCadence`.
+    servicesSince: null,
+    dueThisService: false,
   }
+}
+
+// ─── The service cadence ────────────────────────────────────────────
+
+/**
+ * Whether it is this service's turn for an item, counted in **services** and
+ * nothing else.
+ *
+ * Deliberately kept out of `intervalUsedPct` and out of `status`, which stay
+ * distance-and-time. The meter answers "how far through its own interval is
+ * it"; this answers "is it this service's turn". They are different questions
+ * with different inputs, and folding one into the other would produce a
+ * three-dimensional percentage nobody could reason about — and would make a
+ * fuel filter that is simply not this visit's job read as half-overdue.
+ *
+ * `servicesSince` counts the entries that closed the **service-visit item**
+ * and fall **strictly after** this item's own last completion. Strictly after,
+ * because a service and the work done at it share a date: a same-day service
+ * is the one the item was just done at, so counting it would report a service
+ * already passed the moment the work was logged. With no completion of its own
+ * the item is anchored at the purchase point, which is a floor and not a date
+ * anything happened on, so every service ever recorded counts.
+ */
+function serviceCadence(
+  state: MaintenanceItemState,
+  serviceItem: VehicleMaintenanceItem | null,
+  entries: VehicleCostEntry[],
+): { servicesSince: number | null; dueThisService: boolean } {
+  const cadence =
+    state.item.every_n_services === null
+      ? null
+      : Number(state.item.every_n_services)
+
+  // No cadence on the item, or no service rhythm to count against.
+  if (cadence === null || serviceItem === null) {
+    return { servicesSince: null, dueThisService: false }
+  }
+
+  const doneOn = state.anchoredAtPurchase ? null : state.lastDoneDate
+  let servicesSince = 0
+  for (const entry of entries) {
+    if (!entry.item_ids?.includes(serviceItem.id)) continue
+    if (doneOn !== null && entry.date <= doneOn) continue
+    servicesSince += 1
+  }
+
+  // The `+ 1` is the whole rule and it is easy to re-derive backwards:
+  // `every_n_services` counts the services INCLUDING the one the item is done
+  // at, so a cadence of 2 means done at service #1, then #3, then #5. What
+  // decides it is therefore which number the UPCOMING service will be — the
+  // (servicesSince + 1)-th since the item was last done. Without the `+ 1` an
+  // every-service item stops being due the instant it is logged, which is
+  // exactly backwards.
+  return { servicesSince, dueThisService: servicesSince + 1 >= cadence }
 }
 
 /** Every active item's state, loudest first, then by how far through the
@@ -360,11 +436,23 @@ export function maintenancePlanState(
   odometer: OdometerView,
   today: string = homeDayIso(),
 ): MaintenanceItemState[] {
+  // The one item the cadence rule counts against, found once for the plan
+  // rather than per item. At most one per vehicle.
+  const serviceItem =
+    items.find((i) => i.item_kind === SERVICE_VISIT_KIND) ?? null
+
   return items
     .filter((i) => i.is_active)
-    .map((item) =>
-      maintenanceItemState(item, vehicle, entries, odometer, today),
-    )
+    .map((item) => {
+      const state = maintenanceItemState(
+        item,
+        vehicle,
+        entries,
+        odometer,
+        today,
+      )
+      return { ...state, ...serviceCadence(state, serviceItem, entries) }
+    })
     .sort((a, b) => {
       const rank =
         MAINTENANCE_STATUS_RANK[a.status] - MAINTENANCE_STATUS_RANK[b.status]
@@ -396,4 +484,180 @@ export function nextUpItem(
     )
     .sort((a, b) => (b.intervalUsedPct ?? 0) - (a.intervalUsedPct ?? 0))
   return upcoming[0] ?? null
+}
+
+// ─── The periodic service ───────────────────────────────────────────
+
+/**
+ * The plan item that represents the service visit itself, if the car has one.
+ *
+ * It is a maintenance item like any other — a km/month pair, whichever comes
+ * first, projected from the car's pace — so it reuses the whole engine rather
+ * than duplicating interval logic onto the vehicle. Only its `kind` says it is
+ * the visit rather than a part.
+ */
+export function nextServiceState(
+  states: MaintenanceItemState[],
+): MaintenanceItemState | null {
+  return (
+    states.find((s) => s.item.item_kind === SERVICE_VISIT_KIND) ?? null
+  )
+}
+
+/** The plan minus the service visit — the parts, which is what a plan is. */
+export function planItems(
+  states: MaintenanceItemState[],
+): MaintenanceItemState[] {
+  return states.filter((s) => s.item.item_kind !== SERVICE_VISIT_KIND)
+}
+
+export interface NextServiceBundle {
+  /**
+   * Obligations falling due around the same time — a policy, a tax
+   * instalment, an inspection fee.
+   *
+   * Kept apart from `due` rather than filtered out of existence, because they
+   * genuinely are due and the owner wants to know; but they must never join
+   * the bundle a service entry closes. Three payees on three dates cannot be
+   * one payment, and the entry's `maintenance` category would file a tax bill
+   * as a per-km running cost, corrupting the fixed/variable split the cost
+   * card is built on.
+   */
+  obligations: MaintenanceItemState[]
+  /**
+   * Items whose own due point falls at or before the next service — the list
+   * to hand the mechanic. Answers "what will be due by then", not "what is
+   * due today", which is the question an owner actually has and the one a
+   * flat plan cannot answer.
+   */
+  due: MaintenanceItemState[]
+  /**
+   * Items with no recorded history. They cannot be scheduled honestly, so
+   * they are never mixed into `due` — but they are exactly what to ask about
+   * while the car is on the ramp, so they are offered separately.
+   */
+  unknown: MaintenanceItemState[]
+}
+
+/**
+ * What the next service should cover.
+ *
+ * An item rides along if it is already due, or if its own due point falls at
+ * or before the service's. Compared on whichever dimension both sides know:
+ * projected dates first (the service's own projection already folds in
+ * whichever-comes-first), then distance.
+ *
+ * With no service cadence to aim at, this degrades to "what is due now" —
+ * the honest answer when there is no future point to measure against.
+ */
+export function nextServiceBundle(
+  states: MaintenanceItemState[],
+  service: MaintenanceItemState | null,
+): NextServiceBundle {
+  const parts = planItems(states)
+  const unknown = parts.filter(
+    (s) => s.status === MAINTENANCE_STATUS.unrecorded,
+  )
+  const schedulable = parts.filter(
+    (s) =>
+      s.status !== MAINTENANCE_STATUS.unrecorded &&
+      s.status !== MAINTENANCE_STATUS.dormant,
+  )
+  // Split by group, not filtered away: an obligation coming due is worth
+  // saying, and must not be closeable by a service entry.
+  const isObligation = (s: MaintenanceItemState) =>
+    s.item.item_group === OBLIGATIONS_GROUP
+  const work = schedulable.filter((s) => !isObligation(s))
+  const obligations = schedulable.filter(
+    (s) => isObligation(s) && isWarningStatus(s),
+  )
+
+  if (service === null) {
+    return {
+      due: work.filter((s) => isWarningStatus(s)),
+      obligations,
+      unknown,
+    }
+  }
+
+  const targetDate = service.projectedDueDate ?? service.dueDate
+  const targetKm = service.dueKm
+
+  const due = work.filter((s) => {
+    if (isWarningStatus(s)) return true
+    // Its turn by the service count, which is a different question from its
+    // km/date due point and can fire first: the fuel filter is every second
+    // service regardless of how far through its 40,000 km it happens to be.
+    if (s.dueThisService) return true
+    const ownDate = s.projectedDueDate ?? s.dueDate
+    if (targetDate !== null && ownDate !== null && ownDate <= targetDate) {
+      return true
+    }
+    return targetKm !== null && s.dueKm !== null && s.dueKm <= targetKm
+  })
+
+  return { due, obligations, unknown }
+}
+
+/** Whether a state is in one of the two statuses that warn. */
+function isWarningStatus(state: MaintenanceItemState): boolean {
+  return MAINTENANCE_WARNING_STATUSES.includes(state.status)
+}
+
+export interface LastServiceSummary {
+  /** Odometer at the visit, and the day it happened. */
+  km: number
+  date: string
+  /** What that visit closed, service item excluded — the parts actually done. */
+  covered: string[]
+  /**
+   * Items on the service rhythm that this visit did NOT cover. This is the
+   * whole deduction an owner makes out loud: "last time was oil and filters,
+   * no fuel filter — so the fuel filter is this time's job." Stating it
+   * removes the guesswork rather than hiding it behind a due date.
+   */
+  skipped: string[]
+}
+
+/**
+ * What the last periodic service covered.
+ *
+ * Every entry sharing the visit's date counts as that visit: one trip to the
+ * servis is often logged as several rows (the belt on its own line, the
+ * periyodik bakım on another), and asking "what was done that day" is the
+ * question, not "what was on that receipt".
+ *
+ * Null when there is no service item or it has never been recorded — there is
+ * no last service to summarise, and inventing one from the purchase date would
+ * be the same false-anchor mistake the status ladder already refuses.
+ */
+export function lastServiceSummary(
+  states: MaintenanceItemState[],
+  entries: VehicleCostEntry[],
+  service: MaintenanceItemState | null,
+): LastServiceSummary | null {
+  if (service === null || service.anchoredAtPurchase) return null
+
+  const day = service.lastDoneDate
+  const closedThatDay = new Set<string>()
+  for (const entry of entries) {
+    if (entry.date !== day) continue
+    for (const id of entry.item_ids) closedThatDay.add(id)
+  }
+
+  const parts = planItems(states)
+  const covered = parts
+    .filter((s) => closedThatDay.has(s.item.id))
+    .map((s) => s.item.name)
+
+  // Only the rhythm items can be meaningfully "skipped": a timing belt was
+  // not skipped at a periyodik bakım, it simply was not due.
+  const skipped = parts
+    .filter(
+      (s) =>
+        s.item.every_n_services !== null && !closedThatDay.has(s.item.id),
+    )
+    .map((s) => s.item.name)
+
+  return { km: service.lastDoneKm, date: day, covered, skipped }
 }

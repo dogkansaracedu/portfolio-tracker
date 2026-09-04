@@ -8,12 +8,10 @@ import {
   MAINTENANCE_GROUPS,
   MAINTENANCE_STATUS,
   MAINTENANCE_TEXT_CLASSES,
-  OBLIGATIONS_GROUP,
   VEHICLE_COPY,
 } from "@/lib/constants/vehicle"
 import type { MaintenanceItemState } from "@/lib/vehicle"
 import {
-  NO_DATA,
   duePhrase,
   formatInterval,
   lastDonePhrase,
@@ -58,7 +56,8 @@ function showProjection(state: MaintenanceItemState): boolean {
  * split across three cards would triple the page's chrome, and the groups are
  * read together. Rows arrive loudest-first from `maintenancePlanState`, so
  * within a group what needs doing is on top; grouping never buries an overdue
- * obligation, because `DueSummary` sits above the plan and ignores groups.
+ * obligation, because the next-service card sits above the plan and ignores
+ * groups entirely.
  */
 export function MaintenanceChart({ plan, onEdit, onDelete }: Props) {
   if (plan.length === 0) return null
@@ -249,98 +248,5 @@ function ItemRow({ state, onEdit, onDelete }: RowProps) {
         </span>
       </p>
     </div>
-  )
-}
-
-interface DueProps {
-  due: MaintenanceItemState[]
-  nextUp: MaintenanceItemState | null
-  /** Opens the cost form with these items already ticked. */
-  onLogVisit: (itemIds: string[]) => void
-}
-
-/**
- * "Due at your next service" — the bundle to hand the servis.
- *
- * This exists because the real workflow is one visit that closes several
- * items, not one reminder at a time; Carfax shapes its own upcoming-work view
- * for exactly this and tells users to show it to their shop. It deliberately
- * ignores groups: what is due is due, whether it is an oil change or a kasko
- * renewal. When nothing is due it names the closest item instead of rendering
- * an empty box, so the card always says something true.
- */
-export function DueSummary({ due, nextUp, onLogVisit }: DueProps) {
-  const visitItems = due
-    .filter((s) => s.item.item_group !== OBLIGATIONS_GROUP)
-    .map((s) => s.item.id)
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-1.5 text-sm font-medium">
-          {VEHICLE_COPY.dueNowHeading}
-          <HintPopover
-            label={VEHICLE_COPY.dueNowHeading}
-            text={VEHICLE_COPY.dueNowHint}
-          />
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {due.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {nextUp ? (
-              <>
-                {VEHICLE_COPY.nothingDue}{" "}
-                <span className="font-medium text-foreground">
-                  {nextUp.item.name}
-                </span>
-                , {remainingPhrase(nextUp)}.
-              </>
-            ) : (
-              NO_DATA
-            )}
-          </p>
-        ) : (
-          <>
-            <ul className="space-y-2">
-              {due.map((state) => (
-                <li
-                  key={state.item.id}
-                  className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm"
-                >
-                  <span className="font-medium">{state.item.name}</span>
-                  <span
-                    className={`text-xs ${MAINTENANCE_TEXT_CLASSES[state.status]}`}
-                  >
-                    {remainingPhrase(state)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {/* One visit closes the bundle, so the action pre-ticks the items
-                listed above rather than making the owner find them in a
-                sixteen-row checkbox list.
-
-                Obligations are deliberately excluded: an insurance renewal, a
-                tax instalment and an inspection fee go to three different
-                payees on three different dates, so bundling them into one
-                entry would invent a payment — and the entry's category
-                (`maintenance`) would file them as a per-km running cost,
-                corrupting the fixed/variable split the cost card is built on.
-                They are logged individually. */}
-            {visitItems.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => onLogVisit(visitItems)}
-              >
-                {VEHICLE_COPY.logVisit}
-              </Button>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
   )
 }

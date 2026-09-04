@@ -3,8 +3,8 @@
 > Layer: behavioral (tech-agnostic). Implementation → [technical/17-vehicle.md](technical/17-vehicle.md)
 >
 > **Status: built** (v0.16.0; corrected in v0.16.1; grouped plan in v0.17.0;
-> desktop layout in v0.17.1). The contract below describes the shipped
-> behavior.
+> desktop layout in v0.17.1; the periodic service became a first-class thing in
+> v0.20.0). The contract below describes the shipped behavior.
 
 ## Purpose
 
@@ -12,9 +12,11 @@ Answer two questions about a car the owner keeps but does not invest in:
 
 1. **What has it really cost me?** — not just the receipts, but the receipts
    plus the value the car lost, reduced to a cost per month and a cost per km.
-2. **What needs doing next?** — per-item service intervals anchored on the last
-   time each was actually done, so "belt changed at 130,000 km" becomes "next
-   due at 220,000, and here is what to bundle into the next visit".
+2. **What needs doing at the next service?** — per-item intervals anchored on
+   the last time each was actually done, so "belt changed at 130,000 km" becomes
+   "next due at 220,000" — and the next periodic service becomes a point on the
+   calendar with everything that will have fallen due by then listed against
+   it.
 
 The first question is the reason this lives in a finance app rather than a car
 app. Every car-tracking app records real receipts and ignores capital
@@ -44,6 +46,8 @@ Surfaces it appears on: Component 7 (dashboard warnings).
   [Maintenance group](GLOSSARY.md#maintenance-group) /
   [Interval used](GLOSSARY.md#interval-used) /
   [Maintenance status ladder](GLOSSARY.md#maintenance-status-ladder)
+- [Service visit](GLOSSARY.md#service-visit) /
+  [Services cadence](GLOSSARY.md#services-cadence)
 - [Depreciation (vehicle)](GLOSSARY.md#depreciation-vehicle) /
   [Cost of ownership](GLOSSARY.md#cost-of-ownership) /
   [Foregone return](GLOSSARY.md#foregone-return)
@@ -141,10 +145,81 @@ Three rules on entries:
   reading sharpens the projections. A reading can always be recorded on its own
   from the odometer card.
 
+### The periodic service
+
+The periodic service is not one item among seventeen. It is **the event the
+rest of the plan happens at**: parts are replaced at one, wear items are looked
+at during one. And the question an owner actually has is not "what is due
+today" but **"when I go in at 157,000 km, what will be due by then?"** — a
+query over a future point, which a flat list of items cannot answer. An oil
+change falling due 2,000 km before the service belongs on that visit; one
+falling due 20,000 km after it does not, and no ordering of one list separates
+them.
+
+So the [service visit](GLOSSARY.md#service-visit) has **its own surface**, and
+the plan below it is the parts.
+
+**The service is a third kind of maintenance item, not a property of the car**
+— at most one per car, and never two. Its cadence is a distance-and-time pair
+read whichever-comes-first and projected onto a date from the car's own pace:
+exactly what a maintenance item already is, and exactly what the schedule
+already computes for one. Recording that same pair against the car instead
+would fork the arithmetic across two shapes and buy nothing, because the visit
+is also a thing that gets done on an interval and has to be anchored on the
+last time it happened. Only its kind says it is the visit rather than a part.
+
+Being an item has two consequences the owner sees. The service **is not listed
+in the plan** — a plan is a list of parts — and **it cannot be created by
+hand**: the item form does not offer that kind, because there is one service
+cadence per car and a second row claiming to be "the" next service would make
+the surface arbitrary.
+
+The surface answers three questions, in this order:
+
+1. **When is it?** — the distance still to run leads, because that is the
+   answer; then the due point, the date it is projected to fall on at the car's
+   current pace, and when the last one was.
+2. **What will be due by then?** — every item whose own due point falls at or
+   before the service's, anything already due, and anything whose turn it is by
+   its [cadence in services](GLOSSARY.md#services-cadence). Due points are
+   compared on whichever dimension both sides know: the projected dates first
+   (the service's own projection has already resolved whichever-comes-first),
+   then distance. This is the list to hand the mechanic, and each line says
+   which of those reasons put it there — "it is this service's turn" and "it
+   has 800 km left" are different things to authorise.
+3. **What should they check?** — the items **nothing has ever been recorded
+   for**. They cannot be scheduled honestly, so they are **never mixed into the
+   list above**; but they are exactly what to raise while the car is on the
+   ramp, and asking is how they stop being unknown.
+
+One action **logs the service and closes the bundle**: it opens a cost entry
+with the service itself and every listed item already closing, filed as
+maintenance rather than as a fill.
+
+**With no cadence recorded** there is no future point to measure against, so
+the surface says the cadence is missing rather than inventing one. **With a
+cadence but no service ever logged** it says that instead of projecting the
+next visit from the purchase point — the same honest-blank rule the rest of the
+schedule follows. In both cases the bundle falls back to what is due today,
+which is all that can be said without a future point. Dormant items and
+never-recorded ones are never in the bundle either way: one has no due point at
+all, the other's is a floor.
+
+The **"due at your next service" card this replaces is gone.** It listed what
+was already due and called that the next visit, which is the weaker question:
+what is overdue today is only a subset of what the visit should cover.
+
 ### The maintenance plan
 
 One [maintenance item](GLOSSARY.md#maintenance-item) per recurring job, each
-with its own intervals — per item, not per mileage milestone.
+with its own intervals — per item, not per mileage milestone. The plan is the
+parts; the service they are done at is the surface above it.
+
+**One job, one item.** Engine oil and the oil filter are two items, not one
+row: they are bought separately and can be done separately — a top-up is not a
+filter change — and a row that welds them together can record neither on its
+own. Where a plan held them as a single row, the history that row carried
+counts for **both**, since a service that changed "oil & filter" changed both.
 
 Items carry a [group](GLOSSARY.md#maintenance-group), and the plan is read a
 group at a time: **periodic-service** consumables, **long-term** parts, and the
@@ -155,9 +230,9 @@ different kinds of thing.
 Group membership is about **kind, not interval length** — a fuel filter replaced
 every *other* service still sits with the periodic-service consumables, because
 that is what it is and where its owner looks for it; its interval decides when
-it is actually due. Grouping is presentation only: it never changes a due point,
-and the due-at-next-service bundle ignores groups, so an overdue obligation is
-never buried by it.
+it is actually due, and its [services cadence](GLOSSARY.md#services-cadence) is
+where "every other service" is stated. Grouping is presentation only: it never changes a due point, and the next-service bundle
+ignores groups, so an overdue obligation is never buried by it.
 
 **A blank interval means that dimension is not tracked.** There is no separate
 "track by distance / time / both" setting; the blank is the instruction:
@@ -192,6 +267,48 @@ oil, the drive belt, tyres, plus the local recurring obligations (inspection eve
 policies, the twice-yearly vehicle tax instalment). It is a starting point,
 fully editable, and the UI says plainly that the car's own service book is the
 authority.
+
+### Measured in services
+
+Most things in the periodic-service group are done at **every** service. A
+diesel fuel filter is done at every **other** one. That cannot be derived from
+the distance intervals: 40,000 km against a 15,000 km service is 2.67 services,
+while the rule the trade actually works to is plainly "every second service".
+So the [cadence in services](GLOSSARY.md#services-cadence) is its own fact and
+has to be stated — one means every service, two means every other, and a blank
+means the item is not tied to the service rhythm at all, which is the right
+answer for a drive belt or an annual policy.
+
+It decides exactly two things: whether logging a service **pre-ticks** the
+item, and whether the service surface says it is **due this time**. An item
+whose turn it is joins the next-service bundle whatever its own interval says —
+the fuel filter is every second service regardless of how far through its
+40,000 km it happens to be.
+
+The services that count are the ones recorded **after the item was last done**.
+Strictly after: a service and the work done at it share a date, so counting the
+same-day one would report a service already gone by the moment the work was
+logged. (An item with no history at all is never in the bundle on any grounds —
+it is on the ask-them-to-check list instead.)
+
+The count **includes the service the item is done at** — "every second service"
+means done at the first, then the third — so what decides is which number the
+*upcoming* service will be. An every-service item is due again as soon as one
+service sits behind it, and is never due the instant it was logged.
+
+The cadence is **stated on the item**, free numeric entry like its intervals,
+and it is **not offered for an obligation**: a policy renewal or a tax
+instalment happens at a desk on a calendar and has no service rhythm to be a
+multiple of. Blank is the instruction here as it is for the intervals — not
+tied to the rhythm — and is never read as a zero.
+
+It is deliberately **not** folded into
+[interval used](GLOSSARY.md#interval-used) or into the
+[status ladder](GLOSSARY.md#maintenance-status-ladder), both of which stay
+distance-and-time. Those answer "how far through its own interval is this?";
+this answers "is it this service's turn?". They are different questions, and
+merging them would produce a three-dimensional percentage nobody could reason
+about.
 
 ### When an item is due
 
@@ -230,9 +347,10 @@ due at 158,000 km" are not interchangeable. No comparator models this: they
 bury the verb inside the item's own name, which is why their schedules cannot
 style or group by it.
 
-The **periodic service is itself an item**, so the visit can be tracked whether
-or not any single part was changed — and the check-only items share its cadence,
-which is what "looked at during the next service" means in practice.
+The check-only items share the periodic service's cadence, which is what
+"looked at during the next service" means in practice — and the service is an
+item of its own kind, so the visit is recorded whether or not any single part
+was changed.
 
 ### Status and warnings
 
@@ -243,21 +361,23 @@ a stored status is wrong the morning after it is written.
 **An item nothing has ever closed reports "not recorded", never "overdue".**
 Its percentage is measured from the purchase, which is a floor and not a fact,
 so it shows that estimate but never asserts it: it stays out of the
-due-at-next-service bundle and never warns on the dashboard. This is the
-honest-blank rule applied to the schedule — money on this page renders unknown
-with a reason rather than a flattering zero, and a red badge built on a
-placeholder anchor was the one place the component contradicted itself.
+next-service bundle — it is offered as something to ask the mechanic about
+instead — and never warns on the dashboard. This is the honest-blank rule
+applied to the schedule — money on this page renders unknown with a reason
+rather than a flattering zero, and a red badge built on a placeholder anchor
+was the one place the component contradicted itself.
 
 The due-soon threshold is a **proportion** of the interval (within 10% of due),
 not a fixed distance or number of days, so one rule works at every scale.
 
-Items already due are grouped into a **"due at your next service"** bundle —
-the real workflow is one visit closing several items, and the list is shaped to
-be handed to the mechanic. **The bundle is actionable**: one action opens a cost
-entry with every listed item already ticked — and categorized as maintenance,
-since a row that closes service items is a visit, not a fill — so closing a
-whole visit does not mean hunting for each item in a long checkbox list. When nothing is due, the
-card names the closest upcoming item rather than rendering empty.
+What is due has **no card of its own**: it is part of the periodic service
+surface, which asks the stronger question — not "what is overdue today" but
+"what will be due by the time I go in". The real workflow is one visit closing
+several items, so the bundle stays **actionable** and stays group-blind: one
+action opens a cost entry with every listed item already closing — categorized
+as maintenance, since a row that closes service items is a visit and not a fill
+— so closing a whole visit does not mean hunting for each item in a long
+checkbox list.
 
 Overdue and due-soon items raise **one dashboard banner** covering both levels
 across every active car, overdue first and taking their tone. Deliberately one
@@ -378,6 +498,10 @@ of outlay where the car was actually there.
   than negative distance.
 - **A dormant item** (both intervals blank) — listed, never due, never warned
   about, and labelled as untracked.
+- **A car with no service cadence** — the service surface says the cadence is
+  missing, and what it can still show is what is due today.
+- **A cadence with no service ever logged** — the surface says so rather than
+  projecting the next visit from the purchase point.
 - **A deleted maintenance item** — the cost entries that closed it survive; they
   simply stop anchoring anything.
 - **Several cars** — supported; a switcher appears only when more than one
