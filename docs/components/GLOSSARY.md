@@ -531,12 +531,20 @@ other), and [depreciation](#depreciation-vehicle) joins them.
 
 ### Maintenance item
 One recurring service item in a [vehicle](#vehicle)'s plan: a name, a
-[group](#maintenance-group), an interval in distance, an interval in time, and
-a note. **Either interval may be absent,
+[group](#maintenance-group), what happens at its interval (the part is
+**replaced**, or it is merely **checked** — or the item is the
+[service visit](#service-visit) itself, which is a third kind), an interval in
+distance, an interval in time, an optional
+[services cadence](#services-cadence), and a note. **Either interval may be
+absent,
 and absence means that dimension is not tracked** — distance-only for a drive
 belt, time-only for brake fluid or an inspection, both for an oil change
 (whichever comes first), neither for a dormant item that never becomes due.
 There is no separate "track by" setting; the blank *is* the instruction.
+
+**One job, one item.** Engine oil and the oil filter are two items, not one:
+they are bought separately and can be done separately — a top-up is not a
+filter change — and a row welding them together can record neither on its own.
 
 Intervals are the owner's own figures. No free source of manufacturer service
 schedules exists, so the app seeds a plan of typical intervals for the local
@@ -554,8 +562,9 @@ belongs to. Three, in display order:
 
 Membership is about **kind, not interval length**. A fuel filter replaced every
 *other* service still belongs with the periodic-service items, because that is
-what it is and where its owner looks for it; its own interval does the work of
-deciding when it comes due.
+what it is and where its owner looks for it; its own interval and
+[services cadence](#services-cadence) do the work of deciding when it comes
+due.
 
 Deliberately **not** called a category: a
 [cost category](#cost-category) already owns that word, and it describes an
@@ -564,15 +573,57 @@ closes an obligations item, and a maintenance cost can close either an
 periodic-service or a long-term one.
 
 Grouping is presentation, not logic: it changes how the plan is read, never
-when anything is due, and the [due-at-next-service](#maintenance-status-ladder)
-bundle ignores groups entirely so an overdue obligation is never buried.
+when anything is due, and the [next-service](#service-visit) bundle ignores
+groups entirely so an overdue obligation is never buried.
+
+### Service visit
+The periodic service itself — the **event** the rest of a
+[vehicle](#vehicle)'s plan happens at: parts are replaced at one, check-only
+items are looked at during one. It is recorded as a third kind of
+[maintenance item](#maintenance-item), at most one per car, carrying the same
+distance-and-time cadence read whichever-comes-first. That is deliberate: the
+visit is itself a thing that gets done on an interval and is anchored on the
+last time it happened, which is precisely what a maintenance item is, so
+recording the same pair against the car instead would restate the arithmetic in
+a second shape for no gain.
+
+Being the event rather than a part earns it **its own surface** and keeps it
+out of the plan list, which is the parts. That surface answers the question a
+flat list cannot: not "what is due today" but "when I go in at 157,000 km,
+what will be due by then?" — every item whose own due point falls at or before
+the service's (projected date first, distance second), anything already due,
+and anything whose turn it is by its [services cadence](#services-cadence). Items with **no recorded history** are listed apart from
+that bundle, as things to ask the mechanic about: they cannot be scheduled
+honestly (see [maintenance status ladder](#maintenance-status-ladder)) but are
+exactly what to raise while the car is on the ramp.
+
+One [cost entry](#cost-entry) closes the visit and everything bundled into it.
+
+### Services cadence
+How many [service visits](#service-visit) pass between a
+[maintenance item](#maintenance-item) being done: **1** = every service, **2**
+= every other, **absent** = not tied to the service rhythm at all, which is the
+right answer for a drive belt or an annual policy.
+
+It has to be stated because it cannot be derived from the distance interval:
+40,000 km against a 15,000 km service is 2.67 services, while the rule the
+trade works to is plainly "every second service".
+
+Narrow on purpose. It decides whether logging a service pre-ticks the item, and
+whether the service surface says the item is due this time — nothing else. It
+is **not** part of [interval used](#interval-used) or the
+[maintenance status ladder](#maintenance-status-ladder), which stay
+distance-and-time: those answer "how far through its own interval is this?",
+this answers "is it this service's turn?", and one percentage cannot hold both.
 
 ### Interval used
 How much of a [maintenance item](#maintenance-item)'s interval has been
 consumed, as a percentage, taken from **whichever tracked dimension is furthest
 along**. Distance uses `(current odometer − last done odometer) ÷ distance
 interval`; time uses elapsed days over the same calendar span the item's due
-date spans. Derived on every read, never stored.
+date spans. Those two dimensions and no others: an item's
+[services cadence](#services-cadence) is a different question and never enters
+this figure. Derived on every read, never stored.
 
 An item is anchored on **the last time it was actually done** — the most recent
 [cost entry](#cost-entry) naming it, breaking a same-day tie by the higher
@@ -588,8 +639,9 @@ floor, not a fact), **OK** (anything earlier), and **not tracked** (a dormant
 item, which never warns).
 
 **Not recorded** outranks OK, because a floor that has already passed is worth
-looking at — but it is not a warning: it never enters the due bundle and never
-reaches the dashboard. Asserting "overdue" from a placeholder anchor would
+looking at — but it is not a warning: it never enters the
+[next-service](#service-visit) bundle, which offers it as something to ask the
+mechanic about instead, and it never reaches the dashboard. Asserting "overdue" from a placeholder anchor would
 contradict the same rule that makes every unknown money figure render as
 unknown.
 
@@ -598,6 +650,10 @@ number of days, so one rule behaves correctly at every scale: a 10,000 km item
 warns 1,000 km out, a 100,000 km item 10,000 km out. "Overdue" and "due soon"
 are the two states that warn on the dashboard. Display order everywhere:
 overdue first, then due-soon, then by interval used descending, dormant last.
+
+The ladder is distance-and-time like the figure under it: whether it is this
+service's turn is a [services cadence](#services-cadence) question and is not
+one of these states.
 
 ### Depreciation (vehicle)
 A [vehicle](#vehicle)'s purchase price minus its current value, **each

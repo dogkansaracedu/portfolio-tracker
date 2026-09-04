@@ -23,10 +23,8 @@ import { CostOfOwnershipCard } from "@/components/vehicle/CostOfOwnershipCard"
 import { CostEntryForm } from "@/components/vehicle/CostEntryForm"
 import { CostLedger } from "@/components/vehicle/CostLedger"
 import { FuelCard } from "@/components/vehicle/FuelCard"
-import {
-  DueSummary,
-  MaintenanceChart,
-} from "@/components/vehicle/MaintenanceChart"
+import { MaintenanceChart } from "@/components/vehicle/MaintenanceChart"
+import { NextServiceCard } from "@/components/vehicle/NextServiceCard"
 import { MaintenanceItemForm } from "@/components/vehicle/MaintenanceItemForm"
 import { VehicleForm } from "@/components/vehicle/VehicleForm"
 import { VehicleReadingsCard } from "@/components/vehicle/VehicleReadingsCard"
@@ -77,7 +75,9 @@ export default function VehiclePage() {
     entries,
     odometer,
     plan,
-    due,
+    service,
+    serviceBundle,
+    lastService,
     nextUp,
     cost,
     opportunity,
@@ -276,7 +276,13 @@ export default function VehiclePage() {
           showFuel ? "xl:grid-cols-3" : ""
         }`}
       >
-        <DueSummary due={due} nextUp={nextUp} onLogVisit={openAddCost} />
+        <NextServiceCard
+          service={service}
+          bundle={serviceBundle}
+          lastService={lastService}
+          nextUp={nextUp}
+          onLogService={openAddCost}
+        />
         {odometer && (
           <VehicleReadingsCard vehicle={vehicle} odometer={odometer} />
         )}
