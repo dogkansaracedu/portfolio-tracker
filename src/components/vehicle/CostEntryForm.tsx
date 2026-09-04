@@ -27,9 +27,11 @@ import {
   FUEL_CATEGORY,
   VEHICLE_COPY,
   VEHICLE_COST_CATEGORIES,
+  VEHICLE_CATEGORY_CLOSES,
   VEHICLE_COST_CATEGORY_LABELS,
   VEHICLE_DEFAULT_CURRENCY,
   VEHICLE_ODOMETER_CATEGORIES,
+  type MaintenanceGroup,
   type VehicleCostCategory,
 } from "@/lib/constants/vehicle"
 import {
@@ -143,6 +145,25 @@ export function CostEntryForm({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
+  /** Changing the category narrows what can be closed, so any tick that is no
+   *  longer possible is dropped. Left in place it would be invisible in the
+   *  form and still reset that item on save. */
+  const setCategory = (category: VehicleCostCategory) =>
+    setForm((prev) => {
+      const allowed = VEHICLE_CATEGORY_CLOSES[category]
+      return {
+        ...prev,
+        category,
+        itemIds: prev.itemIds.filter((id) => {
+          const item = items.find((i) => i.id === id)
+          return (
+            item !== undefined &&
+            allowed.includes(item.item_group as MaintenanceGroup)
+          )
+        }),
+      }
+    })
+
   const toggleItem = (id: string) =>
     setForm((prev) => ({
       ...prev,
@@ -151,10 +172,17 @@ export function CostEntryForm({
         : [...prev.itemIds, id],
     }))
 
+  // Only the items this kind of outlay could actually have closed. A tax
+  // payment cannot renew a belt; a fill closes nothing.
+  const closableGroups = VEHICLE_CATEGORY_CLOSES[form.category]
+  const closableItems = items.filter((i) =>
+    closableGroups.includes(i.item_group as MaintenanceGroup),
+  )
+
   // Ticked first: a prefilled bundle sat at positions 12-14 of a 16-row box,
   // so the pre-tick worked and was invisible, and the cautious response was to
   // start ticking by hand.
-  const orderedItems = [...items].sort((a, b) => {
+  const orderedItems = [...closableItems].sort((a, b) => {
     const ta = form.itemIds.includes(a.id) ? 0 : 1
     const tb = form.itemIds.includes(b.id) ? 0 : 1
     return ta - tb || a.sort_order - b.sort_order
@@ -248,9 +276,7 @@ export function CostEntryForm({
                 <Label htmlFor="cost-category">{VEHICLE_COPY.fieldCategory}</Label>
                 <Select
                   value={form.category}
-                  onValueChange={(v) =>
-                    set("category", v as VehicleCostCategory)
-                  }
+                  onValueChange={(v) => setCategory(v as VehicleCostCategory)}
                 >
                   {/* Base UI renders the raw value unless given children —
                       the app-wide convention is to resolve the label. */}
@@ -359,7 +385,7 @@ export function CostEntryForm({
             )}
 
             {/* What this visit closed. */}
-            {items.length > 0 && (
+            {closableItems.length > 0 && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1">
                   <Label>{VEHICLE_COPY.closesItems}</Label>
