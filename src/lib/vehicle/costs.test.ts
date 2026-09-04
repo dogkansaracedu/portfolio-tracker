@@ -164,7 +164,9 @@ describe("the two denominators", () => {
     // Variable: scales with distance.
     entry({ date: "2026-01-01", amount: 44000, category: "fuel" }),
     entry({ date: "2026-01-01", amount: 8800, category: "maintenance" }),
-    entry({ date: "2026-01-01", amount: 4400, category: "tyres" }),
+    // Tyres used to be its own category; it is maintenance now, and both were
+    // always variable, so the split is unchanged by the fold.
+    entry({ date: "2026-01-01", amount: 4400, category: "maintenance" }),
     // Fixed: accrues with time.
     entry({ date: "2026-01-01", amount: 22000, category: "insurance" }),
     entry({ date: "2026-01-01", amount: 8800, category: "tax" }),
@@ -277,5 +279,64 @@ describe("what an outlay can close", () => {
       expect(allowed).toBeDefined()
       for (const g of allowed) expect(groups.has(g)).toBe(true)
     }
+  })
+})
+
+describe("which items an outlay offers", () => {
+  // Mirrors the form's own filter. Pinned here because getting it wrong makes
+  // an item either unreachable or silently reset.
+  type Item = { id: string; item_group: string; cost_category: string | null }
+  const plan: Item[] = [
+    { id: "oil", item_group: "routine", cost_category: null },
+    { id: "belt", item_group: "long_life", cost_category: null },
+    { id: "mtv", item_group: "obligations", cost_category: "tax" },
+    { id: "trafik", item_group: "obligations", cost_category: "insurance" },
+    { id: "muayene", item_group: "obligations", cost_category: "inspection" },
+    // Claims nothing — the "Kasko renamed to IMM" case.
+    { id: "imm", item_group: "obligations", cost_category: null },
+  ]
+
+  function offer(category: keyof typeof VEHICLE_CATEGORY_CLOSES) {
+    const groups = VEHICLE_CATEGORY_CLOSES[category]
+    const closable = plan.filter((i) => groups.includes(i.item_group as never))
+    const claimants = closable.filter((i) => i.cost_category === category)
+    const auto = claimants.length === 1 ? claimants : []
+    const autoIds = new Set(auto.map((i) => i.id))
+    const selectable = closable.filter(
+      (i) =>
+        !autoIds.has(i.id) &&
+        (i.cost_category === null || i.cost_category === category),
+    )
+    return { auto: auto.map((i) => i.id), select: selectable.map((i) => i.id) }
+  }
+
+  it("closes an obligation without asking, when only one can be meant", () => {
+    expect(offer("tax").auto).toEqual(["mtv"])
+    expect(offer("insurance").auto).toEqual(["trafik"])
+    expect(offer("inspection").auto).toEqual(["muayene"])
+  })
+
+  it("never offers an item that belongs to a different kind of outlay", () => {
+    // Paying road tax must not offer to renew the insurance.
+    expect(offer("tax").select).not.toContain("trafik")
+    expect(offer("insurance").select).not.toContain("mtv")
+  })
+
+  it("keeps an unclaimed obligation reachable", () => {
+    // The bug this exists to prevent: an item claiming nothing was filtered
+    // out of every category at once and became impossible to close.
+    for (const c of ["tax", "insurance", "inspection"] as const) {
+      expect(offer(c).select).toContain("imm")
+    }
+  })
+
+  it("asks, and only asks, for a service visit", () => {
+    const m = offer("maintenance")
+    expect(m.auto).toEqual([])
+    expect(m.select).toEqual(["oil", "belt"])
+  })
+
+  it("offers nothing at all for a fill", () => {
+    expect(offer("fuel")).toEqual({ auto: [], select: [] })
   })
 })

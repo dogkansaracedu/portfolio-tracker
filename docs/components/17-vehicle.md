@@ -117,6 +117,16 @@ Three rules on entries:
   price no longer remembered — it contributes nothing to any total (it is not
   zero) and still resets whatever the row closes. This is exactly how a
   remembered-but-unpriced past service is entered.
+- **An obligation closes itself.** Paying the road tax means the tax instalment
+  is done; there is nothing to choose. So an item can declare which kind of
+  outlay closes it, and where exactly one item claims that kind, the entry
+  states what it closed instead of asking. Where several claim it — three
+  policies, say — it is a real choice and the selector returns, over the
+  claimants only. **A service visit is the one genuinely ambiguous case**,
+  closing an arbitrary combination of parts, and it is the only place a
+  selector is always shown.
+  An item that claims nothing stays reachable from every outlay in its group:
+  filtering it out everywhere at once would make it impossible to close.
 - **An entry only offers the items it could plausibly have closed.** A tax
   payment cannot renew a drive belt and a fill closes nothing, so the reset
   list is filtered by the outlay's category — down to a single item for the

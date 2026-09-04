@@ -31,7 +31,6 @@ export const VEHICLE_COST_CATEGORIES = [
   { value: "insurance", label: "Insurance" },
   { value: "tax", label: "Tax (MTV)" },
   { value: "inspection", label: "Inspection (muayene)" },
-  { value: "tyres", label: "Tyres" },
   { value: "fine", label: "Fine" },
   { value: "parking", label: "Parking & tolls" },
   { value: "other", label: "Other" },
@@ -65,7 +64,24 @@ export const FUEL_CATEGORY: VehicleCostCategory = "fuel"
 export const VEHICLE_VARIABLE_CATEGORIES: readonly VehicleCostCategory[] = [
   "fuel",
   "maintenance",
-  "tyres",
+]
+
+/**
+ * Whether an outlay of this category closes its items **without being asked**.
+ *
+ * Paying MTV means the MTV instalment is done; there is nothing to choose. The
+ * one genuinely ambiguous case is a service visit, which closes an arbitrary
+ * combination of parts — so that is the only place a selector earns its keep.
+ *
+ * Derived from the items themselves (`cost_category`) rather than listed here,
+ * because whether a category is unambiguous depends on how many items claim
+ * it: one item claiming `tax` is a certainty, three claiming `insurance` is a
+ * choice between three.
+ */
+export const VEHICLE_AUTO_CLOSE_CATEGORIES: readonly VehicleCostCategory[] = [
+  "insurance",
+  "tax",
+  "inspection",
 ]
 
 /**
@@ -91,7 +107,6 @@ export const VEHICLE_CATEGORY_CLOSES: Record<
   insurance: ["obligations"],
   tax: ["obligations"],
   inspection: ["obligations"],
-  tyres: ["long_life"],
   fine: [],
   parking: [],
   // Unknown by definition, so it constrains nothing.
@@ -113,7 +128,6 @@ export const VEHICLE_CATEGORY_CLOSES: Record<
 export const VEHICLE_ODOMETER_CATEGORIES: readonly VehicleCostCategory[] = [
   "fuel",
   "maintenance",
-  "tyres",
   "inspection",
   "other",
 ]
@@ -365,6 +379,9 @@ export const FUEL_ECONOMY_DISTANCE = 100
  */
 export interface MaintenanceItemTemplate {
   name: string
+  /** The outlay category that closes this without being asked; null when it
+   *  is only ever ticked by hand (every real maintenance item). */
+  costCategory: VehicleCostCategory | null
   intervalKm: number | null
   intervalMonths: number | null
   group: MaintenanceGroup
@@ -375,6 +392,7 @@ export interface MaintenanceItemTemplate {
 export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   {
     name: "Periodic service",
+    costCategory: null,
     kind: "service",
     group: "routine",
     intervalKm: 15000,
@@ -383,6 +401,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Engine oil & filter",
+    costCategory: null,
     kind: "service",
     group: "routine",
     intervalKm: 10000,
@@ -391,6 +410,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Air filter",
+    costCategory: null,
     kind: "service",
     group: "routine",
     intervalKm: 20000,
@@ -399,6 +419,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Cabin (pollen) filter",
+    costCategory: null,
     kind: "service",
     group: "routine",
     intervalKm: 20000,
@@ -407,6 +428,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Fuel filter",
+    costCategory: null,
     kind: "service",
     group: "routine",
     intervalKm: 40000,
@@ -415,6 +437,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Spark plugs",
+    costCategory: null,
     kind: "service",
     group: "long_life",
     intervalKm: 60000,
@@ -423,6 +446,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Brake fluid",
+    costCategory: null,
     kind: "service",
     group: "long_life",
     intervalKm: null,
@@ -431,6 +455,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Brake pads",
+    costCategory: null,
     kind: "inspect",
     group: "long_life",
     intervalKm: 30000,
@@ -439,6 +464,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Brake discs",
+    costCategory: null,
     kind: "inspect",
     group: "long_life",
     intervalKm: 80000,
@@ -447,6 +473,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Coolant / antifreeze",
+    costCategory: null,
     kind: "service",
     group: "long_life",
     intervalKm: 40000,
@@ -455,6 +482,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Drive belt (triger kayışı)",
+    costCategory: null,
     kind: "service",
     group: "long_life",
     intervalKm: 90000,
@@ -463,6 +491,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Automatic transmission oil",
+    costCategory: null,
     kind: "service",
     group: "long_life",
     intervalKm: 50000,
@@ -471,6 +500,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Tyres",
+    costCategory: null,
     kind: "service",
     group: "long_life",
     intervalKm: 100000,
@@ -479,6 +509,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Muayene (TÜVTÜRK)",
+    costCategory: "inspection",
     kind: "service",
     group: "obligations",
     intervalKm: null,
@@ -487,6 +518,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Trafik sigortası",
+    costCategory: "insurance",
     kind: "service",
     group: "obligations",
     intervalKm: null,
@@ -495,6 +527,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Kasko",
+    costCategory: "insurance",
     kind: "service",
     group: "obligations",
     intervalKm: null,
@@ -503,6 +536,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "MTV instalment",
+    costCategory: "tax",
     kind: "service",
     group: "obligations",
     intervalKm: null,
