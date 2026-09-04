@@ -11,11 +11,7 @@ import { formatCurrency, obfuscate } from "@/lib/prices"
 import type { Vehicle } from "@/types/database"
 import type { OpportunityCost, OwnershipCost } from "@/lib/vehicle"
 import { DECIMALS } from "@/lib/config"
-import {
-  NO_DATA,
-  formatKm,
-  formatMonths,
-} from "@/components/vehicle/display"
+import { NO_DATA, formatKm, formatMonths } from "@/components/vehicle/display"
 
 interface Props {
   cost: OwnershipCost
@@ -102,7 +98,12 @@ export function CostOfOwnershipCard({
   /** A stored amount in the currency it was actually recorded in. */
   const own = (amount: number, currency: string | null) =>
     obfuscate(
-      formatCurrency(amount, isFiatCurrency(currency ?? "") ? (currency as FiatCurrency) : DEFAULT_CURRENCY),
+      formatCurrency(
+        amount,
+        isFiatCurrency(currency ?? "")
+          ? (currency as FiatCurrency)
+          : DEFAULT_CURRENCY,
+      ),
       obfuscated,
     )
 
@@ -150,92 +151,110 @@ export function CostOfOwnershipCard({
           </p>
         )}
 
-        {/* The two denominators. */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-3 sm:grid-cols-3">
-          <Figure
-            label={VEHICLE_COPY.perMonth}
-            value={perMonth(cost.fixedPerMonthUsd)}
-          />
-          <Figure
-            label={VEHICLE_COPY.perKm}
-            value={perKm(cost.variablePerKmUsd)}
-          />
-          <Figure
-            label={VEHICLE_COPY.blendedPerKm}
-            value={perKm(cost.blendedPerKmUsd)}
-          />
-        </div>
+        {/* The two denominators and the capital block below both fit in one
+            band from `xl`, where each was previously a full-width row holding
+            three figures. */}
+        <div className="grid gap-x-8 gap-y-4 border-t pt-3 xl:grid-cols-2">
+          <div className="space-y-2">
+            <div className="flex min-h-6 items-center gap-1 text-xs font-medium">
+              {VEHICLE_COPY.runningCostHeading}
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+              <Figure
+                label={VEHICLE_COPY.perMonth}
+                value={perMonth(cost.fixedPerMonthUsd)}
+              />
+              <Figure
+                label={VEHICLE_COPY.perKm}
+                value={perKm(cost.variablePerKmUsd)}
+              />
+              <Figure
+                label={VEHICLE_COPY.blendedPerKm}
+                value={perKm(cost.blendedPerKmUsd)}
+              />
+            </div>
 
-        {/* The denominators themselves, stated — a per-km figure without its
+            {/* The denominators themselves, stated — a per-km figure without its
             distance is the number AAA warns about. */}
-        <p className="text-xs text-muted-foreground">
-          {VEHICLE_COPY.kmDriven}: {formatKm(cost.kmDriven)}
-          {" · "}
-          {VEHICLE_COPY.monthsOwned} {formatMonths(cost.monthsOwned)}
-          {" · "}
-          {VEHICLE_COPY.purchasePrice.toLowerCase()}{" "}
-          {own(Number(vehicle.purchase_price), vehicle.purchase_currency)}
-          {/* The anchored equivalent, at the rate on that day. Without it the
+            <p className="text-xs text-muted-foreground">
+              {VEHICLE_COPY.kmDriven}: {formatKm(cost.kmDriven)}
+              {" · "}
+              {VEHICLE_COPY.monthsOwned} {formatMonths(cost.monthsOwned)}
+              {" · "}
+              {VEHICLE_COPY.purchasePrice.toLowerCase()}{" "}
+              {own(Number(vehicle.purchase_price), vehicle.purchase_currency)}
+              {/* The anchored equivalent, at the rate on that day. Without it the
               depreciation figure above cannot be checked against the two
               numbers printed under it: the operands are lira and the
               difference is dollars, which is the whole point but reads as an
               error when only one side is shown. */}
-          {isForeign(vehicle.purchase_currency) && (
-            <> ({money(cost.purchaseUsd)} {VEHICLE_COPY.atTheTime})</>
-          )}
-          {vehicle.current_value !== null && (
-            <>
-              {" · "}
-              {VEHICLE_COPY.currentValue.toLowerCase()}{" "}
-              {own(Number(vehicle.current_value), vehicle.current_value_currency)}
-              {isForeign(vehicle.current_value_currency) &&
-                cost.currentValueUsd !== null && (
-                  <> ({money(cost.currentValueUsd)} {VEHICLE_COPY.atTheTime})</>
-                )}
-            </>
-          )}
-        </p>
+              {isForeign(vehicle.purchase_currency) && (
+                <>
+                  {" "}
+                  ({money(cost.purchaseUsd)} {VEHICLE_COPY.atTheTime})
+                </>
+              )}
+              {vehicle.current_value !== null && (
+                <>
+                  {" · "}
+                  {VEHICLE_COPY.currentValue.toLowerCase()}{" "}
+                  {own(
+                    Number(vehicle.current_value),
+                    vehicle.current_value_currency,
+                  )}
+                  {isForeign(vehicle.current_value_currency) &&
+                    cost.currentValueUsd !== null && (
+                      <>
+                        {" "}
+                        ({money(cost.currentValueUsd)} {VEHICLE_COPY.atTheTime})
+                      </>
+                    )}
+                </>
+              )}
+            </p>
+          </div>
 
-        {/* Capital tied up. Separated by a rule because it is not money spent —
+          {/* Capital tied up. Kept visually apart because it is not money spent —
             it is money not made, and merging it into the total above would
             overstate what left the bank account. */}
-        <div className="space-y-2 border-t pt-3">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span>{VEHICLE_COPY.opportunityHeading}</span>
-            <HintPopover
-              label={VEHICLE_COPY.opportunityHeading}
-              text={VEHICLE_COPY.opportunityHint}
-            />
-          </div>
-          {opportunity === null ? (
-            <p className="text-xs text-muted-foreground">
-              {VEHICLE_COPY.opportunityUnavailable}
-            </p>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                <Figure
-                  label={VEHICLE_COPY.opportunityCost}
-                  value={money(opportunity.foregoneUsd)}
-                />
-                <Figure
-                  label={VEHICLE_COPY.trueCost}
-                  value={
-                    opportunity.trueCostUsd === null
-                      ? NO_DATA
-                      : money(opportunity.trueCostUsd)
-                  }
-                  strong
-                />
-              </div>
+          <div className="space-y-2 border-t pt-3 xl:border-t-0 xl:pt-0">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span>{VEHICLE_COPY.opportunityHeading}</span>
+              <HintPopover
+                label={VEHICLE_COPY.opportunityHeading}
+                text={VEHICLE_COPY.opportunityHint}
+              />
+            </div>
+            {opportunity === null ? (
               <p className="text-xs text-muted-foreground">
-                At your lifetime{" "}
-                {opportunity.ratePct.toFixed(DECIMALS.percentageRate)}%/yr over{" "}
-                {formatMonths(opportunity.years * 12)} on{" "}
-                {money(opportunity.capitalUsd)}.
+                {VEHICLE_COPY.opportunityUnavailable}
               </p>
-            </>
-          )}
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <Figure
+                    label={VEHICLE_COPY.opportunityCost}
+                    value={money(opportunity.foregoneUsd)}
+                  />
+                  <Figure
+                    label={VEHICLE_COPY.trueCost}
+                    value={
+                      opportunity.trueCostUsd === null
+                        ? NO_DATA
+                        : money(opportunity.trueCostUsd)
+                    }
+                    strong
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  At your lifetime{" "}
+                  {opportunity.ratePct.toFixed(DECIMALS.percentageRate)}%/yr
+                  over {formatMonths(opportunity.years * 12)} on{" "}
+                  {money(opportunity.capitalUsd)}.
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

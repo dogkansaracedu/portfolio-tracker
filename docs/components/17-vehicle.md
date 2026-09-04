@@ -2,7 +2,8 @@
 
 > Layer: behavioral (tech-agnostic). Implementation → [technical/17-vehicle.md](technical/17-vehicle.md)
 >
-> **Status: built** (v0.16.0, corrected in v0.16.1, grouped plan in v0.17.0). The contract below describes the shipped
+> **Status: built** (v0.16.0; corrected in v0.16.1; grouped plan in v0.17.0;
+> desktop layout in v0.17.1). The contract below describes the shipped
 > behavior.
 
 ## Purpose
@@ -151,10 +152,17 @@ Intervals are **free numeric entry**. A schedule that cannot express what the
 owner's own mechanic told them gets abandoned, so no picker constrains them to
 a fixed set of values.
 
+Some items are **wear** items rather than scheduled ones — brake pads and discs
+above all, whose life depends entirely on how the car is driven. They are
+seeded at the **low end** of their published range, because on brakes being
+early costs a service and being late costs more than that, and their notes say
+plainly that the figure is a prompt to have them inspected rather than a
+replacement date.
+
 Because no free source of manufacturer schedules exists, the app offers a
 **default plan of typical local intervals** on first use — oil and filters,
-fuel filter, plugs, brake fluid, coolant, transmission oil, the drive belt,
-tyres, plus the local recurring obligations (inspection every 2 years, annual
+fuel filter, plugs, brake fluid, brake pads and discs, coolant, transmission
+oil, the drive belt, tyres, plus the local recurring obligations (inspection every 2 years, annual
 policies, the twice-yearly vehicle tax instalment). It is a starting point,
 fully editable, and the UI says plainly that the car's own service book is the
 authority.

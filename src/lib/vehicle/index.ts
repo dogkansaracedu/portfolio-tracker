@@ -34,6 +34,7 @@ export {
 
 export {
   computeFuelEconomy,
+  hasFuelData,
   type FuelEconomy,
   type FuelSegment,
 } from "./fuel"

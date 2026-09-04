@@ -30,7 +30,7 @@ import {
 import { MaintenanceItemForm } from "@/components/vehicle/MaintenanceItemForm"
 import { VehicleForm } from "@/components/vehicle/VehicleForm"
 import { VehicleReadingsCard } from "@/components/vehicle/VehicleReadingsCard"
-import type { MaintenanceItemState } from "@/lib/vehicle"
+import { hasFuelData, type MaintenanceItemState } from "@/lib/vehicle"
 import type {
   Vehicle,
   VehicleCostEntry,
@@ -169,6 +169,10 @@ export default function VehiclePage() {
     setItemFormOpen(true)
   }
 
+  // One decision about whether fuel appears, shared by the card and the grid
+  // that reserves room for it.
+  const showFuel = fuel !== null && hasFuelData(fuel)
+
   const nextSortOrder =
     allItems.reduce((max, i) => Math.max(max, i.sort_order), -1) + 1
 
@@ -260,24 +264,31 @@ export default function VehiclePage() {
         />
       )}
 
-      {/* 2. What needs doing, beside the two readings that decide it — they
-             share a row so neither stretches the full content width, where
-             a short list's name and figure end up a thousand pixels apart. */}
-      <div className="grid items-start gap-6 lg:grid-cols-2">
+      {/* 2. What needs doing, the two readings that decide it, and fuel —
+             short cards in one band. Each alone at full content width wasted
+             most of a desktop screen and threw its own labels and figures a
+             thousand pixels apart. `items-start` stops the short ones
+             stretching to match the readings card, which is the tallest.
+             The third column is reserved only when there IS fuel data:
+             asking for three columns and rendering two left a 368px hole. */}
+      <div
+        className={`grid items-start gap-6 lg:grid-cols-2 ${
+          showFuel ? "xl:grid-cols-3" : ""
+        }`}
+      >
         <DueSummary due={due} nextUp={nextUp} onLogVisit={openAddCost} />
         {odometer && (
           <VehicleReadingsCard vehicle={vehicle} odometer={odometer} />
         )}
+        {showFuel && fuel && <FuelCard fuel={fuel} />}
       </div>
 
-      {/* 3. The plan it all comes from, then fuel and the ledger. */}
+      {/* 3. The plan it all comes from, then the ledger. */}
       <MaintenanceChart
         plan={plan}
         onEdit={openEditItem}
         onDelete={(state) => setDeletingItem(state.item)}
       />
-
-      {fuel && <FuelCard fuel={fuel} />}
 
       <CostLedger
         entries={entries}

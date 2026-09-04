@@ -151,6 +151,15 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   existed groups itself; anything unrecognised keeps the `routine` default,
   which is the only value that never hides a real maintenance item under
   paperwork.
+- **Desktop layout is where the groups pay off twice.** `MaintenanceChart`
+  renders its groups as grid COLUMNS (`md:grid-cols-2 xl:grid-cols-3`,
+  `items-start` so the uneven 4/6/4 columns do not stretch), collapsing to the
+  original single stack below `md`. The page then puts the due-list, the
+  readings card and the fuel card in one `lg:grid-cols-2 xl:grid-cols-3` band,
+  and the cost card pairs its denominators with its capital block from `xl`.
+  A consequence: every row now lives in a narrow column at every breakpoint,
+  so the projected-due-date moved from sharing the "next due" line to a line of
+  its own — inline it wrapped at all widths rather than only on a phone.
 - **The chart groups; the engine does not.** `maintenancePlanState` still sorts
   purely by status and interval-used, and `MaintenanceChart` partitions the
   result in `MAINTENANCE_GROUPS` order. Sorting by group inside the engine would
