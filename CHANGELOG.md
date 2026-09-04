@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.18.1] — 2026-09-04
+- A cost entry only offers the maintenance items it could plausibly have
+  closed: choosing Tax (MTV) no longer lets you tick "Timing belt". Fuel,
+  fines and parking close nothing, so that section disappears for them, and
+  tax, insurance and inspection show exactly the one item they can mean.
+
 ## [0.18.0] — 2026-09-04
 - Items now say whether the interval means **replace** or just **check**. Brake
   pads at 30,000 km are usually fine, so their interval is a prompt to have

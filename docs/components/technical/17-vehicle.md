@@ -151,6 +151,12 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   existed groups itself; anything unrecognised keeps the `routine` default,
   which is the only value that never hides a real maintenance item under
   paperwork.
+- **`VEHICLE_CATEGORY_CLOSES` maps a cost category to the item groups it can
+  close**, which is the third axis in play and the one that stops the form
+  offering nonsense: `tax` → `obligations` only, `fuel`/`fine`/`parking` → `[]`
+  (the section does not render), `other` → everything. `setCategory` re-filters
+  `itemIds` on every change, because a tick that survives a narrowing is
+  invisible and still resets its item on save.
 - **Two constants gate every km figure**, so "no distance dimension" is stated
   once each side: `OBLIGATIONS_GROUP` (no km interval on the item form) and
   `VEHICLE_ODOMETER_CATEGORIES` (no reading on the cost form). `lastDonePhrase`
