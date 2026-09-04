@@ -25,11 +25,14 @@ import { useVehicleContext } from "@/contexts/VehicleContext"
 import { bn } from "@/lib/config"
 import {
   DEFAULT_MAINTENANCE_GROUP,
+  DEFAULT_MAINTENANCE_KIND,
   MAINTENANCE_GROUPS,
+  MAINTENANCE_KINDS,
   OBLIGATIONS_GROUP,
   MAINTENANCE_GROUP_LABELS,
   VEHICLE_COPY,
   type MaintenanceGroup,
+  type MaintenanceKind,
 } from "@/lib/constants/vehicle"
 import type { VehicleMaintenanceItem } from "@/types/database"
 
@@ -46,6 +49,7 @@ interface Props {
 interface FormState {
   name: string
   group: MaintenanceGroup
+  kind: MaintenanceKind
   intervalKm: string
   intervalMonths: string
   note: string
@@ -55,6 +59,7 @@ function emptyForm(): FormState {
   return {
     name: "",
     group: DEFAULT_MAINTENANCE_GROUP,
+    kind: DEFAULT_MAINTENANCE_KIND,
     intervalKm: "",
     intervalMonths: "",
     note: "",
@@ -67,6 +72,9 @@ function formFromItem(item: VehicleMaintenanceItem): FormState {
     group: (MAINTENANCE_GROUPS.some((g) => g.value === item.item_group)
       ? item.item_group
       : DEFAULT_MAINTENANCE_GROUP) as MaintenanceGroup,
+    kind: (MAINTENANCE_KINDS.some((k) => k.value === item.item_kind)
+      ? item.item_kind
+      : DEFAULT_MAINTENANCE_KIND) as MaintenanceKind,
     intervalKm: item.interval_km === null ? "" : String(item.interval_km),
     intervalMonths:
       item.interval_months === null ? "" : String(item.interval_months),
@@ -139,6 +147,7 @@ export function MaintenanceItemForm({
         vehicle_id: vehicleId,
         name: form.name.trim(),
         item_group: form.group,
+        item_kind: form.kind,
         interval_km: km === null ? null : km.toFixed(),
         interval_months: months === null ? null : months.toFixed(),
         note: form.note.trim() || null,
@@ -201,6 +210,39 @@ export function MaintenanceItemForm({
                 </SelectContent>
               </Select>
             </div>
+            {/* Replace vs check. An obligation is always "done" — you pay it —
+                so the choice is only offered for real maintenance. */}
+            {!isObligation && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="item-kind">{VEHICLE_COPY.fieldKind}</Label>
+                  <HintPopover
+                    label={VEHICLE_COPY.fieldKind}
+                    text={VEHICLE_COPY.fieldKindHint}
+                  />
+                </div>
+                <Select
+                  value={form.kind}
+                  onValueChange={(v) => set("kind", v as MaintenanceKind)}
+                >
+                  <SelectTrigger id="item-kind" className="w-full">
+                    <SelectValue>
+                      {
+                        MAINTENANCE_KINDS.find((k) => k.value === form.kind)
+                          ?.label
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MAINTENANCE_KINDS.map((k) => (
+                      <SelectItem key={k.value} value={k.value}>
+                        {k.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {/* The two intervals side by side from `sm`, stacked on a phone.
                 An obligation gets only the time box: insurance, tax and
                 inspection recur on a calendar and do not care how far the car

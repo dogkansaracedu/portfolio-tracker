@@ -5,9 +5,9 @@
  */
 
 import { DISPLAY_LOCALE } from "@/lib/constants/app"
-import { DECIMALS } from "@/lib/config"
 import {
   FUEL_ECONOMY_UNIT,
+  INSPECT_KIND,
   MAINTENANCE_STATUS,
   MAINTENANCE_STATUS_LABELS,
   VEHICLE_COPY,
@@ -133,6 +133,20 @@ export function remainingPhrase(state: MaintenanceItemState): string {
   return kmFirst ? options[0] : options[1]
 }
 
+/** The verb for a completed event, per the item's kind. */
+export function lastLabel(state: MaintenanceItemState): string {
+  return state.item.item_kind === INSPECT_KIND
+    ? VEHICLE_COPY.lastChecked
+    : VEHICLE_COPY.lastDone
+}
+
+/** "next due" or "next check", per the item's kind. */
+export function nextLabel(state: MaintenanceItemState): string {
+  return state.item.item_kind === INSPECT_KIND
+    ? VEHICLE_COPY.nextCheck
+    : VEHICLE_COPY.nextDue
+}
+
 /** "at 220,000 km", "by 12 Mar 2031", or both when both are tracked. */
 export function duePhrase(state: MaintenanceItemState): string {
   const parts: string[] = []
@@ -150,7 +164,9 @@ export function duePhrase(state: MaintenanceItemState): string {
  */
 export function lastDonePhrase(state: MaintenanceItemState): string {
   if (state.anchoredAtPurchase) {
-    return `${VEHICLE_COPY.neverDone} — measured from purchase`
+    // The status badge already says "Not recorded", so this no longer repeats
+    // it — it explains what to do instead.
+    return VEHICLE_COPY.unrecordedCaption
   }
   const day = formatVehicleDay(state.lastDoneDate)
   if (state.item.interval_km === null) return day
@@ -181,12 +197,6 @@ export function formatMonths(months: number): string {
   if (!Number.isFinite(months) || months <= 0) return NO_DATA
   if (months < 1) return "under a month"
   return formatMonthSpan(months)
-}
-
-/** The percentage on an interval bar, coarse on purpose (it is a rate). */
-export function formatUsedPct(pct: number | null): string {
-  if (pct === null || !Number.isFinite(pct)) return NO_DATA
-  return `${pct.toFixed(DECIMALS.percentageRate)}%`
 }
 
 /** The date a projection lands on. */

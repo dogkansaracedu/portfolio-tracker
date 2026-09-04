@@ -151,6 +151,15 @@ export function CostEntryForm({
         : [...prev.itemIds, id],
     }))
 
+  // Ticked first: a prefilled bundle sat at positions 12-14 of a 16-row box,
+  // so the pre-tick worked and was invisible, and the cautious response was to
+  // start ticking by hand.
+  const orderedItems = [...items].sort((a, b) => {
+    const ta = form.itemIds.includes(a.id) ? 0 : 1
+    const tb = form.itemIds.includes(b.id) ? 0 : 1
+    return ta - tb || a.sort_order - b.sort_order
+  })
+
   const isFuel = form.category === FUEL_CATEGORY
   // Whether a mileage reading is part of this kind of record at all.
   const takesOdometer = VEHICLE_ODOMETER_CATEGORIES.includes(form.category)
@@ -363,7 +372,7 @@ export function CostEntryForm({
                     `display: contents`, so DialogBody's overflow applies) — a
                     nested scroller here would trap the wheel. */}
                 <div className="space-y-1 rounded-md border p-2">
-                  {items.map((item) => (
+                  {orderedItems.map((item) => (
                     <label
                       key={item.id}
                       className="flex cursor-pointer items-center gap-2 py-1 text-sm"

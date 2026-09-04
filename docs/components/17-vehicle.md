@@ -132,7 +132,7 @@ with its own intervals — per item, not per mileage milestone.
 Items carry a [group](GLOSSARY.md#maintenance-group), and the plan is read a
 group at a time: **periodic-service** consumables, **long-term** parts, and the
 **insurance, tax & inspection** obligations that recur on a clock but are not
-maintenance. A plan of fourteen rows is otherwise a flat list of three quite
+maintenance. A plan of seventeen rows is otherwise a flat list of three quite
 different kinds of thing.
 
 Group membership is about **kind, not interval length** — a fuel filter replaced
@@ -200,11 +200,36 @@ and presenting it as a fact is how a schedule quietly misleads.
 An interval resets **only for the items an entry explicitly names.** Nothing
 resets on a timer.
 
+### Replace, or just look
+
+An item records **what happens at its interval**: the part is replaced, or it
+is merely checked. Brake pads at 30,000 km are usually fine — the interval is a
+prompt to have them looked at, not an instruction to buy pads — and recording
+that check must reset the reminder without claiming a part was fitted.
+
+It changes wording only; the due point is computed identically. But the wording
+is what decides what the owner does, so "next check at 158,000 km" and "next
+due at 158,000 km" are not interchangeable. No comparator models this: they
+bury the verb inside the item's own name, which is why their schedules cannot
+style or group by it.
+
+The **periodic service is itself an item**, so the visit can be tracked whether
+or not any single part was changed — and the check-only items share its cadence,
+which is what "looked at during the next service" means in practice.
+
 ### Status and warnings
 
 The [status ladder](GLOSSARY.md#maintenance-status-ladder) — overdue, due soon,
-OK, not tracked — is derived from interval used on every read and **never
-stored**; a stored status is wrong the morning after it is written.
+not recorded, OK, not tracked — is derived on every read and **never stored**;
+a stored status is wrong the morning after it is written.
+
+**An item nothing has ever closed reports "not recorded", never "overdue".**
+Its percentage is measured from the purchase, which is a floor and not a fact,
+so it shows that estimate but never asserts it: it stays out of the
+due-at-next-service bundle and never warns on the dashboard. This is the
+honest-blank rule applied to the schedule — money on this page renders unknown
+with a reason rather than a flattering zero, and a red badge built on a
+placeholder anchor was the one place the component contradicted itself.
 
 The due-soon threshold is a **proportion** of the interval (within 10% of due),
 not a fixed distance or number of days, so one rule works at every scale.
@@ -312,7 +337,13 @@ of outlay where the car was actually there.
   the difference is dollars, which is the entire point and yet reads as an error
   when only one side is shown.
 - Amounts that cannot be computed render as unknown, never as a fake zero — and
-  wherever the reason is not obvious, it is stated inline.
+  wherever the reason is not obvious, it is stated inline. **A total that
+  excludes something says so**: entries recorded without a price contribute
+  nothing to the cash figure, so their count is printed beside it rather than
+  leaving a partial sum looking complete.
+- **No percentage of an interval is printed.** The meter already encodes it, and
+  a figure like "11.4% used" claims a precision neither input has — the interval
+  is a round manufacturer guess and the odometer is one moment's reading.
 - **Every span uses one unit convention**, in the coarsest honest unit: days up
   to a quarter, then months, then years. An interval reads "every 2 years", not
   "every 24 months", and time remaining reads in years rather than as a

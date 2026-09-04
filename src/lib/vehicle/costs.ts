@@ -48,6 +48,14 @@ export interface OwnershipCost {
   /** Cash actually paid out, all entries at their own date's rate. */
   cashUsd: number
   /**
+   * How many entries carry no amount — work recorded at a price no longer
+   * known. They contribute nothing to `cashUsd` (they are not zero), so
+   * without this count the total looks complete when it is not. The card
+   * prints it beside the cash figure, the same way a missing current value
+   * explains the depreciation blank.
+   */
+  unpricedEntries: number
+  /**
    * Purchase price − current value, both at their own dates' rates. Positive
    * = value lost. Null when the car has no recorded current value: with no
    * value there is no depreciation figure, and a zero would be a lie about
@@ -119,8 +127,10 @@ export function computeOwnershipCost(
   let cash = BN_ZERO
   let variable = BN_ZERO
   let fixedCash = BN_ZERO
+  let unpricedEntries = 0
 
   for (const entry of entries) {
+    if (entry.amount === null || entry.amount === undefined) unpricedEntries++
     const usd = entryUsd(entry, rates)
     if (usd.isZero()) continue
     cash = cash.plus(usd)
@@ -165,6 +175,7 @@ export function computeOwnershipCost(
 
   return {
     cashUsd: cash.toNumber(),
+    unpricedEntries,
     depreciationUsd: depreciation === null ? null : depreciation.toNumber(),
     totalUsd: total === null ? null : total.toNumber(),
     purchaseUsd: purchaseUsd.toNumber(),

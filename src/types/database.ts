@@ -448,6 +448,10 @@ export interface VehicleMaintenanceItem {
    *  from a cost entry's `category`: that says what an outlay was for, this
    *  says what kind of item it is. */
   item_group: string;
+  /** What happens at the interval — a `MaintenanceKind`. `service` (replaced,
+   *  renewed, paid, performed) or `inspect` (looked at). Wording only; the due
+   *  point is computed identically. */
+  item_kind: string;
   /** Null = distance is not tracked for this item. */
   interval_km: number | null;
   /** Null = time is not tracked. Both null = dormant, never becomes due. */
@@ -568,12 +572,14 @@ export type VehicleMaintenanceItemInsert = Omit<
   | "sort_order"
   | "is_active"
   | "item_group"
+  | "item_kind"
   | "created_at"
 > &
   VehicleMaintenanceItemNumerics & {
     sort_order?: number;
     is_active?: boolean;
     item_group?: string;
+    item_kind?: string;
   };
 
 export type VehicleMaintenanceItemUpdate = Partial<

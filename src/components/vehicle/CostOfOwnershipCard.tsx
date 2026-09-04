@@ -31,11 +31,14 @@ function Figure({
   label,
   value,
   hint,
+  note,
   strong = false,
 }: {
   label: string
   value: string
   hint?: string
+  /** A qualifier under the figure — what it excludes, or why it is partial. */
+  note?: string
   strong?: boolean
 }) {
   return (
@@ -58,6 +61,7 @@ function Figure({
       >
         {value}
       </p>
+      {note && <p className="text-xs text-muted-foreground">{note}</p>}
     </div>
   )
 }
@@ -107,8 +111,12 @@ export function CostOfOwnershipCard({
       obfuscated,
     )
 
+  /** Quoted per 100 km, not per km: at 2dp a per-km figure printed
+   *  "$0.01 / km", which is indistinguishable from $0.005 or $0.014 — a
+   *  threefold range in one printed digit, for one of the two denominators the
+   *  whole card rests on. 100 km is also the unit the fuel card already uses. */
   const perKm = (usd: number | null) =>
-    usd === null ? NO_DATA : `${money(usd)} / km`
+    usd === null ? NO_DATA : `${money(usd * 100)} ${VEHICLE_COPY.per100km}`
   const perMonth = (usd: number | null) =>
     usd === null ? NO_DATA : `${money(usd)} / mo`
 
@@ -128,7 +136,16 @@ export function CostOfOwnershipCard({
             cash and depreciation stay side by side — the comparison is the
             point — and three from `sm` up. */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-          <Figure label={VEHICLE_COPY.cashCost} value={money(cost.cashUsd)} />
+          <Figure
+            label={VEHICLE_COPY.cashCost}
+            value={money(cost.cashUsd)}
+            /* A total that quietly omits three entries looks complete. */
+            note={
+              cost.unpricedEntries > 0
+                ? `${cost.unpricedEntries} ${VEHICLE_COPY.unpricedNote}`
+                : undefined
+            }
+          />
           <Figure
             label={VEHICLE_COPY.depreciation}
             value={
@@ -252,7 +269,13 @@ export function CostOfOwnershipCard({
                         ? NO_DATA
                         : money(opportunity.trueCostUsd)
                     }
-                    strong
+                    /* Deliberately NOT `strong`. "Total cost" is the card's one
+                       headline; this figure is larger but it is not a property
+                       of the car — it moves with the portfolio's return, and it
+                       shifted by a dollar between two page loads minutes apart.
+                       Two competing answers to "what did this car cost me?",
+                       with the market-dependent one shouting, is the wrong
+                       hierarchy. */
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
