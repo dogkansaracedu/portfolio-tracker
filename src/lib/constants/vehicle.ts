@@ -69,6 +69,36 @@ export const VEHICLE_VARIABLE_CATEGORIES: readonly VehicleCostCategory[] = [
 ]
 
 /**
+ * Which parts of the plan an outlay of each category can plausibly close.
+ *
+ * A tax payment cannot reset a drive belt, and a fuel fill closes nothing at
+ * all — but the reset list was offering every item in the plan against every
+ * category, so an MTV instalment could be recorded as having renewed the
+ * timing belt. Filtering by group makes the impossible unavailable rather than
+ * merely discouraged, and shrinks the list from seventeen rows to one for the
+ * categories where exactly one thing can be meant.
+ *
+ * An empty list hides the section entirely: a fill, a fine and a parking fee
+ * close nothing, and offering a checkbox that should never be ticked is worse
+ * than offering none.
+ */
+export const VEHICLE_CATEGORY_CLOSES: Record<
+  VehicleCostCategory,
+  readonly MaintenanceGroup[]
+> = {
+  fuel: [],
+  maintenance: ["routine", "long_life"],
+  insurance: ["obligations"],
+  tax: ["obligations"],
+  inspection: ["obligations"],
+  tyres: ["long_life"],
+  fine: [],
+  parking: [],
+  // Unknown by definition, so it constrains nothing.
+  other: ["routine", "long_life", "obligations"],
+}
+
+/**
  * The categories where an odometer reading means something — the car was
  * physically there and its mileage is part of the record. Fuel needs it to
  * measure consumption at all; a servis and a tyre change are recorded against

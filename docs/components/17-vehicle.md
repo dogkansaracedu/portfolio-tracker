@@ -117,6 +117,13 @@ Three rules on entries:
   price no longer remembered — it contributes nothing to any total (it is not
   zero) and still resets whatever the row closes. This is exactly how a
   remembered-but-unpriced past service is entered.
+- **An entry only offers the items it could plausibly have closed.** A tax
+  payment cannot renew a drive belt and a fill closes nothing, so the reset
+  list is filtered by the outlay's category — down to a single item for the
+  categories where exactly one thing can be meant, and hidden entirely for the
+  ones that close nothing. Narrowing the category also drops any tick that is
+  no longer possible: left in place it would be invisible in the form and
+  still reset that item on save.
 - **An odometer reading is offered only where it is part of the record** — a
   fill, a service, tyres, an inspection. A policy renewal or a tax instalment
   is paid at a desk, and the mileage it happened at is not information, so the

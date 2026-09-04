@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest"
 import { computeOpportunityCost, computeOwnershipCost } from "@/lib/vehicle"
+import {
+  MAINTENANCE_GROUPS,
+  VEHICLE_CATEGORY_CLOSES,
+  VEHICLE_COST_CATEGORIES,
+} from "@/lib/constants/vehicle"
 import type {
   ExchangeRate,
   Vehicle,
@@ -242,5 +247,35 @@ describe("computeOpportunityCost", () => {
     // so the car cost less than its receipts suggest.
     const opp = computeOpportunityCost(cost, brief, -10, TODAY)!
     expect(opp.foregoneUsd).toBeLessThan(0)
+  })
+})
+
+describe("what an outlay can close", () => {
+  // A tax payment cannot renew a drive belt. The reset list was offering every
+  // item in the plan against every category, so it could.
+  it("lets a maintenance cost close maintenance, and nothing else", () => {
+    expect(VEHICLE_CATEGORY_CLOSES.maintenance).toEqual(["routine", "long_life"])
+    expect(VEHICLE_CATEGORY_CLOSES.maintenance).not.toContain("obligations")
+  })
+
+  it("confines tax, insurance and inspection to the obligations", () => {
+    for (const c of ["tax", "insurance", "inspection"] as const) {
+      expect(VEHICLE_CATEGORY_CLOSES[c]).toEqual(["obligations"])
+    }
+  })
+
+  it("lets a fill, a fine and a parking fee close nothing at all", () => {
+    for (const c of ["fuel", "fine", "parking"] as const) {
+      expect(VEHICLE_CATEGORY_CLOSES[c]).toEqual([])
+    }
+  })
+
+  it("covers every category, with only real group names", () => {
+    const groups = new Set<string>(MAINTENANCE_GROUPS.map((g) => g.value))
+    for (const { value } of VEHICLE_COST_CATEGORIES) {
+      const allowed = VEHICLE_CATEGORY_CLOSES[value]
+      expect(allowed).toBeDefined()
+      for (const g of allowed) expect(groups.has(g)).toBe(true)
+    }
   })
 })
