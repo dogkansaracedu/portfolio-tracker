@@ -303,10 +303,49 @@ tariff — there is no published price list at all**; every "typical kasko cost"
 figure in circulation is broker marketing. Sector-level is the only defensible
 aggregate (TSB: 2025 kasko premium production +33% nominal, **−5.9% real**).
 
-**Fuel.** 1 Sept 2026, İstanbul: benzin ~74.35, motorin ~81.07, LPG ~33.79
-TL/L. **Diesel ÖTV was on a monthly escalator** — zero in Aug, 3 TL/L from 1
-Sept, 6 TL/L in Oct, reportedly +3 TL/L monthly to year-end. EPDK publishes
-province-level dealer prices; no key-free API confirmed.
+**Fuel — re-researched 2026-09-04, and the 1 September snapshot was already
+wrong.** İstanbul Avrupa motorin is **88.88 TL/L** (Opet, Petrol Ofisi and
+Aytemiz independently, within 2 kuruş; Aytemiz self-stamps 04.09.2026 15:25).
+The 81.07 figure was correct that day and was superseded overnight on
+4 September by a **+7.76 TL/L** jump — 9.6% in one night, on Brent at 95–96
+USD/bbl and a diesel crack-spread blowout, **not** a tax event. Benzin rose
+only +2.47 the same night, opening a ~12 TL gap. The prior day's press forecast
+(+8.24) missed by half a lira, so even 24-hour-ahead estimates move.
+
+**The ÖTV staircase is published legislation, not a rumour.** A Cumhurbaşkanı
+Kararı (reported *Resmî Gazete* 13.08.2026, sayı 33339, karar 11606 — the issue
+numbers are second-hand, the schedule itself corroborated repeatedly) sets the
+maktu ÖTV on motorin at **0.00** for 13–31 Aug 2026, then **3.00** Sep,
+**6.00** Oct, **9.00** Nov, **12.00** Dec and **13.9006** from 1 Jan 2027. Each
+3.00 step is ≈ **+3.60** at the pump with VAT. From duty alone a price stored on
+4 September is ~4% low by 1 October, ~8% by 1 November, ~12% by December, ~15%
+by January — market drift on top. Motorin only; benzin is not on the staircase.
+Whether the October step held cannot be known before 1 October: no revision
+existed as of 4 Sep, but the same-week oil shock creates obvious pressure.
+
+**Key-free machine-readable sources DO exist — the first pass's "none found"
+was wrong**, and this is the finding that changes what the app can do:
+
+| Source | Endpoint | Carries a date? |
+|---|---|---|
+| **Opet** | `api.opet.com.tr/api/fuelprices/prices?ProvinceCode=934` — plain JSON per district; province index at `/provinces`; İstanbul is split, `34` Anadolu / `934` Avrupa; motorin product codes `A121` / `A128` | **no** |
+| **UcuzYakitBul** | `ucuzyakitbul.com.tr/api/prices/national` — documented public, no auth, 0 credits (every other endpoint is key-gated and paid) | **yes**, ISO |
+| **Aytemiz** | HTML, all 81 provinces, self-timestamped | yes, in page |
+
+**EPDK is closed, and more closed than the first pass found**: the province
+dealer report now 302-redirects to an e-Devlet / e-imza login, and the public
+query page is a JSF/PrimeFaces form needing a POST with `ViewState` — no JSON,
+no XML, no stable GET, and its "Raporu İndir" is bound to the POST session. Its
+**monthly average bulletin** is the only official series (2026 motorin: Jan
+55.395 · Feb 58.170 · Mar 67.597 · Apr 74.172 · May 68.336 · Jun 65.417 · Jul
+71.408 · Aug 79.768) but it lags a month, sits 11% below spot, and August
+blends two tax regimes. A backward-looking contract index, not a current price.
+
+**Consumption sanity check (Fluence 1.5 dCi 110 EDC).** Homologation combined
+**4.4–4.6 L/100 km** (NEDC era); owners report **5.5–6.9** real-world — 5.5 in
+dense İstanbul traffic, 4.1 at a steady 100–110 km/h. An assumed **6.0** sits
+inside that band, ~30% above homologation (a normal NEDC gap) and slightly
+below the worst city reports: fair for a single constant, not worth flagging.
 
 **Maintenance intervals** (Bosch Car Service TR, cross-checked against VW
 Türkiye's authorised-service schedule and Toyota TR):
