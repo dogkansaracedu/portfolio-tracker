@@ -172,6 +172,8 @@ describe("the two denominators", () => {
     // Fixed: accrues with time.
     entry({ date: "2026-01-01", amount: 22000, category: "insurance" }),
     entry({ date: "2026-01-01", amount: 8800, category: "tax" }),
+    // Neither: a tow happens once and is not a monthly obligation.
+    entry({ date: "2026-01-01", amount: 4400, category: "other" }),
   ]
 
   it("splits fixed from variable, with depreciation on the fixed side", () => {
@@ -180,6 +182,25 @@ describe("the two denominators", () => {
     expect(cost.variableUsd).toBeCloseTo(1300, 4)
     // Fixed cash = (22000 + 8800) / 44 = $700, plus $6,787.68 depreciation.
     expect(cost.fixedUsd).toBeCloseTo(700 + 6787.68, 1)
+  })
+
+  it("keeps one-off costs out of BOTH rates", () => {
+    const cost = computeOwnershipCost(brief, entries, RATES, 66000, TODAY)
+    // 4400 / 44 = $100, in neither the fixed nor the variable arm.
+    expect(cost.incidentalUsd).toBeCloseTo(100, 4)
+    expect(cost.variableUsd).toBeCloseTo(1300, 4)
+    expect(cost.fixedUsd).toBeCloseTo(700 + 6787.68, 1)
+    // …but real money all the same: it is in the cash figure and the total.
+    expect(cost.cashUsd).toBeCloseTo(1300 + 700 + 100, 4)
+    expect(cost.totalUsd).toBeCloseTo(2100 + 6787.68, 1)
+  })
+
+  it("still lets the three arms account for every outlay", () => {
+    // The guard that the old `else` silently satisfied: nothing may fall out
+    // of the classification, so the arms must sum back to the cash figure.
+    const cost = computeOwnershipCost(brief, entries, RATES, 66000, TODAY)
+    expect(cost.variableUsd + (cost.fixedUsd! - 6787.68) + cost.incidentalUsd)
+      .toBeCloseTo(cost.cashUsd, 1)
   })
 
   it("quotes variable per km and fixed per month", () => {
@@ -197,7 +218,9 @@ describe("the two denominators", () => {
 
   it("offers the blended per-km figure too", () => {
     const cost = computeOwnershipCost(brief, entries, RATES, 66000, TODAY)
-    expect(cost.totalUsd).toBeCloseTo(2000 + 6787.68, 1)
+    // Cash is $2,100 now — the $100 tow included, since the blended figure is
+    // everything over the distance and the tow was really paid.
+    expect(cost.totalUsd).toBeCloseTo(2100 + 6787.68, 1)
     expect(cost.blendedPerKmUsd).toBeCloseTo(cost.totalUsd! / 26000, 6)
   })
 

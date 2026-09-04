@@ -417,6 +417,17 @@ Two denominators, because the halves accrue differently: **fixed costs plus
 depreciation per month**, **variable costs per km**. The blended per-km figure
 is offered last and never without the distance it assumes.
 
+**Three classes of cost feed those two rates, not two.** Fuel and maintenance
+scale with distance, so they are quoted per km. Insurance, road tax and the
+inspection recur whether the car moves or not, so they are quoted per month,
+with depreciation alongside them. Everything else — a tow, a fine, a car-park
+fee — is **neither**: it happened once, and dividing it by the months owned
+would present it as a recurring monthly cost the owner does not actually
+carry. Those one-offs stay in the cash figure, the total and the blended
+per-km figure, and appear beside the two rates as their own small line, so the
+fact that fixed and variable do not add up to the total is stated rather than
+left to be discovered.
+
 With no current value recorded there is no depreciation, therefore no total, no
 fixed-per-month and no blended per-km — all render as unknown, with the reason
 stated. What remains knowable (cash spent, variable per km) still shows.

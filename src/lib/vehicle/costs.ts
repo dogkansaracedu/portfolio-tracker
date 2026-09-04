@@ -38,6 +38,7 @@ import { compoundFactor } from "@/lib/retirement/projection"
 import {
   VEHICLE_COST_GROUPS,
   VEHICLE_COST_GROUP_OF,
+  VEHICLE_FIXED_CATEGORIES,
   VEHICLE_VARIABLE_CATEGORIES,
   type VehicleCostCategory,
   type VehicleCostGroup,
@@ -82,11 +83,21 @@ export interface OwnershipCost {
   /** Fractional months since purchase. */
   monthsOwned: number
 
-  /** Costs that accrue with time — insurance, tax, inspection, fines,
-   *  parking, other — plus depreciation. Null when depreciation is. */
+  /** Costs that accrue with time — insurance, tax, inspection — plus
+   *  depreciation. Null when depreciation is. */
   fixedUsd: number | null
   /** Costs that scale with distance — fuel, maintenance, tyres. */
   variableUsd: number
+  /**
+   * Costs that are neither: a tow, a fine, a car-park fee.
+   *
+   * They are real money and are counted in `cashUsd`, `totalUsd` and the
+   * blended per-km figure — but they are quoted in **neither rate**, because
+   * dividing a one-off tow by the months owned would present it as a recurring
+   * monthly cost. Surfaced so the card can say the two rates do not add up to
+   * the total rather than leaving the gap for the owner to find.
+   */
+  incidentalUsd: number
   /** Fixed ÷ months owned. Null when fixed is, or the span is zero. */
   fixedPerMonthUsd: number | null
   /** Variable ÷ km driven. Null when no distance is known. */
@@ -141,10 +152,11 @@ export function computeOwnershipCost(
   const depreciation =
     currentValueUsd === null ? null : purchaseUsd.minus(currentValueUsd)
 
-  // ── Cash, split fixed vs variable in one pass.
+  // ── Cash, split variable / fixed / incidental in one pass.
   let cash = BN_ZERO
   let variable = BN_ZERO
   let fixedCash = BN_ZERO
+  let incidental = BN_ZERO
   let unpricedEntries = 0
   const byGroupUsd = new Map<string, BigNumber>()
 
@@ -159,14 +171,18 @@ export function computeOwnershipCost(
     byGroupUsd.set(group, (byGroupUsd.get(group) ?? BN_ZERO).plus(usd))
     cash = cash.plus(usd)
 
-    if (
-      VEHICLE_VARIABLE_CATEGORIES.includes(
-        entry.category as VehicleCostCategory,
-      )
-    ) {
+    // Three-way, and the third arm is the point: a category that is neither
+    // distance-driven nor recurring falls out of both rates instead of being
+    // averaged into one of them. Read off two explicit lists rather than one
+    // list and an `else`, because the `else` is what silently made a tow a
+    // monthly cost.
+    const category = entry.category as VehicleCostCategory
+    if (VEHICLE_VARIABLE_CATEGORIES.includes(category)) {
       variable = variable.plus(usd)
-    } else {
+    } else if (VEHICLE_FIXED_CATEGORIES.includes(category)) {
       fixedCash = fixedCash.plus(usd)
+    } else {
+      incidental = incidental.plus(usd)
     }
   }
 
@@ -222,6 +238,7 @@ export function computeOwnershipCost(
     monthsOwned,
     fixedUsd: fixed === null ? null : fixed.toNumber(),
     variableUsd: variable.toNumber(),
+    incidentalUsd: incidental.toNumber(),
     fixedPerMonthUsd,
     variablePerKmUsd,
     blendedPerKmUsd,
