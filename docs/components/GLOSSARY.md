@@ -582,8 +582,16 @@ says so: for a used car that is a floor, not a fact.
 ### Maintenance status ladder
 The states a [maintenance item](#maintenance-item) can be in, derived from
 [interval used](#interval-used) alone and never stored: **overdue** (at or past
-100%), **due soon** (within 10% of due, i.e. at or past 90%), **OK** (anything
-earlier), and **not tracked** (a dormant item, which never warns).
+100%), **due soon** (within 10% of due, i.e. at or past 90%), **not recorded**
+(nothing has ever closed it, so its figure is measured from the purchase — a
+floor, not a fact), **OK** (anything earlier), and **not tracked** (a dormant
+item, which never warns).
+
+**Not recorded** outranks OK, because a floor that has already passed is worth
+looking at — but it is not a warning: it never enters the due bundle and never
+reaches the dashboard. Asserting "overdue" from a placeholder anchor would
+contradict the same rule that makes every unknown money figure render as
+unknown.
 
 The threshold is a *proportion* of the interval rather than a fixed distance or
 number of days, so one rule behaves correctly at every scale: a 10,000 km item

@@ -149,12 +149,56 @@ export const OBLIGATIONS_GROUP: MaintenanceGroup = "obligations"
 export const MAINTENANCE_GROUP_RANK: Record<string, number> =
   Object.fromEntries(MAINTENANCE_GROUPS.map((g, i) => [g.value, i]))
 
+/**
+ * What happens at an item's interval.
+ *
+ * `service` covers everything that is DONE — a part replaced, a fluid renewed,
+ * a policy paid, the periodic service itself — and keeps the neutral
+ * "last done / next due" wording that reads correctly for all of them.
+ * `inspect` is the one that needed a name: brake pads at 30,000 km are very
+ * probably fine, so the interval is not "replace them", it is "have them
+ * looked at", and recording that check must reset the reminder without
+ * claiming a part was fitted.
+ *
+ * Affects **wording only** — the arithmetic is identical either way. But the
+ * wording is what decides what the owner does: "next due at 158,000 km" reads
+ * as an instruction to buy pads; "next check at 158,000 km" reads correctly.
+ * Neither Carfax nor Fuelly models this; both bury the verb in the item's own
+ * name, which is why their schedules cannot style or sort by it.
+ */
+export const MAINTENANCE_KINDS = [
+  { value: "service", label: "Replace or renew" },
+  { value: "inspect", label: "Check only" },
+] as const
+
+export type MaintenanceKind = (typeof MAINTENANCE_KINDS)[number]["value"]
+
+export const DEFAULT_MAINTENANCE_KIND: MaintenanceKind = "service"
+export const INSPECT_KIND: MaintenanceKind = "inspect"
+
 // ─── Maintenance status ladder ──────────────────────────────────────
 
 export const MAINTENANCE_STATUS = {
   ok: "ok",
   dueSoon: "due_soon",
   overdue: "overdue",
+  /**
+   * Nothing has ever closed this item, so its interval is measured from the
+   * purchase — a **floor, not a fact**.
+   *
+   * It exists because the alternative was dishonest: an item with no history
+   * was reaching 100% of a from-purchase estimate and then asserting a red
+   * "Overdue" badge, filling the due-at-next-service bundle, and raising a red
+   * dashboard banner reading "MTV instalment — overdue, 11 months over".
+   * Nothing had been missed; a date had never been entered. Money on this page
+   * renders "—" plus a reason rather than a flattering zero, and the schedule
+   * has to hold the same line.
+   *
+   * It still shows its from-purchase estimate, because for a used car that
+   * floor is genuinely informative — it just never claims to be a fact, never
+   * enters the due bundle, and never warns on the dashboard.
+   */
+  unrecorded: "unrecorded",
   dormant: "dormant",
 } as const
 
@@ -181,8 +225,11 @@ export const MAINTENANCE_OVERDUE_PCT = 100
 export const MAINTENANCE_STATUS_RANK: Record<MaintenanceStatus, number> = {
   [MAINTENANCE_STATUS.overdue]: 0,
   [MAINTENANCE_STATUS.dueSoon]: 1,
-  [MAINTENANCE_STATUS.ok]: 2,
-  [MAINTENANCE_STATUS.dormant]: 3,
+  // Above `ok`: an unrecorded item whose floor has already passed is worth
+  // looking at, even though it is not a warning.
+  [MAINTENANCE_STATUS.unrecorded]: 2,
+  [MAINTENANCE_STATUS.ok]: 3,
+  [MAINTENANCE_STATUS.dormant]: 4,
 }
 
 export const MAINTENANCE_WARNING_STATUSES: readonly MaintenanceStatus[] = [
@@ -193,6 +240,7 @@ export const MAINTENANCE_WARNING_STATUSES: readonly MaintenanceStatus[] = [
 export const MAINTENANCE_STATUS_LABELS: Record<MaintenanceStatus, string> = {
   [MAINTENANCE_STATUS.overdue]: "Overdue",
   [MAINTENANCE_STATUS.dueSoon]: "Due soon",
+  [MAINTENANCE_STATUS.unrecorded]: "Not recorded",
   [MAINTENANCE_STATUS.ok]: "OK",
   [MAINTENANCE_STATUS.dormant]: "Not tracked",
 }
@@ -206,6 +254,8 @@ export const MAINTENANCE_STATUS_LABELS: Record<MaintenanceStatus, string> = {
 export const MAINTENANCE_BAR_CLASSES: Record<MaintenanceStatus, string> = {
   [MAINTENANCE_STATUS.overdue]: "bg-red-500",
   [MAINTENANCE_STATUS.dueSoon]: "bg-amber-500",
+  // Muted, not coloured: an estimate must not look like a reading.
+  [MAINTENANCE_STATUS.unrecorded]: "bg-muted-foreground/40",
   [MAINTENANCE_STATUS.ok]: "bg-primary",
   [MAINTENANCE_STATUS.dormant]: "bg-muted-foreground/30",
 }
@@ -213,6 +263,7 @@ export const MAINTENANCE_BAR_CLASSES: Record<MaintenanceStatus, string> = {
 export const MAINTENANCE_TEXT_CLASSES: Record<MaintenanceStatus, string> = {
   [MAINTENANCE_STATUS.overdue]: "text-red-500",
   [MAINTENANCE_STATUS.dueSoon]: "text-amber-500",
+  [MAINTENANCE_STATUS.unrecorded]: "text-muted-foreground",
   [MAINTENANCE_STATUS.ok]: "text-muted-foreground",
   [MAINTENANCE_STATUS.dormant]: "text-muted-foreground",
 }
@@ -287,12 +338,22 @@ export interface MaintenanceItemTemplate {
   intervalKm: number | null
   intervalMonths: number | null
   group: MaintenanceGroup
+  kind: MaintenanceKind
   note: string | null
 }
 
 export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   {
+    name: "Periodic service",
+    kind: "service",
+    group: "routine",
+    intervalKm: 15000,
+    intervalMonths: 12,
+    note: "The visit itself, so it can be tracked whether or not any single part was changed. Everything else in this group is normally done at one of these, and the check-only items are looked at during it.",
+  },
+  {
     name: "Engine oil & filter",
+    kind: "service",
     group: "routine",
     intervalKm: 10000,
     intervalMonths: 12,
@@ -300,6 +361,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Air filter",
+    kind: "service",
     group: "routine",
     intervalKm: 20000,
     intervalMonths: 24,
@@ -307,6 +369,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Cabin (pollen) filter",
+    kind: "service",
     group: "routine",
     intervalKm: 20000,
     intervalMonths: 24,
@@ -314,6 +377,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Fuel filter",
+    kind: "service",
     group: "routine",
     intervalKm: 40000,
     intervalMonths: 48,
@@ -321,6 +385,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Spark plugs",
+    kind: "service",
     group: "long_life",
     intervalKm: 60000,
     intervalMonths: null,
@@ -328,6 +393,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Brake fluid",
+    kind: "service",
     group: "long_life",
     intervalKm: null,
     intervalMonths: 24,
@@ -335,6 +401,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Brake pads",
+    kind: "inspect",
     group: "long_life",
     intervalKm: 30000,
     intervalMonths: null,
@@ -342,6 +409,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Brake discs",
+    kind: "inspect",
     group: "long_life",
     intervalKm: 80000,
     intervalMonths: null,
@@ -349,6 +417,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Coolant / antifreeze",
+    kind: "service",
     group: "long_life",
     intervalKm: 40000,
     intervalMonths: 48,
@@ -356,6 +425,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Drive belt (triger kayışı)",
+    kind: "service",
     group: "long_life",
     intervalKm: 90000,
     intervalMonths: 72,
@@ -363,6 +433,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Automatic transmission oil",
+    kind: "service",
     group: "long_life",
     intervalKm: 50000,
     intervalMonths: 60,
@@ -370,6 +441,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Tyres",
+    kind: "service",
     group: "long_life",
     intervalKm: 100000,
     intervalMonths: 60,
@@ -377,6 +449,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Muayene (TÜVTÜRK)",
+    kind: "service",
     group: "obligations",
     intervalKm: null,
     intervalMonths: 24,
@@ -384,6 +457,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Trafik sigortası",
+    kind: "service",
     group: "obligations",
     intervalKm: null,
     intervalMonths: 12,
@@ -391,6 +465,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "Kasko",
+    kind: "service",
     group: "obligations",
     intervalKm: null,
     intervalMonths: 12,
@@ -398,6 +473,7 @@ export const DEFAULT_MAINTENANCE_PLAN: readonly MaintenanceItemTemplate[] = [
   },
   {
     name: "MTV instalment",
+    kind: "service",
     group: "obligations",
     intervalKm: null,
     intervalMonths: 6,
@@ -427,8 +503,8 @@ export const VEHICLE_COPY = {
   depreciation: "Depreciation",
   runningCostHeading: "Running cost",
   perMonth: "Fixed, per month",
-  perKm: "Variable, per km",
-  blendedPerKm: "Blended per km",
+  perKm: "Variable",
+  blendedPerKm: "Blended",
   kmDriven: "Distance driven",
   monthsOwned: "Owned for",
 
@@ -476,6 +552,16 @@ export const VEHICLE_COPY = {
     "Which part of the plan this belongs to. About kind, not how often: the fuel filter belongs with the periodic-service items even though it is changed every other service — its interval decides when it is actually due.",
   dormantCaption: "No interval set — never comes due",
   nextDue: "next due",
+  nextCheck: "next check",
+  lastChecked: "Last checked",
+  /** An unrecorded row explains itself on the row rather than in a footnote —
+   *  the status badge says "Not recorded", this says what to do about it. */
+  unrecordedCaption: "no history yet — this is measured from purchase, so treat it as a floor. Log it once and it starts tracking properly.",
+  fieldKind: "At the interval",
+  fieldKindHint:
+    "Whether the part is replaced at the interval, or just looked at. Brake pads at 30,000 km are usually fine — the interval is a prompt to have them checked, not an instruction to buy pads. Wording only; the due point is worked out the same way either way.",
+  unpricedNote: "unpriced",
+  per100km: "/ 100 km",
   lastDone: "Last done",
   neverDone: "Never recorded",
   dueNowHeading: "Due at your next service",

@@ -83,6 +83,7 @@ function item(over: Partial<VehicleMaintenanceItem> = {}): VehicleMaintenanceIte
     vehicle_id: "v1",
     name: "Item",
     item_group: "routine",
+    item_kind: "service",
     interval_km: 10000,
     interval_months: null,
     sort_order: 0,
@@ -227,8 +228,11 @@ describe("maintenanceItemState — the drive belt case", () => {
     expect(state.anchoredAtPurchase).toBe(true)
     expect(state.lastDoneKm).toBe(40000)
     expect(state.dueKm).toBe(130000)
-    // 105,000 km on a 90,000 interval — overdue, measured from purchase.
-    expect(state.status).toBe(MAINTENANCE_STATUS.overdue)
+    // 105,000 km past a 90,000 interval — but measured from PURCHASE, so it is
+    // a floor and not a fact. It reports `unrecorded`, not `overdue`: nothing
+    // was missed, a date was never entered.
+    expect(state.status).toBe(MAINTENANCE_STATUS.unrecorded)
+    expect(state.intervalUsedPct).toBeGreaterThan(100)
   })
 })
 
@@ -321,11 +325,13 @@ describe("maintenanceItemState — the two dimensions", () => {
       odometer: 999999,
       odometer_at: TODAY,
     })
+    // Recorded, so the ladder applies rather than the unrecorded rung.
+    const done = entry({ date: "2024-09-04", item_ids: [muayene.id] })
     const state = maintenanceItemState(
       muayene,
       v,
-      [],
-      odometerView(v, []),
+      [done],
+      odometerView(v, [done]),
       TODAY,
     )
     expect(state.dueKm).toBeNull()
@@ -362,7 +368,18 @@ describe("maintenanceItemState — the two dimensions", () => {
       odometer: 43000,
       odometer_at: TODAY,
     })
-    const state = maintenanceItemState(oil, v, [], odometerView(v, []), TODAY)
+    const done = entry({
+      date: "2025-09-04",
+      odometer: 40000,
+      item_ids: [oil.id],
+    })
+    const state = maintenanceItemState(
+      oil,
+      v,
+      [done],
+      odometerView(v, [done]),
+      TODAY,
+    )
     expect(state.intervalUsedPct).toBeCloseTo(100, 4)
     expect(state.status).toBe(MAINTENANCE_STATUS.overdue)
   })
@@ -371,11 +388,24 @@ describe("maintenanceItemState — the two dimensions", () => {
 describe("the status ladder", () => {
   const v = vehicle({ purchase_odometer: 0, odometer_at: TODAY })
 
+  // Every case here anchors on a REAL completion at 0 km: the ladder only
+  // applies to a recorded item, and measuring from the purchase reports
+  // `unrecorded` instead (see its own describe block below).
   function statusAtKm(km: number) {
     const oil = item({ interval_km: 10000, interval_months: null })
     const veh = { ...v, odometer: km }
-    return maintenanceItemState(oil, veh, [], odometerView(veh, []), TODAY)
-      .status
+    const done = entry({
+      date: veh.purchased_on,
+      odometer: 0,
+      item_ids: [oil.id],
+    })
+    return maintenanceItemState(
+      oil,
+      veh,
+      [done],
+      odometerView(veh, [done]),
+      TODAY,
+    ).status
   }
 
   it("warns within 10% of due, and not before", () => {
@@ -397,12 +427,14 @@ describe("the status ladder", () => {
     const short = item({ interval_km: 5000, interval_months: null })
     const at90k = { ...v, odometer: 90000 }
     const at4500 = { ...v, odometer: 4500 }
+    const doneLong = entry({ date: v.purchased_on, odometer: 0, item_ids: [long.id] })
+    const doneShort = entry({ date: v.purchased_on, odometer: 0, item_ids: [short.id] })
     expect(
-      maintenanceItemState(long, at90k, [], odometerView(at90k, []), TODAY)
+      maintenanceItemState(long, at90k, [doneLong], odometerView(at90k, [doneLong]), TODAY)
         .status,
     ).toBe(MAINTENANCE_STATUS.dueSoon)
     expect(
-      maintenanceItemState(short, at4500, [], odometerView(at4500, []), TODAY)
+      maintenanceItemState(short, at4500, [doneShort], odometerView(at4500, [doneShort]), TODAY)
         .status,
     ).toBe(MAINTENANCE_STATUS.dueSoon)
   })
@@ -417,11 +449,16 @@ describe("maintenancePlanState / dueItems / nextUpItem", () => {
   const off = item({ name: "Dormant thing", interval_km: null })
   const archived = item({ name: "Archived", interval_km: 100, is_active: false })
 
+  // All anchored at 0 km by a real record, so the ladder applies; the
+  // unrecorded rung has its own block.
+  const records = [overdue, soon, fine].map((i) =>
+    entry({ date: v.purchased_on, odometer: 0, item_ids: [i.id] }),
+  )
   const states = maintenancePlanState(
     [fine, off, soon, overdue, archived],
     v,
-    [],
-    odometerView(v, []),
+    records,
+    odometerView(v, records),
     TODAY,
   )
 
@@ -431,6 +468,25 @@ describe("maintenancePlanState / dueItems / nextUpItem", () => {
       "Soon thing",
       "Fine thing",
       "Dormant thing",
+    ])
+  })
+
+  it("ranks an unrecorded item above OK but below the warnings", () => {
+    // It is worth looking at — its from-purchase floor may already have passed
+    // — but it is not a warning, so it never outranks a real one.
+    const unlogged = item({ name: "Unlogged thing", interval_km: 5000 })
+    const ranked = maintenancePlanState(
+      [fine, soon, overdue, unlogged],
+      v,
+      records,
+      odometerView(v, records),
+      TODAY,
+    )
+    expect(ranked.map((s) => s.item.name)).toEqual([
+      "Overdue thing",
+      "Soon thing",
+      "Unlogged thing",
+      "Fine thing",
     ])
   })
 
@@ -509,5 +565,57 @@ describe("what a row shows about distance", () => {
     )
     expect(state.dueKm).toBe(15000)
     expect(state.kmRemaining).toBe(5500)
+  })
+})
+
+describe("the unrecorded rung", () => {
+  // The honest-blank rule, applied to the schedule. An item nothing has closed
+  // was reaching 100% of a from-purchase estimate and then asserting a red
+  // "Overdue" — filling the due bundle and raising a dashboard banner reading
+  // "11 months over". Nothing had been missed; a date had never been entered.
+  const v = vehicle({
+    purchased_on: "2024-01-15",
+    purchase_odometer: 40000,
+    odometer: 200000,
+    odometer_at: TODAY,
+  })
+
+  it("never reports overdue from a purchase-anchored estimate", () => {
+    const belt = item({ name: "Belt", interval_km: 90000 })
+    const state = maintenanceItemState(belt, v, [], odometerView(v, []), TODAY)
+    expect(state.anchoredAtPurchase).toBe(true)
+    expect(state.status).toBe(MAINTENANCE_STATUS.unrecorded)
+    expect(state.status).not.toBe(MAINTENANCE_STATUS.overdue)
+  })
+
+  it("keeps showing the floor, because for a used car it is informative", () => {
+    const belt = item({ name: "Belt", interval_km: 90000 })
+    const state = maintenanceItemState(belt, v, [], odometerView(v, []), TODAY)
+    // 160,000 km against a 90,000 interval. Shown, never asserted.
+    expect(state.intervalUsedPct).toBeCloseTo((160000 / 90000) * 100, 4)
+    expect(state.dueKm).toBe(130000)
+  })
+
+  it("stays out of the due bundle and out of next-up", () => {
+    const belt = item({ name: "Belt", interval_km: 90000 })
+    const plan = maintenancePlanState([belt], v, [], odometerView(v, []), TODAY)
+    expect(dueItems(plan)).toEqual([])
+    expect(nextUpItem(plan)).toBeNull()
+  })
+
+  it("joins the ladder the moment one completion is recorded", () => {
+    const belt = item({ name: "Belt", interval_km: 90000 })
+    const done = entry({
+      date: "2025-01-15",
+      odometer: 100000,
+      item_ids: [belt.id],
+    })
+    const state = maintenanceItemState(
+      belt, v, [done], odometerView(v, [done]), TODAY,
+    )
+    expect(state.anchoredAtPurchase).toBe(false)
+    // 100,000 km of a 90,000 interval, from a real record — genuinely overdue.
+    expect(state.status).toBe(MAINTENANCE_STATUS.overdue)
+    expect(dueItems([state])).toHaveLength(1)
   })
 })

@@ -302,14 +302,20 @@ export function maintenanceItemState(
   const pcts = [kmPct, timePct].filter((p): p is number => p !== null)
   const intervalUsedPct = pcts.length > 0 ? Math.max(...pcts) : null
 
+  // An item nothing has ever closed gets its own rung rather than a warning.
+  // Its percentage is measured from the purchase, which is a floor and not a
+  // fact, and asserting "overdue" off a placeholder is the one place this
+  // component was contradicting its own never-fabricate rule.
   const status: MaintenanceStatus =
     intervalUsedPct === null
       ? MAINTENANCE_STATUS.dormant
-      : intervalUsedPct >= MAINTENANCE_OVERDUE_PCT
-        ? MAINTENANCE_STATUS.overdue
-        : intervalUsedPct >= MAINTENANCE_DUE_SOON_PCT
-          ? MAINTENANCE_STATUS.dueSoon
-          : MAINTENANCE_STATUS.ok
+      : anchoredAtPurchase
+        ? MAINTENANCE_STATUS.unrecorded
+        : intervalUsedPct >= MAINTENANCE_OVERDUE_PCT
+          ? MAINTENANCE_STATUS.overdue
+          : intervalUsedPct >= MAINTENANCE_DUE_SOON_PCT
+            ? MAINTENANCE_STATUS.dueSoon
+            : MAINTENANCE_STATUS.ok
 
   // The distance due point becomes a date only when the car's pace is known.
   const kmProjectedDate =
@@ -376,7 +382,10 @@ export function dueItems(
   return states.filter((s) => MAINTENANCE_WARNING_STATUSES.includes(s.status))
 }
 
-/** The closest item not yet due — what the page shows when nothing is due. */
+/** The closest item not yet due — what the page shows when nothing is due.
+ *  Deliberately `ok` only: an unrecorded item's percentage is a from-purchase
+ *  floor, so naming it as "the closest thing coming up" would dress an
+ *  estimate as a schedule. */
 export function nextUpItem(
   states: MaintenanceItemState[],
 ): MaintenanceItemState | null {
