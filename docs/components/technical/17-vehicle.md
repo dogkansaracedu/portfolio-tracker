@@ -214,6 +214,21 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   (the section does not render), `other` → everything. `setCategory` re-filters
   `itemIds` on every change, because a tick that survives a narrowing is
   invisible and still resets its item on save.
+- **`DAYS_PER_MONTH` lives in `src/lib/xirr.ts`**, beside `DAYS_PER_YEAR`,
+  imported by both `costs.ts` and `fuel.ts`. It was briefly declared in each,
+  which is exactly the drift a shared constant exists to prevent — a month has
+  to mean one thing wherever this component divides by it.
+- **`avgPricePerLitreUsd` is null, not zero, when litres were logged without
+  amounts.** It divides spend by litres, so an amount-less book produced a
+  literal zero — and a zero made the measurement *worse* than none, because
+  the monthly estimate then refused to run rather than falling back to its
+  default. Found in review, pinned with a test.
+- **The bucket totals are `<button aria-pressed>`, not styled divs.** They
+  change what the table below shows, so they have to be keyboard-reachable and
+  announced as toggles, and they carry `max-sm:min-h-10` because a 20px figure
+  is not a tap target. `UNPRICED_FILTER` is the one non-bucket filter value.
+  The visible-row slice and the "show all N" count both apply to the filtered
+  set, not the whole ledger.
 - **`VEHICLE_COST_GROUPS` folds the nine categories into the four the ledger
   totals by**, and `VEHICLE_COST_GROUP_OF` is derived from it so the two cannot
   disagree. The obligations bucket reads its label from

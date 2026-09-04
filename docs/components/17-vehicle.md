@@ -428,6 +428,14 @@ table nobody reads, and four is the question actually being asked, which is
 how much of this car is petrol, how much is keeping it running, how much is
 the state and the insurer, and how much is neither.
 
+**Each bucket filters the ledger.** Activating one shows only its rows;
+activating it again clears the filter, because a filter with no way out is a
+trap and there is no other affordance for "show me everything". The unselected
+buckets dim rather than disappear — the row exists for the comparison between
+them, and a filter that erased three quarters of it would defeat its own
+purpose. Entries recorded without a price get their own chip, since they belong
+to a category but contribute to no total and would otherwise be unreachable.
+
 Every bucket sits wholly on one side of the fixed/variable split, so the two
 cuts can never contradict each other — one says where the money went, the
 other says which denominator it belongs under. The buckets always total to the
@@ -460,6 +468,34 @@ Best and worst spans are named; with only one span there is an average but no
 
 **Where a figure is withheld, the reason is shown.** The honest blank is
 correct; silence about it is what makes owners conclude the feature is broken.
+
+### What fuel costs a month
+
+A monthly figure, from the car's **own observed pace** — distance per month ×
+consumption × price per litre.
+
+**Measured beats assumed, independently for each input.** Consumption comes
+from full-tank data when there is any and from a stated assumption otherwise;
+the price comes from the owner's own fills when one recorded both litres and an
+amount, and from a stored pump price otherwise. The two are independent — a
+measured price with an assumed consumption is the normal early state — and the
+figure always says which of the two it used. A number built on two guesses
+presented as though it were a reading is the failure this component avoids
+everywhere else.
+
+**Nothing is shown at all without an observed pace.** No typical annual
+mileage is substituted: the whole estimate hangs off how far this car actually
+goes, and inventing that would make the rest of it decoration. That is also
+the only reachable reason for the figure to be absent, which is why the one
+explanation offered is accurate — a measured consumption is positive by
+construction, and the fallbacks are constants.
+
+**The stored pump price is displayed with the date it was read**, and never
+presented as current. It is a fallback of last resort: Turkish diesel duty was
+stepping up monthly through late 2026, so a stored price ages unusually fast,
+and there is no key-free public source to refresh it from. Logging one fill
+with its litres and its amount replaces it with what the owner actually paid,
+which is the intended path.
 
 ### Distance is shown only where distance applies
 

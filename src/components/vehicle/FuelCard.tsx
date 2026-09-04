@@ -1,15 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayMoney } from "@/hooks/useDisplayMoney"
-import { FUEL_ECONOMY_UNIT, VEHICLE_COPY } from "@/lib/constants/vehicle"
-import type { FuelEconomy } from "@/lib/vehicle"
+import {
+  DEFAULT_FUEL_PRICE,
+  FUEL_ECONOMY_UNIT,
+  VEHICLE_COPY,
+} from "@/lib/constants/vehicle"
+import type { FuelEconomy, MonthlyFuelEstimate } from "@/lib/vehicle"
 import {
   NO_DATA,
   formatConsumptionValue,
+  formatKm,
   formatLitres,
+  formatVehicleDay,
 } from "@/components/vehicle/display"
 
 interface Props {
   fuel: FuelEconomy
+  /** Roughly what a month costs; null until the car's pace is known. */
+  monthly: MonthlyFuelEstimate | null
 }
 
 /**
@@ -22,7 +30,7 @@ interface Props {
  * feature ("I get a zero for mpg. What's up with that?"). The honest blank is
  * correct; the silence is what costs trust.
  */
-export function FuelCard({ fuel }: Props) {
+export function FuelCard({ fuel, monthly }: Props) {
   const { money } = useDisplayMoney()
 
   return (
@@ -67,6 +75,45 @@ export function FuelCard({ fuel }: Props) {
               </p>
           </div>
         )}
+
+        {/* The monthly estimate. Deliberately labelled with which of its two
+            inputs was measured and which assumed: it multiplies a pace, a
+            consumption and a price, and presenting a figure built on two
+            guesses as though it were a reading is the failure this component
+            avoids everywhere else. */}
+        <div className="space-y-1 border-t pt-3">
+          <p className="text-xs font-medium">
+            {VEHICLE_COPY.monthlyFuelHeading}
+          </p>
+          {monthly === null ? (
+            <p className="text-xs text-muted-foreground">
+              {VEHICLE_COPY.monthlyFuelUnavailable}
+            </p>
+          ) : (
+            <>
+              <p className="text-lg font-semibold tabular-nums">
+                {money(monthly.costUsd)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {formatKm(monthly.km)} ·{" "}
+                {formatLitres(monthly.litres)}
+                {" · "}
+                {monthly.consumptionMeasured
+                  ? `${formatConsumptionValue(monthly.consumption)} ${FUEL_ECONOMY_UNIT} ${VEHICLE_COPY.estimateMeasured}`
+                  : `${VEHICLE_COPY.estimateAssumedConsumption} ${formatConsumptionValue(monthly.consumption)} ${FUEL_ECONOMY_UNIT}`}
+                {" · "}
+                {monthly.priceMeasured
+                  ? `${money(monthly.pricePerLitreUsd)}/L ${VEHICLE_COPY.estimateMeasured}`
+                  : `${VEHICLE_COPY.estimateAssumedPrice} ${money(monthly.pricePerLitreUsd)}/L ${VEHICLE_COPY.estimatePriceAsOf} ${formatVehicleDay(DEFAULT_FUEL_PRICE.asOf)}`}
+              </p>
+              {!monthly.priceMeasured && (
+                <p className="text-xs text-muted-foreground">
+                  {VEHICLE_COPY.estimateStaleWarning}
+                </p>
+              )}
+            </>
+          )}
+        </div>
 
         <p className="border-t pt-3 text-xs text-muted-foreground">
           {VEHICLE_COPY.totalLitres}: {formatLitres(fuel.totalLitres)}

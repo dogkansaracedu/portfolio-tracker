@@ -28,7 +28,7 @@ import { NextServiceCard } from "@/components/vehicle/NextServiceCard"
 import { MaintenanceItemForm } from "@/components/vehicle/MaintenanceItemForm"
 import { VehicleForm } from "@/components/vehicle/VehicleForm"
 import { VehicleReadingsCard } from "@/components/vehicle/VehicleReadingsCard"
-import { hasFuelData, type MaintenanceItemState } from "@/lib/vehicle"
+import type { MaintenanceItemState } from "@/lib/vehicle"
 import type {
   Vehicle,
   VehicleCostEntry,
@@ -82,6 +82,7 @@ export default function VehiclePage() {
     cost,
     opportunity,
     fuel,
+    monthlyFuel,
     loading,
     error,
   } = useVehicle(selectedId)
@@ -168,10 +169,6 @@ export default function VehiclePage() {
     setEditingItem(state.item)
     setItemFormOpen(true)
   }
-
-  // One decision about whether fuel appears, shared by the card and the grid
-  // that reserves room for it.
-  const showFuel = fuel !== null && hasFuelData(fuel)
 
   const nextSortOrder =
     allItems.reduce((max, i) => Math.max(max, i.sort_order), -1) + 1
@@ -272,9 +269,7 @@ export default function VehiclePage() {
              The third column is reserved only when there IS fuel data:
              asking for three columns and rendering two left a 368px hole. */}
       <div
-        className={`grid items-start gap-6 lg:grid-cols-2 ${
-          showFuel ? "xl:grid-cols-3" : ""
-        }`}
+        className="grid items-start gap-6 lg:grid-cols-2 xl:grid-cols-3"
       >
         <NextServiceCard
           service={service}
@@ -286,7 +281,7 @@ export default function VehiclePage() {
         {odometer && (
           <VehicleReadingsCard vehicle={vehicle} odometer={odometer} />
         )}
-        {showFuel && fuel && <FuelCard fuel={fuel} />}
+        {fuel && <FuelCard fuel={fuel} monthly={monthlyFuel} />}
       </div>
 
       {/* 3. The plan it all comes from, then the ledger. */}

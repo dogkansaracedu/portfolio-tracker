@@ -213,6 +213,11 @@ export const VEHICLE_COST_GROUPS = [
 
 export type VehicleCostGroup = (typeof VEHICLE_COST_GROUPS)[number]["value"]
 
+/** The ledger's one non-bucket filter: rows recorded without a price. They
+ *  belong to a category but contribute to no total, so they are reachable
+ *  only through their own chip. */
+export const UNPRICED_FILTER = "unpriced" as const
+
 /** Category → bucket, derived so the two lists cannot disagree. */
 export const VEHICLE_COST_GROUP_OF: Record<string, VehicleCostGroup> =
   Object.fromEntries(
@@ -406,6 +411,36 @@ export const FUEL_ECONOMY_UNIT = "L/100km"
 
 /** Distance the economy figure is expressed over. */
 export const FUEL_ECONOMY_DISTANCE = 100
+
+/**
+ * Consumption assumed when nothing has been measured, in L/100 km.
+ *
+ * A fallback, not a claim: it is only used until two full-tank fills give a
+ * real figure, and the card says which of the two it is showing. The owner
+ * chose 6.0 for his own car.
+ */
+export const ASSUMED_CONSUMPTION = 6.0
+
+/**
+ * Pump price used when the owner's own fills cannot supply one, in lira per
+ * litre, with the day it was read.
+ *
+ * **This figure goes stale, and unusually fast.** Turkish diesel carried a
+ * monthly ÖTV staircase through late 2026 — the maktu duty was cut to zero in
+ * August 2026 and then stepped up roughly 3 TL/L a month, each step landing
+ * about 3.60 TL/L at the pump once VAT is applied. A constant is therefore the
+ * wrong shape for this number in the long run and the right shape only because
+ * there is no key-free source to fetch it from: EPDK publishes province-level
+ * dealer prices through a JSF query form rather than an API.
+ *
+ * So it is stored WITH its date and displayed WITH its date, and the moment
+ * the owner logs a fill carrying both litres and an amount, his own price
+ * replaces it. Never present this as current.
+ */
+export const DEFAULT_FUEL_PRICE = {
+  tryPerLitre: 81.07,
+  asOf: "2026-09-01",
+} as const
 
 // ─── The default maintenance plan ───────────────────────────────────
 
@@ -694,6 +729,15 @@ export const VEHICLE_COPY = {
 
   // Fuel economy
   fuelHeading: "Fuel",
+  monthlyFuelHeading: "Fuel, per month",
+  monthlyFuelUnavailable:
+    "Needs a second odometer reading before the app knows how far you drive in a month.",
+  estimateMeasured: "from your own fills",
+  estimateAssumedConsumption: "assuming",
+  estimateAssumedPrice: "at",
+  estimatePriceAsOf: "as of",
+  estimateStaleWarning:
+    "Turkish diesel duty was stepping up monthly through late 2026, so a stored pump price ages quickly. Log a fill with its litres and amount and this switches to what you actually paid.",
   economyAverage: "Average",
   economyBest: "Best",
   economyWorst: "Worst",
@@ -731,6 +775,7 @@ export const VEHICLE_COPY = {
   fieldKindHint:
     "Whether the part is replaced at the interval, or just looked at. Brake pads at 30,000 km are usually fine — the interval is a prompt to have them checked, not an instruction to buy pads. Wording only; the due point is worked out the same way either way.",
   unpricedNote: "unpriced",
+  clearFilter: "Show all rows",
   per100km: "/ 100 km",
   lastDone: "Last done",
   neverDone: "Never recorded",
