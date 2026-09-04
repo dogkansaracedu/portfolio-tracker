@@ -237,8 +237,11 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   every priced litre, and the price of the most recent fill that priced its own
   litres (`fills` is date-ascending, so the last such row wins; both halves
   must come from the *same* row). Backfilling nineteen monthly rows spanning
-  ₺48–₺89/L exposed the difference — the lifetime average was ≈₺59, which fed
-  into the estimate would have understated the coming month by about a third.
+  ₺48–₺89/L exposed the difference — the lifetime average came to $1.38/L
+  against the last fill's $1.84, which fed into the estimate would have
+  understated the coming month by a quarter ($120 against $160). A quarter and
+  not the third the raw lira figures imply (₺59 against ₺88.88), because each
+  fill normalizes at its own date's rate and the lira fell as the price rose.
   `FuelCard` still prints the average in its footer under "Average price /
   litre", which is where a lifetime figure belongs.
 - **The bucket totals are `<button aria-pressed>`, not styled divs.** They

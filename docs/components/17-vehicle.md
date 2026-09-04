@@ -502,9 +502,13 @@ are different claims: the average is a fact about the history, the last fill a
 fact about what fuel costs now, and only the second can forecast a month. In a
 currency that loses a third of its value in a year the distance between them is
 not a rounding difference — a history of monthly rows running from ₺48 to ₺89
-per litre averages near ₺59, which would project the coming month a third
-light. The average is still shown, labelled as an average, because the total
-litres and the lifetime price per litre are genuinely historical figures.
+per litre averages near ₺59, and projecting the coming month off that average
+comes out a quarter light. (A quarter and not a third, because every outlay is
+converted at its own day's rate: the currency fell over the same span the price
+rose, so converting first absorbs part of the gap. The correction is smaller
+than the raw prices suggest, and still a quarter of the figure.) The average
+is still shown, labelled as an average, because the total litres and the
+lifetime price per litre are genuinely historical figures.
 
 **A price needs both halves from the same fill.** One row's litres divided by
 another row's amount is not a price anybody paid, so a fill that recorded

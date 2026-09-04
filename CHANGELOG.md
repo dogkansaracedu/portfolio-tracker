@@ -12,7 +12,7 @@ and patches move only the third digit.
   finally reads like the real thing.
 - The monthly fuel estimate now prices off your **last** fill instead of the
   lifetime average. Averaged over 17 months of lira the old figure projected
-  the coming month about a third light.
+  the coming month a quarter light ($120 against $160).
 
 ## [0.23.0] — 2026-09-05
 - **"Log a month of fuel"** turns the monthly estimate into a real cost entry,
