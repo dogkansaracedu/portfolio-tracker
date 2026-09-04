@@ -40,7 +40,7 @@ function showProjection(state: MaintenanceItemState): boolean {
 
 /**
  * The maintenance chart: one row per plan item, each with a bar showing how
- * much of its interval is used, **grouped** into every-service consumables,
+ * much of its interval is used, **grouped** into periodic-service consumables,
  * long-term parts, and the legal obligations.
  *
  * The bar IS the chart — a meter per item rather than a Recharts figure,

@@ -548,20 +548,20 @@ belongs to. Three, in display order:
 
 | Group | What it holds |
 |---|---|
-| **Every service** | the consumables replaced at each service — oil, filters |
+| **Periodic service** | the consumables replaced at each periyodik bakım — oil, filters |
 | **Long-term** | parts replaced once in several years — belts, fluids, tyres |
 | **Insurance, tax & inspection** | recurring obligations that are not maintenance at all |
 
 Membership is about **kind, not interval length**. A fuel filter replaced every
-*other* service is still an every-service consumable, because that is what it is
-and where its owner looks for it; its own interval does the work of deciding
-when it comes due.
+*other* service still belongs with the periodic-service items, because that is
+what it is and where its owner looks for it; its own interval does the work of
+deciding when it comes due.
 
 Deliberately **not** called a category: a
 [cost category](#cost-category) already owns that word, and it describes an
 *outlay* rather than an *item*. The two are different axes — an inspection cost
 closes an obligations item, and a maintenance cost can close either an
-every-service or a long-term one.
+periodic-service or a long-term one.
 
 Grouping is presentation, not logic: it changes how the plan is read, never
 when anything is due, and the [due-at-next-service](#maintenance-status-ladder)
