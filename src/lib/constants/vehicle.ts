@@ -113,14 +113,18 @@ export const VEHICLE_FIXED_CATEGORIES: readonly VehicleCostCategory[] = [
  * service consumable and that is where its owner looks for it. Its interval is
  * what actually decides when it comes due.
  *
- * Order is display order, most-frequently-consulted first: the every-service
+ * Order is display order, most-frequently-consulted first: the periodic-service
  * items change several times a year, the long-life parts once in several
  * years, and the obligations run on a calendar the owner already knows. An
  * overdue obligation is never buried by that ordering — the due-at-next-service
  * bundle sits above the plan and ignores groups entirely.
+ *
+ * The stored value stays `routine` deliberately: it is an internal enum, never
+ * shown, and renaming it would cost a migration and a CHECK rewrite to change
+ * nothing anybody sees. The label is the single source of the visible term.
  */
 export const MAINTENANCE_GROUPS = [
-  { value: "routine", label: "Every service" },
+  { value: "routine", label: "Periodic service" },
   { value: "long_life", label: "Long-term" },
   { value: "obligations", label: "Insurance, tax & inspection" },
 ] as const
@@ -469,7 +473,7 @@ export const VEHICLE_COPY = {
   ungroupedHeading: "Other",
   fieldGroup: "Part of the plan",
   fieldGroupHint:
-    "Which part of the plan this belongs to. About kind, not how often: the fuel filter is an every-service consumable even though it is changed every other service — its interval decides when it is actually due.",
+    "Which part of the plan this belongs to. About kind, not how often: the fuel filter belongs with the periodic-service items even though it is changed every other service — its interval decides when it is actually due.",
   dormantCaption: "No interval set — never comes due",
   nextDue: "next due",
   lastDone: "Last done",

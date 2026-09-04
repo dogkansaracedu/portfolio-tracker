@@ -458,10 +458,11 @@ describe("the seeded plan's groups", () => {
     }
   })
 
-  it("files the fuel filter as an every-service item", () => {
+  it("files the fuel filter with the periodic-service items", () => {
     // Deliberate, and the one placement worth pinning: it is replaced every
-    // OTHER service, but it is a service consumable and that is where its
-    // owner looks for it. Its 40,000 km interval still decides when it is due.
+    // OTHER periodic service, but it is a service consumable and that is where
+    // its owner looks for it. Its 40,000 km interval still decides when it is
+    // due.
     const fuel = DEFAULT_MAINTENANCE_PLAN.find((t) => t.name === "Fuel filter")
     expect(fuel?.group).toBe("routine")
     expect(fuel?.intervalKm).toBe(40000)

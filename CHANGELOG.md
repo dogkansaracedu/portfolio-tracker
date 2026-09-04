@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.17.5] — 2026-09-04
+- The maintenance plan's first group is **Periodic service**, not "Every
+  service" — it is what the work is actually called (periyodik bakım).
+
 ## [0.17.4] — 2026-09-04
 - No kilometre figure appears against anything that has no distance dimension:
   a time-only item like MTV or kasko no longer shows an odometer on its
