@@ -29,6 +29,7 @@ import {
   VEHICLE_COST_CATEGORIES,
   VEHICLE_COST_CATEGORY_LABELS,
   VEHICLE_DEFAULT_CURRENCY,
+  VEHICLE_ODOMETER_CATEGORIES,
   type VehicleCostCategory,
 } from "@/lib/constants/vehicle"
 import {
@@ -151,6 +152,8 @@ export function CostEntryForm({
     }))
 
   const isFuel = form.category === FUEL_CATEGORY
+  // Whether a mileage reading is part of this kind of record at all.
+  const takesOdometer = VEHICLE_ODOMETER_CATEGORIES.includes(form.category)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -162,7 +165,9 @@ export function CostEntryForm({
       return setError(VEHICLE_COPY.errorAmountInvalid)
     }
 
-    const hasOdometer = form.odometer.trim() !== ""
+    // Cleared for a category that does not carry one, in case a value was
+    // typed before the category was changed and the field went away.
+    const hasOdometer = takesOdometer && form.odometer.trim() !== ""
     const odometer = hasOdometer ? bn(form.odometer) : null
     if (odometer && (!odometer.isFinite() || odometer.isNegative())) {
       return setError(VEHICLE_COPY.errorOdometerInvalid)
@@ -290,17 +295,24 @@ export function CostEntryForm({
                   </Select>
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="cost-odometer">{VEHICLE_COPY.fieldOdometer}</Label>
-                <Input
-                  id="cost-odometer"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={form.odometer}
-                  onChange={(e) => set("odometer", e.target.value)}
-                />
-              </div>
+              {/* Only where the reading is part of the record: a policy
+                  renewal or a tax instalment is paid at a desk, and the
+                  mileage it happened at is not information. */}
+              {takesOdometer && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="cost-odometer">
+                    {VEHICLE_COPY.fieldOdometer}
+                  </Label>
+                  <Input
+                    id="cost-odometer"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={form.odometer}
+                    onChange={(e) => set("odometer", e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Fuel-only fields. Shown for fuel rows only — the columns are
