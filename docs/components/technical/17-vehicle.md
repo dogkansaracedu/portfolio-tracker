@@ -232,6 +232,15 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   literal zero — and a zero made the measurement *worse* than none, because
   the monthly estimate then refused to run rather than falling back to its
   default. Found in review, pinned with a test.
+- **`estimateMonthlyFuel` takes `latestPricePerLitreUsd`, not
+  `avgPricePerLitreUsd`.** `computeFuelEconomy` returns both: the average over
+  every priced litre, and the price of the most recent fill that priced its own
+  litres (`fills` is date-ascending, so the last such row wins; both halves
+  must come from the *same* row). Backfilling nineteen monthly rows spanning
+  ₺48–₺89/L exposed the difference — the lifetime average was ≈₺59, which fed
+  into the estimate would have understated the coming month by about a third.
+  `FuelCard` still prints the average in its footer under "Average price /
+  litre", which is where a lifetime figure belongs.
 - **The bucket totals are `<button aria-pressed>`, not styled divs.** They
   change what the table below shows, so they have to be keyboard-reachable and
   announced as toggles, and they carry `max-sm:min-h-10` because a 20px figure
@@ -390,6 +399,53 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   stop a four-line wrap at 320px) widened the table enough to push the row's
   delete action outside the scroll container, so the narrow form is the short
   date rather than a wrapped long one.
+
+## The fuel backfill (2026-09-04)
+
+The owner's book had twelve cost entries and **no fuel at all**, which made cost
+of ownership meaningless — fuel is the single largest running cost of a diesel
+car. Backfilled as nineteen estimated monthly rows, 2025-03 → 2026-09, applied
+to prod and to the local review seed.
+
+How each row is built:
+
+- **Distance** — 47.6190 km/day, the car's own observed pace (25,000 km over the
+  525 days owned), prorated by the days owned in that month. March 2025 gets 3
+  days and September 2026 gets 4; the rest are whole. The km therefore sum to
+  exactly 25,000 and the litres to 1,500.
+- **Consumption** — 6.0 L/100km, the figure the owner fixed by hand.
+- **Price** — *that month's* diesel price, never today's. 2026-01 → 2026-08 are
+  the real EPDK monthly averages; 2026-09 is the pump price the app carries as
+  its default (₺88.88). 2025 has no series to hand, so it is carried back from
+  one real anchor — ₺52.15/L on 2025-08-31, from globalpetrolprices — by the
+  lira alone. **That model is validated out of sample:** carried the other
+  direction it puts 2026-01 at ₺55.17 against the actual ₺55.395, a 0.4% error.
+  Through 2025 Turkish diesel tracked the currency instead of swinging the way
+  it did in 2026, which is what makes a single anchor enough.
+- **Date** — mid-month, so one row stands in for a month of driving at its own
+  month's price and converts at that month's **real published TCMB rate**. The
+  nineteen midpoint rates were fetched and inserted first (weekend midpoints
+  resolve to the prior trading day, which is what the app's own lookup does).
+
+Two deliberate omissions, both load-bearing:
+
+- **No odometer.** The pace, the current mileage and every maintenance interval
+  derive from real readings; a synthetic one would corrupt all of them.
+- **Not full tanks.** `computeFuelEconomy` only segments between full tanks, so
+  these rows contribute litres and spend but cannot fabricate a consumption
+  measurement. The average stays null until real full-tank fills exist.
+
+Every row's note reads `Estimated monthly fuel · 6.0 L/100km · ₺<price>/L`, so
+the assumption is visible in the ledger and the batch is greppable. Result:
+cash ₺166,627 / $3,970.72, of which fuel is $2,074.29 (52%); total cost of
+ownership $5,170.48 over 17.2 months; variable cost moved $0.043 → $0.126/km.
+
+Reproducible from `scripts/data/gen-fuel-backfill.py`, with the SQL it emitted
+alongside it (`fuel-backfill.sql`, plus `fuel-backfill-rates.sql` for the TCMB
+midpoint rates that must be inserted **first**). That directory is gitignored:
+this is one owner's data, so it is applied directly and is deliberately not a
+migration. The local review seed carries the same rows against its own
+`vehicle_id`.
 
 ## Open questions / recorded extensions
 
