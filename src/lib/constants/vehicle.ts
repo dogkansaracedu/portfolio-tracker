@@ -116,6 +116,11 @@ export const MAINTENANCE_GROUP_LABELS: Record<string, string> =
  *  under paperwork. Mirrors the column default. */
 export const DEFAULT_MAINTENANCE_GROUP: MaintenanceGroup = "routine"
 
+/** The group whose items recur on a calendar and never on distance —
+ *  insurance, tax, inspection. Named so the form can drop the km field for
+ *  them rather than testing a string literal at the call site. */
+export const OBLIGATIONS_GROUP: MaintenanceGroup = "obligations"
+
 /** Rank for sorting, from {@link MAINTENANCE_GROUPS}' own order. */
 export const MAINTENANCE_GROUP_RANK: Record<string, number> =
   Object.fromEntries(MAINTENANCE_GROUPS.map((g, i) => [g.value, i]))

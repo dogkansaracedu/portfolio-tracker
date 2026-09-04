@@ -156,7 +156,11 @@ export function CostOfOwnershipCard({
             three figures. */}
         <div className="grid gap-x-8 gap-y-4 border-t pt-3 xl:grid-cols-2">
           <div className="space-y-2">
-            <div className="flex min-h-6 items-center gap-1 text-xs font-medium">
+            {/* Only earns its place at `xl`, where it is what aligns this
+                block's first figure row with the capital block's beside it.
+                Below `xl` the two are stacked and separated by a rule, so the
+                heading is redundant — and it cost 28px of a phone screen. */}
+            <div className="hidden min-h-6 items-center gap-1 text-xs font-medium xl:flex">
               {VEHICLE_COPY.runningCostHeading}
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
@@ -217,8 +221,13 @@ export function CostOfOwnershipCard({
           {/* Capital tied up. Kept visually apart because it is not money spent —
             it is money not made, and merging it into the total above would
             overstate what left the bank account. */}
-          <div className="space-y-2 border-t pt-3 xl:border-t-0 xl:pt-0">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="space-y-2 border-t pt-3 xl:border-t-0 xl:border-l xl:pt-0 xl:pl-8">
+            {/* Same weight and same reserved height as the running-cost
+                heading opposite: at `xl` these two sit in one visual row, and
+                a lighter, shorter heading here made this read as a fourth
+                denominator label whose value had gone missing — and left its
+                figures 8px off the ones beside them. */}
+            <div className="flex min-h-6 items-center gap-1 text-xs font-medium">
               <span>{VEHICLE_COPY.opportunityHeading}</span>
               <HintPopover
                 label={VEHICLE_COPY.opportunityHeading}

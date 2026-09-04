@@ -151,7 +151,12 @@ export function CostLedger({ entries, items, onEdit, onDelete }: Props) {
                     )}
                   </TableCell>
                   <TableCell className="align-top">
-                    <div className="flex justify-end gap-0.5">
+                    {/* Stacked below `sm`: two 32px buttons side by side made
+                        the action column 74px, which pushed the table's
+                        intrinsic minimum to 280px against 256px available at
+                        320px wide — the delete button sat 20px outside its own
+                        scroll container. One column of icons is 36px. */}
+                    <div className="flex justify-end gap-0.5 max-sm:flex-col max-sm:items-end">
                       <Button
                         variant="ghost"
                         size="icon"
