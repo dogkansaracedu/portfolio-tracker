@@ -452,6 +452,10 @@ export interface VehicleMaintenanceItem {
    *  renewed, paid, performed) or `inspect` (looked at). Wording only; the due
    *  point is computed identically. */
   item_kind: string;
+  /** The cost category whose outlays close this item without being asked
+   *  (a `VehicleCostCategory`). Null = only ever ticked by hand, which is
+   *  every real maintenance item. */
+  cost_category: string | null;
   /** Null = distance is not tracked for this item. */
   interval_km: number | null;
   /** Null = time is not tracked. Both null = dormant, never becomes due. */
@@ -573,6 +577,7 @@ export type VehicleMaintenanceItemInsert = Omit<
   | "is_active"
   | "item_group"
   | "item_kind"
+  | "cost_category"
   | "created_at"
 > &
   VehicleMaintenanceItemNumerics & {
@@ -580,6 +585,7 @@ export type VehicleMaintenanceItemInsert = Omit<
     is_active?: boolean;
     item_group?: string;
     item_kind?: string;
+    cost_category?: string | null;
   };
 
 export type VehicleMaintenanceItemUpdate = Partial<

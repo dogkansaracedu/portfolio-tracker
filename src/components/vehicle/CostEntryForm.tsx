@@ -179,10 +179,42 @@ export function CostEntryForm({
     closableGroups.includes(i.item_group as MaintenanceGroup),
   )
 
+  /**
+   * Items this outlay closes on its own, because they say so. Paying MTV means
+   * the MTV instalment is done and there is nothing to choose — so these are
+   * stated, not offered.
+   *
+   * The list can still hold more than one (three items claiming `insurance`,
+   * say), and then it IS a choice: paying one policy does not renew another.
+   * So a single claimant is auto-closed and several fall back to a selector —
+   * over just the claimants, not the whole plan.
+   */
+  const claimants = closableItems.filter(
+    (i) => i.cost_category === form.category,
+  )
+  const autoClosed = claimants.length === 1 ? claimants : []
+  const autoIds = new Set(autoClosed.map((i) => i.id))
+
+  /**
+   * What is still worth offering: everything closable, minus what was already
+   * auto-closed, minus anything that claims a *different* category — those
+   * belong to their own kind of outlay.
+   *
+   * The subtraction of "claims something else" has to leave the UNCLAIMED
+   * items in, or they become unreachable from every category. That is not
+   * hypothetical: renaming "Kasko" to "IMM" left an obligation claiming
+   * nothing, and an earlier version of this filter hid it everywhere.
+   */
+  const selectable = closableItems.filter(
+    (i) =>
+      !autoIds.has(i.id) &&
+      (i.cost_category === null || i.cost_category === form.category),
+  )
+
   // Ticked first: a prefilled bundle sat at positions 12-14 of a 16-row box,
   // so the pre-tick worked and was invisible, and the cautious response was to
   // start ticking by hand.
-  const orderedItems = [...closableItems].sort((a, b) => {
+  const orderedItems = [...selectable].sort((a, b) => {
     const ta = form.itemIds.includes(a.id) ? 0 : 1
     const tb = form.itemIds.includes(b.id) ? 0 : 1
     return ta - tb || a.sort_order - b.sort_order
@@ -234,8 +266,13 @@ export function CostEntryForm({
         note: form.note.trim() || null,
       }
 
-      if (entry) await editEntry(entry.id, payload, form.itemIds)
-      else await addEntry(payload, form.itemIds)
+      // The auto-closed items have no checkbox to be ticked, so they join the
+      // set here rather than being lost for want of a control.
+      const closing = [
+        ...new Set([...form.itemIds, ...autoClosed.map((i) => i.id)]),
+      ]
+      if (entry) await editEntry(entry.id, payload, closing)
+      else await addEntry(payload, closing)
 
       onOpenChange(false)
     } catch (err) {
@@ -273,7 +310,9 @@ export function CostEntryForm({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cost-category">{VEHICLE_COPY.fieldCategory}</Label>
+                <Label htmlFor="cost-category">
+                  {VEHICLE_COPY.fieldCategory}
+                </Label>
                 <Select
                   value={form.category}
                   onValueChange={(v) => setCategory(v as VehicleCostCategory)}
@@ -355,7 +394,9 @@ export function CostEntryForm({
             {isFuel && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="cost-litres">{VEHICLE_COPY.fieldLitres}</Label>
+                  <Label htmlFor="cost-litres">
+                    {VEHICLE_COPY.fieldLitres}
+                  </Label>
                   <Input
                     id="cost-litres"
                     type="number"
@@ -385,7 +426,17 @@ export function CostEntryForm({
             )}
 
             {/* What this visit closed. */}
-            {closableItems.length > 0 && (
+            {/* Stated, not asked: this outlay can only mean one thing. */}
+            {autoClosed.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {VEHICLE_COPY.closesItems}:{" "}
+                <span className="font-medium text-foreground">
+                  {autoClosed.map((i) => i.name).join(", ")}
+                </span>
+              </p>
+            )}
+
+            {orderedItems.length > 0 && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1">
                   <Label>{VEHICLE_COPY.closesItems}</Label>

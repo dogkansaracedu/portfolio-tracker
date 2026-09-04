@@ -84,6 +84,7 @@ function item(over: Partial<VehicleMaintenanceItem> = {}): VehicleMaintenanceIte
     name: "Item",
     item_group: "routine",
     item_kind: "service",
+    cost_category: null,
     interval_km: 10000,
     interval_months: null,
     sort_order: 0,

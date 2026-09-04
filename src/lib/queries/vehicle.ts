@@ -146,6 +146,8 @@ export async function seedMaintenancePlan(
       vehicle_id: vehicleId,
       name: t.name,
       item_group: t.group,
+      item_kind: t.kind,
+      cost_category: t.costCategory,
       interval_km: t.intervalKm,
       interval_months: t.intervalMonths,
       sort_order: index,
