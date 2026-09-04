@@ -21,6 +21,11 @@ export const MS_PER_DAY = 24 * 60 * 60 * 1000
 /** ACT/365.25 day count — same convention as `computeCAGR`. */
 export const DAYS_PER_YEAR = 365.25
 
+/** Days in an average month. Exact in binary (365.25/12 = 30.4375), so it
+ *  carries into BigNumber without drift. Lives here rather than in either
+ *  caller because two modules need it and a month must mean one thing. */
+export const DAYS_PER_MONTH = DAYS_PER_YEAR / 12
+
 /**
  * The solver bisects on `s = ln(1 + r)` rather than on `r` directly, and brackets
  * `s` by what the flows could plausibly have done **over their own horizon**

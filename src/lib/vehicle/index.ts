@@ -41,7 +41,8 @@ export {
 
 export {
   computeFuelEconomy,
-  hasFuelData,
+  estimateMonthlyFuel,
   type FuelEconomy,
   type FuelSegment,
+  type MonthlyFuelEstimate,
 } from "./fuel"

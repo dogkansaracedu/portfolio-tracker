@@ -4,6 +4,7 @@ import { computeLifetimeXirrPct } from "@/lib/mwr"
 import {
   computeFuelEconomy,
   computeOpportunityCost,
+  estimateMonthlyFuel,
   computeOwnershipCost,
   dueItems,
   maintenancePlanState,
@@ -15,6 +16,7 @@ import {
   odometerView,
   type FuelEconomy,
   type LastServiceSummary,
+  type MonthlyFuelEstimate,
   type MaintenanceItemState,
   type NextServiceBundle,
   type OdometerView,
@@ -24,7 +26,12 @@ import {
 import { useVehicleContext } from "@/contexts/VehicleContext"
 import { useTransactionData } from "@/contexts/TransactionDataContext"
 import { usePnLSummary } from "@/hooks/usePnLSummary"
-import { MAINTENANCE_STATUS } from "@/lib/constants/vehicle"
+import {
+  ASSUMED_CONSUMPTION,
+  DEFAULT_FUEL_PRICE,
+  MAINTENANCE_STATUS,
+} from "@/lib/constants/vehicle"
+import { normalizeToUsd } from "@/lib/pnl/currency"
 import type {
   Vehicle,
   VehicleCostEntry,
@@ -58,6 +65,8 @@ export interface VehicleView {
   /** Null when the portfolio has no annualizable rate yet. */
   opportunity: OpportunityCost | null
   fuel: FuelEconomy | null
+  /** Roughly what fuel costs a month. Null until the car's pace is known. */
+  monthlyFuel: MonthlyFuelEstimate | null
 
   loading: boolean
   error: string | null
@@ -161,6 +170,27 @@ export function useVehicle(vehicleId?: string): VehicleView {
     [vehicle, scopedEntries, rates],
   )
 
+  const monthlyFuel = useMemo(() => {
+    if (!odometer) return null
+    // The stored pump price is in lira on a stated day, so it converts at THAT
+    // day's rate like every other figure here — not today's. It is a fallback
+    // only: the owner's own fills replace it the moment one records both
+    // litres and an amount.
+    const defaultPriceUsd = normalizeToUsd(
+      DEFAULT_FUEL_PRICE.tryPerLitre,
+      "TRY",
+      DEFAULT_FUEL_PRICE.asOf,
+      rates,
+    ).toNumber()
+    return estimateMonthlyFuel({
+      kmPerDay: odometer.kmPerDay,
+      measuredConsumption: fuel?.average ?? null,
+      assumedConsumption: ASSUMED_CONSUMPTION,
+      measuredPricePerLitreUsd: fuel?.avgPricePerLitreUsd ?? null,
+      defaultPricePerLitreUsd: defaultPriceUsd,
+    })
+  }, [odometer, fuel, rates])
+
   // The ledger reads newest first; the engines above take it in any order.
   const ledger = useMemo(
     () => [...scopedEntries].sort((a, b) => (a.date < b.date ? 1 : -1)),
@@ -181,6 +211,7 @@ export function useVehicle(vehicleId?: string): VehicleView {
     cost,
     opportunity,
     fuel,
+    monthlyFuel,
     loading: loading || txLoading || pnlLoading,
     error,
   }
