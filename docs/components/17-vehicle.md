@@ -421,6 +421,21 @@ With no current value recorded there is no depreciation, therefore no total, no
 fixed-per-month and no blended per-km — all render as unknown, with the reason
 stated. What remains knowable (cash spent, variable per km) still shows.
 
+**Cash is also totalled into four buckets** at the head of the ledger — fuel,
+maintenance, the recurring obligations, and everything else — with each
+bucket's share. Four rather than one per category: nine rows of spend is a
+table nobody reads, and four is the question actually being asked, which is
+how much of this car is petrol, how much is keeping it running, how much is
+the state and the insurer, and how much is neither.
+
+Every bucket sits wholly on one side of the fixed/variable split, so the two
+cuts can never contradict each other — one says where the money went, the
+other says which denominator it belongs under. The buckets always total to the
+cash figure: a category that no bucket claims falls into "other" rather than
+disappearing, because a breakdown that silently drops spend is worse than no
+breakdown. Entries recorded without a price are excluded and counted, since
+the totals cannot include them.
+
 Neutral palette throughout: spending is not a loss, so the gain/loss colors
 never appear on this page.
 

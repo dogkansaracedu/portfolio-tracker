@@ -214,6 +214,13 @@ and inherits ownership through an `EXISTS` against `vehicle_cost_entries`.
   (the section does not render), `other` → everything. `setCategory` re-filters
   `itemIds` on every change, because a tick that survives a narrowing is
   invisible and still resets its item on save.
+- **`VEHICLE_COST_GROUPS` folds the nine categories into the four the ledger
+  totals by**, and `VEHICLE_COST_GROUP_OF` is derived from it so the two cannot
+  disagree. The obligations bucket reads its label from
+  `MAINTENANCE_GROUP_LABELS` rather than restating it — one concept, one term.
+  An unrecognised category is bucketed as `other`, so `byGroup` always sums to
+  `cashUsd`; a test pins that, and another pins that no bucket straddles the
+  fixed/variable split.
 - **Two constants gate every km figure**, so "no distance dimension" is stated
   once each side: `OBLIGATIONS_GROUP` (no km interval on the item form) and
   `VEHICLE_ODOMETER_CATEGORIES` (no reading on the cost form). `lastDonePhrase`

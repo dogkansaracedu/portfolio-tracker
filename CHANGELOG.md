@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.21.0] — 2026-09-05
+- The costs table now totals your spending into four buckets — **fuel,
+  maintenance, insurance/tax/inspection, and other** — with each one's share,
+  so you can see where the money actually goes without reading the rows.
+
 ## [0.20.0] — 2026-09-05
 - **The periodic service is its own thing now, not a line in the plan.** It has
   its own card: when the next one is due, then the more useful answer — what
