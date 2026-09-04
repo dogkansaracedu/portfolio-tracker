@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.23.3] — 2026-09-04
+- "Fixed, per month", "Variable" and "Blended" each explain themselves now —
+  hover or tap the figure to see what goes into it and, more usefully, whether
+  it is a marginal cost. Driving 100 km more really does cost you the variable
+  figure; it does not cost you the blended one.
+- The vehicle cost terms got their own glossary rather than being pushed into
+  the shared one.
+
 ## [0.23.2] — 2026-09-04
 - **Fixed cost per month means fixed again**: insurance, MTV and muayene only.
   A tow, a fine or a parking fee is a one-off, and dividing it by the months
