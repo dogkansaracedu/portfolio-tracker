@@ -15,6 +15,21 @@ export type StoredRetirementScenarioInputs = Omit<
   Partial<Pick<RetirementScenarioInputs, "contributionEndAge">>
 
 /**
+ * GLOSSARY: plan start — the moment a scenario was committed to as THE plan.
+ * Freezes what the plan promised, so later edits to the scenario's draft do
+ * not move the yardstick "am I on track?" measures against. Stored as one
+ * nullable JSON column on the scenario row (`plan_start`); null = not started.
+ */
+export interface RetirementPlanStart {
+  /** Home-timezone calendar date ("YYYY-MM-DD") the plan was started. */
+  startedAt: string
+  /** The portfolio total the projection was anchored at that day, nominal USD. */
+  startingAmountUsd: number
+  /** The scenario inputs frozen at the start — stored shape, normalize on read. */
+  inputs: StoredRetirementScenarioInputs
+}
+
+/**
  * Fills the inputs saved scenarios can be missing and clamps the ones whose
  * meaning depends on another age:
  * - `contributionEndAge` defaults to the retirement age (contribute right up to

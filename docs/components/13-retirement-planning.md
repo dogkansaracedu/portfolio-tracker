@@ -7,12 +7,12 @@
 The forward-looking counterpart to the P&L engine. Where every other component
 answers "what happened to my money?", this one answers the planning questions:
 
-1. **Plan** — four questions about one plan, each asked in the user's own words:
+1. **Plan** — five questions about one plan, each asked in the user's own words:
    *when can I retire?*, *when can I stop contributing?*, *how much should I
-   contribute?*, *what will I have?* Each is answered with the answer itself,
-   and — wherever the retirement age is something the user entered rather than
-   the thing being solved for — with an explicit verdict: does this plan work,
-   yes or no.
+   contribute?*, *what will I have?*, *am I on track?* Each is answered with the
+   answer itself, and — wherever the retirement age is something the user
+   entered rather than the thing being solved for — with an explicit verdict:
+   does this plan work, yes or no.
 2. **Compare** — the same contribution plan run through different investment
    options (US equities, gold, BES, TRY deposits, or any custom growth rate),
    side by side, **after Turkish tax**.
@@ -27,10 +27,14 @@ from a single projection core so nothing can disagree with anything else.
   FIRE comparison (Component 6)
 - Database & auth — per-user persistence of scenarios (Component 2)
 - Exchange-rate history — context for TRY-linked defaults (Component 5)
+- Budgeting — the monthly [Invested](GLOSSARY.md#invested-monthly) figure the
+  "am I on track?" question compares the plan against (Component 14)
+- Portfolio value history — the daily snapshots that question draws the actual
+  line from (Component 6)
 
-Explicitly **not** coupled to any budgeting feature (none exists): monthly
-contribution and retirement spending are plain inputs a future budgeting
-component could pre-fill.
+Budgeting does not drive the plan: monthly contribution and retirement spending
+stay plain inputs the user enters. The one budgeting figure this component reads
+is the monthly invested amount, and only to answer "am I on track?".
 
 ## Concepts used — links into [GLOSSARY](GLOSSARY.md)
 
@@ -57,6 +61,11 @@ UI, docs, and code identifiers — no synonyms:
 - [Supported spending](GLOSSARY.md#supported-spending) — the "spend less" escape
   route of a falling-short verdict
 - [Sensitivity insight](GLOSSARY.md#sensitivity-insight)
+- [Plan start](GLOSSARY.md#plan-start) — the frozen yardstick "am I on track?"
+  measures against ([formula](GLOSSARY.md#plan-tracking-formula))
+- [Value gap](GLOSSARY.md#value-gap) /
+  [Contribution gap](GLOSSARY.md#contribution-gap) — planned minus actual;
+  positive = behind
 - [Retirement tax estimate](GLOSSARY.md#retirement-tax-estimate)
 - [USD anchor](GLOSSARY.md#usd-anchor) — planning is USD-anchored like P&L
 
@@ -102,7 +111,7 @@ re-derives displayed values only — stored inputs are unchanged.
 
 ### Plan tab
 
-**Question-first.** The tab is a switch between four questions, and the switch's
+**Question-first.** The tab is a switch between five questions, and the switch's
 own labels ARE the questions. Under the chosen question sits its answer, as
 large as any headline figure on the app: an age, a monthly amount, a value. A
 question whose answer does not exist under the assumptions says so in words and
@@ -139,10 +148,27 @@ never shows a number.
    headline can never disagree.
 4. **"What will I have?"** — the projected value at the retirement age, against
    the target, with the milestones table underneath.
+5. **"Am I on track?"** — the one backward-looking question: what actually
+   happened, against what the plan projected. Starting a plan freezes the [plan
+   start](GLOSSARY.md#plan-start) — the date, the portfolio value that day, and
+   the inputs as they read then. The answer is the [value
+   gap](GLOSSARY.md#value-gap) against the frozen **base** case at the same
+   point in the plan's life, with where the actual value sits against the frozen
+   band said in words (below the pessimistic case, inside the band, or above the
+   optimistic one), plus the [contribution gap](GLOSSARY.md#contribution-gap)
+   over the calendar months the plan has covered — the plan's own contributions
+   against the money actually paid in, a net-withdrawal month subtracting. A
+   scenario that has not been started has no yardstick: the question says so and
+   offers to start one — only once the live portfolio value has loaded, since a
+   plan frozen at a placeholder zero would read as ahead forever. Starting again re-freezes the plan at today, after a
+   confirmation, because the old yardstick is then gone; clearing removes the
+   plan start. Nothing else about the plan is stored, and editing the scenario
+   afterwards never moves the frozen yardstick — you are measured against the
+   plan you committed to, not the one you are drafting.
 
-**Verdict.** Every question except the first fixes the retirement age as an
-input, so every one of them can be answered yes or no, and is — in a sentence,
-in the canonical gain/loss colours. A plan that works says by how much it works
+**Verdict.** Every question that solves the plan forward with the retirement
+age fixed (2–4) can be answered yes or no, and is — in a sentence, in the
+canonical gain/loss colours. A plan that works says by how much it works
 (the surplus, and how many years earlier it could have retired). A plan that
 falls short says by how much, then offers the three ways out of the same
 shortfall: **retire later** (the earliest age that does work), **contribute
@@ -151,19 +177,38 @@ in today's money, the plan's projected value actually supports). A route whose
 solve has no answer is left out rather than fabricated; when none of them has an
 answer, the verdict says the target is not reachable under these assumptions.
 
-- Chart: projected portfolio value over time (band), with the retirement age
-  and the target — **labelled with the target's own value** — marked, and, when
-  the plan coasts, BOTH the age contributions are planned to stop and the
-  earliest age they could stop, each labelled with its own age. **A displayed
-  portfolio value never goes below zero:** a plan that overspends runs negative
-  in the maths (deliberately — the solvers need to see how far short it falls),
-  but the chart, its axis and the milestone figures are floored at 0, and the
-  band that has run out says **"depleted at age N"** — in its cell, in the
-  tooltip, and as a marker on the chart — instead of showing a floored zero or
-  a −$2.16M "value". Age markers never overprint each other: they sit on
-  opposite sides of their lines and on different rows. The "when can I stop contributing?" question shows that pairing over
+- Chart: projected portfolio value over time (band) across the phases it runs
+  through — the coasting window and retirement are shaded (faintly, and a step
+  apart from each other) and carry their phase names — with the retirement age
+  and the target — **labelled with the target's own value, rounded compact
+  ("$1.88M")** — marked, and, when the plan coasts, BOTH the age contributions
+  are planned to stop and the earliest age they could stop, each labelled with
+  its own age. Under capital depletion the chart's right edge names **the age
+  the plan was asked to last to**; under capital preservation that same input is
+  only a drawing horizon and is left unnamed. **A displayed portfolio value
+  never goes below zero:** a plan that overspends runs negative in the maths
+  (deliberately — the solvers need to see how far short it falls), but the
+  chart, its axis and the milestone figures are floored at 0, and a case that
+  has run out says **"depleted at age N"** — in its milestone cell, and as a
+  marker on the chart — instead of showing a floored zero or a −$2.16M "value".
+  **Every** case that runs out is marked, and each marker names its own case
+  ("Pessimistic case runs out at 61"): the pessimistic case running out is not
+  the plan running out, and a marker that does not say which case it belongs to
+  invites reading it as the answer. Those markers give the age in whole years —
+  the year the crossing happens *during* — while the milestones table keeps the
+  exact age, and they are worded differently for that reason: one sentence
+  printed at two precisions reads as two different answers. Age markers never overprint each other: they sit on opposite sides
+  of their lines and each on its own row, with the phase names on the rows below
+  the last of them. Hovering reads the age and the phase it falls in, then the
+  pessimistic, base and optimistic values as three rows, the base emphasised.
+  The "when can I stop contributing?" question shows that pairing over
   the rising Coast FIRE curve, with the crossing marked as the coast date;
-  the other questions show it over the plan projection.
+  the forward-looking questions show it over the plan projection. "Am I on
+  track?" draws its own instead: the **frozen** plan's band and base line on a
+  calendar axis, running from the plan start to at least a year past today —
+  with the portfolio's recorded value laid over them, today marked, and both
+  lines named on the chart itself, so the two are read against each other
+  rather than against an age.
   Both withdrawal strategies continue past retirement,
   showing the same drawdown — retirement spending, stepped up annually with
   inflation — up to the age entered alongside the retirement age. That age
@@ -247,7 +292,9 @@ answer, the verdict says the target is not reachable under these assumptions.
 ## Contract (I/O)
 
 **Inputs:** the current portfolio total value (from the P&L engine); the user's
-saved scenarios (or defaults on first use); the sourced tax-rule data.
+saved scenarios (or defaults on first use); the sourced tax-rule data; and, for
+"am I on track?", the daily portfolio-value history plus the monthly
+[Invested](GLOSSARY.md#invested-monthly) figures over the plan's life.
 
 **Outputs (rendered):** the answer to the active Plan question and its verdict;
 the plan projection (band chart) or the Coast FIRE crossing chart, per question;
@@ -258,8 +305,11 @@ All monetary outputs available in nominal and real, USD-anchored, in the display
 currency.
 
 **Persistence:** scenarios (named input sets) per user, cross-device; exactly
-one default scenario. Nothing else this component computes is stored — outputs
-are always recomputed from inputs.
+one default scenario. A scenario may also carry its [plan
+start](GLOSSARY.md#plan-start) — the date, starting value and inputs frozen the
+day it was started, written once when the plan is started and removed when it is
+cleared. Nothing else this component computes is stored — outputs are always
+recomputed from inputs.
 
 ## UI contract
 
@@ -353,6 +403,16 @@ are always recomputed from inputs.
       these assumptions" rather than a fabricated contribution.
 - [ ] A scenario saved before the contribution end age existed loads with it at
       the retirement age, and its projections are unchanged.
+- [ ] Both tracking gaps read planned − actual, so a positive figure means
+      **behind** — the Coast FIRE gap's sign convention; a test pins the sign on
+      each side of both.
+- [ ] The value gap is measured at whole elapsed months while the contribution
+      gap is summed over the calendar months covered, the first partial month
+      counting in full on both sides; a worked case pins the two counts apart
+      (three elapsed, four covered).
+- [ ] A plan start frozen before an input existed is filled in on read exactly
+      as a saved scenario is, and editing the scenario afterwards leaves the
+      frozen yardstick — date, starting value and inputs — untouched.
 - [ ] The Plan milestones table (under "what will I have?") lists the contribution end age (when short of
       retirement), the retirement age, five-year steps and the horizon age, and
       its values equal the chart's at those ages under both nominal and real.
@@ -362,7 +422,14 @@ are always recomputed from inputs.
 - [ ] No displayed projection figure is negative: the chart, its y-axis and the
       milestone table floor at zero, and a depleted band names the age it ran
       out at. The solvers keep the unfloored series.
-- [ ] The target line carries its own value.
+- [ ] Every case that runs out gets its own chart marker, naming the case and
+      the whole year it ran out in; none of them can be read as "the plan runs
+      out", and the milestones table keeps the exact age.
+- [ ] The chart shades and names the phases it runs through, and under capital
+      depletion names the age the plan was asked to last to at its right edge —
+      never under capital preservation, where that input only sets the horizon.
+- [ ] The target line carries its own value, compact; with amounts hidden the
+      line still says what it is and drops the figure.
 - [ ] Scenarios persist per user across devices; the default loads on entry;
       first use renders with sensible defaults.
 - [ ] Glossary-term singularity holds across UI, code identifiers, and docs.

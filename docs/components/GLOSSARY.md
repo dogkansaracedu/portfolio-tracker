@@ -397,6 +397,35 @@ output — "at $1,500/month instead of $1,000 you reach your target 5 years
 2 months earlier". Each insight is a solver run over the same
 [projection](#projection) core, so insights can never disagree with the charts.
 
+### Plan start
+The frozen record of a [retirement scenario](#retirement-scenario) at the moment
+it was **started**: the date, the portfolio value it was anchored at, and a copy
+of the scenario's inputs as they read that day. It is the yardstick "am I on
+track?" measures against, so later edits to the scenario never move it. A
+scenario has at most one — starting again re-freezes it at today, clearing it
+removes it; without one there is nothing to be on track against.
+
+### Value gap
+`planned value − actual portfolio value`, both read the same number of whole
+months after the [plan start](#plan-start). Positive = **behind** the plan,
+negative = ahead — the same sign convention as the [Coast FIRE
+gap](#coast-fire-gap). The planned side is the frozen plan's **base** case;
+against the other two legs the actual value reads as one of three positions —
+below the pessimistic case, inside the band, or above the optimistic case —
+which is how the gap is put into words. Because a [projection](#projection) only
+defines a value at month **ends**, the comparison is made at whole elapsed
+months: a plan started on the 6th is measured on the 6th.
+
+### Contribution gap
+`planned contributions − actual contributions`, summed over the calendar months
+the plan has touched (its start month through the current one, inclusive).
+Positive = **behind** on paying in. The planned side is the frozen plan's base
+[projection](#projection); the actual side is [Invested
+(monthly)](#invested-monthly), so a net-withdrawal month subtracts. Both sides
+count the first, partial month **in full** — the plan's first month against the
+calendar month it started in — which is why this figure runs on calendar months
+while the [value gap](#value-gap) runs on whole elapsed months.
+
 ### Retirement tax estimate
 The estimated Turkish tax due at exit for a comparison option, computed by that
 option's **tax rule** from the scenario's assumptions (a TRY-taxed option's
@@ -867,3 +896,21 @@ Coast FIRE number(t) = target ÷ (1 + r)^(years from t to retirement)
 [retirement scenario](#retirement-scenario). Evaluated at every future month it forms a curve
 rising toward the target; the [coast date](#coast-fire-gap) is the first month
 the projected portfolio value meets the curve.
+
+### Plan tracking formula
+```
+e = whole months from the plan start to today (day-of-month aware, floored)
+c = calendar months from the start month to this month, inclusive (≥ 1)
+
+value gap        = planned base value at e − actual portfolio value
+band position    = below pessimistic / within band / above optimistic, at e
+contribution gap = Σ planned contribution over plan months 1..c
+                   − Σ invested (monthly) over those same c calendar months
+```
+The planned side of both gaps comes from the
+[projection](#projection-formula) of the [plan start](#plan-start)'s frozen
+inputs, from its frozen starting amount and with the drawdown included — never
+the scenario as it reads today. Positive gaps mean **behind**. The two clocks
+are deliberate: `e` because a projection only defines a value at month ends,
+`c` because contributions are bucketed per calendar month (see [value
+gap](#value-gap) / [contribution gap](#contribution-gap)).

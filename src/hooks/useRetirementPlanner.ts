@@ -7,7 +7,7 @@ import {
   useState,
 } from "react"
 import type BigNumber from "bignumber.js"
-import { bn } from "@/lib/config"
+import { bn, homeDayIso } from "@/lib/config"
 import { useHoldings } from "@/hooks/useHoldings"
 import { usePnL } from "@/hooks/usePnL"
 import { usePrices } from "@/hooks/usePrices"
@@ -15,10 +15,12 @@ import { useRetirementScenarios } from "@/hooks/useRetirementScenarios"
 import {
   DEFAULT_RETIREMENT_SCENARIO_INPUTS,
   normalizeScenarioInputs,
+  type RetirementPlanStart,
   type RetirementScenarioInputs,
 } from "@/lib/retirement"
 import {
   DEFAULT_SCENARIO_NAME,
+  LIVE_VALUE_NOT_READY,
   SCENARIO_WRITE_FAILED,
 } from "@/components/retirement/constants"
 import type { RetirementScenario } from "@/types/database"
@@ -38,6 +40,10 @@ import type { RetirementScenario } from "@/types/database"
  * edit costs the projection engine a few hundred month-by-month runs, so
  * rendering the fields and the projections from the same value would make every
  * keystroke wait for the whole recompute.
+ *
+ * Separate from the draft, and deliberately not part of `dirty`: the scenario's
+ * plan start — the frozen day / starting amount / inputs that "am I on track?"
+ * measures against. It only moves when the user starts (or clears) the plan.
  */
 
 export interface RetirementPlanner {
@@ -51,12 +57,17 @@ export interface RetirementPlanner {
   dirty: boolean
   /** Live portfolio total — the default starting amount. */
   liveValueUsd: BigNumber
+  /** False until holdings and transactions have loaded; `liveValueUsd` is a
+   *  placeholder zero before that, never a real total. */
+  liveValueReady: boolean
   /** The starting amount the projections actually run from. */
   startingAmountUsd: BigNumber
   /** `inputs`, deferred: what every projection, solver and chart computes from. */
   engineInputs: RetirementScenarioInputs
   /** `startingAmountUsd` deferred alongside `engineInputs`, never out of step with it. */
   engineStartingAmountUsd: BigNumber
+  /** The active scenario's frozen plan; null when none is active or it was never started. */
+  planStart: RetirementPlanStart | null
   patch: (partial: Partial<RetirementScenarioInputs>) => void
   selectScenario: (id: string) => void
   /** Reports failure through `error`; always resolves. */
@@ -71,15 +82,27 @@ export interface RetirementPlanner {
   deleteActive: () => Promise<void>
   /** Reports failure through `error`; always resolves. */
   makeActiveDefault: () => Promise<void>
+  /**
+   * Freeze the active scenario as THE plan — the day, the resolved starting
+   * amount and the current draft. Creates a first scenario when there is none,
+   * and saves the draft in the same write when it is `dirty`, so the frozen
+   * plan is always the one on screen. Called on an already-started scenario it
+   * overwrites the freeze; the confirmation belongs to the caller.
+   * Reports failure through `error`; always resolves.
+   */
+  startPlan: () => Promise<void>
+  /** Un-starts the active scenario — back to a what-if. Reports through `error`. */
+  clearPlanStart: () => Promise<void>
   discardEdits: () => void
 }
 
 export function useRetirementPlanner(): RetirementPlanner {
   const { scenarios, defaultScenario, loading, create, update, remove, setDefault } =
     useRetirementScenarios()
-  const { holdings } = useHoldings()
+  const { holdings, loading: holdingsLoading } = useHoldings()
   const { prices } = usePrices()
-  const { totalCurrentValueUsd } = usePnL(holdings, prices)
+  const { totalCurrentValueUsd, loading: pnlLoading } = usePnL(holdings, prices)
+  const liveValueReady = !holdingsLoading && !pnlLoading
 
   const [activeId, setActiveId] = useState<string | null>(null)
   const [inputs, setInputs] = useState<RetirementScenarioInputs>(
@@ -199,6 +222,18 @@ export function useRetirementPlanner(): RetirementPlanner {
     [],
   )
 
+  /**
+   * First-ever write with nothing saved yet: the draft becomes the user's
+   * default scenario. Both entry points that can hit an empty book — Save and
+   * Start plan — come through here so the row they conjure is identical.
+   */
+  const createDefaultScenario = useCallback(async () => {
+    const created = await create(DEFAULT_SCENARIO_NAME, inputs, true)
+    pendingSelectionRef.current = created.id
+    setActiveId(created.id)
+    return created
+  }, [create, inputs])
+
   const save = useCallback(
     () =>
       reported(
@@ -207,12 +242,10 @@ export function useRetirementPlanner(): RetirementPlanner {
             await update(activeScenario.id, { inputs })
             return
           }
-          const created = await create(DEFAULT_SCENARIO_NAME, inputs, true)
-          pendingSelectionRef.current = created.id
-          setActiveId(created.id)
+          await createDefaultScenario()
         }),
       ),
-    [reported, run, activeScenario, update, create, inputs],
+    [reported, run, activeScenario, update, createDefaultScenario, inputs],
   )
 
   const createScenario = useCallback(
@@ -257,6 +290,61 @@ export function useRetirementPlanner(): RetirementPlanner {
     [reported, run, setDefault, activeScenario],
   )
 
+  const startPlan = useCallback(
+    () =>
+      reported(
+        run(async () => {
+          // A blank starting-amount field resolves to the live total, which is
+          // a placeholder zero until the portfolio data lands. Freezing that
+          // would anchor the yardstick at $0 for good — refuse instead.
+          if (inputs.startingAmountUsd === null && !liveValueReady) {
+            throw new Error(LIVE_VALUE_NOT_READY)
+          }
+          const target = activeScenario ?? (await createDefaultScenario())
+          const planStartValue: RetirementPlanStart = {
+            startedAt: homeDayIso(),
+            // The freeze is the whole point: a blank starting-amount field
+            // means "use the live portfolio", and the live total moves. What
+            // gets stored is the amount resolved right now — and this JSON
+            // column is the one place the draft leaves BigNumber.
+            startingAmountUsd: startingAmountUsd.toNumber(),
+            inputs,
+          }
+          // One write, both fields when the draft is ahead of the row: the
+          // plan frozen is the plan on screen, and a start can never leave a
+          // scenario whose saved inputs disagree with its frozen ones.
+          await update(
+            target.id,
+            dirty
+              ? { inputs, plan_start: planStartValue }
+              : { plan_start: planStartValue },
+          )
+        }),
+      ),
+    [
+      reported,
+      run,
+      activeScenario,
+      createDefaultScenario,
+      update,
+      dirty,
+      inputs,
+      startingAmountUsd,
+      liveValueReady,
+    ],
+  )
+
+  const clearPlanStart = useCallback(
+    () =>
+      reported(
+        run(async () => {
+          if (!activeScenario) return
+          await update(activeScenario.id, { plan_start: null })
+        }),
+      ),
+    [reported, run, update, activeScenario],
+  )
+
   const discardEdits = useCallback(() => {
     setInputs(
       activeScenario
@@ -274,9 +362,11 @@ export function useRetirementPlanner(): RetirementPlanner {
     inputs,
     dirty,
     liveValueUsd: totalCurrentValueUsd,
+    liveValueReady,
     startingAmountUsd,
     engineInputs: deferredEngine.inputs,
     engineStartingAmountUsd: deferredEngine.startingAmountUsd,
+    planStart: activeScenario?.plan_start ?? null,
     patch,
     selectScenario,
     save,
@@ -284,6 +374,8 @@ export function useRetirementPlanner(): RetirementPlanner {
     renameActive,
     deleteActive,
     makeActiveDefault,
+    startPlan,
+    clearPlanStart,
     discardEdits,
   }
 }

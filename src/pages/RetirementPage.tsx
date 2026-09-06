@@ -94,6 +94,7 @@ export default function RetirementPage() {
                 inputs={planner.engineInputs}
                 startingAmountUsd={planner.engineStartingAmountUsd}
                 display={display}
+                planner={planner}
               />
             </TabsContent>
 

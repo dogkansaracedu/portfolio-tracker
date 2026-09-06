@@ -41,6 +41,11 @@ export const RetirementCoastChart = lazy(() =>
     default: m.CoastChart,
   })),
 )
+export const RetirementTrackingChart = lazy(() =>
+  import("@/components/retirement/PlanTrackingChart").then((m) => ({
+    default: m.PlanTrackingChart,
+  })),
+)
 
 // Asset detail chart (named export)
 export const AssetHistoryChart = lazy(() =>

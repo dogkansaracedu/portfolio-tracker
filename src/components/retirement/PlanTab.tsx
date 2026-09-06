@@ -19,29 +19,45 @@ import {
   type RetirementScenarioInputs,
 } from "@/lib/retirement"
 import { gainLossClass } from "@/lib/prices"
+import { usePlanTracking } from "@/hooks/usePlanTracking"
+import type { RetirementPlanner } from "@/hooks/useRetirementPlanner"
 import { ContributionSuggestions } from "./ContributionSuggestions"
 import {
+  BAND_POSITION_LABELS,
   BASE_CASE_CAPTION,
   GLOSSARY_HINTS,
   NOT_REACHABLE,
   PLAN_HEADLINE_LABELS,
   PLAN_MODE,
   PLAN_MODE_LABELS,
+  PLAN_STARTED_CAPTION,
+  TRACKING_HEADLINE_CAPTION,
+  TRACKING_LABELS,
+  TRACKING_NOT_STARTED_CAPTION,
   type PlanMode,
 } from "./constants"
-import { formatAge, formatAgeLabel, type RetirementDisplay } from "./display"
+import {
+  describeGap,
+  formatAge,
+  formatAgeLabel,
+  formatPlanDay,
+  type RetirementDisplay,
+} from "./display"
 import { PlanCoastMode } from "./PlanCoastMode"
 import { PlanMilestones } from "./PlanMilestones"
+import { PlanTrackingMode } from "./PlanTrackingMode"
 import { PlanVerdict } from "./PlanVerdict"
 import { SegmentedControl, StatTile } from "./RetirementControls"
 import { SensitivityInsights } from "./SensitivityInsights"
 import { NOW_LABEL } from "@/lib/constants/app"
 
 /**
- * Plan — four questions about the same projection, each a first-class mode. The
+ * Plan — five questions about the same projection, each a first-class mode. The
  * mode label IS the question, the headline under it is the answer, and where
  * the retirement age is an input rather than the answer a `PlanVerdict` says
- * yes or no in words.
+ * yes or no in words. "Am I on track?" is the odd one out: it looks backwards
+ * at the frozen plan start rather than forward from the draft, so it solves
+ * nothing and carries no verdict.
  *
  * `inputs` here is the planner's DEFERRED draft (see `useRetirementPlanner`):
  * every derivation below re-runs whenever it changes, so only the question
@@ -64,15 +80,31 @@ const MODE_OPTIONS: { id: PlanMode; label: string }[] = [
     label: PLAN_MODE_LABELS[PLAN_MODE.requiredContribution],
   },
   { id: PLAN_MODE.finalValue, label: PLAN_MODE_LABELS[PLAN_MODE.finalValue] },
+  { id: PLAN_MODE.onTrack, label: PLAN_MODE_LABELS[PLAN_MODE.onTrack] },
 ]
+
+/** An answer that is a phrase, not a figure — sized down to read as one. */
+const MUTED_ANSWER_CLASS = "text-base font-medium text-muted-foreground"
 
 interface Props {
   inputs: RetirementScenarioInputs
   startingAmountUsd: BigNumber
   display: RetirementDisplay
+  /** "Am I on track?" measures against the FROZEN plan, not the draft above —
+   *  the only part of the Plan tab that reads the planner rather than inputs. */
+  planner: Pick<
+    RetirementPlanner,
+    | "planStart"
+    | "startPlan"
+    | "clearPlanStart"
+    | "saving"
+    | "error"
+    | "liveValueUsd"
+    | "liveValueReady"
+  >
 }
 
-/** The active mode's solved figure — the other three modes are never solved. */
+/** The active mode's solved figure — the other four modes are never solved. */
 type SolvedMode =
   | {
       mode: typeof PLAN_MODE.earliestRetirement
@@ -89,8 +121,14 @@ type SolvedMode =
       valueAtRetirementUsd: BigNumber
     }
   | { mode: typeof PLAN_MODE.coast }
+  | { mode: typeof PLAN_MODE.onTrack }
 
-export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
+export function PlanTab({
+  inputs,
+  startingAmountUsd,
+  display,
+  planner,
+}: Props) {
   const [mode, setMode] = useState<PlanMode>(PLAN_MODE.earliestRetirement)
 
   const monthsToRetirement = monthsToRetirementOf(inputs)
@@ -98,12 +136,26 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
   const plansToCoast = inputs.contributionEndAge < inputs.retirementAge
 
   /**
+   * The frozen plan re-projected against what actually happened. Null unless
+   * "am I on track?" is open (and the scenario has been started) — it is three
+   * more full projections, and it is the only figure here that ignores the
+   * draft inputs entirely. Computed once, at the tab, so the headline answer
+   * and the question's own body read the same object.
+   */
+  const tracking = usePlanTracking(
+    planner.planStart,
+    planner.liveValueUsd,
+    mode === PLAN_MODE.onTrack,
+  )
+
+  /**
    * The band the plan chart and the milestones read. Null in the coast
-   * question, which draws its own accumulation-only bands against the curve —
+   * question, which draws its own accumulation-only bands against the curve,
+   * and in the tracking question, which draws the FROZEN plan's bands instead —
    * a projection nobody is looking at is not worth running.
    */
   const projections = useMemo<Record<ProjectionBand, Projection> | null>(() => {
-    if (mode === PLAN_MODE.coast) return null
+    if (mode === PLAN_MODE.coast || mode === PLAN_MODE.onTrack) return null
     const forBand = (band: ProjectionBand) =>
       projectScenario(inputs, {
         band,
@@ -125,6 +177,7 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
    * one — so a plan that contributes right up to retirement never runs it.
    */
   const coastOutlook = useMemo<CoastOutlook | null>(() => {
+    if (mode === PLAN_MODE.onTrack) return null
     if (mode !== PLAN_MODE.coast && !plansToCoast) return null
     return computeCoastOutlook(inputs, { startingAmountUsd })
   }, [mode, plansToCoast, inputs, startingAmountUsd])
@@ -155,6 +208,10 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
           valueAtRetirementUsd: projectScenario(inputs, { startingAmountUsd })
             .finalValueUsd,
         }
+      case PLAN_MODE.onTrack:
+        // Nothing to solve: the answer is read off `tracking`, which is not
+        // derived from the draft inputs this memo watches.
+        return { mode }
       default:
         // The coast answer is read off `coastOutlook` — no second solve.
         return { mode: PLAN_MODE.coast }
@@ -167,7 +224,12 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
     label: string
     hint: string
     value: string
+    /** Set only where the answer carries its own tone (the tracking gap). */
+    valueClassName?: string
     caption: ReactNode
+    /** False where the answer is not a base-case figure at all, so the
+     *  which-case footnote below it would be describing nothing. */
+    showsBaseCaseFigure?: boolean
   } = (() => {
     switch (solved.mode) {
       case PLAN_MODE.earliestRetirement: {
@@ -233,6 +295,31 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
             monthsToRetirement,
           )} by age ${formatAge(inputs.retirementAge)}.`,
         }
+      case PLAN_MODE.onTrack: {
+        const label = PLAN_HEADLINE_LABELS[PLAN_MODE.onTrack]
+        if (!tracking) {
+          return {
+            label,
+            hint: GLOSSARY_HINTS.valueGap,
+            value: TRACKING_LABELS.notStarted,
+            valueClassName: MUTED_ANSWER_CLASS,
+            caption: TRACKING_NOT_STARTED_CAPTION,
+            showsBaseCaseFigure: false,
+          }
+        }
+        const gap = describeGap(tracking.valueGapUsd, display)
+        return {
+          label,
+          hint: GLOSSARY_HINTS.valueGap,
+          value: gap.value,
+          valueClassName: gap.className,
+          caption: `${TRACKING_HEADLINE_CAPTION(
+            display.money(tracking.actualValueUsd),
+            display.money(tracking.plannedValueUsd[PROJECTION_BAND.base]),
+            BAND_POSITION_LABELS[tracking.bandPosition],
+          )} ${PLAN_STARTED_CAPTION(formatPlanDay(tracking.startedAt))}`,
+        }
+      }
       default: {
         const surplusUsd = solved.valueAtRetirementUsd.minus(targetUsd)
         return {
@@ -273,22 +360,25 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
             hint={headline.hint}
             value={headline.value}
             valueClassName={
-              headlineIsFigure
-                ? undefined
-                : "text-base font-medium text-muted-foreground"
+              headline.valueClassName ??
+              (headlineIsFigure ? undefined : MUTED_ANSWER_CLASS)
             }
             caption={
               <>
-                {headline.caption} {BASE_CASE_CAPTION}
+                {headline.caption}
+                {headline.showsBaseCaseFigure !== false && (
+                  <> {BASE_CASE_CAPTION}</>
+                )}
               </>
             }
           />
         </CardContent>
       </Card>
 
-      {/* Every question but "when can I retire?" fixes the retirement age, so
-          every one of them can be answered yes or no. */}
-      {mode !== PLAN_MODE.earliestRetirement && (
+      {/* Every forward-looking question but "when can I retire?" fixes the
+          retirement age, so every one of them can be answered yes or no.
+          "Am I on track?" is backward-looking — its answer IS the verdict. */}
+      {mode !== PLAN_MODE.earliestRetirement && mode !== PLAN_MODE.onTrack && (
         <PlanVerdict
           inputs={inputs}
           startingAmountUsd={startingAmountUsd}
@@ -301,7 +391,17 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
         />
       )}
 
-      {mode === PLAN_MODE.coast && coastOutlook ? (
+      {mode === PLAN_MODE.onTrack ? (
+        <PlanTrackingMode
+          tracking={tracking}
+          display={display}
+          saving={planner.saving}
+          liveValueReady={planner.liveValueReady}
+          error={planner.error}
+          onStartPlan={planner.startPlan}
+          onClearPlanStart={planner.clearPlanStart}
+        />
+      ) : mode === PLAN_MODE.coast && coastOutlook ? (
         <PlanCoastMode
           inputs={inputs}
           startingAmountUsd={startingAmountUsd}
@@ -316,6 +416,8 @@ export function PlanTab({ inputs, startingAmountUsd, display }: Props) {
               currentAge={inputs.currentAge}
               retirementAge={inputs.retirementAge}
               contributionEndAge={inputs.contributionEndAge}
+              withdrawalStrategy={inputs.withdrawalStrategy}
+              plannedDepletionAge={inputs.depletionAge}
               earliestCoastAge={coastOutlook?.coastAge ?? null}
               earliestRetirementAge={
                 solved.mode === PLAN_MODE.earliestRetirement
