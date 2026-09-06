@@ -5,6 +5,7 @@ import {
   valueAtMonthsFromNow,
   type Projection,
   type ProjectionBand,
+  type ProjectionPhase,
 } from "@/lib/retirement"
 import { CHART_MAX_POINTS } from "./constants"
 
@@ -62,6 +63,13 @@ export function depletionAge(
 export interface BandPoint {
   age: number
   monthsFromNow: number
+  /**
+   * The phase of the month this point ends — read straight off the engine's own
+   * months, so a tooltip can never disagree with the milestones table about
+   * where contributing becomes coasting becomes retirement. Undefined only for
+   * an empty horizon (the projection has no months at all).
+   */
+  phase: ProjectionPhase | undefined
   base: number
   /** [pessimistic, optimistic] — Recharts draws a tuple dataKey as a range area. */
   range: [number, number]
@@ -82,7 +90,8 @@ export function buildBandPoints({
   chartValue,
   keep = [],
 }: BandPointsParams): BandPoint[] {
-  const totalMonths = projections[PROJECTION_BAND.base].months.length
+  const baseMonths = projections[PROJECTION_BAND.base].months
+  const totalMonths = baseMonths.length
   return sampleMonthsFromNow(totalMonths, keep).map((monthsFromNow) => {
     const at = (band: ProjectionBand) =>
       chartValue(
@@ -94,6 +103,9 @@ export function buildBandPoints({
     return {
       age: ageAt(currentAge, monthsFromNow),
       monthsFromNow,
+      // Month `t` holds the END of month t, so `monthsFromNow` months from now
+      // is month index `monthsFromNow - 1`; today takes the first month's phase.
+      phase: baseMonths[Math.max(0, monthsFromNow - 1)]?.phase,
       base: floorForDisplay(at(PROJECTION_BAND.base)),
       range: [
         floorForDisplay(Math.min(low, high)),

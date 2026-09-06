@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.24.0] — 2026-09-07
+- **"Am I on track?"** is the fifth Plan question. Start a plan and the app freezes
+  the date, the portfolio value that day and the inputs; from then on it shows the
+  value gap against the frozen base case, the contribution gap over the months
+  covered (your real deposits, from the budget's invested figure), and a chart of
+  your recorded daily totals over the plan's band. Restart or stop tracking any time.
+- The Plan chart now says which case runs out and when, in whole years
+  ("Pessimistic case runs out at 61"), shades and names the coasting and retirement
+  phases, names the age a depleting plan was asked to last to, and lists the three
+  cases as separate tooltip rows. The target label is compact ("$1.88M").
+
 ## [0.23.3] — 2026-09-04
 - "Fixed, per month", "Variable" and "Blended" each explain themselves now —
   hover or tap the figure to see what goes into it and, more usefully, whether
