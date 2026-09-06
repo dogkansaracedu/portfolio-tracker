@@ -1,4 +1,7 @@
-import type { StoredRetirementScenarioInputs } from "@/lib/retirement/scenario";
+import type {
+  RetirementPlanStart,
+  StoredRetirementScenarioInputs,
+} from "@/lib/retirement/scenario";
 import type {
   AprKind,
   CampaignProgramType,
@@ -142,6 +145,8 @@ export interface RetirementScenario {
   name: string;
   is_default: boolean;
   inputs: StoredRetirementScenarioInputs;
+  /** The frozen plan, or null while this scenario is still just a what-if. */
+  plan_start: RetirementPlanStart | null;
   created_at: string;
   updated_at: string;
 }
@@ -351,11 +356,14 @@ export type SnapshotInsert = Omit<Snapshot, "id" | "total_usd" | "total_try" | "
 
 // is_default is optional on insert: the column defaults to false, and the
 // "exactly one default" invariant is moved by setDefaultRetirementScenario.
+// plan_start is optional too — the column is nullable and a scenario is never
+// born started; starting it is always a later, separate act.
 export type RetirementScenarioInsert = Omit<
   RetirementScenario,
-  "id" | "is_default" | "created_at" | "updated_at"
+  "id" | "is_default" | "plan_start" | "created_at" | "updated_at"
 > & {
   is_default?: boolean;
+  plan_start?: RetirementPlanStart | null;
 };
 export type RetirementScenarioUpdate = Partial<
   Omit<RetirementScenario, "id" | "user_id" | "created_at" | "updated_at">

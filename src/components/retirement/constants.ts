@@ -1,4 +1,5 @@
 import type {
+  BandPosition,
   ProjectionBand,
   ProjectionPhase,
   WithdrawalStrategy,
@@ -38,7 +39,7 @@ export const TODAYS_PURCHASING_POWER = "today's purchasing power"
 export const AGE_LABEL = "Age"
 
 /**
- * The Plan tab is four questions, and each mode's label IS the question — the
+ * The Plan tab is five questions, and each mode's label IS the question — the
  * headline under it is the answer, and (where the retirement age is an input
  * rather than the answer) the verdict banner says yes or no in words.
  */
@@ -47,6 +48,7 @@ export const PLAN_MODE = {
   coast: "coast",
   requiredContribution: "required-contribution",
   finalValue: "final-value",
+  onTrack: "on-track",
 } as const
 
 export type PlanMode = (typeof PLAN_MODE)[keyof typeof PLAN_MODE]
@@ -56,6 +58,7 @@ export const PLAN_MODE_LABELS: Record<PlanMode, string> = {
   [PLAN_MODE.coast]: "When can I stop contributing?",
   [PLAN_MODE.requiredContribution]: "How much should I contribute?",
   [PLAN_MODE.finalValue]: "What will I have?",
+  [PLAN_MODE.onTrack]: "Am I on track?",
 }
 
 /** The label above each answer. The final-value one names the retirement age. */
@@ -64,6 +67,7 @@ export const PLAN_HEADLINE_LABELS = {
   [PLAN_MODE.coast]: "You can stop contributing at",
   [PLAN_MODE.requiredContribution]: "Required monthly contribution",
   [PLAN_MODE.finalValue]: (age: string) => `Projected value at age ${age}`,
+  [PLAN_MODE.onTrack]: "Value gap",
 } as const
 
 /** The verdict banner's fixed halves; the figures around them are interpolated. */
@@ -87,13 +91,30 @@ export const EARLIEST_RETIREMENT_LINE_LABEL = (age: string) =>
 export const RETIREMENT_AGE_LINE_LABEL = (age: string) => `Retirement age ${age}`
 
 /** The target line carries its own value — an unlabelled dashed rule at an
- *  arbitrary height says nothing about how far away the target is. */
-export const RETIREMENT_TARGET_LINE_LABEL = (value: string) =>
-  `Retirement target ${value}`
+ *  arbitrary height says nothing about how far away the target is. The chart
+ *  passes the compact form ("$1.88M"), and null while amounts are hidden: the
+ *  line still says what it is, without leaking the figure. */
+export const RETIREMENT_TARGET_LINE_LABEL = (value: string | null) =>
+  value === null ? "Retirement target" : `Retirement target ${value}`
 
-/** A projection spent to zero: said in the cell, the tooltip and on the chart
- *  as a marker, because a floored 0 alone reads as "no data". */
+/** A projection spent to zero: said in the milestones cell and on the chart as
+ *  a marker, because a floored 0 alone reads as "no data". */
 export const DEPLETED_AT_LABEL = (age: string) => `Depleted at age ${age}`
+
+/** The chart's version: it names the case (a marker has no column header to say
+ *  which one ran out) and reads in whole years. Deliberately NOT the cell's
+ *  wording — the same sentence carrying "61" here and "61.4" there would read
+ *  as two different answers rather than two precisions. */
+export const BAND_DEPLETED_LABEL = (band: string, age: string) =>
+  `${band} case runs out at ${age}`
+
+/** Under capital depletion the chart's right edge is the age the plan is
+ *  designed to last to, not the age it happens to stop being drawn at. */
+export const PLANNED_HORIZON_LABEL = (age: string) => `Planned to last to ${age}`
+
+/** The Plan chart tooltip's heading: the age hovered, and the phase it falls in. */
+export const CHART_TOOLTIP_AGE_PHASE = (ageLabel: string, phase: string) =>
+  `${ageLabel} · ${phase}`
 
 export const COAST_CHART_TITLE = "Coast FIRE number vs. projected portfolio"
 export const COAST_DATE_MARKER_LABEL = "Coast date"
@@ -226,6 +247,12 @@ export const GLOSSARY_HINTS = {
     "Deflates nominal figures to today's purchasing power and inflates retirement spending to the retirement date.",
   tryAssumptions:
     "TRY-linked options convert their TRY return to USD growth through the depreciation assumption; TRY inflation drives their taxable gain.",
+  planStart:
+    "The frozen record of a scenario at the moment it was started: the date, the portfolio value it was anchored at, and a copy of its inputs as they read that day. Later edits never move it.",
+  valueGap:
+    "Planned value − actual portfolio value, both read the same number of whole months after the plan start. Positive = behind.",
+  contributionGap:
+    "Planned contributions − actual contributions, summed over the calendar months the plan has touched. Positive = behind on paying in.",
 } as const
 
 /**
@@ -302,3 +329,111 @@ export const SCENARIO_NAME_DIALOG_COPY = {
  *  shared by the panel's error line and the name dialog's. */
 export const SCENARIO_WRITE_FAILED = "Could not save the scenario"
 
+// ─── Plan tracking ──────────────────────────────────────────────────
+//
+// "Am I on track?" — the one backward-looking question, measured against the
+// frozen plan start. Terms are the GLOSSARY's verbatim (plan start, value gap,
+// contribution gap) and the gaps read planned − actual, so positive = behind.
+
+export const TRACKING_LABELS = {
+  /** The headline term itself, so the strip and the answer can never diverge. */
+  valueGap: PLAN_HEADLINE_LABELS[PLAN_MODE.onTrack],
+  contributionGap: "Contribution gap",
+  planStart: "Plan start",
+  behindBy: (amount: string) => `Behind by ${amount}`,
+  aheadBy: (amount: string) => `Ahead by ${amount}`,
+  onPlan: "On plan",
+  startPlan: "Start this plan",
+  restartPlan: "Restart plan",
+  stopTracking: "Stop tracking",
+  chartTitle: "Actual vs. plan",
+  actualSeries: "Actual",
+  basePlanSeries: "Base plan",
+  /** A scenario with no plan start has no yardstick — never a fabricated gap. */
+  notStarted: "Not started",
+} as const
+
+/** `startPlan` refuses to freeze a live total that has not loaded yet: a $0
+ *  yardstick would make every later reading "ahead". */
+export const LIVE_VALUE_NOT_READY =
+  "The live portfolio value is still loading — try again in a moment"
+
+/** Where the actual value sits against the frozen band, said in words. */
+export const BAND_POSITION_LABELS: Record<BandPosition, string> = {
+  below_pessimistic: "below the pessimistic case",
+  within_band: "within the band",
+  above_optimistic: "above the optimistic case",
+}
+
+/** The answer's caption: the two values the gap is the difference of, then
+ *  where the actual one falls against the other two legs of the frozen band. */
+export const TRACKING_HEADLINE_CAPTION = (
+  actualValue: string,
+  plannedValue: string,
+  bandPosition: string,
+) =>
+  `Portfolio ${actualValue} against ${plannedValue} projected by now — ${bandPosition}.`
+
+export const PLAN_STARTED_CAPTION = (day: string) => `Plan started ${day}.`
+
+/** Said under the answer while there is no yardstick: what starting one does. */
+export const TRACKING_NOT_STARTED_CAPTION =
+  "Starting the plan freezes today's date, portfolio value and inputs as the yardstick this question measures against."
+
+/** The empty state's own line, above the button that fixes it. */
+export const TRACKING_START_PROMPT =
+  "This scenario has never been started, so there is nothing to measure against yet."
+
+export const TRACKING_CONTRIBUTION_CAPTION = (
+  actual: string,
+  planned: string,
+  duration: string,
+) => `Contributed ${actual} of ${planned} planned over ${duration}.`
+
+/** The frozen plan in one line, in the phone summary's own idiom. */
+export const TRACKING_PLAN_START_CAPTION = (
+  value: string,
+  monthlyContribution: string,
+  retirementAge: string,
+) =>
+  [
+    `${value} portfolio that day`,
+    `${monthlyContribution}${SCENARIO_SUMMARY.perMonthSuffix}`,
+    `${SCENARIO_SUMMARY.retireAt} ${retirementAge}`,
+  ].join(SCENARIO_SUMMARY.separator)
+
+/**
+ * The tracking chart's own caption. It cannot reuse `BAND_CAPTION`: this is the
+ * one retirement chart with a second line, so "Line = base case" would name the
+ * wrong one.
+ */
+export const TRACKING_CHART_CAPTION =
+  "Base plan = the frozen plan's base case; shaded = pessimistic to optimistic. Actual = your portfolio's recorded daily totals."
+
+/** The actual line's hue — slot 1, named here for the same reason
+ *  `COAST_CURVE_COLOR` is: a series colour follows the entity, not the chart. */
+export const TRACKING_ACTUAL_COLOR = {
+  light: OPTION_SERIES_COLORS.light[0],
+  dark: OPTION_SERIES_COLORS.dark[0],
+} as const
+
+/**
+ * The two confirmations the started state needs. Both destroy the current
+ * yardstick, so neither happens on a bare click (mirror of
+ * `SCENARIO_NAME_DIALOG_COPY`: copy as data, keyed by what it is confirming).
+ */
+export const TRACKING_DIALOG_COPY = {
+  restart: {
+    title: "Restart this plan?",
+    description:
+      "The yardstick re-freezes at today's date, today's portfolio value and the inputs on screen. The plan start you are measured against now is gone.",
+    confirm: TRACKING_LABELS.restartPlan,
+  },
+  stop: {
+    title: "Stop tracking this plan?",
+    description:
+      "The plan start is removed and this question goes back to having nothing to measure against. The scenario's inputs are untouched.",
+    confirm: TRACKING_LABELS.stopTracking,
+  },
+  cancel: "Cancel",
+} as const
