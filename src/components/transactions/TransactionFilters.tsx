@@ -235,9 +235,7 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
                 return (
                   <>
                     <AssetIcon asset={a} size="sm" />
-                    <span className="truncate">
-                      {a.name} ({a.ticker})
-                    </span>
+                    <span className="truncate">{a.ticker}</span>
                   </>
                 )
               }}
@@ -246,9 +244,14 @@ export function TransactionFilters({ filters, onFiltersChange }: Props) {
           <SelectContent>
             <SelectItem value="">All assets</SelectItem>
             {assets.map((asset) => (
-              <SelectItem key={asset.id} value={asset.id}>
+              <SelectItem key={asset.id} value={asset.id} className="py-1.5">
                 <AssetIcon asset={asset} size="sm" />
-                {asset.name} ({asset.ticker})
+                <span className="flex min-w-0 flex-col items-start gap-0">
+                  <span className="leading-4">{asset.ticker}</span>
+                  <span className="max-w-full truncate text-xs leading-4 text-muted-foreground">
+                    {asset.name}
+                  </span>
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
