@@ -44,6 +44,7 @@ Build in order — each builds on the previous.
 | 15 | Campaigns | [spec](15-campaigns.md) | [tech](technical/15-campaigns.md) | Done |
 | 16 | Interest Positions | [spec](16-interest.md) | [tech](technical/16-interest.md) | Done |
 | 17 | Vehicle | [spec](17-vehicle.md) | [tech](technical/17-vehicle.md) | Done |
+| 18 | Foreign-Income Reconciliation | [spec](18-foreign-income-reconciliation.md) | [tech](technical/18-foreign-income-reconciliation.md) | Done |
 
 ## Dependency graph
 
@@ -68,6 +69,8 @@ Build in order — each builds on the previous.
 17 Vehicle                → 2, 5, 6         (cost of ownership + maintenance schedule; reads historical rates and the
                                              portfolio's lifetime rate, writes neither; surfaces on 7; the car is NOT
                                              an asset and never enters holdings, net worth or P&L)
+18 Foreign-income recon.  → 2, 3, 4, 5, 7  (append-only audit comparisons; reads transactions/rates, never changes
+                                             the ledger, holdings, balances or P&L)
 ```
 
 (6 and 10 are mutually referential at runtime: snapshots store the values the P&L
