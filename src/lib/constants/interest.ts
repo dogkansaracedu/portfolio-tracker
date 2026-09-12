@@ -79,10 +79,14 @@ export const INTEREST_ALERT_CLASSES = {
 
 export const INTEREST_POSITIONS_TABLE = "interest_positions"
 
+/** The Earning section's DOM anchor — links land on the position details. */
+export const INTEREST_SECTION_ANCHOR = "earning"
+
 /** Where the surfaces link to. Positions have no page of their own — the asset
  *  detail page is their home and the campaigns page is where they're captured. */
 export const INTEREST_ROUTE = {
-  assetDetail: (assetId: string) => `/assets/${assetId}`,
+  assetDetail: (assetId: string) =>
+    `/assets/${assetId}#${INTEREST_SECTION_ANCHOR}`,
   campaigns: "/campaigns",
 } as const
 
@@ -158,10 +162,16 @@ export const INTEREST_COPY = {
 
   // Dashboard banners
   alertExpiredTitle: "Positions that have ended",
+  alertExpiredGuidance:
+    "The recorded term has ended. Check whether it renewed or the funds are now idle.",
   alertEndsSoonTitle: "Positions ending soon",
+  alertEndsSoonGuidance:
+    "Decide whether to renew or move the funds before the recorded term ends.",
   alertAndMorePrefix: "and ",
   alertAndMoreSuffix: " more",
-  alertDismiss: "Dismiss",
+  alertDismiss: "Dismiss interest alerts",
+  alertCommittedPrefix: "Committed",
+  alertReviewAction: "Review position",
   expiredPhrasePrefix: "expired ",
   expiredPhraseSuffix: " ago",
   endsPhrasePrefix: "ends in ",
@@ -201,6 +211,3 @@ export const INTEREST_COPY = {
   errorAprInvalid: "Rate must be a number",
   errorEndBeforeStart: "The end date can't be before the start date",
 } as const
-
-/** The Earning section's DOM anchor — the Portfolio badge links straight to it. */
-export const INTEREST_SECTION_ANCHOR = "earning"
