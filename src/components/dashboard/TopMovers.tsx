@@ -1,4 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
   formatSignedCurrency,
   formatSignedPercent,
@@ -7,6 +13,7 @@ import {
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import type { TopMover } from "@/hooks/useDashboard"
 import { AssetIcon } from "@/components/common/AssetIcon"
+import { Link } from "react-router"
 
 interface TopMoversProps {
   topMovers: TopMover[]
@@ -19,15 +26,18 @@ export default function TopMovers({ topMovers }: TopMoversProps) {
   return (
     <Card className="flex flex-col">
       <CardHeader>
-        <CardTitle>Top Movers</CardTitle>
+        <CardTitle>Largest unrealized P&amp;L</CardTitle>
+        <CardDescription>
+          Ranked by absolute lifetime gain or loss.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {topMovers.length === 0 ? (
           <p className="text-muted-foreground">
-            No asset movements to display yet.
+            No unrealized P&amp;L to display yet.
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-1">
             {topMovers.map((mover) => {
               const isPositive = mover.unrealizedPnlUsd >= 0
               const colorClass = isPositive
@@ -41,9 +51,11 @@ export default function TopMovers({ topMovers }: TopMoversProps) {
               )
 
               return (
-                <div
+                <Link
                   key={mover.assetId}
-                  className="flex items-center justify-between"
+                  to={`/assets/${mover.assetId}`}
+                  aria-label={`View ${mover.name} (${mover.ticker}) asset details`}
+                  className="-mx-2 flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2">
                     <AssetIcon asset={mover} size="sm" />
@@ -59,7 +71,7 @@ export default function TopMovers({ topMovers }: TopMoversProps) {
                       {formatSignedPercent(mover.unrealizedPnlPct)}
                     </p>
                   </div>
-                </div>
+                </Link>
               )
             })}
           </div>
