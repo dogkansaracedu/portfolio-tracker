@@ -354,24 +354,40 @@ export function PlanTab({
             value={mode}
             options={MODE_OPTIONS}
             onChange={setMode}
+            ariaLabel="Retirement question"
+            mobileGrid
           />
-          <StatTile
-            label={headline.label}
-            hint={headline.hint}
-            value={headline.value}
-            valueClassName={
-              headline.valueClassName ??
-              (headlineIsFigure ? undefined : MUTED_ANSWER_CLASS)
-            }
-            caption={
-              <>
-                {headline.caption}
-                {headline.showsBaseCaseFigure !== false && (
-                  <> {BASE_CASE_CAPTION}</>
-                )}
-              </>
-            }
-          />
+          {!(mode === PLAN_MODE.onTrack && !tracking) && (
+            <StatTile
+              label={headline.label}
+              hint={headline.hint}
+              value={headline.value}
+              valueClassName={
+                headline.valueClassName ??
+                (headlineIsFigure ? undefined : MUTED_ANSWER_CLASS)
+              }
+              caption={
+                <>
+                  {headline.caption}
+                  {headline.showsBaseCaseFigure !== false && (
+                    <> {BASE_CASE_CAPTION}</>
+                  )}
+                </>
+              }
+            />
+          )}
+          {mode === PLAN_MODE.onTrack && !tracking && (
+            <PlanTrackingMode
+              embedded
+              tracking={tracking}
+              display={display}
+              saving={planner.saving}
+              liveValueReady={planner.liveValueReady}
+              error={planner.error}
+              onStartPlan={planner.startPlan}
+              onClearPlanStart={planner.clearPlanStart}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -392,15 +408,17 @@ export function PlanTab({
       )}
 
       {mode === PLAN_MODE.onTrack ? (
-        <PlanTrackingMode
-          tracking={tracking}
-          display={display}
-          saving={planner.saving}
-          liveValueReady={planner.liveValueReady}
-          error={planner.error}
-          onStartPlan={planner.startPlan}
-          onClearPlanStart={planner.clearPlanStart}
-        />
+        tracking && (
+          <PlanTrackingMode
+            tracking={tracking}
+            display={display}
+            saving={planner.saving}
+            liveValueReady={planner.liveValueReady}
+            error={planner.error}
+            onStartPlan={planner.startPlan}
+            onClearPlanStart={planner.clearPlanStart}
+          />
+        )
       ) : mode === PLAN_MODE.coast && coastOutlook ? (
         <PlanCoastMode
           inputs={inputs}

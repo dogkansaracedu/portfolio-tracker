@@ -728,6 +728,7 @@ export const VEHICLE_COPY = {
     "Add your car and its purchase price, then log what you spend on it. The maintenance plan starts from a typical Turkish schedule you can edit.",
   addVehicle: "Add car",
   editVehicle: "Edit car",
+  manageVehicle: "Manage car",
 
   // Cost of ownership
   costHeading: "Cost of ownership",
@@ -808,7 +809,7 @@ export const VEHICLE_COPY = {
 
   // Maintenance
   planHeading: "Maintenance plan",
-  addItem: "Add item",
+  addItem: "Add maintenance item",
   editItem: "Edit item",
   seedPlan: "Start from the Turkish default plan",
   seedPlanHint:

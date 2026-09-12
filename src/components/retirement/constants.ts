@@ -382,7 +382,7 @@ export const TRACKING_NOT_STARTED_CAPTION =
 
 /** The empty state's own line, above the button that fixes it. */
 export const TRACKING_START_PROMPT =
-  "This scenario has never been started, so there is nothing to measure against yet."
+  "No yardstick yet. Start this plan to freeze today's portfolio and inputs."
 
 export const TRACKING_CONTRIBUTION_CAPTION = (
   actual: string,

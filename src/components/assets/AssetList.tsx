@@ -126,10 +126,10 @@ export function AssetList() {
         </div>
       ) : (
         <>
-        {/* Phone: the card idiom the Transactions log uses. The catalog's six
-            columns push Price into "$3" and the Actions menu off the side, so
-            below `sm` each asset is a card with its menu in the header. */}
-        <div className="flex flex-col gap-2 sm:hidden">
+        {/* Compact shell: the card idiom the Transactions log uses. The
+            catalog's six columns need the width available only after the
+            navigation rail appears, so each asset stays a card below `lg`. */}
+        <div className="flex flex-col gap-2 lg:hidden">
           {ownedAssets.map((asset) => (
             <AssetRowCard
               key={asset.id}
@@ -167,7 +167,7 @@ export function AssetList() {
             ))}
         </div>
 
-        <div className="hidden rounded-lg border sm:block">
+        <div className="hidden rounded-lg border lg:block">
           <Table>
             <TableHeader>
               <TableRow>

@@ -10,6 +10,8 @@ interface SegmentedControlProps<T extends string> {
   className?: string
   /** Accessible name for the group (it has no visible label of its own). */
   ariaLabel?: string
+  /** Long question labels become a two-column picker on compact screens. */
+  mobileGrid?: boolean
 }
 
 /**
@@ -37,6 +39,7 @@ export function SegmentedControl<T extends string>({
   disabled = false,
   className,
   ariaLabel,
+  mobileGrid = false,
 }: SegmentedControlProps<T>) {
   return (
     <ToggleGroup
@@ -49,13 +52,22 @@ export function SegmentedControl<T extends string>({
       }}
       variant="outline"
       size={size}
-      className={cn("flex-wrap", className)}
+      className={cn(
+        "flex-wrap",
+        mobileGrid &&
+          "max-sm:grid max-sm:w-full max-sm:grid-cols-2 max-sm:items-stretch max-sm:gap-1.5",
+        className,
+      )}
     >
       {options.map((option) => (
         <ToggleGroupItem
           key={option.id}
           value={option.id}
           disabled={disabled}
+          className={cn(
+            mobileGrid &&
+              "max-sm:h-auto max-sm:w-full max-sm:shrink max-sm:whitespace-normal max-sm:!rounded-lg max-sm:!border-l max-sm:px-2 max-sm:py-2 max-sm:leading-tight max-sm:last:col-span-2",
+          )}
         >
           {option.label}
         </ToggleGroupItem>

@@ -55,6 +55,8 @@ interface Props {
   error: string | null
   onStartPlan: () => void
   onClearPlanStart: () => void
+  /** Render the not-started prompt inside the question's headline card. */
+  embedded?: boolean
 }
 
 /** Which confirmation is open; null = none. */
@@ -68,23 +70,32 @@ export function PlanTrackingMode({
   error,
   onStartPlan,
   onClearPlanStart,
+  embedded = false,
 }: Props) {
   const [confirming, setConfirming] = useState<Confirmation | null>(null)
 
   if (!tracking) {
+    const startPrompt = (
+      <div className={embedded ? "space-y-2 border-t pt-2" : "space-y-3"}>
+        <p className="text-sm text-muted-foreground">
+          {TRACKING_START_PROMPT}
+        </p>
+        <Button
+          className="max-sm:w-full"
+          onClick={onStartPlan}
+          disabled={saving || !liveValueReady}
+        >
+          {TRACKING_LABELS.startPlan}
+        </Button>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
+    )
+
+    if (embedded) return startPrompt
+
     return (
       <Card>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            {TRACKING_START_PROMPT}
-          </p>
-          <div>
-            <Button onClick={onStartPlan} disabled={saving || !liveValueReady}>
-              {TRACKING_LABELS.startPlan}
-            </Button>
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </CardContent>
+        <CardContent>{startPrompt}</CardContent>
       </Card>
     )
   }

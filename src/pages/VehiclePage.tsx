@@ -1,7 +1,14 @@
 import { useState, type ComponentProps } from "react"
-import { Plus } from "lucide-react"
+import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
 import { PageHeading } from "@/components/common/PageHeading"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -236,63 +243,71 @@ export default function VehiclePage() {
         />
       )}
 
-      {/* Actions. Buttons wrap on a narrow screen rather than shrinking. */}
-      <div className="flex flex-wrap gap-2">
+      {/* Keep the frequent write visible; maintenance setup and car
+          administration live in one secondary menu instead of five peer
+          actions wrapping across a compact screen. */}
+      <div className="flex items-center gap-2">
         <Button size="sm" onClick={() => openAddCost()}>
           <Plus className="size-4" />
           {VEHICLE_COPY.addCost}
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            setEditingItem(null)
-            setItemFormOpen(true)
-          }}
-        >
-          {VEHICLE_COPY.addItem}
-        </Button>
-        {items.length === 0 && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void reported(seedPlan(vehicle.id))}
-          >
-            {VEHICLE_COPY.seedPlan}
-          </Button>
-        )}
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => {
-            setEditingVehicle(true)
-            setVehicleFormOpen(true)
-          }}
-        >
-          {VEHICLE_COPY.editVehicle}
-        </Button>
-        {/* A second car was storable, scopable and switchable from the day
-            this shipped — but this button existed only in the empty state, so
-            the switcher above could never appear. The whole multi-car path was
-            unreachable for want of an entry point. */}
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => {
-            setEditingVehicle(false)
-            setVehicleFormOpen(true)
-          }}
-        >
-          {VEHICLE_COPY.addVehicle}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-muted-foreground"
-          onClick={() => setDeletingVehicle(true)}
-        >
-          {VEHICLE_COPY.deleteVehicle}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button size="sm" variant="outline">
+                <MoreHorizontal className="size-4" />
+                {VEHICLE_COPY.manageVehicle}
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuItem
+              onClick={() => {
+                setEditingItem(null)
+                setItemFormOpen(true)
+              }}
+            >
+              <Plus className="size-4" />
+              {VEHICLE_COPY.addItem}
+            </DropdownMenuItem>
+            {items.length === 0 && (
+              <DropdownMenuItem
+                onClick={() => void reported(seedPlan(vehicle.id))}
+              >
+                {VEHICLE_COPY.seedPlan}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
+                setEditingVehicle(true)
+                setVehicleFormOpen(true)
+              }}
+            >
+              <Pencil className="size-4" />
+              {VEHICLE_COPY.editVehicle}
+            </DropdownMenuItem>
+            {/* A second car remains reachable from the active-car state, which
+                is what makes the switcher above usable. */}
+            <DropdownMenuItem
+              onClick={() => {
+                setEditingVehicle(false)
+                setVehicleFormOpen(true)
+              }}
+            >
+              <Plus className="size-4" />
+              {VEHICLE_COPY.addVehicle}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setDeletingVehicle(true)}
+            >
+              <Trash2 className="size-4" />
+              {VEHICLE_COPY.deleteVehicle}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* 1. What it cost. */}
