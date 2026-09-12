@@ -124,6 +124,12 @@ const NET_INVESTED_LABEL = "Net invested"
  *  the first deposit, so it is a total, not a period gain. */
 const SINCE_FIRST_DEPOSIT_LABEL = "since first deposit"
 
+/** Value movement is not investment performance: deposits and withdrawals
+ * move the account balance too. Keep that distinction visible beside the
+ * number instead of hiding it in a tooltip. */
+const VALUE_CHANGE_LABEL = "Value change"
+const CASH_FLOW_INCLUSIVE_LABEL = "includes deposits & withdrawals"
+
 /** The chip that marks a sampled/estimated series, and its explainer. A
  *  `title` here never fired on touch, so the one thing that says WHY the
  *  numbers are approximate was unreachable on a phone. */
@@ -558,40 +564,45 @@ export default function DashboardHero({
             </p>
           )}
           {viewMode === "value" ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <span className={cn("font-medium", periodColor)}>
-                {formatSignedMoney(periodDeltaValue, currency, obfuscated)}
-              </span>
-              {/* The % is null when the window has no real starting base
-                  (ALL's $0 anchor, or a range reaching before the portfolio
-                  existed) — a Δ against ~$0 has no meaningful %, so it is
-                  hidden, not fabricated. The amount then says what it IS
-                  measured from, in the neutral tone: it is the whole
-                  portfolio, not a gain. */}
-              {hasStartingBase ? (
-                <>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">
+                {hasStartingBase ? (
+                  <>
+                    {VALUE_CHANGE_LABEL} · {RANGE_LABELS[timeRange]}
+                  </>
+                ) : (
+                  <>Value {SINCE_FIRST_DEPOSIT_LABEL}</>
+                )}{" "}
+                <span className="whitespace-nowrap">
+                  · {CASH_FLOW_INCLUSIVE_LABEL}
+                </span>
+              </p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <span className={cn("font-medium", periodColor)}>
+                  {formatSignedMoney(periodDeltaValue, currency, obfuscated)}
+                </span>
+                {/* The % is null when the window has no real starting base
+                    (ALL's $0 anchor, or a range reaching before the portfolio
+                    existed) — a Δ against ~$0 has no meaningful %, so it is
+                    hidden, not fabricated. The amount then says what it IS
+                    measured from, in the neutral tone: it is the whole
+                    portfolio, not a gain. */}
+                {hasStartingBase && (
                   <span className={cn("font-medium", periodColor)}>
                     {formatSignedPercent(delta.pct as number, DECIMALS.percentage)}
                   </span>
-                  <span className="font-normal text-muted-foreground">
-                    {RANGE_LABELS[timeRange]}
+                )}
+                <span className={cn("text-muted-foreground", CHIP_SEPARATOR)}>
+                  {NET_INVESTED_LABEL}{" "}
+                  <span className="font-medium text-foreground">
+                    {formatMoney(
+                      currency === "USD" ? compareNow.usd : compareNow.try,
+                      currency,
+                      obfuscated,
+                    )}
                   </span>
-                </>
-              ) : (
-                <span className="font-normal text-muted-foreground">
-                  {SINCE_FIRST_DEPOSIT_LABEL}
                 </span>
-              )}
-              <span className={cn("text-muted-foreground", CHIP_SEPARATOR)}>
-                {NET_INVESTED_LABEL}{" "}
-                <span className="font-medium text-foreground">
-                  {formatMoney(
-                    currency === "USD" ? compareNow.usd : compareNow.try,
-                    currency,
-                    obfuscated,
-                  )}
-                </span>
-              </span>
+              </div>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
