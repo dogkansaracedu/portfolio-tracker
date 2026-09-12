@@ -143,23 +143,37 @@ export default function DashboardPage() {
 
       <FinancialOverview liveValueUsd={pnl.totalValueUsd} />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Suspense fallback={<RouteSkeleton />}>
-          <AllocationChart
-            byAllocation={byAllocation}
-            totalValueUsd={totalValueUsd}
-            totalValueTry={totalValueTry}
-          />
-        </Suspense>
-        <PlatformBreakdown byPlatform={byPlatform} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <TopMovers topMovers={topMovers} />
-        <CurrencyBreakdown byCurrency={byCurrency} />
-      </div>
-
-      <ForeignIncomeCard />
+      <section className="space-y-2" aria-labelledby="portfolio-breakdowns-title">
+        <div className="flex items-baseline justify-between gap-3 md:hidden">
+          <h2 id="portfolio-breakdowns-title" className="text-sm font-semibold">
+            Portfolio breakdowns
+          </h2>
+          <p className="text-xs text-muted-foreground">Swipe to explore</p>
+        </div>
+        <div className="grid snap-x snap-mandatory grid-flow-col auto-cols-[88%] gap-4 overflow-x-auto pb-2 md:grid-flow-row md:auto-cols-auto md:grid-cols-2 md:overflow-visible md:pb-0">
+          <div className="snap-start">
+            <Suspense fallback={<RouteSkeleton />}>
+              <AllocationChart
+                byAllocation={byAllocation}
+                totalValueUsd={totalValueUsd}
+                totalValueTry={totalValueTry}
+              />
+            </Suspense>
+          </div>
+          <div className="snap-start">
+            <PlatformBreakdown byPlatform={byPlatform} />
+          </div>
+          <div className="snap-start">
+            <TopMovers topMovers={topMovers} />
+          </div>
+          <div className="snap-start">
+            <CurrencyBreakdown byCurrency={byCurrency} />
+          </div>
+          <div className="snap-start md:col-span-2">
+            <ForeignIncomeCard />
+          </div>
+        </div>
+      </section>
     </div>
   )
 }
