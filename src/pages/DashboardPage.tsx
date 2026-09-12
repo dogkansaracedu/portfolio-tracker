@@ -11,7 +11,6 @@ import CurrencyBreakdown from "@/components/dashboard/CurrencyBreakdown"
 import TopMovers from "@/components/dashboard/TopMovers"
 import ForeignIncomeCard from "@/components/dashboard/ForeignIncomeCard"
 import { InterestAlerts } from "@/components/dashboard/InterestAlerts"
-import { VehicleAlerts } from "@/components/dashboard/VehicleAlerts"
 import FinancialOverview from "@/components/dashboard/FinancialOverview"
 
 function SkeletonCard({ className }: { className?: string }) {
@@ -124,10 +123,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      {/* Above the fold: a term quietly ending is the one thing on this page
-          that needs a decision this week (Component 16). */}
+      {/* Above the fold: keep the portfolio itself primary while preserving
+          the time-sensitive investment alert. */}
       <InterestAlerts />
-      <VehicleAlerts />
 
       <Suspense fallback={<RouteSkeleton />}>
         <DashboardHero
@@ -140,8 +138,6 @@ export default function DashboardPage() {
           usdTry={usdTry}
         />
       </Suspense>
-
-      <FinancialOverview liveValueUsd={pnl.totalValueUsd} />
 
       <section className="space-y-2" aria-labelledby="portfolio-breakdowns-title">
         <div className="flex items-baseline justify-between gap-3 md:hidden">
@@ -174,6 +170,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      <FinancialOverview liveValueUsd={pnl.totalValueUsd} />
     </div>
   )
 }
