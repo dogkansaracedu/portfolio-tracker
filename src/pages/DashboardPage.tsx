@@ -12,6 +12,7 @@ import TopMovers from "@/components/dashboard/TopMovers"
 import ForeignIncomeCard from "@/components/dashboard/ForeignIncomeCard"
 import { InterestAlerts } from "@/components/dashboard/InterestAlerts"
 import { VehicleAlerts } from "@/components/dashboard/VehicleAlerts"
+import FinancialOverview from "@/components/dashboard/FinancialOverview"
 
 function SkeletonCard({ className }: { className?: string }) {
   return (
@@ -139,6 +140,8 @@ export default function DashboardPage() {
           usdTry={usdTry}
         />
       </Suspense>
+
+      <FinancialOverview liveValueUsd={pnl.totalValueUsd} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Suspense fallback={<RouteSkeleton />}>
