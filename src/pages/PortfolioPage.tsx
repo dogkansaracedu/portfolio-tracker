@@ -1,3 +1,5 @@
+import { useEffect } from "react"
+import { useSearchParams } from "react-router"
 import { PageHeading } from "@/components/common/PageHeading"
 import { PortfolioSummaryBar } from "@/components/portfolio/PortfolioSummaryBar"
 import { PortfolioFilters } from "@/components/portfolio/PortfolioFilters"
@@ -5,6 +7,7 @@ import { PortfolioTable } from "@/components/portfolio/PortfolioTable"
 import { usePortfolio } from "@/hooks/usePortfolio"
 
 export default function PortfolioPage() {
+  const [searchParams] = useSearchParams()
   const {
     groups,
     totalValueUsd,
@@ -26,6 +29,13 @@ export default function PortfolioPage() {
     setReturnMode,
     dailyReturnAvailable,
   } = usePortfolio()
+
+  const requestedGroupBy = searchParams.get("groupBy")
+  useEffect(() => {
+    if (requestedGroupBy === "platform" || requestedGroupBy === "category") {
+      setGroupBy(requestedGroupBy)
+    }
+  }, [requestedGroupBy, setGroupBy])
 
   return (
     <div className="space-y-6">
