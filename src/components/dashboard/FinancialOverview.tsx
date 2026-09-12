@@ -1,11 +1,10 @@
-import { ArrowRight, CarFront, PiggyBank, WalletCards } from "lucide-react"
+import { ArrowRight, PiggyBank, WalletCards } from "lucide-react"
 import { Link } from "react-router"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { useBudget } from "@/hooks/useBudget"
 import { usePlanTracking } from "@/hooks/usePlanTracking"
 import { useRetirementScenarios } from "@/hooks/useRetirementScenarios"
-import { useVehicleAlerts } from "@/hooks/useVehicle"
 import { bn } from "@/lib/config"
 import { formatPlanDay } from "@/components/retirement/display"
 import { formatCurrency, obfuscate } from "@/lib/prices"
@@ -63,7 +62,6 @@ export default function FinancialOverview({
   const { rows, currentMonth, loading: budgetLoading } = useBudget()
   const { defaultScenario, loading: retirementLoading } =
     useRetirementScenarios()
-  const { overdue, dueSoon } = useVehicleAlerts()
 
   const currentBudget = rows.find((row) => row.month === currentMonth) ?? null
   const planStart = defaultScenario?.plan_start ?? null
@@ -117,18 +115,6 @@ export default function FinancialOverview({
           : "text-emerald-600"
   }
 
-  const dueCount = overdue.length + dueSoon.length
-  const vehicleValue =
-    overdue.length > 0
-      ? `${overdue.length} maintenance ${overdue.length === 1 ? "item" : "items"} overdue`
-      : dueSoon.length > 0
-        ? `${dueSoon.length} due soon`
-        : "Maintenance on track"
-  const vehicleDetail =
-    dueCount > 0
-      ? "Review the maintenance schedule"
-      : "No urgent vehicle tasks"
-
   return (
     <Card>
       <CardHeader>
@@ -137,7 +123,7 @@ export default function FinancialOverview({
           The decisions beyond today's portfolio value.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid snap-x snap-mandatory grid-flow-col auto-cols-[88%] gap-2 overflow-x-auto pb-1 md:grid-flow-row md:auto-cols-auto md:grid-cols-3 md:overflow-visible md:pb-0">
+      <CardContent className="grid snap-x snap-mandatory grid-flow-col auto-cols-[88%] gap-2 overflow-x-auto pb-1 md:grid-flow-row md:auto-cols-auto md:grid-cols-2 md:overflow-visible md:pb-0">
         <OverviewItem
           to="/budget"
           icon={WalletCards}
@@ -152,14 +138,6 @@ export default function FinancialOverview({
           value={retirementValue}
           detail={retirementDetail}
           tone={retirementTone}
-        />
-        <OverviewItem
-          to="/vehicle"
-          icon={CarFront}
-          label="Vehicle"
-          value={vehicleValue}
-          detail={vehicleDetail}
-          tone={overdue.length > 0 ? "text-red-500" : "text-foreground"}
         />
       </CardContent>
     </Card>
