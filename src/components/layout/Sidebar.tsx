@@ -7,7 +7,7 @@ import BuildBadge from "@/components/common/BuildBadge"
 export default function Sidebar() {
   const { pathname } = useLocation()
   return (
-    <aside className="hidden md:flex md:w-60 md:flex-col md:border-r bg-sidebar">
+    <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:border-r bg-sidebar">
       <div className="flex h-14 items-center gap-2.5 border-b px-4">
         <Logo size={26} />
         <span className="text-base font-semibold tracking-tight">{APP_NAME}</span>

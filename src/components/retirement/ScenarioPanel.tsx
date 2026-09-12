@@ -345,6 +345,7 @@ export function ScenarioPanel({ planner }: { planner: RetirementPlanner }) {
               value={inputs.withdrawalStrategy}
               options={STRATEGY_OPTIONS}
               onChange={(next) => patch({ withdrawalStrategy: next })}
+              ariaLabel="Withdrawal strategy"
             />
           </div>
         </div>

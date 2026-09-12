@@ -145,7 +145,7 @@ export function AssetPositionSummary({
 
   if (!held) {
     return (
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card size="sm" className="col-span-2">
           <CardContent>
             <p className="text-xs text-muted-foreground">Position</p>
@@ -197,7 +197,7 @@ export function AssetPositionSummary({
   return (
     // The three promoted cards lead, so on a phone (one column) the answers
     // arrive before the supporting figures.
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Stat label="Value" emphasis>
         {display(displayValue)}
       </Stat>
@@ -211,7 +211,7 @@ export function AssetPositionSummary({
 
       {/* Two columns on a phone, three promoted stats: the third takes the
           whole row so a promoted figure never sits beside a demoted one. */}
-      <Stat label={DAILY_RETURN_LABEL} emphasis className="max-md:col-span-2">
+      <Stat label={DAILY_RETURN_LABEL} emphasis className="max-lg:col-span-2">
         {dailyReturnAvailable ? (
           <span className={gainLossToneClass(enriched.dailyReturnUsd)}>
             {signedMoney(enriched.dailyReturnUsd)}
