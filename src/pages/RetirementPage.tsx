@@ -62,6 +62,7 @@ export default function RetirementPage() {
             value={valueView}
             options={VALUE_VIEW_OPTIONS}
             onChange={setValueView}
+            ariaLabel="Value view"
           />
           {display.isReal && (
             <span className="text-xs text-muted-foreground">

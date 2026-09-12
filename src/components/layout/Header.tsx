@@ -41,10 +41,10 @@ export default function Header() {
 
   return (
     <header className="flex h-14 items-center justify-between gap-1 border-b px-4 sm:gap-2 md:px-6">
-      <h1 className="truncate text-base font-semibold sm:text-lg md:hidden">
+      <h1 className="truncate text-base font-semibold sm:text-lg lg:hidden">
         {title}
       </h1>
-      <div className="hidden md:block" />
+      <div className="hidden lg:block" />
       {/* Tight gaps below `sm`: the five controls are 40px tap targets there
           (M-07) and the row still has to hold the page title beside them. */}
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">

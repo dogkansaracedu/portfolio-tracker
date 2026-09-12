@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Trash2 } from "lucide-react"
+import { Pencil, Trash2 } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -138,13 +138,13 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
         <CardTitle className="text-sm font-medium">Months</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Below `sm` the five columns squeeze Spent — the column the page
-            exists for — off the side, so Invested drops out of the row and
-            rides under Income as a caption instead. */}
-        {/* `Table` brings its own overflow container. Below `sm` the cells lose
-            their side padding and the heads may wrap, which is what lets the
-            four columns fit 326px without a sideways scroll. */}
-        <Table className="max-sm:text-xs max-sm:[&_td]:px-1 max-sm:[&_th]:px-1 max-sm:[&_td]:whitespace-normal max-sm:[&_th]:whitespace-normal">
+        {/* Below `lg` the compact shell keeps Invested under Income. This avoids
+            making a five-column desktop table compete with the navigation rail
+            around the tablet breakpoint. */}
+        {/* `Table` brings its own overflow container. Compact cells lose their
+            side padding and the heads may wrap, which lets the four columns fit
+            without a sideways scroll. */}
+        <Table className="max-lg:text-xs max-lg:[&_td]:px-1 max-lg:[&_th]:px-1 max-lg:[&_td]:whitespace-normal max-lg:[&_th]:whitespace-normal">
             <TableHeader>
               <TableRow>
                 <TableHead>Month</TableHead>
@@ -160,7 +160,7 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                     />
                   </span>
                 </TableHead>
-                <TableHead className="hidden text-right sm:table-cell">
+                <TableHead className="hidden text-right lg:table-cell">
                   {BUDGET_SERIES_LABELS.invested}
                 </TableHead>
                 <TableHead className="text-right">Spent</TableHead>
@@ -180,7 +180,7 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                       {row.month === currentMonth && (
                         <Badge
                           variant="outline"
-                          className="ml-2 max-sm:mt-1 max-sm:ml-0 max-sm:block max-sm:w-fit"
+                          className="ml-2 max-lg:mt-1 max-lg:ml-0 max-lg:block max-lg:w-fit"
                         >
                           {IN_PROGRESS_LABEL}
                         </Badge>
@@ -220,23 +220,30 @@ export function MonthlyBudgetTable({ rows, currentMonth, currency }: Props) {
                       ) : (
                         <button
                           type="button"
-                          className="cursor-pointer underline-offset-4 hover:underline"
+                          aria-label={`Edit income for ${monthLabel(row.month)}`}
+                          className="group ml-auto inline-flex min-h-8 cursor-pointer items-center justify-end gap-1 rounded-md px-1 underline-offset-4 hover:bg-muted hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 max-lg:min-h-10"
                           onClick={() => startEditing(row)}
                         >
-                          {money(legFor(row, "income", currency))}
-                          {row.incomeSource === "default" && (
-                            <span className="ml-1 text-xs text-muted-foreground max-sm:ml-0 max-sm:block">
-                              ({DEFAULT_INCOME_LABEL})
-                            </span>
-                          )}
+                          <span>
+                            {money(legFor(row, "income", currency))}
+                            {row.incomeSource === "default" && (
+                              <span className="ml-1 text-xs text-muted-foreground max-lg:ml-0 max-lg:block">
+                                ({DEFAULT_INCOME_LABEL})
+                              </span>
+                            )}
+                          </span>
+                          <Pencil
+                            aria-hidden="true"
+                            className="size-3.5 shrink-0 text-muted-foreground"
+                          />
                         </button>
                       )}
-                      <span className="block text-[0.6875rem] text-muted-foreground sm:hidden">
+                      <span className="block text-[0.6875rem] text-muted-foreground lg:hidden">
                         {BUDGET_SERIES_LABELS.invested}{" "}
                         {money(legFor(row, "invested", currency))}
                       </span>
                     </TableCell>
-                    <TableCell className="hidden text-right sm:table-cell">
+                    <TableCell className="hidden text-right lg:table-cell">
                       {money(legFor(row, "invested", currency))}
                     </TableCell>
                     <TableCell className="text-right">
