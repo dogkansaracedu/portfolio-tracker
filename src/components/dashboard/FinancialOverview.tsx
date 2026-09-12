@@ -34,7 +34,7 @@ function OverviewItem({
   return (
     <Link
       to={to}
-      className="group flex min-w-0 items-start gap-3 rounded-xl border p-3 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="group flex min-w-0 snap-start items-start gap-3 rounded-xl border p-3 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       aria-label={`${label}: ${value}. ${detail}`}
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -137,7 +137,7 @@ export default function FinancialOverview({
           The decisions beyond today's portfolio value.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-2 md:grid-cols-3">
+      <CardContent className="grid snap-x snap-mandatory grid-flow-col auto-cols-[88%] gap-2 overflow-x-auto pb-1 md:grid-flow-row md:auto-cols-auto md:grid-cols-3 md:overflow-visible md:pb-0">
         <OverviewItem
           to="/budget"
           icon={WalletCards}
