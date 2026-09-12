@@ -1,4 +1,12 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowRight } from "lucide-react"
+import { Link } from "react-router"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { formatMoney } from "@/lib/prices"
 
@@ -13,6 +21,9 @@ export interface AllocationBreakdownRow {
 
 interface Props {
   title: string
+  description?: string
+  actionLabel: string
+  actionTo: string
   /** Shown in place of the list when there is nothing to break down. */
   emptyText: string
   rows: AllocationBreakdownRow[]
@@ -26,7 +37,14 @@ interface Props {
  * in where the colour comes from, which is their own business, so each stays a
  * mapper over its own allocation type.
  */
-export function AllocationBreakdown({ title, emptyText, rows }: Props) {
+export function AllocationBreakdown({
+  title,
+  description,
+  actionLabel,
+  actionTo,
+  emptyText,
+  rows,
+}: Props) {
   const { currency, obfuscated } = useDisplayCurrency()
 
   if (rows.length === 0) {
@@ -34,6 +52,7 @@ export function AllocationBreakdown({ title, emptyText, rows }: Props) {
       <Card className="flex flex-col">
         <CardHeader>
           <CardTitle>{title}</CardTitle>
+          {description && <CardDescription>{description}</CardDescription>}
         </CardHeader>
         <CardContent className="flex flex-1 items-center justify-center">
           <p className="text-muted-foreground">{emptyText}</p>
@@ -45,7 +64,19 @@ export function AllocationBreakdown({ title, emptyText, rows }: Props) {
   return (
     <Card className="flex flex-col">
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <CardTitle>{title}</CardTitle>
+            {description && <CardDescription>{description}</CardDescription>}
+          </div>
+          <Link
+            to={actionTo}
+            className="group inline-flex min-h-10 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            {actionLabel}
+            <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {rows.map((row) => {

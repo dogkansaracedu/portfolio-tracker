@@ -1,6 +1,14 @@
 import { useState } from "react"
+import { ArrowRight } from "lucide-react"
+import { Link } from "react-router"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { useDisplayCurrency } from "@/contexts/DisplayContext"
 import { formatMoney } from "@/lib/prices"
 import { CURRENCY_CHART_COLORS } from "@/lib/constants/currencies"
@@ -95,11 +103,29 @@ export default function AllocationChart({
 
   const active = activeKey ? meta.get(activeKey) : null
   const centerValue = active ? active.value : totalValue
+  const largest = byAllocation[0]
+  const exposureDescription = largest
+    ? `${largest.percentage >= 50 ? "Concentrated" : "Largest asset class"}: ${labelFor(largest.key)} at ${largest.percentage.toFixed(1)}%`
+    : null
 
   return (
     <Card className="flex flex-col">
       <CardHeader>
-        <CardTitle>Allocation</CardTitle>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <CardTitle>Allocation</CardTitle>
+            {exposureDescription && (
+              <CardDescription>{exposureDescription}</CardDescription>
+            )}
+          </div>
+          <Link
+            to="/portfolio?groupBy=category"
+            className="group inline-flex min-h-10 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            View assets
+            <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col items-center gap-3">
         <div className="relative h-[220px] w-full">

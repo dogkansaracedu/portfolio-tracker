@@ -12,9 +12,17 @@ interface CurrencyBreakdownProps {
 export default function CurrencyBreakdown({
   byCurrency,
 }: CurrencyBreakdownProps) {
+  const largest = byCurrency[0]
+  const description = largest
+    ? `${largest.percentage >= 50 ? "Concentrated" : "Largest currency"}: ${largest.currency} at ${largest.percentage.toFixed(1)}%`
+    : undefined
+
   return (
     <AllocationBreakdown
       title="Currencies"
+      description={description}
+      actionLabel="View assets"
+      actionTo="/portfolio?groupBy=category"
       emptyText="No currencies to display."
       rows={byCurrency.map((c) => ({
         label: c.currency,
