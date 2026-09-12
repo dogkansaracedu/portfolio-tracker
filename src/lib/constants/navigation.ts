@@ -6,6 +6,7 @@ import {
   PiggyBank,
   Wallet,
   Megaphone,
+  FileCheck2,
   Car,
   Settings,
   Ellipsis,
@@ -31,6 +32,7 @@ export const secondaryNavItems = [
   { to: "/retirement", label: "Retirement", icon: PiggyBank },
   { to: "/budget", label: "Budget", icon: Wallet },
   { to: "/campaigns", label: CAMPAIGN_COPY.navLabel, icon: Megaphone },
+  { to: "/foreign-income", label: "Foreign income", icon: FileCheck2 },
   { to: VEHICLE_ROUTE, label: VEHICLE_COPY.navLabel, icon: Car },
   { to: "/settings", label: "Settings", icon: Settings },
 ]

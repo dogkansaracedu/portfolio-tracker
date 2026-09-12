@@ -195,6 +195,24 @@ export interface BudgetTarget {
   created_at: string;
 }
 
+// ─── Foreign-income reconciliation ─────────────────────────────────
+// A saved comparison only. Portfolio transactions remain authoritative and
+// every live total is re-derived from them.
+
+export interface ForeignIncomeReconciliation {
+  id: string;
+  user_id: string;
+  tax_year: number;
+  statement_amount_try: number;
+  /** App-derived amount at the moment this comparison was saved. */
+  recorded_amount_try: number;
+  /** Deterministic digest of every contributing transaction and FX result. */
+  recorded_fingerprint: string;
+  note: string | null;
+  reconciled_at: string;
+  created_at: string;
+}
+
 // ─── Campaigns (Component 15) ───────────────────────────────────────
 //
 // Global, service-written tables (same shape of trust as `price_cache`): a
@@ -382,6 +400,14 @@ export type IncomeDefaultInsert = Omit<IncomeDefault, "id" | "created_at"> & {
 export type IncomeDefaultUpdate = Partial<
   Omit<IncomeDefault, "id" | "user_id" | "created_at"> & { amount: number | string }
 >;
+
+export type ForeignIncomeReconciliationInsert = Omit<
+  ForeignIncomeReconciliation,
+  "id" | "statement_amount_try" | "recorded_amount_try" | "reconciled_at" | "created_at"
+> & {
+  statement_amount_try: number | string;
+  recorded_amount_try: number | string;
+};
 
 // `quantity` and `apr` are both numeric columns, so both accept a
 // BigNumber.toFixed() string on write. is_closed is optional on insert: the

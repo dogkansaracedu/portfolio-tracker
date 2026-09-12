@@ -81,14 +81,16 @@ gain/loss palette. Assets whose currency can't be resolved fall back to USD.
 **Foreign-income heads-up.** A "Foreign income · <year>" card tracking the
 current tax year's [foreign-declarable income](GLOSSARY.md#foreign-declarable-income)
 — non-TRY dividend + interest with no [at-source tax](GLOSSARY.md#at-source-tax),
-converted to TRY — against the Turkish declaration threshold (22,000 TL). PPF and
+converted to TRY — against the configured threshold for that tax year. PPF and
 other at-source-taxed income are excluded. Shows the YTD amount, the threshold,
 the percent of it reached, and a progress bar that turns **amber at ≥ 80 %** and
 **red once the threshold is crossed**. The first time the threshold is crossed in a
-given tax year, a one-shot in-app notification nudges the user that the income now
-has to be declared; it fires once per tax year per browser and never re-fires on
-later visits. The tax year follows the portfolio's home timezone, so it flips at
-the right local midnight.
+given tax year, a one-shot in-app notification nudges the user to review the
+filing requirement; it fires once per tax year per browser and never re-fires on
+later visits. Unknown-year thresholds are shown as unconfigured rather than
+silently reusing an old legal amount. The card links to Component 18's payment
+trail and append-only comparison history. The tax year follows the portfolio's
+home timezone, so it flips at the right local midnight.
 
 **Top movers.** The handful of assets (excluding fiat/cash) with the largest
 absolute [USD-anchored](GLOSSARY.md#usd-anchor) unrealized gain/loss. Each shows
@@ -304,7 +306,8 @@ display state.
   Colours come from the shared currency palette (see Allocation).
 - **Foreign-income heads-up:** a "Foreign income · <year>" card — YTD TRY amount,
   the threshold, the percent reached, and a progress bar (default → amber at ≥ 80 %
-  → red once crossed); a one-shot notification on the first crossing of the tax year.
+  → red once crossed); cautious "review filing requirement" copy, a one-shot
+  notification on the first crossing of the tax year, and a reconciliation link.
 - **Top movers:** compact rows — asset icon + ticker, gain/loss amount, gain/loss
   percent; gain/loss colored; empty-state copy when none.
 - **Hero:** view-mode switch (Performance | Value), **defaulting to Performance**;

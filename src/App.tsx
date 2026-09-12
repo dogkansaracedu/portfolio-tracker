@@ -17,6 +17,7 @@ const PerformancePage = lazy(() => import("@/pages/PerformancePage"))
 const RetirementPage = lazy(() => import("@/pages/RetirementPage"))
 const BudgetPage = lazy(() => import("@/pages/BudgetPage"))
 const CampaignsPage = lazy(() => import("@/pages/CampaignsPage"))
+const ForeignIncomePage = lazy(() => import("@/pages/ForeignIncomePage"))
 const VehiclePage = lazy(() => import("@/pages/VehiclePage"))
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
 
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="retirement" element={<Lazy><RetirementPage /></Lazy>} />
             <Route path="budget" element={<Lazy><BudgetPage /></Lazy>} />
             <Route path="campaigns" element={<Lazy><CampaignsPage /></Lazy>} />
+            <Route path="foreign-income" element={<Lazy><ForeignIncomePage /></Lazy>} />
             <Route path="vehicle" element={<Lazy><VehiclePage /></Lazy>} />
             <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />
             {/* Mobile nav hub — eager: tapping the More tab must not show a skeleton. */}

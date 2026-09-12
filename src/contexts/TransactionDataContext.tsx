@@ -17,6 +17,7 @@ interface TransactionDataValue {
   transactions: Transaction[]
   rates: ExchangeRate[]
   loading: boolean
+  error: string | null
   refresh: () => Promise<void>
 }
 
@@ -27,6 +28,7 @@ export function TransactionDataProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [rates, setRates] = useState<ExchangeRate[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // External (mutation-driven) refresh. Mutation flows are user-initiated
   // single events, so cancellation is unnecessary here.
@@ -34,10 +36,12 @@ export function TransactionDataProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setTransactions([])
       setRates([])
+      setError(null)
       setLoading(false)
       return
     }
     setLoading(true)
+    setError(null)
     try {
       const [tx, rt] = await Promise.all([
         fetchTransactionsForAllAssets(user.id),
@@ -47,6 +51,9 @@ export function TransactionDataProvider({ children }: { children: ReactNode }) {
       setRates(rt)
     } catch (err) {
       console.error("TransactionDataProvider load failed:", err)
+      setError(
+        err instanceof Error ? err.message : "Failed to load transaction data",
+      )
     } finally {
       setLoading(false)
     }
@@ -63,11 +70,15 @@ export function TransactionDataProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           setTransactions([])
           setRates([])
+          setError(null)
           setLoading(false)
         }
         return
       }
-      if (!cancelled) setLoading(true)
+      if (!cancelled) {
+        setLoading(true)
+        setError(null)
+      }
       try {
         const [tx, rt] = await Promise.all([
           fetchTransactionsForAllAssets(user.id),
@@ -79,6 +90,13 @@ export function TransactionDataProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error("TransactionDataProvider load failed:", err)
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load transaction data",
+          )
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -90,7 +108,9 @@ export function TransactionDataProvider({ children }: { children: ReactNode }) {
   }, [user])
 
   return (
-    <TransactionDataContext.Provider value={{ transactions, rates, loading, refresh }}>
+    <TransactionDataContext.Provider
+      value={{ transactions, rates, loading, error, refresh }}
+    >
       {children}
     </TransactionDataContext.Provider>
   )
