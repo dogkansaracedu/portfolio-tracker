@@ -86,10 +86,11 @@
   ticker + signed amount/percent.
 - `src/hooks/useDashboard.ts` — breakdown engine (below).
 - `src/hooks/useDashboardHero.ts` — hero time-series + delta engine (below).
-- `src/hooks/useForeignIncomeYtd.ts` — foreign-income heads-up view-model (below).
-- `src/lib/constants/tax.ts` — `FOREIGN_INCOME_DECLARATION_THRESHOLD_TRY` (22000),
-  the Turkish GVK 86/1-d annual declaration threshold (revalues yearly; verify each
-  tax year). No hardcoded threshold literal lives in the hook or card.
+- `src/hooks/useForeignIncomeYtd.ts` — year-aware foreign-income view-model shared
+  with Component 18; the dashboard wrapper selects the current home-timezone year.
+- `src/lib/constants/tax.ts` — year-indexed thresholds plus
+  `foreignIncomeDeclarationThresholdTry(year)`, which returns null for unknown
+  years rather than reusing a stale legal amount.
 - `src/contexts/DisplayContext.tsx` — `currency` (USD/TRY) + `obfuscated`, both
   `localStorage`-backed (`portfolio-display-currency`, `portfolio-obfuscated`);
   exposes `toggleCurrency`/`toggleObfuscated` via `useDisplayCurrency()`.
@@ -214,18 +215,17 @@
 
 ### `useForeignIncomeYtd.ts` specifics
 
-- Wires the pure helpers `foreignDeclarableAssetIds(assets)` +
-  `computeForeignIncomeTry(transactions, rates, year, declarable)` (from
-  `@/lib/pnl/foreign-income`) to live data via `useAssets` + `useTransactionData`;
-  `loading` is the OR of both. No money math here — it just `.toNumber()`s the
-  BigNumber result at the boundary.
+- Wires `foreignDeclarableAssetIds(assets)` +
+  `foreignIncomeEntries(transactions, rates, year, declarable)` (from
+  `@/lib/pnl/foreign-income`) to live data via `useAssets` +
+  `useTransactionData`; the entry fold, fingerprint, available years, and source
+  errors are shared with the reconciliation page.
 - `year = Number(homeDayIso().slice(0, 4))` — the calendar/tax year comes from the
   portfolio's home timezone (`homeDayIso`, `@/lib/config`) so it flips at the right
   local midnight, not the browser's.
-- Returns `{ ytdTry, threshold, year, pct, crossed, loading }`: `threshold =
-  FOREIGN_INCOME_DECLARATION_THRESHOLD_TRY`, `pct = ytdTry / threshold × 100`
-  (guarded at 0, can exceed 100), `crossed = ytdTry > threshold`. Memoized on the
-  inputs.
+- Returns the amount, entries, fingerprint, year-specific threshold, percentage,
+  crossing state, available years, loading/error states, and retry. `pct` is null
+  when the year's threshold is unknown; the card renders that uncertainty.
 
 ### Hero rendering specifics (`DashboardHero.tsx`)
 

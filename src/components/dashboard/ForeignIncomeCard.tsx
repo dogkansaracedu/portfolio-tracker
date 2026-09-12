@@ -1,4 +1,6 @@
 import { useEffect } from "react"
+import { ArrowRight } from "lucide-react"
+import { Link } from "react-router"
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/prices"
@@ -6,31 +8,32 @@ import { useForeignIncomeYtd } from "@/hooks/useForeignIncomeYtd"
 import { cn } from "@/lib/utils"
 
 export default function ForeignIncomeCard() {
-  const { ytdTry, threshold, year, pct, crossed, loading } =
+  const { ytdTry, threshold, year, pct, crossed, loading, error } =
     useForeignIncomeYtd()
 
   // One-shot per tax year per browser: nudge the first time the threshold is
   // crossed, then remember so we don't re-toast on every render/visit.
   useEffect(() => {
-    if (loading || !crossed) return
+    if (loading || !crossed || threshold === null) return
     const key = `foreign-income-notified-${year}`
     if (localStorage.getItem(key)) return
     localStorage.setItem(key, "1")
     toast.warning(`Foreign income over ₺${threshold.toLocaleString("tr-TR")}`, {
       description:
         `Your ${year} foreign dividends + interest crossed the declaration ` +
-        `threshold. It now has to go on next March's beyanname.`,
+        `threshold. Review whether it needs to be included in your filing.`,
     })
   }, [loading, crossed, year, threshold])
 
+  const thresholdPct = pct ?? 0
   const barColor = crossed
     ? "bg-red-500"
-    : pct >= 80
+    : thresholdPct >= 80
       ? "bg-amber-500"
       : "bg-primary"
 
-  const isProminent = crossed || pct >= 80
-  const progressNow = Math.min(Math.max(Math.round(pct), 0), 100)
+  const isProminent = crossed || thresholdPct >= 80 || error !== null
+  const progressNow = Math.min(Math.max(Math.round(thresholdPct), 0), 100)
   const progressMeter = (
     <div
       className="h-2 w-full overflow-hidden rounded-full bg-muted"
@@ -39,11 +42,15 @@ export default function ForeignIncomeCard() {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={progressNow}
-      aria-valuetext={`${pct.toFixed(0)}% of the declaration threshold`}
+      aria-valuetext={
+        pct === null
+          ? "Threshold not configured for this year"
+          : `${pct.toFixed(0)}% of the declaration threshold`
+      }
     >
       <div
         className={`h-full rounded-full transition-all ${barColor}`}
-        style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
+        style={{ width: `${Math.min(Math.max(thresholdPct, 0), 100)}%` }}
       />
     </div>
   )
@@ -65,8 +72,17 @@ export default function ForeignIncomeCard() {
                 {formatCurrency(ytdTry, "TRY")}
               </p>
               <p className="text-xs text-muted-foreground">
-                {pct.toFixed(0)}% of {formatCurrency(threshold, "TRY")}
+                {threshold === null || pct === null
+                  ? "Threshold not configured"
+                  : `${pct.toFixed(0)}% of ${formatCurrency(threshold, "TRY")}`}
               </p>
+              <Link
+                to="/foreign-income"
+                className="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Reconcile
+                <ArrowRight className="size-3" />
+              </Link>
             </div>
           </div>
           {progressMeter}
@@ -96,7 +112,11 @@ export default function ForeignIncomeCard() {
             )}
             role="status"
           >
-            {crossed ? "Declaration required" : "Approaching threshold"}
+            {error
+              ? "Needs attention"
+              : crossed
+                ? "Threshold crossed"
+                : "Approaching threshold"}
           </span>
         </div>
       </CardHeader>
@@ -106,15 +126,26 @@ export default function ForeignIncomeCard() {
             {formatCurrency(ytdTry, "TRY")}
           </span>
           <span className="text-sm text-muted-foreground">
-            / {formatCurrency(threshold, "TRY")} ({pct.toFixed(0)}%)
+            {threshold === null || pct === null
+              ? " · threshold not configured"
+              : ` / ${formatCurrency(threshold, "TRY")} (${pct.toFixed(0)}%)`}
           </span>
         </div>
         {progressMeter}
         <p className="text-xs text-muted-foreground">
-          Foreign (non-TRY) dividends + interest count toward the{" "}
-          {formatCurrency(threshold, "TRY")} declaration threshold. PPF and other
-          at-source-taxed income don't count.
+          {error
+            ? "The total could not be verified because a required data source failed to load."
+            : threshold === null
+              ? "The legal threshold for this tax year has not been configured. Review the recorded payments directly."
+              : `Foreign (non-TRY) dividends + interest are compared with the ${formatCurrency(threshold, "TRY")} threshold. PPF and other at-source-taxed income are excluded.`}
         </p>
+        <Link
+          to="/foreign-income"
+          className="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Reconcile payments
+          <ArrowRight className="size-3.5" />
+        </Link>
       </CardContent>
     </Card>
   )
