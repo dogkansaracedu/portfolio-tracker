@@ -42,7 +42,9 @@ declares one of:
   abbreviated PPF), which the equities source doesn't cover. The fund's
   daily **NAV** (its per-unit price, quoted in TRY) is the price, converted to
   the USD anchor like any other TRY-quoted asset. NAV publishes ~once a business
-  day, so these refresh on a daily-ish cadence with no market-hours gate.
+  day, so these refresh on a daily-ish cadence with no market-hours gate. The
+  source lists the current day before its NAV is known, as a zero; a zero is
+  never a price — the engine keeps the last published NAV instead.
 - **manual** → the user types the price in; the engine never overwrites it.
 
 The price-fetch **key is separate from the display symbol.** An asset shows a

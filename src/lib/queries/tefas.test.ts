@@ -1,10 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { fetchTefasHistory } from "../../../supabase/functions/_shared/tefas.ts"
+import {
+  fetchTefasHistory,
+  fetchTefasQuote,
+  pickLatestNav,
+} from "../../../supabase/functions/_shared/tefas.ts"
 
-// Tests for the shared TEFAS fetcher used by the `backfill-snapshots` Edge
-// Function. It lives under `supabase/functions/_shared/`, but the test sits in
-// `src/` because Vitest only includes `src/**/*.test.ts` — and importing the
-// module here also puts it under `tsc -b`, so the build gate typechecks it.
+// Tests for the shared TEFAS fetcher used by the `fetch-prices` (latest NAV)
+// and `backfill-snapshots` (NAV history) Edge Functions. It lives under
+// `supabase/functions/_shared/`, but the test sits in `src/` because Vitest
+// only includes `src/**/*.test.ts` — and importing the module here also puts
+// it under `tsc -b`, so the build gate typechecks it.
 
 const TEFAS_URL = "https://www.tefas.gov.tr/api/funds/fonFiyatBilgiGetir"
 
@@ -64,7 +69,7 @@ describe("fetchTefasHistory", () => {
     expect(sentBody(fetchMock)).toMatchObject({ fonKodu: "TP2", dil: "TR" })
   })
 
-  it("skips rows with a missing date or a missing/non-numeric NAV", async () => {
+  it("skips rows with a missing date or a missing/non-numeric/zero NAV", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
         resultList: [
@@ -72,6 +77,7 @@ describe("fetchTefasHistory", () => {
           { tarih: "2026-06-02" }, // no fiyat
           { tarih: "2026-06-03", fiyat: "1.961022" }, // string fiyat
           { fiyat: 1.96339 }, // no tarih
+          { tarih: "2026-06-04", fiyat: 0 }, // today's not-yet-published placeholder
           { tarih: "2026-06-05", fiyat: 1.965988 },
         ],
       }),
@@ -139,5 +145,95 @@ describe("fetchTefasHistory", () => {
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ resultList: [] }))
     expect((await fetchTefasHistory("TP2", "2026-06-01")).closes.size).toBe(0)
+  })
+})
+
+function navRow(tarih: string, fiyat: number) {
+  return { fonKodu: "TP2", fonUnvan: "TERA PORTFÖY PARA PİYASASI (TL) FONU", tarih, fiyat }
+}
+
+describe("pickLatestNav", () => {
+  it("returns the newest row that carries a positive NAV", () => {
+    const latest = pickLatestNav([navRow("2026-09-15", 2.240793), navRow("2026-09-16", 2.243343)])
+    expect(latest?.tarih).toBe("2026-09-16")
+    expect(latest?.fiyat).toBe(2.243343)
+  })
+
+  it("skips today's fiyat:0 placeholder and falls back to the last published NAV", () => {
+    // Exactly the 2026-09-18 TEFAS response for TP2: the two newest rows are 0.
+    // Booking that 0 froze every snapshot writer behind the unpriced guard.
+    const latest = pickLatestNav([
+      navRow("2026-09-16", 2.243343),
+      navRow("2026-09-17", 0),
+      navRow("2026-09-18", 0),
+    ])
+    expect(latest?.tarih).toBe("2026-09-16")
+    expect(latest?.fiyat).toBe(2.243343)
+  })
+
+  it("does not depend on the list being date-ascending", () => {
+    const latest = pickLatestNav([navRow("2026-09-16", 2.243343), navRow("2026-09-15", 2.240793)])
+    expect(latest?.tarih).toBe("2026-09-16")
+  })
+
+  it("returns null when no row has a positive NAV", () => {
+    expect(pickLatestNav([navRow("2026-09-18", 0), { tarih: "2026-09-17" }])).toBeNull()
+    expect(pickLatestNav([])).toBeNull()
+  })
+})
+
+describe("fetchTefasQuote", () => {
+  let fetchMock: ReturnType<typeof vi.fn<typeof fetch>>
+
+  beforeEach(() => {
+    fetchMock = vi.fn<typeof fetch>()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("quotes the last published NAV, in TRY, when the newest rows are zero", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        resultList: [navRow("2026-09-16", 2.243343), navRow("2026-09-17", 0), navRow("2026-09-18", 0)],
+      }),
+    )
+
+    const { status, quote } = await fetchTefasQuote("TP2")
+
+    expect(status).toBe(200)
+    expect(quote?.price).toBe(2.243343)
+    expect(quote?.date).toBe("2026-09-16")
+    expect(quote?.currency).toBe("TRY")
+    expect(sentBody(fetchMock)).toMatchObject({ fonKodu: "TP2", dil: "TR", periyod: 1 })
+  })
+
+  it("returns no quote when every row is a zero placeholder", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ resultList: [navRow("2026-09-18", 0)] }))
+
+    const { status, quote } = await fetchTefasQuote("TP2")
+
+    expect(status).toBe(200)
+    expect(quote).toBeNull()
+  })
+
+  it("returns the HTTP status and no quote on a non-OK response", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({}, 403)) // WAF block
+
+    const { status, quote } = await fetchTefasQuote("TP2")
+
+    expect(status).toBe(403)
+    expect(quote).toBeNull()
+  })
+
+  it("returns status null and no quote when the request itself fails", async () => {
+    fetchMock.mockRejectedValue(new TypeError("network error"))
+
+    const { status, quote } = await fetchTefasQuote("TP2")
+
+    expect(status).toBeNull()
+    expect(quote).toBeNull()
   })
 })

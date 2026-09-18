@@ -30,7 +30,7 @@ function browserHeaders(fonKodu: string): HeadersInit {
 }
 
 export interface TefasQuote {
-  /** Latest NAV (`fiyat`), quoted in TRY. Null when the response had no rows. */
+  /** Latest positive NAV (`fiyat`), quoted in TRY. Null when no row carried one. */
   price: number | null
   /** A fund's NAV is always Turkish lira. */
   currency: "TRY"
@@ -43,14 +43,35 @@ export interface TefasQuote {
 export interface TefasResult {
   /** HTTP status, or null if the request never completed (network error). */
   status: number | null
-  /** Parsed quote, or null on HTTP/parse failure or an empty result list. */
+  /** Parsed quote, or null on HTTP/parse failure, an empty result list, or a
+   *  list whose rows all lack a NAV (e.g. only today's `fiyat: 0` placeholder). */
   quote: TefasQuote | null
 }
 
-interface TefasRow {
+export interface TefasRow {
   tarih?: string
   fiyat?: number
   fonUnvan?: string
+}
+
+/** A row carries a usable NAV only when `fiyat` is a positive number. TEFAS
+ *  publishes the current day's row *before* the NAV is known, with `fiyat: 0`
+ *  (seen 2026-09-17/18 for TP2) — a zero is "not published yet", never a price.
+ *  Booking it froze every snapshot writer behind the unpriced guard. */
+export function hasNav(row: TefasRow | null | undefined): row is TefasRow & { fiyat: number } {
+  return typeof row?.fiyat === "number" && row.fiyat > 0
+}
+
+/** The row with the latest `tarih` among those that carry a NAV, or null when
+ *  none does. The list is date-ascending, but pick explicitly so we never
+ *  depend on ordering. */
+export function pickLatestNav(rows: TefasRow[]): (TefasRow & { fiyat: number }) | null {
+  let latest: (TefasRow & { fiyat: number }) | null = null
+  for (const row of rows) {
+    if (!hasNav(row)) continue
+    if (!latest || (row.tarih ?? "") > (latest.tarih ?? "")) latest = row
+  }
+  return latest
 }
 
 /** Fetch a single fund's latest NAV by its TEFAS fund code (`fonKodu`, e.g.
@@ -83,19 +104,13 @@ export async function fetchTefasQuote(fonKodu: string): Promise<TefasResult> {
     return { status: res.status, quote: null }
   }
 
-  // The list is date-ascending, but pick the row with the latest `tarih`
-  // explicitly so we never depend on ordering.
-  let latest: TefasRow | null = null
-  for (const row of rows) {
-    if (typeof row?.fiyat !== "number") continue
-    if (!latest || (row.tarih ?? "") > (latest.tarih ?? "")) latest = row
-  }
+  const latest = pickLatestNav(rows)
   if (!latest) return { status: res.status, quote: null }
 
   return {
     status: res.status,
     quote: {
-      price: typeof latest.fiyat === "number" ? latest.fiyat : null,
+      price: latest.fiyat,
       currency: "TRY",
       name: latest.fonUnvan || fonKodu,
       date: latest.tarih ?? null,
@@ -153,7 +168,7 @@ export async function fetchTefasHistory(
   }
 
   for (const row of data?.resultList ?? []) {
-    if (typeof row?.fiyat !== "number" || !row.tarih) continue
+    if (!hasNav(row) || !row.tarih) continue
     closes.set(row.tarih, row.fiyat)
   }
   return { status: res.status, closes }

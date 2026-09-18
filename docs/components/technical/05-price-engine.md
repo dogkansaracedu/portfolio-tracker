@@ -19,7 +19,7 @@
 | `supabase/functions/fetch-prices/index.ts` | **Orchestrator** — single endpoint the frontend pings and the daily cron forces. Runs FX step → Yahoo step → TEFAS step → (cron only) snapshot/intraday trigger. Self-throttles per asset. |
 | `supabase/functions/fetch-historical-rate/index.ts` | On-demand TCMB fetch for **one past date** (non-USD transactions). Walks back ≤7 days to the nearest published rate; upserts `exchange_rates`. |
 | `supabase/functions/_shared/yahoo.ts` | `fetchYahooQuote(symbol)` — single Yahoo chart-endpoint quote; requests `interval=5m&range=1d&includePrePost=true` and derives the price via the pure `pickLatestPrice` (newer of `regularMarketPrice@regularMarketTime` vs the last non-null intraday close@its candle time — so pre/after-hours prints surface); reads `meta.currency`; never throws (returns `{ status, quote: null }` on failure). Unit-tested in `src/lib/queries/yahoo.test.ts`. |
-| `supabase/functions/_shared/tefas.ts` | `fetchTefasQuote(fonKodu)` — single TEFAS fund NAV (latest of `periyod:1`); always TRY; never throws. |
+| `supabase/functions/_shared/tefas.ts` | `fetchTefasQuote(fonKodu)` — single TEFAS fund NAV: the newest `periyod:1` row **with a positive `fiyat`** (`pickLatestNav`; TEFAS lists today's row as `fiyat: 0` until the NAV is published, and a zero booked as a price froze every snapshot writer behind the unpriced guard, 2026-09-17/18). `fetchTefasHistory` drops zero rows the same way (`hasNav`). Always TRY; never throws. Unit-tested in `src/lib/queries/tefas.test.ts`. |
 | `supabase/functions/_shared/currency.ts` | `splitPrice(price, currency, rates)` → `{ price_usd, price_try }` per source currency; `null` for unsupported (e.g. `GBp`). `categoryForQuote`. |
 | `supabase/functions/_shared/constants.ts` | `HOME_TIMEZONE` (`Europe/Istanbul`, for BIST hours), `TROY_OZ_GRAMS` (oz→gram gold). |
 | `supabase/functions/_shared/client.ts` | `getServiceClient()` — service-role Supabase client. |
@@ -64,7 +64,7 @@
   body: {"fonKodu":"TP2","dil":"TR","periyod":1}
   → { resultList: [ { tarih:"YYYY-MM-DD", fiyat:<NAV, in TRY>, fonUnvan }, ... ] }
   ```
-  - Current price = the latest `resultList` entry's `fiyat`. `periyod` (months) is
+  - Current price = the latest `resultList` entry **whose `fiyat` is positive** (a `0` is a not-yet-published placeholder, not a price). `periyod` (months) is
     restricted to `{1,3,6,12,36,60}` and the response is the daily NAV series over
     that window (so it also feeds snapshot backfill). No token / signup.
   - Needs a **server-side fetch** like the others: TEFAS sends no CORS headers and
