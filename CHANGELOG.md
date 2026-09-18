@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.24.1] — 2026-09-18
+- **Turkish fund prices no longer go to zero.** TEFAS lists the current day with a
+  NAV of 0 until it publishes the real figure; the engine booked that 0 as TP2's
+  price, and the snapshot writers then refused to write (one holding unpriced), so
+  the Dashboard and Portfolio froze on 16 September while Settings showed live
+  prices. A zero is now read as "not published yet" and the last real NAV stands.
+
 ## [0.24.0] — 2026-09-07
 - **"Am I on track?"** is the fifth Plan question. Start a plan and the app freezes
   the date, the portfolio value that day and the inputs; from then on it shows the
