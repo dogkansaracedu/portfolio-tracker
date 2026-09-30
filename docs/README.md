@@ -2,7 +2,7 @@
 
 Documentation for the Portfolio Tracker app. `docs/components/` is the source of
 truth for how the app behaves — read the relevant doc before changing an area,
-and update it in the same change (see the working rule in `CLAUDE.md`).
+and update it in the same change (see the working rule in `AGENTS.md`).
 
 ## Component docs
 
