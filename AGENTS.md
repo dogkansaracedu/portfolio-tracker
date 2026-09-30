@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## Code and docs stay in sync
 

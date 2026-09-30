@@ -137,7 +137,7 @@ export function gainLossToneClass(value: number): string {
  * render bare (e.g. "$1,234.56", "-₺500,00") — direction is carried by the
  * gain/loss colour, not a "+". Since {@link formatCurrency} itself leads with
  * the minus for every currency, this is the same string; the name survives
- * because it marks a P&L figure at the call site (the convention CLAUDE.md
+ * because it marks a P&L figure at the call site (the convention AGENTS.md
  * and the UI skill point to), not because it formats differently.
  */
 export function formatSignedCurrency(
