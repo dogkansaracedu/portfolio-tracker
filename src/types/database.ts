@@ -95,7 +95,33 @@ export interface PriceCache {
   price_try: number | null;
   source: string | null;
   updated_at: string;
+  /** The day's baseline: the last price cached before the first refresh of
+   *  the current home-local day (DB trigger). Today's change for a watchlist
+   *  item. Null until the key has lived through one day rollover. */
+  baseline_usd?: number | null;
+  baseline_try?: number | null;
 }
+
+/** A symbol the user follows without holding it (Watchlist / Takip listesi).
+ *  Priced like an asset: `prices[price_id]`. */
+export interface WatchlistItem {
+  id: string;
+  user_id: string;
+  /** Display symbol (THYAO, BTC, USDTRY) — never used to fetch. */
+  ticker: string;
+  name: string;
+  /** Same values as `Asset.category`. */
+  category: string;
+  price_source: string;
+  /** Price-fetch key = the price_cache key (THYAO.IS, BTC-USD, USDTRY=X). */
+  price_id: string;
+  /** The currency the price shows in, from the source at add time. */
+  currency: "USD" | "TRY";
+  sort_order: number;
+  created_at: string;
+}
+
+export type WatchlistItemInsert = Omit<WatchlistItem, "id" | "user_id" | "created_at">;
 
 export interface Snapshot {
   id: string;

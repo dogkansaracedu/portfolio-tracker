@@ -26,7 +26,7 @@
 | `supabase/functions/_shared/client.ts` | `getServiceClient()` — service-role Supabase client. |
 | `supabase/functions/_shared/cors.ts` | `corsHeaders(origin)`. |
 | `supabase/functions/widget-data/index.ts` | **Home-screen widget feed** (read-only, `GET`). Caller-JWT auth, reads via RLS; see "Widget feed" below. |
-| `supabase/functions/_shared/widget.ts` | Pure helpers for it: `quoteCurrency`, `baselinePrices`, `buildWidgetAssets`, `computeTodayChange`, `newestHeldUpdateMs`, `pickLatestTotal`. Unit-tested in `src/lib/queries/widget.test.ts`. |
+| `supabase/functions/_shared/widget.ts` | Pure helpers for it: `quoteCurrency`, `baselinePrices`, `buildWidgetAssets`, `computeTodayChange`, `newestHeldUpdateMs`, `pickLatestTotal`, `buildWatchlist` (also used by the watchlist page). Unit-tested in `src/lib/queries/widget.test.ts`. |
 | `src/contexts/PricesContext.tsx` | App-wide shared price store + the presence-gated polling loop. |
 | `src/hooks/usePrices.ts` | Thin re-export of `usePricesContext` as `usePrices` (preserves the original import path). |
 | `src/lib/priceId.ts` | `canonicalizeTicker`, `derivePriceId(ticker, category, source)` — key resolution = `price_id ?? ticker`. |
@@ -55,6 +55,12 @@
 - **Yahoo Finance** = the engine for **stocks (BIST + US), crypto, AND
   tokenized gold** (`BTC-USD`, `ETH-USD`, `PAXG-USD`, `XAUT-USD`). All assets
   with `price_source = 'yahoo'` flow through one loop (`refreshYahooPrices`).
+- **Which keys get priced**: `loadPricedSymbols(source)` unions `assets` and
+  every user's `watchlist_items` with that `price_source` (Yahoo and TEFAS
+  steps), deduped on key with the asset's category winning. A failed
+  `watchlist_items` read lands in `errors` and never blocks assets. The forced
+  hourly/nightly cron runs go through the same loaders, so watched symbols are
+  in them too.
 - **TEFAS** = Turkish mutual / money-market funds ("PPF") — **live**. Turkish
   funds (e.g. a *Para Piyasası Fonu* / money-market fund
   such as `TP2` — TERA PORTFÖY PARA PİYASASI (TL) FONU) are not on Yahoo. Their
@@ -84,8 +90,13 @@
 
 - `price_cache` — **key column is literally named `ticker` but holds
   `price_id` values**. Columns:
-  `price_usd`, `price_try`, `source`, `updated_at`. UPSERT `onConflict: ticker`
-  from edge functions; client does a plain `SELECT *`.
+  `price_usd`, `price_try`, `source`, `updated_at`, `baseline_usd`,
+  `baseline_try`. UPSERT `onConflict: ticker` from edge functions; client does a
+  plain `SELECT *`. The baseline columns are trigger-maintained
+  (`price_cache_roll_baseline`, `BEFORE UPDATE`): on the first write of a new
+  `Europe/Istanbul` date the outgoing price becomes the baseline, otherwise the
+  old baseline is kept whatever the writer sent. See
+  [19-watchlist](19-watchlist.md#day-change--price_cache-day-baseline).
 - `exchange_rates` — UPSERT `onConflict: date,source`. Columns: `date`,
   `source`, `usd_try`, `eur_try`, `eur_usd`, `gold_gram_try`.
 
@@ -186,7 +197,9 @@ Response:
 { "asOf": "…", "pricesRefresh": "none|done|background",
   "total": { "valueTry", "valueUsd", "changeTry", "changePct", "snapshotAt" },
   "assets": [ { "ticker", "name", "price", "priceCurrency", "changePct",
-                "valueTry", "updatedAt", "stale" } ] }
+                "valueTry", "updatedAt", "stale" } ],
+  "watchlist": [ { "ticker", "name", "price", "priceCurrency", "changePct",
+                   "updatedAt", "stale" } ] }
 ```
 
 - **Assets**: active `holdings` with `balance > 0`, summed per ticker across
@@ -207,6 +220,12 @@ Response:
   with a baseline; `changePct` ÷ Σ qty × prev. Per-asset `changePct` compares in
   `priceCurrency`. `price_cache` keeps no previous close, so the snapshot is the
   only baseline.
+- **Watchlist**: `watchlist_items` (RLS, `order sort_order, created_at`) →
+  `buildWatchlist`: price from `price_cache[price_id]` in the item's stored
+  `currency` (TRY falls back to `price_usd × usd_try`), `changePct` against the
+  row's own `baseline_usd/try` in that currency (null without one), same
+  `stale` rule. A read error → `[]` (logged). `price_cache` is read with `*` so
+  the feed survives a deploy that precedes the migration.
 - **Freshness**: if the newest `updated_at` among held prices is older than
   `REFRESH_AFTER_MS` (15 min), POST `fetch-prices` with the caller's own headers
   (no cron token → the normal throttled refresh) and wait up to

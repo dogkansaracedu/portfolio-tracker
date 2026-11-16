@@ -10,9 +10,11 @@ import {
   Car,
   Settings,
   Ellipsis,
+  Binoculars,
 } from "lucide-react"
 import { CAMPAIGN_COPY } from "@/lib/constants/campaigns"
 import { VEHICLE_COPY, VEHICLE_ROUTE } from "@/lib/constants/vehicle"
+import { WATCHLIST_COPY, WATCHLIST_ROUTE } from "@/lib/constants/watchlist"
 import { FEATURES } from "@/lib/features"
 
 // The app's navigation entries and the path-matching rules both shells use.
@@ -25,6 +27,7 @@ export const primaryNavItems = [
 ]
 
 export const secondaryNavItems = [
+  { to: WATCHLIST_ROUTE, label: WATCHLIST_COPY.navLabel, icon: Binoculars },
   // Performance page is feature-flagged off (frozen) — see lib/features.ts.
   ...(FEATURES.performancePage
     ? [{ to: "/performance", label: "Performance", icon: TrendingUp }]

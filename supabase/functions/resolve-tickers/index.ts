@@ -3,9 +3,12 @@ import { authorizeRequest, unauthorizedResponse } from "../_shared/auth.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { fetchYahooQuote } from "../_shared/yahoo.ts"
 import { splitPrice, categoryForQuote } from "../_shared/currency.ts"
+import { searchSymbols } from "./search.ts"
 
 interface RequestBody {
-  tickers: unknown
+  tickers?: unknown
+  /** Watchlist symbol search: one typed query instead of a ticker batch. */
+  query?: unknown
 }
 
 interface ResolvedTicker {
@@ -43,9 +46,10 @@ Deno.serve(async (req) => {
     })
   }
 
-  // Signed-in users only (the add-transaction flow). The anon key is public,
-  // so without this anyone could make the service role write price_cache rows
-  // for symbols of their choosing. No cron caller.
+  // Signed-in users only (the add-transaction flow and the watchlist search;
+  // both write price_cache rows). The anon key is public, so without this anyone
+  // could make the service role write price_cache rows for symbols of their
+  // choosing. No cron caller.
   const caller = await authorizeRequest(req, { allowCron: false })
   if (caller.kind !== "user") return unauthorizedResponse(corsHeaders(origin))
 
@@ -55,6 +59,13 @@ Deno.serve(async (req) => {
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
       status: 400,
+      headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+    })
+  }
+
+  if (typeof body.query === "string") {
+    const results = await searchSymbols(getServiceClient(), body.query)
+    return new Response(JSON.stringify({ results }), {
       headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
     })
   }

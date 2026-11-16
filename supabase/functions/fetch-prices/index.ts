@@ -242,6 +242,36 @@ async function ensureConversionRates(
   return { usdTry, eurUsd }
 }
 
+/** Every fetch key priced from `source`, with the category that sets its
+ *  cadence: the assets catalog plus every user's watchlist (Takip listesi).
+ *  Watched symbols ride the same loop, cache and cadence as assets — there is
+ *  no separate fetcher. Assets come first, so on a shared key the asset's
+ *  category wins. A failed watchlist read is reported but never blocks assets. */
+async function loadPricedSymbols(
+  supabase: ServiceClient,
+  source: "yahoo" | "tefas",
+): Promise<{ symbols: Map<string, string>; errors: string[] }> {
+  const [assetsRes, watchRes] = await Promise.all([
+    supabase.from("assets").select("ticker, price_id, category").eq("price_source", source),
+    supabase.from("watchlist_items").select("price_id, category").eq("price_source", source),
+  ])
+  if (assetsRes.error) throw new Error(assetsRes.error.message)
+  const errors: string[] = []
+  if (watchRes.error) errors.push(`watchlist (${source}): ${watchRes.error.message}`)
+
+  // Fetch key is price_id (Yahoo symbol, e.g. BTC-USD / TEFAS fund code); an
+  // asset without one falls back to its ticker. Dedupe on key.
+  const symbols = new Map<string, string>()
+  const rows = [
+    ...((assetsRes.data ?? []) as { ticker: string; price_id: string | null; category: string }[])
+      .map((a) => ({ key: a.price_id ?? a.ticker, category: a.category })),
+    ...((watchRes.data ?? []) as { price_id: string; category: string }[])
+      .map((w) => ({ key: w.price_id, category: w.category })),
+  ]
+  for (const r of rows) if (!symbols.has(r.key)) symbols.set(r.key, r.category)
+  return { symbols, errors }
+}
+
 /** Step 2 — Yahoo Finance (stocks, crypto, tokenized gold). Refetches only the
  *  symbols that are due (per `isSymbolDue`, or all when `force`), 1s apart. */
 async function refreshYahooPrices(
@@ -258,26 +288,16 @@ async function refreshYahooPrices(
   const { force, usdTry, eurUsd, updatedAtMs, nowMs, nowIso } = opts
   const errors: string[] = []
 
-  let assets: { ticker: string; price_id: string | null; category: string }[]
+  let symbolCategory: Map<string, string>
   try {
-    const { data } = await supabase
-      .from("assets")
-      .select("ticker, price_id, category")
-      .eq("price_source", "yahoo")
-    assets = (data ?? []) as typeof assets
+    const loaded = await loadPricedSymbols(supabase, "yahoo")
+    symbolCategory = loaded.symbols
+    errors.push(...loaded.errors)
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown Yahoo error"
     return { updated: 0, errors: [`Yahoo: ${msg}`] }
   }
-  if (assets.length === 0) return { updated: 0, errors }
-
-  // Fetch key is price_id (Yahoo symbol, e.g. BTC-USD); fall back to ticker
-  // until rows are backfilled. Dedupe on symbol, keeping its first category.
-  const symbolCategory = new Map<string, string>()
-  for (const a of assets) {
-    const symbol = a.price_id ?? a.ticker
-    if (!symbolCategory.has(symbol)) symbolCategory.set(symbol, a.category)
-  }
+  if (symbolCategory.size === 0) return { updated: 0, errors }
 
   let updated = 0
   let fetchedAny = false
@@ -352,23 +372,18 @@ async function refreshTefasPrices(
   const { force, usdTry, eurUsd, updatedAtMs, nowMs, nowIso } = opts
   const errors: string[] = []
 
-  let assets: { ticker: string; price_id: string | null }[]
+  // Fetch key is the fund code (price_id ?? ticker), which is also the
+  // price_cache key; assets and watched funds deduped.
+  let codes: Iterable<string>
   try {
-    const { data } = await supabase
-      .from("assets")
-      .select("ticker, price_id")
-      .eq("price_source", "tefas")
-    assets = (data ?? []) as typeof assets
+    const loaded = await loadPricedSymbols(supabase, "tefas")
+    codes = loaded.symbols.keys()
+    errors.push(...loaded.errors)
+    if (loaded.symbols.size === 0) return { updated: 0, errors }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown TEFAS error"
     return { updated: 0, errors: [`TEFAS: ${msg}`] }
   }
-  if (assets.length === 0) return { updated: 0, errors }
-
-  // Fetch key is the fund code (price_id ?? ticker), which is also the
-  // price_cache key. Dedupe identical codes.
-  const codes = new Set<string>()
-  for (const a of assets) codes.add(a.price_id ?? a.ticker)
 
   let updated = 0
   let fetchedAny = false

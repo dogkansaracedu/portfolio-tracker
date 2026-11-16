@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.26.0] — 2026-11-17
+- **Takip listesi (watchlist).** A new page for symbols you follow but don't hold
+  — US and BIST stocks, crypto, FX pairs, gram gold, TEFAS funds. Type "AAPL",
+  "THYAO", "BTC", "altın", "USDTRY" or a fund code and pick a result; reorder and
+  remove under Edit. Each row shows price, today's change and dims stale prices.
+- Watched symbols are priced by the same refresh as your assets (including the
+  hourly and nightly runs), and each cached price now keeps the day's starting
+  value, which is what today's change is measured against.
+- The home-screen widget feed now also returns the watchlist, in your order.
+
 ## [0.25.0] — 2026-11-17
 - **Home-screen widget feed.** A read-only endpoint for the Android widget, behind
   your normal login: total value from the latest snapshot, today's price change

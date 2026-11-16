@@ -45,6 +45,7 @@ Build in order — each builds on the previous.
 | 16 | Interest Positions | [spec](16-interest.md) | [tech](technical/16-interest.md) | Done |
 | 17 | Vehicle | [spec](17-vehicle.md) | [tech](technical/17-vehicle.md) | Done |
 | 18 | Foreign-Income Reconciliation | [spec](18-foreign-income-reconciliation.md) | [tech](technical/18-foreign-income-reconciliation.md) | Done |
+| 19 | Watchlist (Takip listesi) | [spec](19-watchlist.md) | [tech](technical/19-watchlist.md) | Done |
 
 ## Dependency graph
 
@@ -71,6 +72,8 @@ Build in order — each builds on the previous.
                                              an asset and never enters holdings, net worth or P&L)
 18 Foreign-income recon.  → 2, 3, 4, 5, 7  (append-only audit comparisons; reads transactions/rates, never changes
                                              the ledger, holdings, balances or P&L)
+19 Watchlist              → 2, 5            (per-user symbols followed without holding; priced by the engine, never
+                                             an asset, never in holdings, total value or P&L; feeds the widget)
 ```
 
 (6 and 10 are mutually referential at runtime: snapshots store the values the P&L

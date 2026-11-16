@@ -79,6 +79,18 @@ The current/cached unit price of an asset, in USD and TRY, with its `source` and
 `updated_at`. Distinct from the asset's *native* price currency. See
 [Staleness](#staleness).
 
+### Watchlist
+**User-facing name: "Takip listesi"** (the home-screen widget's short form is
+"Takip"). The symbols one user follows **without holding them** — stocks, crypto,
+FX pairs, gram gold, Turkish funds — in an order the user sets. Per-user and
+private. Each item carries the same pricing vocabulary an [Asset](#asset) does
+(`category`, `price_source`, `price_id`) plus a display `ticker`, a `name`, and
+the currency its price is shown in (TRY when the source quotes TRY, USD
+otherwise). A watched symbol is **not** an asset: it never enters holdings,
+total value, allocation or P&L, and watching one never adds it to the asset
+catalog. Its [Price](#price) is shared with any asset that uses the same fetch
+key. Its daily figure is the [day change](#day-change).
+
 ### Exchange rate
 Historical FX **by date**: `usd_try`, `eur_try`, `eur_usd`, `gold_gram_try`. USD is
 the [anchor](#usd-anchor); a transaction's native price is converted to USD using
@@ -262,6 +274,17 @@ that snapshot's price), in TRY; the percent divides by Σ quantity × that
 snapshot's price. Assets without a price in that snapshot are left out. Unlike
 [Daily return](#daily-return) it is not money-weighted and ignores flows
 entirely. Used by the home-screen widget feed.
+
+### Day change
+A [watchlist](#watchlist) item's move today: (price now − **day baseline**) ÷
+day baseline, as a percent, in the currency the item is shown in. The **day
+baseline** is the last cached price from before the first refresh of the
+current home-local day — in practice the previous day's end-of-day price, since
+every price is force-refreshed just before midnight. Watched symbols have no
+[snapshot](#snapshot), so this replaces the snapshot baseline that
+[today's price change](#todays-price-change) uses for holdings; the two read
+the same moment. No figure until a symbol has been priced across one day
+boundary (a symbol first priced today shows none).
 
 ### Total value
 The portfolio's current market value — every holding at its latest price.

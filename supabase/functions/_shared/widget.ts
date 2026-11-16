@@ -120,6 +120,10 @@ export interface WidgetPriceRow {
   price_usd: number | null
   price_try: number | null
   updated_at: string | null
+  /** The day's baseline (last price before today's first refresh); see the
+   *  watchlist migration. Optional so asset-only callers can omit it. */
+  baseline_usd?: number | null
+  baseline_try?: number | null
 }
 
 export interface WidgetAsset {
@@ -211,4 +215,57 @@ export function pickLatestTotal(
   if (!intraday) return daily
   if (!daily) return intraday
   return new Date(intraday.at).getTime() >= new Date(daily.at).getTime() ? intraday : daily
+}
+
+/** A watchlist row as the feed reads it (`watchlist_items`). */
+export interface WidgetWatchItem {
+  ticker: string
+  name: string
+  price_id: string
+  /** The currency the item is shown in, fixed from the source at add time. */
+  currency: QuoteCurrency
+}
+
+export interface WidgetWatchEntry {
+  ticker: string
+  name: string
+  price: number | null
+  priceCurrency: QuoteCurrency
+  changePct: number | null
+  updatedAt: string | null
+  stale: boolean
+}
+
+/**
+ * Watchlist entries in the user's order. Price from `price_cache[price_id]` in
+ * the item's currency (TRY falls back to `price_usd × usdTry`, like held
+ * assets). Today's change compares that price with the cache row's own daily
+ * baseline in the same currency — a non-held symbol has no snapshot — so it is
+ * null until the key has lived through one day rollover, or when the price
+ * came from the USD fallback.
+ */
+export function buildWatchlist(
+  items: WidgetWatchItem[],
+  prices: Record<string, WidgetPriceRow>,
+  usdTry: number | null,
+  nowMs: number,
+): WidgetWatchEntry[] {
+  return items.map((item) => {
+    const row = prices[item.price_id]
+    const usd = row?.price_usd ?? null
+    const nativeTry = row?.price_try ?? null
+    const isTry = item.currency === "TRY"
+    const price = isTry ? (nativeTry ?? (usd != null && usdTry ? usd * usdTry : null)) : usd
+    const baseline = isTry ? (nativeTry == null ? null : row?.baseline_try) : row?.baseline_usd
+    const updatedAt = row?.updated_at ?? null
+    return {
+      ticker: item.ticker,
+      name: item.name,
+      price,
+      priceCurrency: item.currency,
+      changePct: price == null ? null : pctChange(price, baseline),
+      updatedAt,
+      stale: updatedAt == null || nowMs - new Date(updatedAt).getTime() > WIDGET_STALE_MS,
+    }
+  })
 }

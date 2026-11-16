@@ -8,6 +8,7 @@ import MorePage from "@/pages/MorePage"
 import LoginPage from "@/pages/LoginPage"
 import SignupPage from "@/pages/SignupPage"
 import { FEATURES } from "@/lib/features"
+import { WATCHLIST_ROUTE } from "@/lib/constants/watchlist"
 
 const PortfolioPage = lazy(() => import("@/pages/PortfolioPage"))
 const AssetDetailPage = lazy(() => import("@/pages/AssetDetailPage"))
@@ -20,6 +21,7 @@ const CampaignsPage = lazy(() => import("@/pages/CampaignsPage"))
 const ForeignIncomePage = lazy(() => import("@/pages/ForeignIncomePage"))
 const VehiclePage = lazy(() => import("@/pages/VehiclePage"))
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
+const WatchlistPage = lazy(() => import("@/pages/WatchlistPage"))
 
 function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<RouteSkeleton />}>{children}</Suspense>
@@ -48,6 +50,7 @@ export default function App() {
             {FEATURES.performancePage && (
               <Route path="performance" element={<Lazy><PerformancePage /></Lazy>} />
             )}
+            <Route path={WATCHLIST_ROUTE.slice(1)} element={<Lazy><WatchlistPage /></Lazy>} />
             <Route path="retirement" element={<Lazy><RetirementPage /></Lazy>} />
             <Route path="budget" element={<Lazy><BudgetPage /></Lazy>} />
             <Route path="campaigns" element={<Lazy><CampaignsPage /></Lazy>} />

@@ -2,6 +2,7 @@ import { authorizeRequest, getCallerClient, unauthorizedResponse } from "../_sha
 import { HOME_TIMEZONE } from "../_shared/constants.ts"
 import {
   baselinePrices,
+  buildWatchlist,
   buildWidgetAssets,
   computeTodayChange,
   newestHeldUpdateMs,
@@ -10,6 +11,7 @@ import {
   type TotalCandidate,
   type WidgetHolding,
   type WidgetPriceRow,
+  type WidgetWatchItem,
 } from "../_shared/widget.ts"
 
 // ──────────────────────────────────────────────────────────────────────
@@ -45,7 +47,9 @@ const num = (v: unknown): number | null => {
 async function loadPrices(supabase: UserClient) {
   const { data, error } = await supabase
     .from("price_cache")
-    .select("ticker, price_usd, price_try, updated_at")
+    // `*`, not a column list: the baseline columns arrive with the watchlist
+    // migration, and naming them would fail every read until it is applied.
+    .select("*")
   if (error) throw new Error(`price_cache: ${error.message}`)
   const prices: Record<string, WidgetPriceRow> = {}
   for (const r of (data ?? []) as Array<WidgetPriceRow & { ticker: string }>) {
@@ -53,6 +57,8 @@ async function loadPrices(supabase: UserClient) {
       price_usd: num(r.price_usd),
       price_try: num(r.price_try),
       updated_at: r.updated_at,
+      baseline_usd: num(r.baseline_usd),
+      baseline_try: num(r.baseline_try),
     }
   }
   return prices
@@ -100,7 +106,7 @@ Deno.serve(async (req) => {
   try {
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: HOME_TIMEZONE }).format(new Date())
 
-    const [cachedPrices, holdingsRes, rateRes, intradayRes, dailyRes, baselineRes] = await Promise.all([
+    const [cachedPrices, holdingsRes, rateRes, intradayRes, dailyRes, baselineRes, watchRes] = await Promise.all([
       loadPrices(supabase),
       supabase
         .from("holdings")
@@ -137,6 +143,12 @@ Deno.serve(async (req) => {
         .order("snapshot_date", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("watchlist_items")
+        .select("ticker, name, price_id, currency")
+        .eq("user_id", userId)
+        .order("sort_order")
+        .order("created_at"),
     ])
     for (const r of [holdingsRes, intradayRes, dailyRes, baselineRes]) {
       if (r.error) throw new Error(r.error.message)
@@ -175,6 +187,16 @@ Deno.serve(async (req) => {
     const { assets, positions } = buildWidgetAssets(holdings, prices, baseline, usdTry, nowMs)
     const change = computeTodayChange(positions)
 
+    // ── Watchlist (Takip listesi): user's order. A failed read (e.g. the
+    // table not migrated yet) empties it rather than failing the feed ──
+    if (watchRes.error) console.error("widget-data watchlist:", watchRes.error.message)
+    const watchlist = buildWatchlist(
+      watchRes.error ? [] : ((watchRes.data ?? []) as WidgetWatchItem[]),
+      prices,
+      usdTry,
+      nowMs,
+    )
+
     // ── Total: the latest snapshot (what the dashboard shows) ────────
     const i = intradayRes.data as { captured_at: string; total_usd: unknown; total_try: unknown } | null
     const d = dailyRes.data as { created_at: string; total_usd: unknown; total_try: unknown } | null
@@ -198,6 +220,7 @@ Deno.serve(async (req) => {
         snapshotAt: latest ? new Date(latest.at).toISOString() : null,
       },
       assets,
+      watchlist,
       pricesRefresh: refresh,
     })
   } catch (err) {

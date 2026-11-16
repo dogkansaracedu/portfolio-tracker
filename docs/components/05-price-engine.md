@@ -17,6 +17,9 @@ else in the app; refresh happens **on demand**, and how old a price is
   exchange-rate table, scoped to the signed-in user.
 - **Asset management** — assets must exist and carry a `price_source` and a
   price-fetch key before they can be priced.
+- **[Watchlist](GLOSSARY.md#watchlist)** (Component 19) — watched symbols carry
+  the same `price_source` + key and are priced alongside assets: same sources,
+  cache, cadence, market-hours gate and currency handling.
 
 ## Concepts used — links into GLOSSARY
 
@@ -105,6 +108,12 @@ snapshot writer) reads from **one** app-wide price store. A manual refresh
 propagates to all of them at once; the presence/refresh loop runs **once per app
 session**, not once per consumer.
 
+**Each cached price keeps a day baseline.** On the first refresh of a new
+home-local day, the outgoing price is kept as that key's day baseline until the
+next day; later refreshes the same day leave it alone. It is the baseline of a
+watched symbol's [day change](GLOSSARY.md#day-change) (held assets use their
+snapshot instead).
+
 **Staleness is display-only.** Age is computed from `updated_at` and surfaced as
 a 3-level indicator (fresh / warning / stale). Stale prices are **still used** in
 all calculations — staleness only informs the user, it never blocks a value. The
@@ -135,6 +144,8 @@ widget signs in with the user's own login and sees only that user's data.
 - Each price is in the currency the app shows it in (TRY for TRY-quoted assets,
   USD otherwise) and carries the app's 30-minute [staleness](GLOSSARY.md#staleness)
   flag.
+- The user's [watchlist](GLOSSARY.md#watchlist), in their order, each with its
+  price, [day change](GLOSSARY.md#day-change) and staleness flag.
 - Freshness: when none of the user's held prices was refreshed in the last
   ~15 minutes (app closed, hourly job not yet due), a feed request asks for the
   same throttled refresh the open app does. If that finishes within a few
@@ -152,7 +163,8 @@ widget signs in with the user's own login and sees only that user's data.
 
 **Outputs**
 
-- **Price cache**: per fetch-key → `{ price_usd, price_try, source, updated_at }`.
+- **Price cache**: per fetch-key → `{ price_usd, price_try, source, updated_at,
+  day baseline (usd, try) }`.
 - **Exchange-rate history**: per date → `{ usd_try, eur_try, eur_usd, gram-gold }`.
 - A refresh result summary: count updated + any per-source errors.
 - A consumable client state: `{ prices (map by fetch-key), latest rates,

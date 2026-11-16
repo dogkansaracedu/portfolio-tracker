@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   baselinePrices,
+  buildWatchlist,
   buildWidgetAssets,
   computeTodayChange,
   newestHeldUpdateMs,
@@ -134,5 +135,36 @@ describe("pickLatestTotal", () => {
     expect(pickLatestTotal(null, daily)).toBe(daily)
     expect(pickLatestTotal(intraday, null)).toBe(intraday)
     expect(pickLatestTotal(null, null)).toBeNull()
+  })
+})
+
+describe("buildWatchlist", () => {
+  const items = [
+    { ticker: "USDTRY", name: "USD/TRY", price_id: "USDTRY=X", currency: "TRY" as const },
+    { ticker: "AAPL", name: "Apple", price_id: "AAPL", currency: "USD" as const },
+    { ticker: "TP2", name: "Tera PPF", price_id: "TP2", currency: "TRY" as const },
+    { ticker: "NEW", name: "Never priced", price_id: "NEW", currency: "USD" as const },
+  ]
+  const prices = {
+    "USDTRY=X": { price_usd: 1, price_try: 42, updated_at: minsAgo(5), baseline_usd: 1, baseline_try: 40 },
+    AAPL: { price_usd: 99, price_try: 4158, updated_at: minsAgo(45), baseline_usd: 100, baseline_try: 4000 },
+    TP2: { price_usd: null, price_try: null, updated_at: minsAgo(1), baseline_usd: 0.1, baseline_try: 4 },
+  }
+
+  it("keeps the user's order and compares with the row's own baseline in the shown currency", () => {
+    const w = buildWatchlist(items, prices, 40, NOW)
+    expect(w.map((e) => e.ticker)).toEqual(["USDTRY", "AAPL", "TP2", "NEW"])
+    expect(w[0]).toMatchObject({ price: 42, priceCurrency: "TRY", stale: false })
+    expect(w[0].changePct).toBeCloseTo(5)
+    expect(w[1]).toMatchObject({ price: 99, priceCurrency: "USD", stale: true })
+    expect(w[1].changePct).toBeCloseTo(-1)
+  })
+
+  it("has no change without a native price or baseline, and no price for an unpriced key", () => {
+    const w = buildWatchlist(items, prices, 40, NOW)
+    expect(w[2]).toMatchObject({ price: null, changePct: null })
+    expect(w[3]).toMatchObject({ price: null, changePct: null, updatedAt: null, stale: true })
+    const noBaseline = buildWatchlist(items.slice(1, 2), { AAPL: { price_usd: 99, price_try: 1, updated_at: minsAgo(1) } }, 40, NOW)
+    expect(noBaseline[0].changePct).toBeNull()
   })
 })
