@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Portföy</string>
-    <string name="widgets_hint">Ana ekrana uzun bas → Widget\'lar → Portföy: Toplam ve Varlıklar.</string>
+    <string name="app_name">Portföy Widget</string>
+    <string name="widgets_hint">Ana ekrana uzun bas → Widget\'lar → Portföy Widget: Toplam ve Varlıklar. Bu ekrana dönmek için widget\'a uzun bas → kalem simgesi.</string>
     <string name="not_configured">Kurulum eksik: local.properties içine SUPABASE_URL ve SUPABASE_ANON_KEY ekleyip yeniden derle.</string>
     <string name="email">E-posta</string>
     <string name="password">Şifre</string>

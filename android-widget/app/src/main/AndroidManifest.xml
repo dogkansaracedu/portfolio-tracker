@@ -26,9 +26,11 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize">
+            <!-- No LAUNCHER entry: the app only hosts widgets. Reached as the widgets'
+                 configuration screen (long-press widget > settings) and by tapping a
+                 signed-out widget. -->
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
 

@@ -3,6 +3,7 @@ package dev.portfolio.widget
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.WindowInsets
@@ -23,7 +24,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.time.Instant
 
-/** Login, then last fetch status + "Şimdi yenile" + "Çıkış yap". Nothing else. */
+/**
+ * Login, then last fetch status + "Şimdi yenile" + "Çıkış yap". Nothing else.
+ *
+ * No launcher icon: opened as the widgets' configuration activity (on add, when needed, and via
+ * the launcher's reconfigure/settings option) or by tapping a signed-out widget.
+ */
 class MainActivity : Activity() {
     private val scope = MainScope()
     private lateinit var store: WidgetStore
@@ -32,6 +38,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         store = WidgetStore.get(this)
+        acceptWidgetConfig()
 
         val root = findViewById<View>(R.id.root)
         root.setOnApplyWindowInsetsListener { v, insets ->
@@ -122,9 +129,20 @@ class MainActivity : Activity() {
         AppWidgetManager.getInstance(this).requestPinAppWidget(ComponentName(this, receiver), null, null)
     }
 
-    override fun onNewIntent(intent: android.content.Intent) {
+    /**
+     * Opened as APPWIDGET_CONFIGURE: report OK right away so the widget is kept even if the user
+     * backs out (it then shows "Giriş gerekli" until they sign in).
+     */
+    private fun acceptWidgetConfig() {
+        val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+        if (id == AppWidgetManager.INVALID_APPWIDGET_ID) return
+        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id))
+    }
+
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        acceptWidgetConfig()
         handleDebugIntent()
     }
 

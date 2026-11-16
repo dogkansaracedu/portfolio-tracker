@@ -30,8 +30,8 @@ android {
         applicationId = "dev.portfolio.widget"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
 
         buildConfigField("String", "SUPABASE_URL", quoted(prop("SUPABASE_URL").trimEnd('/')))
         buildConfigField("String", "SUPABASE_ANON_KEY", quoted(prop("SUPABASE_ANON_KEY")))
