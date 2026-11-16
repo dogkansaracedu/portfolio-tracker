@@ -114,7 +114,8 @@ supabase db push                                       # apply all migrations
 supabase secrets set CRON_TOKEN=$(openssl rand -hex 32)
 supabase secrets set ALLOWED_ORIGINS="https://<vercel-url>"
 for fn in backfill-snapshots fetch-benchmark-history fetch-historical-rate \
-          fetch-prices resolve-tickers take-snapshots; do
+          fetch-prices resolve-tickers take-snapshots take-intraday-snapshots \
+          widget-data; do
   supabase functions deploy $fn
 done
 ```

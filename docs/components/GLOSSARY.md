@@ -255,6 +255,14 @@ The money-weighted change **since the most recent [snapshot](#snapshot) before t
 Subtracting capital deployed during the period removes principal, leaving only
 price/FX movement. See the [formula](#daily-return-formula).
 
+### Today's price change
+How much the current holdings moved on price alone since the most recent
+[snapshot](#snapshot) before today (home-local day): Σ quantity × (price now −
+that snapshot's price), in TRY; the percent divides by Σ quantity × that
+snapshot's price. Assets without a price in that snapshot are left out. Unlike
+[Daily return](#daily-return) it is not money-weighted and ignores flows
+entirely. Used by the home-screen widget feed.
+
 ### Total value
 The portfolio's current market value — every holding at its latest price.
 **"Total Value" is the one user-facing name**: the dashboard hero's headline and

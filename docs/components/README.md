@@ -96,7 +96,8 @@ Detailed, per-component stack lives in each `technical/` doc. In summary:
   signup), Edge Functions (Deno), pg_cron.
 - **Edge functions:** `fetch-prices` (consolidated price + FX orchestrator — no
   separate per-source functions), `fetch-historical-rate`, `fetch-benchmark-history`,
-  `resolve-tickers`, `take-snapshots`, `backfill-snapshots`.
+  `resolve-tickers`, `take-snapshots`, `take-intraday-snapshots`,
+  `backfill-snapshots`, `widget-data` (read-only home-screen widget feed).
 - **Tests:** Vitest over the pure computation modules — the P&L engine
   (`src/lib/pnl/*.test.ts`), MWR/TWR/XIRR, cash, interest, campaigns, budgeting
   and vehicle (`src/lib/vehicle/*.test.ts`). UI relies on types rather than

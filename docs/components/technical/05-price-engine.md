@@ -25,6 +25,8 @@
 | `supabase/functions/_shared/constants.ts` | `HOME_TIMEZONE` (`Europe/Istanbul`, for BIST hours), `TROY_OZ_GRAMS` (oz→gram gold). |
 | `supabase/functions/_shared/client.ts` | `getServiceClient()` — service-role Supabase client. |
 | `supabase/functions/_shared/cors.ts` | `corsHeaders(origin)`. |
+| `supabase/functions/widget-data/index.ts` | **Home-screen widget feed** (read-only, `GET`). Caller-JWT auth, reads via RLS; see "Widget feed" below. |
+| `supabase/functions/_shared/widget.ts` | Pure helpers for it: `quoteCurrency`, `baselinePrices`, `buildWidgetAssets`, `computeTodayChange`, `newestHeldUpdateMs`, `pickLatestTotal`. Unit-tested in `src/lib/queries/widget.test.ts`. |
 | `src/contexts/PricesContext.tsx` | App-wide shared price store + the presence-gated polling loop. |
 | `src/hooks/usePrices.ts` | Thin re-export of `usePricesContext` as `usePrices` (preserves the original import path). |
 | `src/lib/priceId.ts` | `canonicalizeTicker`, `derivePriceId(ticker, category, source)` — key resolution = `price_id ?? ticker`. |
@@ -167,6 +169,53 @@ by `price_id` (internal-only list).
 `ensureHistoricalRatesForDates` (bulk import) invoke `fetch-historical-rate`
 best-effort; failures leave the nearest-prior-rate fallback
 (`fetchRateForDate` / `getExchangeRateForDate`) in place.
+
+## Widget feed — `widget-data`
+
+`GET {SUPABASE_URL}/functions/v1/widget-data` with `Authorization: Bearer <user
+access token>` + `apikey: <anon key>` (the Android widget signs in with
+`signInWithPassword`, like the PWA). `verify_jwt = true` in `config.toml`, but
+the anon key passes that too, so the function calls `_shared/auth.ts` →
+`authorizeRequest(req, { allowCron: false })` (401 unless the Auth server
+accepts the token as a user) and builds the client with `getCallerClient(req,
+jwt)` (anon key + the caller's token), so **every read goes through RLS as that
+user** — no service role, no extra secrets. Writes nothing.
+
+Response:
+```json
+{ "asOf": "…", "pricesRefresh": "none|done|background",
+  "total": { "valueTry", "valueUsd", "changeTry", "changePct", "snapshotAt" },
+  "assets": [ { "ticker", "name", "price", "priceCurrency", "changePct",
+                "valueTry", "updatedAt", "stale" } ] }
+```
+
+- **Assets**: active `holdings` with `balance > 0`, summed per ticker across
+  platforms; price from `price_cache[price_id ?? ticker]` (TRY falls back to
+  `price_usd × latest usd_try`); `priceCurrency` mirrors `assetNativeCurrency` +
+  the portfolio row's EUR→USD fallback; `valueTry = quantity × price_try` (stale
+  prices still count); `stale` = `updated_at` older than 30 min (`isStale`'s
+  default). Sorted by `valueTry` desc.
+- **Total**: `pickLatestTotal` of the latest `intraday_snapshots` row
+  (`captured_at`) and the latest `snapshots` row (`created_at` — the daily row
+  has no updated-at, so this is its first write); `snapshotAt` is that time.
+  Not recomputed from holdings × prices (dashboard rule). `null`s when the user
+  has no snapshot yet.
+- **Change**: baseline = latest `snapshots` row with `snapshot_date < today`
+  (`HOME_TIMEZONE`), per ticker from `breakdown.by_asset` — TRY unit price =
+  `value_try ÷ amount` (falls back to `price_usd × rates.usd_try`), USD =
+  `price_usd`. `computeTodayChange` = Σ qty × (now − prev) in TRY over tickers
+  with a baseline; `changePct` ÷ Σ qty × prev. Per-asset `changePct` compares in
+  `priceCurrency`. `price_cache` keeps no previous close, so the snapshot is the
+  only baseline.
+- **Freshness**: if the newest `updated_at` among held prices is older than
+  `REFRESH_AFTER_MS` (15 min), POST `fetch-prices` with the caller's own headers
+  (no cron token → the normal throttled refresh) and wait up to
+  `REFRESH_WAIT_MS` (3.5 s). Done in time → re-read `price_cache`
+  (`pricesRefresh: "done"`); else hand the promise to `EdgeRuntime.waitUntil`
+  and answer from cache (`"background"`). With the app closed the hourly cron
+  keeps prices ≤ ~1 h old, and a full refresh (Yahoo 1 s apart per due symbol)
+  usually exceeds the wait, so the *next* poll gets the fresh prices. The total
+  stays at the last snapshot until the next hourly intraday write.
 
 ## Notes & gotchas
 

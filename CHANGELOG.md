@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.25.0] — 2026-11-17
+- **Home-screen widget feed.** A read-only endpoint for the Android widget, behind
+  your normal login: total value from the latest snapshot, today's price change
+  (price moves since yesterday's snapshot, deposits and withdrawals left out), and
+  every held asset with its price, change and value. If prices are more than 15
+  minutes old it asks for the same refresh the open app does.
+
 ## [0.24.3] — 2026-11-17
 - Who can edit the asset catalog is now stored in the database as a list of
   admin accounts instead of an account id written into the code. Nothing

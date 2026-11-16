@@ -71,10 +71,11 @@ Prices refresh only when a user is **actively present** (the app is open and
 focused) or on an **explicit refresh action**. While present the app
 periodically (a) re-reads the cache so on-screen figures track it and (b) asks
 the engine to refresh upstream; when the app is backgrounded or no one is signed
-in, **nothing is fetched**. (A separate daily *[Snapshot](GLOSSARY.md#snapshot)*
-job — Component 10 — runs on a schedule and force-refreshes prices as its first
-step; that is the only scheduled price fetch, and it is not part of this
-component's demand-driven loop.)
+in, **nothing is fetched** by the app. (The scheduled
+[Snapshot](GLOSSARY.md#snapshot) jobs — Component 10 — force-refresh every
+price **hourly** and before the daily snapshot; they are not part of this
+component's demand-driven loop. The home-screen widget below is the one other
+demand source.)
 
 **The engine self-throttles per asset.** A refresh request is *not* "refetch
 everything." Each asset is refetched only once it is older than a per-class
@@ -118,6 +119,27 @@ that day exists (fetched on demand, best-effort) so cost-basis conversion uses
 the day's real rate. If the exact day is unavailable (weekend/holiday), it walks
 back to the most recent prior published rate. Failure is non-fatal: conversion
 falls back to the nearest known rate.
+
+**Home-screen widget feed.** A read-only feed serves the phone home-screen
+widget: the signed-in user's total value, today's price change, and every held
+asset (quantity > 0) with its price, price change and value, largest first. The
+widget signs in with the user's own login and sees only that user's data.
+
+- *Total value* is the latest [Snapshot](GLOSSARY.md#snapshot) total (the newer
+  of the hourly and the daily one) — the same number the dashboard shows — with
+  the time it was taken.
+- *Today's change* is the [today's price change](GLOSSARY.md#todays-price-change)
+  against the most recent snapshot before today: price moves only, deposits and
+  withdrawals don't count. An asset with no price in that snapshot has no
+  change and is left out of the total change.
+- Each price is in the currency the app shows it in (TRY for TRY-quoted assets,
+  USD otherwise) and carries the app's 30-minute [staleness](GLOSSARY.md#staleness)
+  flag.
+- Freshness: when none of the user's held prices was refreshed in the last
+  ~15 minutes (app closed, hourly job not yet due), a feed request asks for the
+  same throttled refresh the open app does. If that finishes within a few
+  seconds the answer uses the new prices; otherwise the answer comes from the
+  cache and the refresh completes in the background for the next poll.
 
 ## Contract (I/O)
 
@@ -170,7 +192,10 @@ falls back to the nearest known rate.
 - [ ] Pricing is keyed by `price_id` (falling back to ticker), so two assets that
       share a display ticker but differ in fetch key do **not** collide.
 - [ ] No price is fetched while the app is backgrounded or no one is signed in;
-      refresh resumes on focus and on explicit action.
+      refresh resumes on focus and on explicit action. (Exceptions: the scheduled
+      snapshot jobs, and a widget-feed request when held prices are >15 min old.)
+- [ ] The widget feed refuses a request without a valid login, and returns the
+      latest snapshot total, today's price change and held assets largest first.
 - [ ] A refresh request does not refetch everything — only assets past their
       cadence — and BIST equities are skipped outside market hours.
 - [ ] FX rates and gram-gold appear in the exchange-rate history after an FX
