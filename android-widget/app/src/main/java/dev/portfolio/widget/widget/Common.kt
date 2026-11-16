@@ -58,8 +58,9 @@ fun signColor(sign: Fmt.Sign): ColorProvider = when (sign) {
     Fmt.Sign.FLAT -> GlanceTheme.colors.onSurfaceVariant
 }
 
-fun openPwaAction(): Action =
-    actionStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.PWA_URL)))
+/** Opens the PWA, optionally at a route such as [WATCHLIST_PATH]. */
+fun openPwaAction(path: String = ""): Action =
+    actionStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.PWA_URL.trimEnd('/') + path)))
 
 fun openAppAction(): Action = actionStartActivity<MainActivity>()
 
@@ -113,12 +114,12 @@ fun CacheState.blocker(): Blocker? = when {
 
 /** Full-widget message for "not configured" and "no data yet". */
 @Composable
-fun MessageState(state: CacheState) {
+fun MessageState(state: CacheState, pwaPath: String = "") {
     val (title, body, action) = when (state.blocker()) {
         Blocker.NOT_CONFIGURED -> Triple("Kurulum gerekli", "local.properties eksik", openAppAction())
         Blocker.SIGNED_OUT -> Triple("Giriş gerekli", "Giriş yapmak için dokun", openAppAction())
         Blocker.NO_DATA -> Triple("Veri alınamadı", "Yenilemek için dokun", refreshAction())
-        Blocker.LOADING, null -> Triple("Yükleniyor…", null, openPwaAction())
+        Blocker.LOADING, null -> Triple("Yükleniyor…", null, openPwaAction(pwaPath))
     }
     WidgetSurface(GlanceModifier.clickable(action).padding(16.dp)) {
         Column(

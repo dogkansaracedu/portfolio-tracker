@@ -21,11 +21,15 @@ abstract class PortfolioReceiver : GlanceAppWidgetReceiver() {
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
         val manager = AppWidgetManager.getInstance(context)
-        val remaining = listOf(TotalWidgetReceiver::class.java, AssetsWidgetReceiver::class.java)
-            .sumOf { manager.getAppWidgetIds(ComponentName(context, it)).size }
+        val remaining = ALL_RECEIVERS.sumOf { manager.getAppWidgetIds(ComponentName(context, it)).size }
         if (remaining == 0) RefreshScheduler.cancelAll(context)
     }
 }
+
+/** Every widget provider; used to tell whether any widget is still placed. */
+val ALL_RECEIVERS = listOf(
+    TotalWidgetReceiver::class.java, AssetsWidgetReceiver::class.java, TakipWidgetReceiver::class.java,
+)
 
 class TotalWidgetReceiver : PortfolioReceiver() {
     override val glanceAppWidget: GlanceAppWidget = TotalWidget()
@@ -33,4 +37,8 @@ class TotalWidgetReceiver : PortfolioReceiver() {
 
 class AssetsWidgetReceiver : PortfolioReceiver() {
     override val glanceAppWidget: GlanceAppWidget = AssetsWidget()
+}
+
+class TakipWidgetReceiver : PortfolioReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = TakipWidget()
 }

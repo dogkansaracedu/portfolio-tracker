@@ -5,6 +5,7 @@ import android.util.AtomicFile
 import androidx.glance.appwidget.updateAll
 import dev.portfolio.widget.BuildConfig
 import dev.portfolio.widget.widget.AssetsWidget
+import dev.portfolio.widget.widget.TakipWidget
 import dev.portfolio.widget.widget.TotalWidget
 import dev.portfolio.widget.work.RefreshScheduler
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +19,7 @@ import java.io.File
 import java.time.Instant
 
 /**
- * One cached payload shared by both widgets and the launcher screen. Kept in memory as a
+ * One cached payload shared by all widgets and the launcher screen. Kept in memory as a
  * StateFlow (widgets collect it, so an open Glance session re-renders on change) and on disk
  * so widgets render instantly after a process restart and show the last data offline.
  */
@@ -35,12 +36,12 @@ class WidgetStore private constructor(private val appContext: Context) {
         return copy(signedIn = s != null, email = s?.email)
     }
 
-    /** Fetch, persist, and re-render both widgets. Concurrent calls collapse into one. */
+    /** Fetch, persist, and re-render all widgets. Concurrent calls collapse into one. */
     suspend fun refresh() {
         if (!refreshLock.tryLock()) return
         try {
             if (_state.value.demo) {
-                setAndSave(fixtureState())
+                setAndSave(fixtureState(emptyWatchlist = _state.value.payload?.watchlist.isNullOrEmpty()))
                 return
             }
             _state.update { it.copy(refreshing = true) }
@@ -79,14 +80,17 @@ class WidgetStore private constructor(private val appContext: Context) {
         renderWidgets()
     }
 
-    /** Debug builds only: render a fake portfolio so the widgets can be checked without login. */
-    suspend fun loadFixture() {
+    /**
+     * Debug builds only: render a fake portfolio so the widgets can be checked without login.
+     * [emptyWatchlist] shows Takip's empty state.
+     */
+    suspend fun loadFixture(emptyWatchlist: Boolean = false) {
         if (!BuildConfig.DEBUG) return
-        setAndSave(fixtureState())
+        setAndSave(fixtureState(emptyWatchlist))
         renderWidgets()
     }
 
-    private fun fixtureState(): CacheState {
+    private fun fixtureState(emptyWatchlist: Boolean = false): CacheState {
         val now = System.currentTimeMillis()
         val asOf = Instant.ofEpochMilli(now).toString()
         fun a(t: String, n: String, p: Double, c: String, ch: Double?, v: Double, stale: Boolean = false) =
@@ -102,6 +106,12 @@ class WidgetStore private constructor(private val appContext: Context) {
                 a("ETH", "Ethereum", 3_105.77, "USD", -1.4, 410_000.0),
                 a("TTE", "İş Portföy Teknoloji", 0.48213, "TRY", null, 300_000.0, stale = true),
                 a("EUR", "Euro nakit", 1.0842, "USD", 0.05, 210_000.0),
+            ),
+            watchlist = if (emptyWatchlist) emptyList() else listOf(
+                WatchItem("USDTRY", "USD/TRY", 50.382, "TRY", 2.04, asOf),
+                WatchItem("AAPL", "Apple Inc.", 231.45, "USD", -0.85, asOf),
+                WatchItem("ASELS", "Aselsan", 182.4, "TRY", null, asOf),
+                WatchItem("TP2", "Tera Portföy Para Piyasası", 1.94817, "TRY", 0.11, asOf, stale = true),
             ),
         )
         return CacheState(payload = payload, fetchedAt = now, attemptedAt = now, demo = true).withSession()
@@ -123,6 +133,7 @@ class WidgetStore private constructor(private val appContext: Context) {
     private suspend fun renderWidgets() {
         TotalWidget().updateAll(appContext)
         AssetsWidget().updateAll(appContext)
+        TakipWidget().updateAll(appContext)
     }
 
     private fun load(): CacheState = try {

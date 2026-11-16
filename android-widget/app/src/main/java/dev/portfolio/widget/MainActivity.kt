@@ -18,6 +18,7 @@ import dev.portfolio.widget.data.FetchError
 import dev.portfolio.widget.data.WidgetStore
 import dev.portfolio.widget.format.Fmt
 import dev.portfolio.widget.widget.AssetsWidgetReceiver
+import dev.portfolio.widget.widget.TakipWidgetReceiver
 import dev.portfolio.widget.widget.TotalWidgetReceiver
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -115,15 +116,19 @@ class MainActivity : Activity() {
 
     /**
      * Debug builds only, for emulator checks without real credentials:
-     * `--ez fixture true` loads a fake portfolio, `--es pin total|assets` asks the launcher to
-     * add a widget.
+     * `--ez fixture true` loads a fake portfolio (add `--ez emptyWatchlist true` for an empty
+     * Takip list), `--es pin total|assets|takip` asks the launcher to add a widget.
      */
     private fun handleDebugIntent() {
         if (!BuildConfig.DEBUG) return
-        if (intent.getBooleanExtra("fixture", false)) scope.launch { store.loadFixture() }
+        if (intent.getBooleanExtra("fixture", false)) {
+            val emptyWatchlist = intent.getBooleanExtra("emptyWatchlist", false)
+            scope.launch { store.loadFixture(emptyWatchlist) }
+        }
         val receiver = when (intent.getStringExtra("pin")) {
             "total" -> TotalWidgetReceiver::class.java
             "assets" -> AssetsWidgetReceiver::class.java
+            "takip" -> TakipWidgetReceiver::class.java
             else -> null
         } ?: return
         AppWidgetManager.getInstance(this).requestPinAppWidget(ComponentName(this, receiver), null, null)

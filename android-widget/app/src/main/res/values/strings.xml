@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Portföy Widget</string>
-    <string name="widgets_hint">Ana ekrana uzun bas → Widget\'lar → Portföy Widget: Toplam ve Varlıklar. Bu ekrana dönmek için widget\'a uzun bas → kalem simgesi.</string>
+    <string name="widgets_hint">Ana ekrana uzun bas → Widget\'lar → Portföy Widget: Toplam, Varlıklar ve Takip. Bu ekrana dönmek için widget\'a uzun bas → kalem simgesi.</string>
     <string name="not_configured">Kurulum eksik: local.properties içine SUPABASE_URL ve SUPABASE_ANON_KEY ekleyip yeniden derle.</string>
     <string name="email">E-posta</string>
     <string name="password">Şifre</string>
@@ -12,4 +12,6 @@
     <string name="widget_total_desc">Net varlık (₺) ve bugünkü değişim</string>
     <string name="widget_assets_label">Varlıklar</string>
     <string name="widget_assets_desc">Fiyatlar ve bugünkü değişim, kaydırılabilir liste</string>
+    <string name="widget_takip_label">Takip</string>
+    <string name="widget_takip_desc">Takip listen: fiyatlar ve bugünkü değişim</string>
 </resources>

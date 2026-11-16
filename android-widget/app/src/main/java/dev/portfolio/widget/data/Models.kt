@@ -8,6 +8,8 @@ data class Payload(
     val asOf: String? = null,
     val total: Total? = null,
     val assets: List<Asset> = emptyList(),
+    /** User's watchlist in their order. Missing on an older backend → empty. */
+    val watchlist: List<WatchItem> = emptyList(),
 )
 
 @Serializable
@@ -31,7 +33,19 @@ data class Asset(
     val stale: Boolean = false,
 )
 
-/** What both widgets and the launcher screen render. Persisted (minus [refreshing]) to disk. */
+/** A watched (not held) symbol. `price` / `changePct` are null until known. */
+@Serializable
+data class WatchItem(
+    val ticker: String,
+    val name: String? = null,
+    val price: Double? = null,
+    val priceCurrency: String? = null,
+    val changePct: Double? = null,
+    val updatedAt: String? = null,
+    val stale: Boolean = false,
+)
+
+/** What all widgets and the launcher screen render. Persisted (minus [refreshing]) to disk. */
 @Serializable
 data class CacheState(
     val payload: Payload? = null,
