@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.24.2] — 2026-11-17
+- **Only you can rebuild your snapshot history.** The backfill used to trust any
+  caller holding the app's public key, so a stranger could wipe the daily history
+  older than 30 days and read totals back. It now requires your signed-in session
+  and only touches your own rows.
+- Ticker lookup, price refresh, historical FX rates and the benchmark refresh
+  also refuse anyone who is neither signed in nor the scheduled job. The
+  benchmark job now sends the job token like the others.
+
 ## [0.24.1] — 2026-09-18
 - **Turkish fund prices no longer go to zero.** TEFAS lists the current day with a
   NAV of 0 until it publishes the real figure; the engine booked that 0 as TP2's

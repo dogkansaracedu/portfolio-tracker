@@ -1,4 +1,5 @@
 import { getServiceClient } from "../_shared/client.ts"
+import { authorizeRequest, unauthorizedResponse } from "../_shared/auth.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 
 function pad2(n: number): string {
@@ -70,6 +71,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders(origin) })
   }
+
+  // Signed-in users only (called when a non-USD transaction is saved). Keeps
+  // the public anon key from driving TCMB fetches and exchange_rates writes.
+  const caller = await authorizeRequest(req, { allowCron: false })
+  if (caller.kind !== "user") return unauthorizedResponse(corsHeaders(origin))
 
   try {
     let body: { date?: string } = {}

@@ -1,4 +1,5 @@
 import { getServiceClient } from "../_shared/client.ts"
+import { authorizeRequest, unauthorizedResponse } from "../_shared/auth.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { fetchYahooQuote } from "../_shared/yahoo.ts"
 import { fetchTefasQuote } from "../_shared/tefas.ts"
@@ -452,11 +453,14 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders(origin) })
   }
 
-  // Only an authenticated internal caller (the cron, holding X-Cron-Token) may
-  // bypass the cadence/guard or chain a snapshot. Public/frontend pings can
-  // only ever trigger a normal, throttled refresh.
+  // Two callers: the cron (X-Cron-Token) and a signed-in user (the app's live
+  // poll, the widget feed). Anyone else gets 401. Only the cron may bypass the
+  // cadence/guard or chain a snapshot; user pings only ever trigger a normal,
+  // throttled refresh.
+  const caller = await authorizeRequest(req, { allowCron: true })
+  if (caller.kind === "denied") return unauthorizedResponse(corsHeaders(origin))
   const cronToken = Deno.env.get("CRON_TOKEN")
-  const isCron = !!cronToken && req.headers.get("X-Cron-Token") === cronToken
+  const isCron = caller.kind === "cron"
 
   let body: { force?: boolean; snapshot?: boolean; intraday?: boolean } = {}
   try {

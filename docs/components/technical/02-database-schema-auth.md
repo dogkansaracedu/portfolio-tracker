@@ -31,6 +31,7 @@
 | `20260809192006_add_tax_transaction_type.sql` | Adds `tax` to the `transaction_type` enum — taxes charged to a cash account (e.g. Midas' monthly fund stopaj). Subtracts from the fiat balance; neutral to net invested and never an external flow (the charge surfaces as P&L loss). |
 | `20260815120000_retirement_scenarios.sql` | Adds per-user `retirement_scenarios` table (`name`, `is_default`, `inputs jsonb` mirroring `RetirementScenarioInputs`) + index `idx_retirement_scenarios_user_created` + partial unique index `idx_retirement_scenarios_one_default_per_user` on `(user_id) WHERE is_default` (the "exactly one default" invariant, DB-enforced) + four `auth.uid() = user_id` RLS policies. Backs Component 13's persistence contract. |
 | `20260819120000_interest_positions.sql` | Adds per-user `interest_positions` table (`asset_id`/`platform_id` FKs into the user's own catalog, `quantity`, nullable `apr`/`apr_kind`, `label`, `started_at`, nullable `expires_at` = flexible, `campaign_id` FK `ON DELETE SET NULL`, `note`, `is_closed`) + index `idx_interest_positions_user_open` on `(user_id, is_closed)` + four `auth.uid() = user_id` RLS policies. Backs Component 16. Informational only: no trigger, no ledger effect — rows never touch `holdings`, `transactions` or any P&L figure. |
+| `20261117000000_benchmark_cron_token.sql` | Re-schedules pg_cron `daily-benchmark-history` (same 21:30 UTC, same body) with the `X-Cron-Token` header, which `fetch-benchmark-history` now requires. Apply before deploying that function. |
 
 **Types & client:**
 

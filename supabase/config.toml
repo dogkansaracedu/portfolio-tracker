@@ -374,28 +374,31 @@ deno_version = 2
 [functions.take-snapshots]
 verify_jwt = false
 
-# Backfill function — invoked manually (via curl) to seed historical
-# snapshots from external price APIs. No JWT needed; service role is
-# loaded from env inside the function.
+# Backfill function — the Settings "backfill" button. The gateway JWT check is
+# not an auth check (the public anon key is a valid JWT): the function itself
+# requires a signed-in user (auth.getUser) and reads/writes only that user's
+# rows through RLS (_shared/auth.ts).
 [functions.backfill-snapshots]
 verify_jwt = true
 
 # Lazy historical-rate cache. Frontend invokes this whenever a non-USD
 # transaction is saved so `exchange_rates` carries the TCMB rate for that
-# day. Same {service-role-from-env} pattern as the other two.
+# day. The function requires a signed-in user (auth.getUser, _shared/auth.ts);
+# writes still go through the service role.
 [functions.fetch-historical-rate]
 verify_jwt = false
 
 # Benchmark history backfill — pulls SPY/QQQ daily closes from Yahoo
-# into `benchmark_prices`. Caller can't inject data (function ignores
-# request body and writes hardcoded tickers only), so no JWT needed.
+# into `benchmark_prices`. Caller can't inject data (hardcoded tickers), but a
+# run is a 10-year Yahoo pull, so the function accepts only X-Cron-Token (the
+# daily cron) or a signed-in user.
 [functions.fetch-benchmark-history]
 verify_jwt = false
 
-# Price refresh. Called both by the frontend's live poll (no token — gets a
-# throttled, cadence-limited refresh) and by the daily cron (with X-Cron-Token,
-# which unlocks `force` + the EOD snapshot chain). Caller cannot inject prices;
-# values come only from TCMB/Yahoo, so no JWT needed.
+# Price refresh. Called by the frontend's live poll (signed-in user — gets a
+# throttled, cadence-limited refresh) and by the crons (X-Cron-Token, which
+# unlocks `force` + the snapshot chains). Anyone else gets 401. Caller cannot
+# inject prices; values come only from TCMB/Yahoo/TEFAS.
 [functions.fetch-prices]
 verify_jwt = false
 
@@ -419,7 +422,8 @@ verify_jwt = false
 
 # Ticker resolution (Yahoo lookup). Added 2026-05-25 and deployed manually, but
 # its config block was missed at the time — declared here so the GitHub
-# integration manages it. verify_jwt matches the live setting.
+# integration manages it. verify_jwt matches the live setting, but the function
+# itself requires a signed-in user (auth.getUser) before any price_cache write.
 [functions.resolve-tickers]
 verify_jwt = true
 

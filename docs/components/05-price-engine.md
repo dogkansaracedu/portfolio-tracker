@@ -141,6 +141,8 @@ falls back to the nearest known rate.
 - A value is keyed by `price_id ?? ticker`; lookups must use the same key.
 - Manual prices are never overwritten by an automated refresh.
 - A refresh is idempotent and safe to call repeatedly (throttling absorbs spam).
+- Only a signed-in user or the scheduled job may ask for a refresh or a
+  historical rate; anyone else is refused before any upstream call.
 
 ## UI contract — price display + manual refresh control
 

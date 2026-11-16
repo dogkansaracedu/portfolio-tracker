@@ -17,7 +17,8 @@
 | Path | Role |
 |---|---|
 | `supabase/functions/fetch-prices/index.ts` | **Orchestrator** — single endpoint the frontend pings and the daily cron forces. Runs FX step → Yahoo step → TEFAS step → (cron only) snapshot/intraday trigger. Self-throttles per asset. |
-| `supabase/functions/fetch-historical-rate/index.ts` | On-demand TCMB fetch for **one past date** (non-USD transactions). Walks back ≤7 days to the nearest published rate; upserts `exchange_rates`. |
+| `supabase/functions/fetch-historical-rate/index.ts` | On-demand TCMB fetch for **one past date** (non-USD transactions). Walks back ≤7 days to the nearest published rate; upserts `exchange_rates`. Signed-in users only (401 otherwise; no cron caller). |
+| `supabase/functions/_shared/caller.ts` + `_shared/auth.ts` | Edge-function caller check. `verify_jwt` is **not** an auth check here — the anon key is a valid JWT and ships in the public bundle. `authorizeRequest(req, { allowCron })` resolves the caller to the cron (`X-Cron-Token` = `CRON_TOKEN`, only when allowed) or a signed-in user (`auth.getUser(jwt)`); anything else is `denied` → `unauthorizedResponse` (401). `getCallerClient(req, jwt)` is a client acting as that user through RLS. The pure decision (`caller.ts`) is unit-tested in `src/lib/queries/caller.test.ts`. |
 | `supabase/functions/_shared/yahoo.ts` | `fetchYahooQuote(symbol)` — single Yahoo chart-endpoint quote; requests `interval=5m&range=1d&includePrePost=true` and derives the price via the pure `pickLatestPrice` (newer of `regularMarketPrice@regularMarketTime` vs the last non-null intraday close@its candle time — so pre/after-hours prints surface); reads `meta.currency`; never throws (returns `{ status, quote: null }` on failure). Unit-tested in `src/lib/queries/yahoo.test.ts`. |
 | `supabase/functions/_shared/tefas.ts` | `fetchTefasQuote(fonKodu)` — single TEFAS fund NAV: the newest `periyod:1` row **with a positive `fiyat`** (`pickLatestNav`; TEFAS lists today's row as `fiyat: 0` until the NAV is published, and a zero booked as a price froze every snapshot writer behind the unpriced guard, 2026-09-17/18). `fetchTefasHistory` drops zero rows the same way (`hasNav`). Always TRY; never throws. Unit-tested in `src/lib/queries/tefas.test.ts`. |
 | `supabase/functions/_shared/currency.ts` | `splitPrice(price, currency, rates)` → `{ price_usd, price_try }` per source currency; `null` for unsupported (e.g. `GBp`). `categoryForQuote`. |
@@ -128,8 +129,11 @@ skipped/failed, `ensureConversionRates` loads the last `usd_try`/`eur_usd` from
   then chain a snapshot writer (Component 10): `snapshot=true` chains
   `take-snapshots` (daily EOD), `intraday=true` chains `take-intraday-snapshots`
   (hourly totals). Both go through the shared `triggerChainedFunction`
-  fire-and-forget helper. Public/frontend pings can **only** trigger a normal
-  throttled refresh — they can't force or chain a snapshot.
+  fire-and-forget helper. A signed-in user's ping (the app's poll, the widget
+  feed) can **only** trigger a normal throttled refresh — it can't force or
+  chain a snapshot. Any other caller (no token, the public anon key, a service
+  key) gets **401** before any work: `authorizeRequest(req, { allowCron: true })`
+  from `_shared/auth.ts`.
 
 **Client polling loop (`PricesContext`):** `PricesProvider` owns the single
 shared price store; `usePrices` is a thin consumer of it, never a per-call-site

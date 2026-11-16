@@ -1,4 +1,4 @@
-import { getServiceClient } from "../_shared/client.ts"
+import { authorizeRequest, getCallerClient, unauthorizedResponse } from "../_shared/auth.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { splitPrice } from "../_shared/currency.ts"
 import { TROY_OZ_GRAMS } from "../_shared/constants.ts"
@@ -189,7 +189,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    return await handle(req, jsonHeaders, jsonError)
+    // Only a signed-in user may run a backfill, and only over their own rows.
+    // No cron calls this function, so the cron token is not accepted.
+    const caller = await authorizeRequest(req, { allowCron: false })
+    if (caller.kind !== "user") return unauthorizedResponse(corsHeaders(origin))
+    return await handle(req, caller.userId, caller.jwt, jsonHeaders, jsonError)
   } catch (e) {
     // Catch-all so an uncaught throw inside handle() returns an actionable
     // JSON body instead of an opaque "non-2xx status code".
@@ -202,12 +206,16 @@ Deno.serve(async (req) => {
 
 async function handle(
   req: Request,
+  userId: string,
+  jwt: string,
   jsonHeaders: HeadersInit,
   jsonError: (message: string, status?: number) => Response,
 ): Promise<Response> {
+  // Acts as the caller through RLS: no service role anywhere in this function.
+  // The explicit user_id filters below repeat what RLS already enforces.
   let supabase
   try {
-    supabase = getServiceClient()
+    supabase = getCallerClient(req, jwt)
   } catch (err) {
     return jsonError(err instanceof Error ? err.message : String(err))
   }
@@ -247,6 +255,7 @@ async function handle(
   const { data: platformsRaw, error: platformsErr } = await supabase
     .from("platforms")
     .select("id, name, color")
+    .eq("user_id", userId)
   if (platformsErr) {
     return jsonError(`load platforms: ${platformsErr.message}`)
   }
@@ -260,6 +269,7 @@ async function handle(
     .select(
       "id, user_id, asset_id, platform_id, type, date, amount, unit_price, price_currency, total_cost, fee, fee_currency",
     )
+    .eq("user_id", userId)
     .order("date", { ascending: true })
   if (txErr) {
     return jsonError(`load transactions: ${txErr.message}`)

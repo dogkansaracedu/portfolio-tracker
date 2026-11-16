@@ -1,4 +1,5 @@
 import { getServiceClient } from "../_shared/client.ts"
+import { authorizeRequest, unauthorizedResponse } from "../_shared/auth.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { fetchYahooQuote } from "../_shared/yahoo.ts"
 import { splitPrice, categoryForQuote } from "../_shared/currency.ts"
@@ -42,6 +43,12 @@ Deno.serve(async (req) => {
     })
   }
 
+  // Signed-in users only (the add-transaction flow). The anon key is public,
+  // so without this anyone could make the service role write price_cache rows
+  // for symbols of their choosing. No cron caller.
+  const caller = await authorizeRequest(req, { allowCron: false })
+  if (caller.kind !== "user") return unauthorizedResponse(corsHeaders(origin))
+
   let body: RequestBody
   try {
     body = (await req.json()) as RequestBody
@@ -67,6 +74,8 @@ Deno.serve(async (req) => {
     })
   }
 
+  // Service role is still needed for the price_cache upsert (users have read
+  // access only); the caller was verified above.
   const supabase = getServiceClient()
 
   const { data: rateRow } = await supabase

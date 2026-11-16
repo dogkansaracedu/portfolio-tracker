@@ -1,4 +1,5 @@
 import { getServiceClient } from "../_shared/client.ts"
+import { authorizeRequest, unauthorizedResponse } from "../_shared/auth.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 
 // Tickers we expose to users as benchmark options. Keep small — the table
@@ -48,6 +49,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders(origin) })
   }
+
+  // The daily cron (X-Cron-Token) or a signed-in user (manual re-run). Each
+  // run pulls 10 years from Yahoo, so the public anon key must not trigger it.
+  const caller = await authorizeRequest(req, { allowCron: true })
+  if (caller.kind === "denied") return unauthorizedResponse(corsHeaders(origin))
 
   const supabase = getServiceClient()
   const now = new Date().toISOString()
