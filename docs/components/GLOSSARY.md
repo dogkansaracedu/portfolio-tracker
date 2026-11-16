@@ -266,8 +266,9 @@ An asset's (or group's) **current value ÷ total portfolio value**, as a percent
 ### Admin
 The single account that curates the global [Asset](#asset) catalog. Only the
 admin can create / edit / deactivate assets; everyone else reads the catalog
-read-only. Enforced in the database (the asset write RLS policies check a
-hardcoded user id) and mirrored in the UI. Platforms are unaffected — they stay
+read-only. Who is admin is recorded in the database as data (a list of admin
+accounts), not written into the code; the database enforces it on every asset
+write and the UI mirrors it. Platforms are unaffected — they stay
 per-user.
 
 ### Snapshot price and live quantity

@@ -12,6 +12,9 @@ export interface AuthContextValue {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  /** True when the signed-in user is the catalog admin. Asked of the database
+   *  once per signed-in user; false while unknown or signed out. */
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
@@ -23,6 +26,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // Id of the user the database confirmed as admin; compared against the
+  // current user so a stale answer never leaks across sign-out / switch.
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
 
   useEffect(() => {
     // Apply a session update only when identity actually changed, so a
@@ -63,6 +69,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Admin status comes from the database (`is_admin()`), once per user id.
+  // `user` keeps its reference across token refreshes (see applySession), so
+  // this runs on sign-in / sign-out / account switch only.
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    supabase.rpc("is_admin").then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) console.error("Failed to check admin status:", error);
+      setAdminUserId(data === true ? userId : null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+  const isAdmin = userId != null && adminUserId === userId;
+
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
@@ -88,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

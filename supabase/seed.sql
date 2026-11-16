@@ -7,6 +7,13 @@ INSERT INTO public.signup_allowlist (email, note) VALUES
   ('owner@example.com', 'developer')
 ON CONFLICT DO NOTHING;
 
+-- Make the dev account the catalog admin. A reset has no users yet, so this
+-- only takes effect if the account already exists; after signing up, run it
+-- again (or the INSERT below on its own) to get the asset write controls.
+INSERT INTO public.app_admins (user_id)
+SELECT id FROM auth.users WHERE email = 'owner@example.com'
+ON CONFLICT DO NOTHING;
+
 -- Reference exchange rates so the FX helpers have data to chew on locally.
 INSERT INTO public.exchange_rates (date, source, usd_try, eur_try, eur_usd, gold_gram_try)
 VALUES

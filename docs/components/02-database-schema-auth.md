@@ -37,7 +37,7 @@ Define the persistent data model and the authentication boundary the whole app s
 ### Per-user data isolation (the core invariant)
 
 - Every row of every **per-user** entity (platforms, holdings, transactions, snapshots, intraday snapshots) carries an owning user. A signed-in user can read and write **only their own** rows; another user's rows are invisible and unmodifiable, enforced at the data layer (not merely in the UI).
-- **Assets are the exception:** they are a single **global catalog** shared by every user — all authenticated users read the same asset rows, and only the [admin](GLOSSARY.md#admin) account may create/edit/deactivate them. The admin-write restriction is enforced at the data layer, not merely in the UI.
+- **Assets are the exception:** they are a single **global catalog** shared by every user — all authenticated users read the same asset rows, and only the [admin](GLOSSARY.md#admin) account may create/edit/deactivate them. The admin-write restriction is enforced at the data layer, not merely in the UI. Which account is admin is stored as data (a list of admin accounts that nobody can change from the app), so no account identity lives in the code.
 - Other global/shared data (prices, exchange rates, benchmark series) is **read-only** to users: any signed-in user may read it; none may write it. Only the system's background fetch path writes it.
 - Deleting a user cascades to all of that user's owned rows.
 

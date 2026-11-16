@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.24.3] — 2026-11-17
+- Who can edit the asset catalog is now stored in the database as a list of
+  admin accounts instead of an account id written into the code. Nothing
+  changes for you: the same account keeps the same rights.
+
 ## [0.24.2] — 2026-11-17
 - **Only you can rebuild your snapshot history.** The backfill used to trust any
   caller holding the app's public key, so a stranger could wipe the daily history
