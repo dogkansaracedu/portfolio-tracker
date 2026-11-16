@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="negative">#FF8F84</color>
+    <color name="positive">#6EDBA5</color>
+    <color name="positive_soft">#296EDBA5</color>
+    <color name="negative_soft">#29FF8F84</color>
+    <color name="preview_bg">#FF1B1E1B</color>
+    <color name="preview_on">#FFE2E4E0</color>
+    <color name="preview_dim">#FFB0B6AF</color>
+    <color name="preview_primary">#FF6EDBA5</color>
+    <color name="preview_chip">#FF3A403A</color>
+</resources>

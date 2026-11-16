@@ -1,0 +1,19 @@
+# secrets + machine config (WIDGET_API_URL, WIDGET_TOKEN, sdk.dir)
+local.properties
+
+# build outputs
+.gradle/
+.kotlin/
+build/
+app/build/
+captures/
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# emulator screenshots may show real amounts
+screenshots/

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#10B981</color>
+    <color name="brand_dark">#047857</color>
+    <color name="negative">#C0362C</color>
+    <color name="positive">#0E7A4B</color>
+    <color name="positive_soft">#1A0E7A4B</color>
+    <color name="negative_soft">#1AC0362C</color>
+    <!-- Widget picker preview (static fallbacks; dynamic on Android 12+ via values-v31) -->
+    <color name="preview_bg">#FFF4F7F4</color>
+    <color name="preview_on">#FF1A1C1A</color>
+    <color name="preview_dim">#FF5F655F</color>
+    <color name="preview_primary">#FF0E7A4B</color>
+    <color name="preview_chip">#FFE2E8E2</color>
+    <color name="on_accent">#FFFFFF</color>
+</resources>

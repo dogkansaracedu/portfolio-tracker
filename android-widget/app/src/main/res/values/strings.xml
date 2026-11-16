@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Portföy</string>
+    <string name="widgets_hint">Ana ekrana uzun bas → Widget\'lar → Portföy: Toplam ve Varlıklar.</string>
+    <string name="not_configured">Kurulum eksik: local.properties içine SUPABASE_URL ve SUPABASE_ANON_KEY ekleyip yeniden derle.</string>
+    <string name="email">E-posta</string>
+    <string name="password">Şifre</string>
+    <string name="sign_in">Giriş yap</string>
+    <string name="refresh_now">Şimdi yenile</string>
+    <string name="sign_out">Çıkış yap</string>
+    <string name="widget_total_label">Toplam</string>
+    <string name="widget_total_desc">Net varlık (₺) ve bugünkü değişim</string>
+    <string name="widget_assets_label">Varlıklar</string>
+    <string name="widget_assets_desc">Fiyatlar ve bugünkü değişim, kaydırılabilir liste</string>
+</resources>
