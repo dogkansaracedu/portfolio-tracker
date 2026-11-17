@@ -1,0 +1,80 @@
+{
+ "message": {
+  "display": {
+   "component": "none",
+   "content": "status"
+  },
+  "severity": "success"
+ },
+ "meta": null,
+ "payload": {
+  "data": [
+   {
+    "id": "nvda",
+    "name": "NVIDIA",
+    "ticker": "NVDA",
+    "logoUri": "https://assets.xprstock.run/US/NVDA/icon.png",
+    "marketType": "us",
+    "pairSymbol": "$",
+    "price": "154.504",
+    "changePercent": "-1.02",
+    "volume": "35380468054.68",
+    "high": "158.37",
+    "low": "150.42",
+    "marketCap": "3770312580000",
+    "peRatio": "19.55",
+    "dividendYieldPercent": "0.33",
+    "sparkline": []
+   },
+   {
+    "id": "spy",
+    "name": "State Street SPDR S&P 500",
+    "ticker": "SPY",
+    "logoUri": "https://assets.xprstock.run/US/SPY/icon.png",
+    "marketType": "us",
+    "pairSymbol": "$",
+    "price": "731.995",
+    "changePercent": "-1.07",
+    "volume": "29409366129.08",
+    "high": "741.49",
+    "low": "727.20",
+    "dividendYieldPercent": "1.02",
+    "sparkline": []
+   },
+   {
+    "id": "qqq",
+    "name": "Invesco QQQ Trust, Series 1",
+    "ticker": "QQQ",
+    "logoUri": "https://assets.xprstock.run/US/QQQ/icon.png",
+    "marketType": "us",
+    "pairSymbol": "$",
+    "price": "655.591",
+    "changePercent": "-0.93",
+    "volume": "23414025841.97",
+    "high": "666.08",
+    "low": "646.95",
+    "dividendYieldPercent": "0.47",
+    "sparkline": []
+   },
+   {
+    "id": "mu",
+    "name": "Micron Technology",
+    "ticker": "MU",
+    "logoUri": "https://assets.xprstock.run/US/MU/icon.jpg",
+    "marketType": "us",
+    "pairSymbol": "$",
+    "price": "700.944",
+    "changePercent": "-2.5",
+    "volume": "16056230943.72",
+    "high": "737.64",
+    "low": "667.75",
+    "marketCap": "813515917892",
+    "peRatio": "9.57",
+    "dividendYieldPercent": "0.08",
+    "sparkline": []
+   }
+  ],
+  "total": 4,
+  "hasMore": true
+ }
+}

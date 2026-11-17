@@ -1,0 +1,39 @@
+{
+ "message": {
+  "display": {
+   "component": "none",
+   "content": "status"
+  },
+  "severity": "success"
+ },
+ "meta": null,
+ "payload": {
+  "asset": {
+   "id": "brk.b",
+   "name": "BERKSHIRE HATHAWAY Class B",
+   "ticker": "BRK.B",
+   "logoUri": "https://assets.xprstock.run/US/BRK.B/icon.png",
+   "marketType": "us",
+   "pairSymbol": "$",
+   "price": "591.451",
+   "changePercent": "-0.24"
+  },
+  "statistics": [
+   {
+    "key": "open",
+    "label": "Açılış",
+    "value": "589.98"
+   },
+   {
+    "key": "high",
+    "label": "Gün İçi En Yüksek",
+    "value": "591.90"
+   },
+   {
+    "key": "low",
+    "label": "Gün İçi En Düşük",
+    "value": "587.69"
+   }
+  ]
+ }
+}

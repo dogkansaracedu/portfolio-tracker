@@ -10,9 +10,10 @@
 | `supabase/functions/_shared/symbol-search.ts` | Pure search half: `normalizeQuery`, `isGoldQuery`, `yahooCandidates`, `isTefasCode`, `displayTicker`, `yahooCategory`, `watchCurrency`, `yahooMatch` / `tefasMatch` / `goldGramMatch` → `SymbolMatch`. Tested in `src/lib/queries/symbol-search.test.ts`. |
 | `supabase/functions/resolve-tickers/search.ts` | `searchSymbols(service client, query)` — the IO half. |
 | `supabase/functions/resolve-tickers/index.ts` | A `{ query }` body routes to `searchSymbols` and answers `{ results: SymbolMatch[] }`; `{ tickers }` (import) is unchanged. Both paths sit behind the same `authorizeRequest(req, { allowCron: false })` check (401 unless a signed-in user), run before the body is read. |
-| `supabase/functions/fetch-prices/index.ts` | `loadPricedSymbols(source)` unions `assets` and `watchlist_items` keys for the Yahoo and TEFAS steps. |
+| `supabase/migrations/20261118000000_asset_price_sources.sql` | Adds `watchlist_items.asset_id` (→ `assets`, cascade), backfilled by price key, `not null`, `unique (user_id, asset_id)`; the old per-row pricing columns become nullable (not dropped yet). |
+| `supabase/functions/fetch-prices/index.ts` | No watchlist code: watched items are catalog assets and are priced through their `asset_price_sources`. |
 | `supabase/functions/_shared/widget.ts` | `buildWatchlist(items, prices, usdTry, nowMs)` — the one row formula, used by `widget-data` **and** the page. Tested in `src/lib/queries/widget.test.ts`. |
-| `supabase/functions/widget-data/index.ts` | Reads `watchlist_items` (RLS) and adds `watchlist` to the response. |
+| `supabase/functions/widget-data/index.ts` | Reads `watchlist_items` joined to `assets` (RLS) and adds `watchlist` to the response; the currency is `quoteCurrency(asset)`. |
 | `src/lib/constants/watchlist.ts` | Route, table, function name, debounce, all copy (`WATCHLIST_COPY`). |
 | `src/lib/queries/watchlist.ts` | `fetchWatchlist`, `addWatchlistItem`, `removeWatchlistItem`, `saveWatchlistOrder`, `searchSymbols` (`supabase.functions.invoke("resolve-tickers", { body: { query } })` — the user's session). |
 | `src/hooks/useWatchlist.ts` | Page state; optimistic add/remove/move, reload on a failed write (`useReportedWrite`). |
@@ -22,27 +23,23 @@
 
 ## Data
 
-`watchlist_items`: `id`, `user_id` (default `auth.uid()`), `ticker`, `name`,
-`category` (asset vocabulary), `price_source` (`yahoo` / `tcmb` / `tefas` —
-`manual` excluded), `price_id` (not null — the `price_cache` key), `currency`
-(`USD` / `TRY`), `sort_order`, `created_at`; `UNIQUE (user_id, price_id)`.
-RLS: select/insert/update/delete only where `auth.uid() = user_id`, to
-`authenticated`. `fetch-prices` reads it with the service role (all users).
+`watchlist_items`: `id`, `user_id` (default `auth.uid()`), `asset_id` (not
+null → `assets`, `on delete cascade`), `sort_order`, `created_at`;
+`UNIQUE (user_id, asset_id)`. RLS: select/insert/update/delete only where
+`auth.uid() = user_id`, to `authenticated`. Ticker, name, category and the
+price key come from the joined catalog asset (readable by every signed-in
+user); the price is `price_cache[price_id ?? ticker]`, priced by `fetch-prices`
+like any asset.
 
-How each kind of symbol is keyed:
+Legacy columns from v0.26.0 — `ticker`, `name`, `category`, `price_source`,
+`price_id`, `currency` and `UNIQUE (user_id, price_id)` — are still present but
+nullable and neither written nor read by current code; a later migration drops
+them. Migration `20261118000000` backfilled `asset_id` by matching
+`coalesce(assets.price_id, assets.ticker) = watchlist_items.price_id` and
+aborts if any row has no matching asset (rather than deleting it).
 
-| Query | `price_source` | `price_id` | `category` | `currency` |
-|---|---|---|---|---|
-| AAPL | yahoo | `AAPL` | `stock_us` | USD |
-| THYAO | yahoo | `THYAO.IS` | `stock_bist` | TRY |
-| BTC | yahoo | `BTC-USD` | `crypto` | USD |
-| USDTRY | yahoo | `USDTRY=X` | `fiat` | TRY |
-| altın | tcmb | `XAU_GRAM` | `gold` | TRY |
-| TEFAS code | tefas | the code | `fund` | TRY |
-
-FX goes through Yahoo (`=X`, live) rather than the TCMB rows, which are the
-once-a-day official buying rate. `XAU_GRAM` is written by the FX step on every
-run regardless of who holds it, so watched gram gold needs no extra fetch.
+`XAU_GRAM` is written by the FX step on every run regardless of who holds it,
+so watched gram gold needs no extra fetch.
 
 ## Day change — `price_cache` day baseline
 
@@ -84,8 +81,6 @@ manual refresh. Reorder writes only the rows whose `sort_order` changed
 
 - `widget-data` selects `price_cache` with `*` so it keeps working if deployed
   before the migration; a failed `watchlist_items` read yields `watchlist: []`.
-- `fetch-prices` reports a failed `watchlist_items` read in `errors` and keeps
-  pricing assets.
 - The search writes cache rows for every hit, including ones not picked
   (e.g. the `BTC` ETF when the coin was wanted). They are never refreshed
   unless something references the key.

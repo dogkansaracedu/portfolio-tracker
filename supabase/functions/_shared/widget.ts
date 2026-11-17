@@ -217,12 +217,13 @@ export function pickLatestTotal(
   return new Date(intraday.at).getTime() >= new Date(daily.at).getTime() ? intraday : daily
 }
 
-/** A watchlist row as the feed reads it (`watchlist_items`). */
+/** A watched catalog asset as the formula reads it (`watchlist_items` →
+ *  `assets`): `price_id` is the price_cache key (`price_id ?? ticker`). */
 export interface WidgetWatchItem {
   ticker: string
   name: string
   price_id: string
-  /** The currency the item is shown in, fixed from the source at add time. */
+  /** The currency the item is shown in: the asset's `quoteCurrency`. */
   currency: QuoteCurrency
 }
 

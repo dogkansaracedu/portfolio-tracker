@@ -17,9 +17,9 @@ else in the app; refresh happens **on demand**, and how old a price is
   exchange-rate table, scoped to the signed-in user.
 - **Asset management** — assets must exist and carry a `price_source` and a
   price-fetch key before they can be priced.
-- **[Watchlist](GLOSSARY.md#watchlist)** (Component 19) — watched symbols carry
-  the same `price_source` + key and are priced alongside assets: same sources,
-  cache, cadence, market-hours gate and currency handling.
+- **[Watchlist](GLOSSARY.md#watchlist)** (Component 19) — watched items are
+  catalog assets, so they are priced as assets are; there is no separate list
+  to fetch.
 
 ## Concepts used — links into GLOSSARY
 
@@ -33,22 +33,35 @@ else in the app; refresh happens **on demand**, and how old a price is
 
 ## Behaviors / rules
 
-**Source routing — `price_source` decides where a price comes from.** Each asset
-declares one of:
+**Source routing — each asset's ordered price sources.** Fiat (USD/EUR/TRY)
+and the official gram-gold rate come from the **central-bank FX source**, which
+also produces the dated [Exchange rates](GLOSSARY.md#exchange-rate) the whole
+app converts through. A **manual** asset's price is typed in and never
+overwritten. Every other asset has an ordered list of
+[price sources](GLOSSARY.md#price-source), each a source plus that source's own
+symbol for the asset (independent of the display ticker), managed only by the
+admin. A refresh tries them in order; the first that returns a usable price
+wins, a failure falls through to the next, and the ones after the winner are not
+asked. Each source entry remembers when it last succeeded and its last error.
+The sources:
 
-- **central-bank FX source** → fiat (USD/EUR/TRY) and the official gram-gold
-  rate. This source also produces the dated [Exchange rates](GLOSSARY.md#exchange-rate)
-  the whole app converts through.
-- **equities source** → stocks, including Turkish (BIST) equities, and the
-  continuously-traded classes quoted on the same feed (crypto, tokenized gold).
+- **Turkish exchange (Paribu)** — three markets: crypto (fetched **in TL**, the
+  price the owner trades at; USD = TL ÷ the latest USD/TRY rate), US stocks
+  (USD) and BIST stocks (TL). Fast and in bulk; a stock outside its most popular
+  few hundred is asked for one by one.
+- **equities source (Yahoo)** — stocks (BIST + US), crypto and tokenized gold as
+  quoted on that feed; one symbol at a time, spaced out.
 - **Turkish-fund source** → Turkish mutual / money-market funds (locally
-  abbreviated PPF), which the equities source doesn't cover. The fund's
-  daily **NAV** (its per-unit price, quoted in TRY) is the price, converted to
-  the USD anchor like any other TRY-quoted asset. NAV publishes ~once a business
-  day, so these refresh on a daily-ish cadence with no market-hours gate. The
-  source lists the current day before its NAV is known, as a zero; a zero is
-  never a price — the engine keeps the last published NAV instead.
-- **manual** → the user types the price in; the engine never overwrites it.
+  abbreviated PPF). The fund's daily **NAV** (its per-unit price, quoted in TRY)
+  is the price, converted to the USD anchor like any other TRY-quoted asset. NAV
+  publishes ~once a business day, so funds refresh on a daily-ish cadence with
+  no market-hours gate. The source lists the current day before its NAV is
+  known, as a zero; a zero is never a price — the engine keeps the last
+  published NAV instead.
+
+A new asset priced from the equities or fund source starts with that source as
+its only entry; the admin adds or reorders the rest. History backfill is not
+part of this list (Component 10 keeps its own source).
 
 The price-fetch **key is separate from the display symbol.** An asset shows a
 short display [ticker](GLOSSARY.md#asset) (e.g. `BTC`, `THYAO`) but is fetched by
@@ -65,7 +78,7 @@ exchange rate. A symbol suffix is never used to *guess* currency. An unsupported
 quote currency is skipped (and logged) rather than silently mislabeled as USD.
 
 **Both currency columns are stored, native value preferred.** Each cached price
-keeps `price_usd` and `price_try`; whichever the asset is natively quoted in is
+keeps `price_usd` and `price_try`; whichever the source quoted in is
 stored raw, the other is derived via the rate. If a needed rate is missing, the
 derived column is left empty rather than wrong.
 
@@ -156,7 +169,7 @@ widget signs in with the user's own login and sees only that user's data.
 
 **Inputs**
 
-- The set of assets with their `price_source` and price-fetch key.
+- The set of assets with their price-fetch key and ordered price sources.
 - A refresh trigger: user presence (app focused), an explicit user action, or a
   forced/privileged call (the scheduled snapshot job).
 - For non-USD transactions: a date for which a historical rate is needed.
@@ -200,7 +213,10 @@ widget signs in with the user's own login and sees only that user's data.
       TRY-quoted NAV, converted to USD via the latest rate.
 - [ ] A `manual` asset keeps the entered price across refreshes; the engine never
       overwrites it.
-- [ ] Changing an asset's `price_source` re-routes how its price is fetched.
+- [ ] An asset is priced from its first source that answers; a failing source
+      falls back to the next and records the error on that source entry.
+- [ ] Crypto from the Turkish exchange is stored at its TL price, with USD
+      derived through the latest USD/TRY rate.
 - [ ] Pricing is keyed by `price_id` (falling back to ticker), so two assets that
       share a display ticker but differ in fetch key do **not** collide.
 - [ ] No price is fetched while the app is backgrounded or no one is signed in;

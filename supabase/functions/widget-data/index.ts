@@ -7,6 +7,7 @@ import {
   computeTodayChange,
   newestHeldUpdateMs,
   pickLatestTotal,
+  quoteCurrency,
   type BaselineBreakdown,
   type TotalCandidate,
   type WidgetHolding,
@@ -145,7 +146,7 @@ Deno.serve(async (req) => {
         .maybeSingle(),
       supabase
         .from("watchlist_items")
-        .select("ticker, name, price_id, currency")
+        .select("sort_order, assets(ticker, name, category, price_id)")
         .eq("user_id", userId)
         .order("sort_order")
         .order("created_at"),
@@ -187,15 +188,26 @@ Deno.serve(async (req) => {
     const { assets, positions } = buildWidgetAssets(holdings, prices, baseline, usdTry, nowMs)
     const change = computeTodayChange(positions)
 
-    // ── Watchlist (Takip listesi): user's order. A failed read (e.g. the
-    // table not migrated yet) empties it rather than failing the feed ──
+    // ── Watchlist (Takip listesi): catalog assets in the user's order, each
+    // priced by its cache key and shown in its quote currency (the page's
+    // rule). A failed read empties it rather than failing the feed ──
     if (watchRes.error) console.error("widget-data watchlist:", watchRes.error.message)
-    const watchlist = buildWatchlist(
-      watchRes.error ? [] : ((watchRes.data ?? []) as WidgetWatchItem[]),
-      prices,
-      usdTry,
-      nowMs,
-    )
+    type WatchRow = {
+      assets: { ticker: string; name: string; category: string; price_id: string | null } | null
+    }
+    const watchItems: WidgetWatchItem[] = watchRes.error
+      ? []
+      : ((watchRes.data ?? []) as unknown as WatchRow[]).flatMap(({ assets: a }) =>
+        a
+          ? [{
+            ticker: a.ticker,
+            name: a.name,
+            price_id: a.price_id ?? a.ticker,
+            currency: quoteCurrency(a),
+          }]
+          : []
+      )
+    const watchlist = buildWatchlist(watchItems, prices, usdTry, nowMs)
 
     // ── Total: the latest snapshot (what the dashboard shows) ────────
     const i = intradayRes.data as { captured_at: string; total_usd: unknown; total_try: unknown } | null

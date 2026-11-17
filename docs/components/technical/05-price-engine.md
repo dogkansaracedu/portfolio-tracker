@@ -16,7 +16,8 @@
 
 | Path | Role |
 |---|---|
-| `supabase/functions/fetch-prices/index.ts` | **Orchestrator** — single endpoint the frontend pings and the daily cron forces. Runs FX step → Yahoo step → TEFAS step → (cron only) snapshot/intraday trigger. Self-throttles per asset. |
+| `supabase/functions/fetch-prices/index.ts` | **Orchestrator** — single endpoint the frontend pings and the daily cron forces. Runs FX step → price-source step (`refreshSourcePrices`: Paribu / Yahoo / TEFAS by each asset's priority, with fallback) → (cron only) snapshot/intraday trigger. Self-throttles per price key. |
+| `supabase/functions/_shared/price-sources/` | One fetcher per `asset_price_sources.source`. `paribu.ts` (pure `parseParibuList` / `parseParibuSingle` / `parseParibuAsset` + `paribuCryptoFetcher`, `paribuStockFetcher(market)`), `resolve.ts` (`resolvePrices` — pure priority/fallback walk over injected fetchers), `index.ts` (`createFetchers()` wiring Paribu + the Yahoo/TEFAS clients, `SOURCE_LABEL`), `types.ts`. Deno-tested: `paribu_test.ts` (trimmed recorded payloads in `fixtures/`, stubbed `fetch`), `resolve_test.ts` — run `deno test supabase/functions/_shared/price-sources/`. |
 | `supabase/functions/fetch-historical-rate/index.ts` | On-demand TCMB fetch for **one past date** (non-USD transactions). Walks back ≤7 days to the nearest published rate; upserts `exchange_rates`. Signed-in users only (401 otherwise; no cron caller). |
 | `supabase/functions/_shared/caller.ts` + `_shared/auth.ts` | Edge-function caller check. `verify_jwt` is **not** an auth check here — the anon key is a valid JWT and ships in the public bundle. `authorizeRequest(req, { allowCron })` resolves the caller to the cron (`X-Cron-Token` = `CRON_TOKEN`, only when allowed) or a signed-in user (`auth.getUser(jwt)`); anything else is `denied` → `unauthorizedResponse` (401). `getCallerClient(req, jwt)` is a client acting as that user through RLS. The pure decision (`caller.ts`) is unit-tested in `src/lib/queries/caller.test.ts`. |
 | `supabase/functions/_shared/yahoo.ts` | `fetchYahooQuote(symbol)` — single Yahoo chart-endpoint quote; requests `interval=5m&range=1d&includePrePost=true` and derives the price via the pure `pickLatestPrice` (newer of `regularMarketPrice@regularMarketTime` vs the last non-null intraday close@its candle time — so pre/after-hours prints surface); reads `meta.currency`; never throws (returns `{ status, quote: null }` on failure). Unit-tested in `src/lib/queries/yahoo.test.ts`. |
@@ -42,25 +43,62 @@
 **Sources:**
 
 - **One function, not one per source.** All live fetching runs through the single
-  `fetch-prices` orchestrator plus the `_shared/` modules (`yahoo.ts`,
-  `tefas.ts`, `currency.ts`); there are no per-source edge functions.
-  `PRICE_SOURCES` (`src/lib/constants/assets.ts`) is `yahoo` / `tcmb` / `tefas` /
-  `manual`.
+  `fetch-prices` orchestrator plus the `_shared/` modules (`price-sources/`,
+  `yahoo.ts`, `tefas.ts`, `currency.ts`); there are no per-source edge functions.
+  `assets.price_source` (`yahoo` / `tcmb` / `tefas` / `manual`) now only routes
+  TCMB/manual and history backfill; live prices for everything else come from
+  the asset's `asset_price_sources` rows.
+- **Per-asset sources (`asset_price_sources`).** Rows `(asset_id, priority,
+  source, symbol)` with `source` in `paribu_crypto` / `paribu_us` /
+  `paribu_bist` / `yahoo` / `tefas`; `symbol` is that source's id (`btc`,
+  `brk.b`, `asels`, `BTC-USD`, a fund code), independent of `assets.ticker`.
+  `loadSourcePlans` reads them (joined to `assets`) and groups by price key
+  `price_id ?? ticker` (two assets on one key: the first by id supplies sources
+  and category; fetched once). Due keys go to `resolvePrices`: round *n* asks
+  each key's *n*-th source; each source family is called once per round with
+  all its symbols, families run concurrently, a `(source, symbol)` is never
+  asked twice in a run. The quote converts through `splitPrice`; an unsupported
+  currency counts as a failure and falls through. Winners are upserted to
+  `price_cache` in one call with `source` = the source name (`paribu_crypto`, …,
+  `yahoo`, `tefas`). Health: one `update last_ok_at` for all winning rows, one
+  `update last_error, last_error_at` per distinct error text (≤ 200 chars, never
+  contains the symbol); rows after the winner are untouched. Response `errors`
+  list only keys no source priced (`"<Source label> <symbol>: <error>"`), so a
+  routine Paribu miss that Yahoo covers is not reported. TCMB and manual assets
+  have no rows.
+- **Paribu** (public web endpoints, no auth, browser UA, 8 s timeout each):
+  - crypto: `GET https://web.paribu.com/v2/markets/crypto/assets?category=all&pairSymbol=TL&includeDefi=false&page=1&pageSize=300`
+    → `payload.data[]` `{ id, price (string), pairSymbol "₺" }`. Price is **TL**:
+    `price_try = price`, `price_usd = price ÷ usdTry`. One request per run.
+  - US / BIST bulk: `GET https://web.paribu.com/v1/markets/{us|bist}/assets?page=N&pageSize=100&category=all&sort=popular`,
+    pages 1–3 while `payload.hasMore` (only the ~300 most popular are listed);
+    US prices USD (`"$"`), BIST TL (`"₺"`).
+  - Single: `GET https://web.paribu.com/v1/markets/public/assets/{id}?marketType={us|bist}&pairSymbol={USD|TL}`
+    → `payload.asset.price`, ≤ 4 concurrent, only for symbols missing from the
+    bulk pages; HTTP 404 = `not listed`.
+  - Symbols match case-insensitively (ids are lower case). A bulk list is fetched
+    only if a due key needs that market, at most once per run.
+- **Seed + default row.** Migration `20261118000000_asset_price_sources.sql`
+  seeded existing yahoo/tefas assets from the key (`k = price_id ?? ticker`):
+  `crypto`/`gold` with `k LIKE '%-USD'` → `paribu_crypto lower(split_part(k,'-',1))`;
+  `stock_us` without `.` → `paribu_us lower(replace(k,'-','.'))`; `stock_bist`
+  `%.IS` → `paribu_bist lower(split_part(k,'.',1))` at priority 1, the existing
+  source `(price_source, k)` after it (or alone at 1). The `AFTER INSERT`
+  trigger `assets_default_price_source` gives every new yahoo/tefas asset
+  `(price_source, k)` at priority 1.
 - **TCMB** = central-bank FX. `fetch-prices` pulls `today.xml`, regex-parses
   USD/TRY + EUR/TRY (ForexBuying), derives `eur_usd`, and upserts both
   `exchange_rates` (the dated history) and the `USD`/`EUR`/`TRY` rows of
   `price_cache`. Gram-gold: the XML's `XAU` line is tried first (no-cost path)
   and falls back to Yahoo `GC=F` (USD/oz ÷ `TROY_OZ_GRAMS`); either way the
   `XAU_GRAM` row is written, with `source` set to whichever path produced it.
-- **Yahoo Finance** = the engine for **stocks (BIST + US), crypto, AND
-  tokenized gold** (`BTC-USD`, `ETH-USD`, `PAXG-USD`, `XAUT-USD`). All assets
-  with `price_source = 'yahoo'` flow through one loop (`refreshYahooPrices`).
-- **Which keys get priced**: `loadPricedSymbols(source)` unions `assets` and
-  every user's `watchlist_items` with that `price_source` (Yahoo and TEFAS
-  steps), deduped on key with the asset's category winning. A failed
-  `watchlist_items` read lands in `errors` and never blocks assets. The forced
-  hourly/nightly cron runs go through the same loaders, so watched symbols are
-  in them too.
+- **Yahoo Finance** = stocks (BIST + US), crypto and tokenized gold
+  (`BTC-USD`, `PAXG-USD`, …) via `fetchYahooQuote`, wrapped as the `yahoo`
+  fetcher: one symbol at a time, **1 s apart** (only real requests count).
+  Usually the fallback after Paribu now.
+- **Which keys get priced**: every asset with `asset_price_sources` rows.
+  Watchlist items are catalog assets (`watchlist_items.asset_id`), so they need
+  no loading of their own.
 - **TEFAS** = Turkish mutual / money-market funds ("PPF") — **live**. Turkish
   funds (e.g. a *Para Piyasası Fonu* / money-market fund
   such as `TP2` — TERA PORTFÖY PARA PİYASASI (TL) FONU) are not on Yahoo. Their
@@ -80,11 +118,11 @@
     WAF-blocks non-browser requests, so `_shared/tefas.ts` sends browser headers
     plus a `Referer` to the fund's analysis page.
   - NAV is TRY-quoted, so it slots through `splitPrice(nav, "TRY", rates)` exactly
-    like a BIST quote. `price_source = 'tefas'` assets are handled by the
-    `refreshTefasPrices` step in `fetch-prices` (via `_shared/tefas.ts` →
-    `fetchTefasQuote`), keyed by `price_id ?? ticker` = the `fonKodu`; cadence
-    `FUND_CADENCE_MS` (6h), no market-hours gate. (`fetch-prices` only does the
-    live latest-NAV fetch; snapshot **backfill** of past NAV is not wired.)
+    like a BIST quote. A `tefas` source row is fetched by the `tefas` fetcher
+    (`_shared/tefas.ts` → `fetchTefasQuote`, 1 s apart) with the row's `symbol`
+    = the `fonKodu`; keys of `fund`-category or `price_source = 'tefas'` assets
+    use `FUND_CADENCE_MS` (6h), no market-hours gate. (`fetch-prices` only does
+    the live latest-NAV fetch; snapshot **backfill** of past NAV is not wired.)
 
 **Tables:**
 
@@ -99,9 +137,17 @@
   [19-watchlist](19-watchlist.md#day-change--price_cache-day-baseline).
 - `exchange_rates` — UPSERT `onConflict: date,source`. Columns: `date`,
   `source`, `usd_try`, `eur_try`, `eur_usd`, `gold_gram_try`.
+- `asset_price_sources` — `id`, `asset_id` (→ `assets`, cascade), `priority`
+  (≥ 1; `unique (asset_id, priority)` **deferrable initially deferred** so a
+  reorder can swap in one statement/transaction), `source` (check list above),
+  `symbol` (1–32), `last_ok_at`, `last_error`, `last_error_at`, `created_at`;
+  `unique (asset_id, source, symbol)`. RLS: select to `authenticated`; insert/
+  update/delete only `(select public.is_admin())`; anon has no grant.
+  `fetch-prices` writes health with the service role.
 
-**Key resolution (`price_id ?? ticker`).** Both the Yahoo loop and the client
-map are keyed by `price_id ?? ticker`. `derivePriceId` only auto-fills the
+**Key resolution (`price_id ?? ticker`).** Both the price-source step and the
+client map are keyed by `price_id ?? ticker` (the source rows' symbols are only
+what each fetcher asks for). `derivePriceId` only auto-fills the
 mechanical Yahoo cases (BIST → append `.IS`; US stock → ticker as-is); crypto/
 gold/fiat keys are set explicitly and otherwise left untouched.
 
@@ -109,7 +155,9 @@ gold/fiat keys are set explicitly and otherwise left untouched.
 denominated in comes from the source, never from a ticker-suffix guess:
 `fetchYahooQuote` reports Yahoo's `meta.currency`, `fetchTefasQuote` reports
 `TRY` (NAVs are always TRY), and the TCMB step writes its FX/gold rows directly.
-Every quote then goes through `splitPrice(price, currency, { usdTry, eurUsd })`,
+Paribu reports by market (crypto TL, US USD, BIST TL — a `pairSymbol` that
+contradicts the market is rejected). Every quote then goes through
+`splitPrice(price, currency, { usdTry, eurUsd })`,
 which fills the `price_usd` / `price_try` columns and keeps the **native** side
 raw:
 
@@ -132,11 +180,13 @@ skipped/failed, `ensureConversionRates` loads the last `usd_try`/`eur_usd` from
 - `loadFreshness` reads every cached `updated_at` in one query.
 - **Global guard** `FETCH_GUARD_MS = 20s` — a non-forced call within 20s of the
   last fetch no-ops (collapses concurrent device/tab pings).
-- **Per-asset cadence** — crypto/gold `30s`, stocks `60s`, FX `15min`. A symbol
-  is fetched only if older than its cadence. BIST symbols additionally gated by
-  `isBistOpen` (Mon–Fri 10:00–18:10 `Europe/Istanbul`).
-- Yahoo fetches are **1s apart** (only counting symbols actually fetched — a run
-  that only refreshes crypto stays fast).
+- **Per-key cadence** (`isKeyDue`) — crypto/gold `30s`, stocks `60s`, funds
+  (`fund` category or `price_source = 'tefas'`) `6h`, FX `15min`. A key is
+  fetched only if older than its cadence. `stock_bist` keys additionally gated
+  by `isBistOpen` (Mon–Fri 10:00–18:10 `Europe/Istanbul`).
+- Yahoo and TEFAS fetches are **1s apart** (only counting symbols actually
+  fetched); Paribu needs no spacing (bulk lists, ≤ 4 concurrent singles), so a
+  run whose keys all resolve on Paribu takes a few seconds.
 - **`force`** (cron only, gated on a matching `X-Cron-Token` / `CRON_TOKEN`)
   bypasses guard + cadence + market hours and refetches everything. The cron may
   then chain a snapshot writer (Component 10): `snapshot=true` chains
@@ -220,12 +270,14 @@ Response:
   with a baseline; `changePct` ÷ Σ qty × prev. Per-asset `changePct` compares in
   `priceCurrency`. `price_cache` keeps no previous close, so the snapshot is the
   only baseline.
-- **Watchlist**: `watchlist_items` (RLS, `order sort_order, created_at`) →
-  `buildWatchlist`: price from `price_cache[price_id]` in the item's stored
-  `currency` (TRY falls back to `price_usd × usd_try`), `changePct` against the
-  row's own `baseline_usd/try` in that currency (null without one), same
-  `stale` rule. A read error → `[]` (logged). `price_cache` is read with `*` so
-  the feed survives a deploy that precedes the migration.
+- **Watchlist**: `watchlist_items.select("sort_order, assets(ticker, name,
+  category, price_id)")` (RLS, `order sort_order, created_at`) → each row's
+  asset becomes `{ ticker, name, price_id: price_id ?? ticker, currency:
+  quoteCurrency(asset) }` (the page's rule) → `buildWatchlist`: price from
+  `price_cache[price_id]` in that currency (TRY falls back to `price_usd ×
+  usd_try`), `changePct` against the row's own `baseline_usd/try` in that
+  currency (null without one), same `stale` rule. A read error → `[]`
+  (logged). The JSON shape is unchanged for the Android widget.
 - **Freshness**: if the newest `updated_at` among held prices is older than
   `REFRESH_AFTER_MS` (15 min), POST `fetch-prices` with the caller's own headers
   (no cron token → the normal throttled refresh) and wait up to
@@ -233,14 +285,17 @@ Response:
   (`pricesRefresh: "done"`); else hand the promise to `EdgeRuntime.waitUntil`
   and answer from cache (`"background"`). With the app closed the hourly cron
   keeps prices ≤ ~1 h old, and a full refresh (Yahoo 1 s apart per due symbol)
-  usually exceeds the wait, so the *next* poll gets the fresh prices. The total
+  can exceed the wait, so the *next* poll gets the fresh prices. The total
   stays at the last snapshot until the next hourly intraday write.
 
 ## Notes & gotchas
 
-- **Yahoo is the only free BIST source** and runs ~15min delayed — accepted.
-  Yahoo is also unofficial/fragile (browser User-Agent headers in
-  `_shared/yahoo.ts`); the client never throws so one bad symbol can't sink a run.
+- **Yahoo runs BIST ~15min delayed**; Paribu's BIST price is the exchange
+  app's. Both Yahoo and Paribu are unofficial web endpoints (browser
+  User-Agent); every fetcher never throws, so one bad symbol can't sink a run —
+  it falls back to the asset's next source.
+- **A Paribu row for a symbol Paribu doesn't list** fails with `not listed` on
+  every refresh and falls back; delete never-ok rows from the admin page.
 - **Extended-hours prices come from the intraday candle series, not a meta
   field.** The chart `meta` has no `marketState`/`preMarketPrice`/`postMarketPrice`
   (those live in the crumb-gated `v7/quote` endpoint we deliberately avoid). With
@@ -260,7 +315,7 @@ Response:
   (30min / 2h, UI dots) vs. orchestrator cadences (20s/30s/60s/15min, fetch
   gating). They answer different questions — don't unify them.
 - **Manual entry has no dedicated component.** `price_source = 'manual'` is
-  honored by routing (only `yahoo` / `tcmb` / `tefas` rows are auto-fetched), but
+  honored by routing (manual assets get no `asset_price_sources` rows), but
   `src/components/prices/` holds only `PriceDisplay` + `PriceRefreshButton`;
   manual price values are set via the asset form path.
 - **Two `HOME_TIMEZONE` definitions** (edge `_shared/constants.ts` and

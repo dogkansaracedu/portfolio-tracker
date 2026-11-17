@@ -1,0 +1,88 @@
+{
+ "message": {
+  "display": {
+   "component": "none",
+   "content": "status"
+  },
+  "severity": "success"
+ },
+ "meta": null,
+ "payload": {
+  "data": [
+   {
+    "id": "asels",
+    "name": "Aselsan Elektronik Sanayi ve Ticaret A.Ş.",
+    "ticker": "ASELS",
+    "logoUri": "https://assets.xprstock.run/TR/ASELS/icon.png",
+    "marketType": "bist",
+    "pairSymbol": "₺",
+    "price": "341.5",
+    "changePercent": "-3.26",
+    "volume": "10781419399.00",
+    "high": "353.75",
+    "low": "340.50",
+    "marketCap": "1557240000000",
+    "peRatio": "32.05",
+    "pbRatio": "4.65",
+    "dividendYieldPercent": "0.067",
+    "sparkline": []
+   },
+   {
+    "id": "thyao",
+    "name": "Türk Hava Yolları A.O.",
+    "ticker": "THYAO",
+    "logoUri": "https://assets.xprstock.run/TR/THYAO/icon.png",
+    "marketType": "bist",
+    "pairSymbol": "₺",
+    "price": "322.25",
+    "changePercent": "-0.39",
+    "volume": "9146655379.00",
+    "high": "329.75",
+    "low": "320.50",
+    "marketCap": "444705000000",
+    "peRatio": "3.79",
+    "pbRatio": "0.390",
+    "dividendYieldPercent": "0.00",
+    "sparkline": []
+   },
+   {
+    "id": "ktlev",
+    "name": "Katılımevim Tasarruf Finansman A.Ş.",
+    "ticker": "KTLEV",
+    "logoUri": "https://assets.xprstock.run/TR/KTLEV/icon.png",
+    "marketType": "bist",
+    "pairSymbol": "₺",
+    "price": "8.96",
+    "changePercent": "+9.94",
+    "volume": "6876353914.00",
+    "high": "8.96",
+    "low": "7.75",
+    "marketCap": "62720000267",
+    "peRatio": "2.18",
+    "pbRatio": "1.83",
+    "dividendYieldPercent": "4.46",
+    "sparkline": []
+   },
+   {
+    "id": "tuprs",
+    "name": "Tüpraş-Türkiye Petrol Rafinerileri A.Ş.",
+    "ticker": "TUPRS",
+    "logoUri": "https://assets.xprstock.run/TR/TUPRS/icon.png",
+    "marketType": "bist",
+    "pairSymbol": "₺",
+    "price": "345.25",
+    "changePercent": "-3.02",
+    "volume": "6875286092.00",
+    "high": "353.25",
+    "low": "344.50",
+    "marketCap": "665226180210",
+    "peRatio": "5.13",
+    "pbRatio": "1.27",
+    "dividendYieldPercent": "4.96",
+    "sparkline": []
+   }
+  ],
+  "total": 4,
+  "hasMore": true
+ }
+}

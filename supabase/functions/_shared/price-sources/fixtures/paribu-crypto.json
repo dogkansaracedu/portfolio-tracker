@@ -1,0 +1,86 @@
+{
+ "message": {
+  "display": {
+   "component": "none",
+   "content": "status"
+  },
+  "severity": "success"
+ },
+ "meta": null,
+ "payload": {
+  "data": [
+   {
+    "id": "usdt",
+    "name": "Tether",
+    "ticker": "USDT",
+    "logoUri": "https://cdn.paribu.services/coin/usdt-SHRkIpqt59.png",
+    "marketType": "crypto",
+    "pairSymbol": "₺",
+    "price": "50.37",
+    "changePercent": "-0.05",
+    "volume": "350386505.578",
+    "baseVolume": "6956501.49",
+    "sparkline": []
+   },
+   {
+    "id": "btc",
+    "name": "Bitcoin",
+    "ticker": "BTC",
+    "logoUri": "https://cdn.paribu.services/coin/btc-wo8KSCg7jl.png",
+    "marketType": "crypto",
+    "pairSymbol": "₺",
+    "price": "3215963",
+    "changePercent": "-1.6",
+    "volume": "116173854",
+    "baseVolume": "35.674738",
+    "sparkline": []
+   },
+   {
+    "id": "eth",
+    "name": "Ethereum",
+    "ticker": "ETH",
+    "logoUri": "https://cdn.paribu.services/coin/eth-SRK7jtbsdk.png",
+    "marketType": "crypto",
+    "pairSymbol": "₺",
+    "price": "90324",
+    "changePercent": "-1.38",
+    "volume": "115170693",
+    "baseVolume": "1260.86054",
+    "sparkline": []
+   },
+   {
+    "id": "xrp",
+    "name": "Ripple",
+    "ticker": "XRP",
+    "logoUri": "https://cdn.paribu.services/coin/xrp-Fx6Dxl1Sdl.png",
+    "marketType": "crypto",
+    "pairSymbol": "₺",
+    "price": "48.365",
+    "changePercent": "+0.43",
+    "volume": "110507149.181",
+    "baseVolume": "2281367.8",
+    "sparkline": []
+   },
+   {
+    "id": "trump",
+    "name": "Official Trump",
+    "ticker": "TRUMP",
+    "logoUri": "https://cdn.paribu.services/coin/trump-13da335ssa.png",
+    "marketType": "crypto",
+    "pairSymbol": "₺",
+    "price": "48.21",
+    "changePercent": "+1.83",
+    "volume": "100031505.6",
+    "baseVolume": "2071841.85",
+    "tags": [
+     "box",
+     "meme"
+    ],
+    "sparkline": []
+   }
+  ],
+  "total": 5,
+  "hasMore": false,
+  "pairSymbol": "₺"
+ }
+}

@@ -1,0 +1,24 @@
+{
+ "message": {
+  "title": {
+   "langkey": "system_messages.something_went_wrong"
+  },
+  "display": {
+   "component": "dialog"
+  },
+  "severity": "danger",
+  "buttons": [
+   {
+    "label": {
+     "langkey": "system_messages.ok"
+    },
+    "action": {
+     "name": "close"
+    },
+    "severity": "dark"
+   }
+  ]
+ },
+ "meta": null,
+ "payload": null
+}

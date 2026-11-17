@@ -2,9 +2,15 @@ import { getServiceClient } from "../_shared/client.ts"
 import { authorizeRequest, unauthorizedResponse } from "../_shared/auth.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { fetchYahooQuote } from "../_shared/yahoo.ts"
-import { fetchTefasQuote } from "../_shared/tefas.ts"
 import { splitPrice } from "../_shared/currency.ts"
 import { HOME_TIMEZONE, TROY_OZ_GRAMS } from "../_shared/constants.ts"
+import {
+  createFetchers,
+  type PriceTarget,
+  resolvePrices,
+  SOURCE_LABEL,
+  type SourceRow,
+} from "../_shared/price-sources/index.ts"
 
 // ──────────────────────────────────────────────────────────────────────
 // Refresh cadences. The frontend pings this function on a fixed interval
@@ -19,7 +25,7 @@ import { HOME_TIMEZONE, TROY_OZ_GRAMS } from "../_shared/constants.ts"
  *  collapses concurrent pings (multiple tabs / phone + laptop) into one fetch. */
 const FETCH_GUARD_MS = 20_000
 
-/** Crypto + tokenized gold trade 24/7 and Yahoo reports them in real time. */
+/** Crypto + tokenized gold trade 24/7 and their sources report in real time. */
 const CRYPTO_CADENCE_MS = 30_000
 
 /** Equities (BIST + US). BIST is additionally gated on market hours below. */
@@ -36,8 +42,6 @@ const FUND_CADENCE_MS = 6 * 60 * 60 * 1000
 const TCMB_TODAY_URL = "https://www.tcmb.gov.tr/kurlar/today.xml"
 
 type ServiceClient = ReturnType<typeof getServiceClient>
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /** Snapshot of every cached price's age, keyed by ticker (== price_cache key
  *  == fetch key). Drives both the global guard and the per-asset due-check. */
@@ -91,7 +95,7 @@ function isBistOpen(at: Date): boolean {
   return minutes >= 10 * 60 && minutes <= 18 * 60 + 10
 }
 
-/** Whether a single Yahoo symbol is due for a refetch this run. */
+/** Whether a non-fund price key is due for a refetch this run. */
 function isSymbolDue(
   category: string,
   lastUpdatedMs: number,
@@ -125,7 +129,7 @@ async function fetchGoldGramUsd(): Promise<{ value: number | null; error?: strin
 }
 
 interface FxResult {
-  /** USD/TRY and EUR/USD, needed to convert TRY/EUR-quoted Yahoo assets. */
+  /** USD/TRY and EUR/USD, needed to convert TRY/EUR-quoted source prices. */
   usdTry: number | null
   eurUsd: number | null
   updated: number
@@ -134,7 +138,7 @@ interface FxResult {
 
 /** Step 1 — TCMB exchange rates (+ gram gold). Runs only when `fxDue`; pulls
  *  the daily XML, upserts `exchange_rates` and the USD/EUR/TRY/XAU_GRAM rows of
- *  `price_cache`, and returns the rates the Yahoo step needs for conversions. */
+ *  `price_cache`, and returns the rates the price-source step needs for conversions. */
 async function refreshFxRates(
   supabase: ServiceClient,
   opts: { fxDue: boolean; nowIso: string },
@@ -223,7 +227,7 @@ async function refreshFxRates(
 }
 
 /** When the FX step is skipped (cadence) or failed, load the last known
- *  usdTry / eurUsd from `exchange_rates` so Yahoo conversions still work. */
+ *  usdTry / eurUsd from `exchange_rates` so source conversions still work. */
 async function ensureConversionRates(
   supabase: ServiceClient,
   fx: { usdTry: number | null; eurUsd: number | null },
@@ -242,196 +246,136 @@ async function ensureConversionRates(
   return { usdTry, eurUsd }
 }
 
-/** Every fetch key priced from `source`, with the category that sets its
- *  cadence: the assets catalog plus every user's watchlist (Takip listesi).
- *  Watched symbols ride the same loop, cache and cadence as assets — there is
- *  no separate fetcher. Assets come first, so on a shared key the asset's
- *  category wins. A failed watchlist read is reported but never blocks assets. */
-async function loadPricedSymbols(
-  supabase: ServiceClient,
-  source: "yahoo" | "tefas",
-): Promise<{ symbols: Map<string, string>; errors: string[] }> {
-  const [assetsRes, watchRes] = await Promise.all([
-    supabase.from("assets").select("ticker, price_id, category").eq("price_source", source),
-    supabase.from("watchlist_items").select("price_id, category").eq("price_source", source),
-  ])
-  if (assetsRes.error) throw new Error(assetsRes.error.message)
-  const errors: string[] = []
-  if (watchRes.error) errors.push(`watchlist (${source}): ${watchRes.error.message}`)
+/** One price_cache key to refresh and the sources to try for it. */
+interface KeyPlan extends PriceTarget {
+  category: string
+  priceSource: string | null
+}
 
-  // Fetch key is price_id (Yahoo symbol, e.g. BTC-USD / TEFAS fund code); an
-  // asset without one falls back to its ticker. Dedupe on key.
-  const symbols = new Map<string, string>()
-  const rows = [
-    ...((assetsRes.data ?? []) as { ticker: string; price_id: string | null; category: string }[])
-      .map((a) => ({ key: a.price_id ?? a.ticker, category: a.category })),
-    ...((watchRes.data ?? []) as { price_id: string; category: string }[])
-      .map((w) => ({ key: w.price_id, category: w.category })),
+type SourceRowJoined = SourceRow & {
+  asset_id: string
+  assets: { ticker: string; price_id: string | null; category: string; price_source: string | null } | null
+}
+
+/** Every price_cache key that has price sources, with its ordered source rows.
+ *  Keyed by `price_id ?? ticker` (the cache key readers use). If two assets
+ *  ever share a key, the first asset (by id) supplies the sources and the
+ *  category; the key is still fetched once. */
+async function loadSourcePlans(supabase: ServiceClient): Promise<KeyPlan[]> {
+  const { data, error } = await supabase
+    .from("asset_price_sources")
+    .select("id, asset_id, priority, source, symbol, assets(ticker, price_id, category, price_source)")
+    .order("asset_id")
+    .order("priority")
+  if (error) throw new Error(error.message)
+
+  const plans = new Map<string, KeyPlan & { assetId: string }>()
+  for (const r of (data ?? []) as unknown as SourceRowJoined[]) {
+    if (!r.assets) continue
+    const key = r.assets.price_id ?? r.assets.ticker
+    let plan = plans.get(key)
+    if (!plan) {
+      plan = {
+        key,
+        sources: [],
+        category: r.assets.category,
+        priceSource: r.assets.price_source,
+        assetId: r.asset_id,
+      }
+      plans.set(key, plan)
+    }
+    if (plan.assetId !== r.asset_id) continue
+    plan.sources.push({ id: r.id, priority: r.priority, source: r.source, symbol: r.symbol })
+  }
+  return [...plans.values()]
+}
+
+/** Whether a key is due this run: funds (TEFAS NAV, daily) on the fund
+ *  cadence, everything else per `isSymbolDue` (incl. the BIST hours gate). */
+function isKeyDue(plan: KeyPlan, lastUpdatedMs: number, nowMs: number): boolean {
+  if (plan.category === "fund" || plan.priceSource === "tefas") {
+    return !lastUpdatedMs || nowMs - lastUpdatedMs >= FUND_CADENCE_MS
+  }
+  return isSymbolDue(plan.category, lastUpdatedMs, nowMs)
+}
+
+/** Longest `last_error` kept on a source row. */
+const MAX_ERROR_LENGTH = 200
+
+/** Step 2 — every asset with price sources (Paribu / Yahoo / TEFAS). For each
+ *  due key, sources are tried in priority order and the first price wins (see
+ *  `_shared/price-sources/resolve.ts`). The winner's row gets `last_ok_at`, the
+ *  ones that failed before it `last_error(_at)`; later rows are untouched.
+ *  Response `errors` list only keys that no source could price. */
+async function refreshSourcePrices(
+  supabase: ServiceClient,
+  opts: {
+    force: boolean
+    usdTry: number | null
+    eurUsd: number | null
+    updatedAtMs: Map<string, number>
+    nowMs: number
+    nowIso: string
+  },
+): Promise<{ updated: number; errors: string[] }> {
+  const { force, usdTry, eurUsd, updatedAtMs, nowMs, nowIso } = opts
+
+  let plans: KeyPlan[]
+  try {
+    plans = await loadSourcePlans(supabase)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error"
+    return { updated: 0, errors: [`Price sources: ${msg}`] }
+  }
+  const due = plans.filter((p) => force || isKeyDue(p, updatedAtMs.get(p.key) ?? 0, nowMs))
+  if (due.length === 0) return { updated: 0, errors: [] }
+
+  // Paribu crypto is TL; US stocks USD; BIST/TEFAS TRY; Yahoo per meta.currency.
+  const { priced, failures, unpriced } = await resolvePrices(due, createFetchers(), (quote) =>
+    splitPrice(quote.price, quote.currency, { usdTry, eurUsd }) ??
+      `unsupported currency ${quote.currency}`
+  )
+
+  const errors: string[] = []
+  const unpricedSet = new Set(unpriced)
+  for (const f of failures) {
+    if (unpricedSet.has(f.key)) errors.push(`${SOURCE_LABEL[f.row.source]} ${f.row.symbol}: ${f.error}`)
+  }
+
+  let updated = 0
+  if (priced.size > 0) {
+    const rows = [...priced].map(([key, { value, row }]) => ({
+      ticker: key,
+      price_usd: value.price_usd,
+      price_try: value.price_try,
+      source: row.source,
+      updated_at: nowIso,
+    }))
+    const { error } = await supabase.from("price_cache").upsert(rows, { onConflict: "ticker" })
+    if (error) errors.push(`price_cache: ${error.message}`)
+    else updated = rows.length
+  }
+
+  // Health, batched: one update for every winner, one per distinct error text.
+  const okIds = [...priced.values()].map((p) => p.row.id)
+  const byError = new Map<string, string[]>()
+  for (const f of failures) {
+    const msg = f.error.slice(0, MAX_ERROR_LENGTH)
+    byError.set(msg, [...(byError.get(msg) ?? []), f.row.id])
+  }
+  const writes = [
+    ...(okIds.length > 0
+      ? [supabase.from("asset_price_sources").update({ last_ok_at: nowIso }).in("id", okIds)]
+      : []),
+    ...[...byError].map(([msg, ids]) =>
+      supabase
+        .from("asset_price_sources")
+        .update({ last_error: msg, last_error_at: nowIso })
+        .in("id", ids)
+    ),
   ]
-  for (const r of rows) if (!symbols.has(r.key)) symbols.set(r.key, r.category)
-  return { symbols, errors }
-}
-
-/** Step 2 — Yahoo Finance (stocks, crypto, tokenized gold). Refetches only the
- *  symbols that are due (per `isSymbolDue`, or all when `force`), 1s apart. */
-async function refreshYahooPrices(
-  supabase: ServiceClient,
-  opts: {
-    force: boolean
-    usdTry: number | null
-    eurUsd: number | null
-    updatedAtMs: Map<string, number>
-    nowMs: number
-    nowIso: string
-  },
-): Promise<{ updated: number; errors: string[] }> {
-  const { force, usdTry, eurUsd, updatedAtMs, nowMs, nowIso } = opts
-  const errors: string[] = []
-
-  let symbolCategory: Map<string, string>
-  try {
-    const loaded = await loadPricedSymbols(supabase, "yahoo")
-    symbolCategory = loaded.symbols
-    errors.push(...loaded.errors)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown Yahoo error"
-    return { updated: 0, errors: [`Yahoo: ${msg}`] }
-  }
-  if (symbolCategory.size === 0) return { updated: 0, errors }
-
-  let updated = 0
-  let fetchedAny = false
-
-  for (const [symbol, category] of symbolCategory) {
-    if (!force && !isSymbolDue(category, updatedAtMs.get(symbol) ?? 0, nowMs)) {
-      continue
-    }
-
-    // Be gentle on Yahoo: 1s between actual fetches (skipped symbols don't
-    // count, so a quiet run that only refreshes crypto stays fast).
-    if (fetchedAny) await sleep(1000)
-    fetchedAny = true
-
-    try {
-      const { status, quote } = await fetchYahooQuote(symbol)
-
-      if (!quote) {
-        errors.push(
-          `Yahoo ${symbol}: ${status === null ? "request failed" : `HTTP ${status}`}`
-        )
-        continue
-      }
-      if (quote.price == null) {
-        errors.push(`Yahoo ${symbol}: no price in response`)
-        continue
-      }
-
-      // Currency comes from the source (meta.currency), not the suffix.
-      const split = splitPrice(quote.price, quote.currency, { usdTry, eurUsd })
-      if (!split) {
-        errors.push(`Yahoo ${symbol}: unsupported currency ${quote.currency}`)
-        continue
-      }
-
-      await supabase.from("price_cache").upsert(
-        {
-          ticker: symbol,
-          price_usd: split.price_usd,
-          price_try: split.price_try,
-          source: "yahoo",
-          updated_at: nowIso,
-        },
-        { onConflict: "ticker" }
-      )
-      updated++
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error"
-      errors.push(`Yahoo ${symbol}: ${msg}`)
-    }
-  }
-
-  return { updated, errors }
-}
-
-/** Step 2.5 — TEFAS (Turkish mutual / money-market funds, "PPF"). Each fund's
- *  daily NAV is fetched by its fund code (`price_id ?? ticker`) and is always
- *  TRY-quoted, so it converts through `splitPrice(..., "TRY", ...)` exactly like
- *  a BIST quote. No market-hours gate — NAV publishes once a business day, so a
- *  per-fund daily cadence is enough (force refetches everything). */
-async function refreshTefasPrices(
-  supabase: ServiceClient,
-  opts: {
-    force: boolean
-    usdTry: number | null
-    eurUsd: number | null
-    updatedAtMs: Map<string, number>
-    nowMs: number
-    nowIso: string
-  },
-): Promise<{ updated: number; errors: string[] }> {
-  const { force, usdTry, eurUsd, updatedAtMs, nowMs, nowIso } = opts
-  const errors: string[] = []
-
-  // Fetch key is the fund code (price_id ?? ticker), which is also the
-  // price_cache key; assets and watched funds deduped.
-  let codes: Iterable<string>
-  try {
-    const loaded = await loadPricedSymbols(supabase, "tefas")
-    codes = loaded.symbols.keys()
-    errors.push(...loaded.errors)
-    if (loaded.symbols.size === 0) return { updated: 0, errors }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown TEFAS error"
-    return { updated: 0, errors: [`TEFAS: ${msg}`] }
-  }
-
-  let updated = 0
-  let fetchedAny = false
-
-  for (const code of codes) {
-    const last = updatedAtMs.get(code) ?? 0
-    if (!force && last && nowMs - last < FUND_CADENCE_MS) continue
-
-    // Be gentle on TEFAS: 1s between actual fetches (skipped funds don't count).
-    if (fetchedAny) await sleep(1000)
-    fetchedAny = true
-
-    try {
-      const { status, quote } = await fetchTefasQuote(code)
-
-      if (!quote) {
-        errors.push(
-          `TEFAS ${code}: ${status === null ? "request failed" : `HTTP ${status}`}`
-        )
-        continue
-      }
-      if (quote.price == null) {
-        errors.push(`TEFAS ${code}: no NAV in response`)
-        continue
-      }
-
-      // NAV is always TRY.
-      const split = splitPrice(quote.price, quote.currency, { usdTry, eurUsd })
-      if (!split) {
-        errors.push(`TEFAS ${code}: unsupported currency ${quote.currency}`)
-        continue
-      }
-
-      await supabase.from("price_cache").upsert(
-        {
-          ticker: code,
-          price_usd: split.price_usd,
-          price_try: split.price_try,
-          source: "tefas",
-          updated_at: nowIso,
-        },
-        { onConflict: "ticker" }
-      )
-      updated++
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error"
-      errors.push(`TEFAS ${code}: ${msg}`)
-    }
+  for (const { error } of await Promise.all(writes)) {
+    if (error) errors.push(`source health: ${error.message}`)
   }
 
   return { updated, errors }
@@ -513,8 +457,8 @@ Deno.serve(async (req) => {
 
   const rates = await ensureConversionRates(supabase, fx)
 
-  // Step 2 — Yahoo (per-asset cadence / market hours).
-  const yahoo = await refreshYahooPrices(supabase, {
+  // Step 2 — price sources (per-key cadence / market hours, priority + fallback).
+  const sourced = await refreshSourcePrices(supabase, {
     force,
     usdTry: rates.usdTry,
     eurUsd: rates.eurUsd,
@@ -522,20 +466,8 @@ Deno.serve(async (req) => {
     nowMs,
     nowIso,
   })
-  errors.push(...yahoo.errors)
-  updated += yahoo.updated
-
-  // Step 2.5 — TEFAS (Turkish funds / PPF; daily NAV, no market-hours gate).
-  const tefas = await refreshTefasPrices(supabase, {
-    force,
-    usdTry: rates.usdTry,
-    eurUsd: rates.eurUsd,
-    updatedAtMs,
-    nowMs,
-    nowIso,
-  })
-  errors.push(...tefas.errors)
-  updated += tefas.updated
+  errors.push(...sourced.errors)
+  updated += sourced.updated
 
   // Step 3 — daily EOD snapshot (cron only).
   if (doSnapshot) {
