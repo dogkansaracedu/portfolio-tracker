@@ -4,8 +4,9 @@
 
 ## Purpose
 
-The owner-facing control panel. It hosts the management surfaces for platforms
-and assets (owned by Component 3) as tabs, owns **data portability** (a pointer
+The owner-facing control panel. It hosts the platform management surface (owned
+by Component 3) as a tab — the asset catalog moved to the admin-only Admin page,
+which Settings points the admin to — owns **data portability** (a pointer
 to where data comes in, plus a control to (re)build historical
 [snapshots](GLOSSARY.md#snapshot)), and documents the app's **display
 preferences** — which are *operated* from the global header, not from this page,
@@ -14,8 +15,8 @@ them.
 
 ## Depends on
 
-- **Component 3 (Platform & Asset Management)** — the platform/asset editing
-  tabs live here; this component only mounts them.
+- **Component 3 (Platform & Asset Management)** — the platform tab lives here;
+  this component only mounts it. The asset catalog is on the Admin page.
 - **Component 4 (Transaction System)** — owns the **import** experience (grid /
   CSV / broker PDF). This component links to it; it does not reimplement it.
 - **Component 10 (Snapshots & Performance)** — owns snapshot creation; this
@@ -114,11 +115,10 @@ affects. This component only defines their behaviour.
 - **Import** — surfaced via **Component 4** (grid / CSV / broker PDF). Settings
   carries a single muted line under a small heading linking to it — a pointer,
   not a card, and never a second import UI.
-- **Asset and platform catalogs on a narrow screen** — the catalog's columns
-  (ticker, category, price, group, status, actions) do not fit a phone: there
-  the list uses the app's card idiom instead, each asset one card with its
-  actions menu in the card header, so the menu is never the thing that falls
-  off the side.
+- **Admin pointer** — for the [Admin](GLOSSARY.md#admin) only, a single muted
+  line under a small heading ("Asset catalog" → "Edit assets and price
+  sources") links to the Admin page, the
+  same shape as the import pointer. Other users see nothing there.
 - **Export status** — **not built**; show nothing actionable, or an explicit
   "not available yet" affordance. Never imply a download exists.
 - **Snapshot backfill control** — granularity selector, an overwrite toggle with
@@ -138,5 +138,6 @@ affects. This component only defines their behaviour.
 - [ ] Data **export is explicitly absent** — nothing on the page claims to export.
 - [ ] Import is reachable from Settings as a one-line link to Component 4's bulk
       surface (not duplicated here).
+- [ ] The admin sees a one-line link to the Admin page; other users don't.
 - [ ] The Settings page carries **no** display-preference controls; they are in
       the global header.

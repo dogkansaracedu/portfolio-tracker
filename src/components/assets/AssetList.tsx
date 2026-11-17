@@ -7,6 +7,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import type { Asset } from "@/types/database";
 import { AssetForm } from "@/components/assets/AssetForm";
 import { AssetRow, AssetRowCard } from "@/components/assets/AssetRow";
+import { PriceSourcesDialog } from "@/components/assets/PriceSourcesDialog";
 import {
   Table,
   TableHeader,
@@ -61,6 +62,7 @@ export function AssetList() {
     null
   );
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
+  const [sourcesAsset, setSourcesAsset] = useState<Asset | null>(null);
 
   function handleEdit(asset: Asset) {
     setEditingAsset(asset);
@@ -137,6 +139,7 @@ export function AssetList() {
               prices={prices}
               canManage={isAdmin}
               onEdit={handleEdit}
+              onEditSources={setSourcesAsset}
               onDeactivate={handleDeactivate}
             />
           ))}
@@ -162,6 +165,7 @@ export function AssetList() {
                 prices={prices}
                 canManage={isAdmin}
                 onEdit={handleEdit}
+                onEditSources={setSourcesAsset}
                 onDeactivate={handleDeactivate}
               />
             ))}
@@ -187,6 +191,7 @@ export function AssetList() {
                   prices={prices}
                   canManage={isAdmin}
                   onEdit={handleEdit}
+                  onEditSources={setSourcesAsset}
                   onDeactivate={handleDeactivate}
                 />
               ))}
@@ -216,6 +221,7 @@ export function AssetList() {
                     prices={prices}
                     canManage={isAdmin}
                     onEdit={handleEdit}
+                    onEditSources={setSourcesAsset}
                     onDeactivate={handleDeactivate}
                   />
                 ))}
@@ -248,6 +254,14 @@ export function AssetList() {
               is_currency: false,
             });
           }
+        }}
+      />
+
+      <PriceSourcesDialog
+        key={sourcesAsset?.id}
+        asset={sourcesAsset}
+        onOpenChange={(open) => {
+          if (!open) setSourcesAsset(null);
         }}
       />
 

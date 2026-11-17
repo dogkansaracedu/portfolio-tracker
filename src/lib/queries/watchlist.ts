@@ -1,34 +1,32 @@
 import { supabase } from "@/lib/supabase"
-import type { WatchlistItem, WatchlistItemInsert } from "@/types/database"
-import {
-  SYMBOL_SEARCH_FUNCTION,
-  WATCHLIST_TABLE,
-} from "@/lib/constants/watchlist"
-import type { SymbolMatch } from "../../../supabase/functions/_shared/symbol-search.ts"
+import type { WatchlistItemInsert, WatchlistRow } from "@/types/database"
+import { WATCHLIST_TABLE } from "@/lib/constants/watchlist"
 
-export type { SymbolMatch }
+/** Each item with the catalog asset it follows (display fields + price key). */
+const WATCHLIST_SELECT =
+  "id, user_id, asset_id, sort_order, created_at, asset:assets(id, ticker, name, category, price_id, icon_url)"
 
 /** The user's watchlist in their order (RLS scopes it to them). */
-export async function fetchWatchlist(): Promise<WatchlistItem[]> {
+export async function fetchWatchlist(): Promise<WatchlistRow[]> {
   const { data, error } = await supabase
     .from(WATCHLIST_TABLE)
-    .select("*")
+    .select(WATCHLIST_SELECT)
     .order("sort_order")
     .order("created_at")
   if (error) throw error
-  return (data ?? []) as WatchlistItem[]
+  return (data ?? []) as unknown as WatchlistRow[]
 }
 
 export async function addWatchlistItem(
   item: WatchlistItemInsert,
-): Promise<WatchlistItem> {
+): Promise<WatchlistRow> {
   const { data, error } = await supabase
     .from(WATCHLIST_TABLE)
     .insert(item)
-    .select()
+    .select(WATCHLIST_SELECT)
     .single()
   if (error) throw error
-  return data as WatchlistItem
+  return data as unknown as WatchlistRow
 }
 
 export async function removeWatchlistItem(id: string): Promise<void> {
@@ -47,14 +45,4 @@ export async function saveWatchlistOrder(
   )
   const failed = results.find((r) => r.error)
   if (failed?.error) throw failed.error
-}
-
-/** Symbol search for the add flow — `resolve-tickers` with `{ query }`. Runs
- *  with the signed-in user's session. */
-export async function searchSymbols(query: string): Promise<SymbolMatch[]> {
-  const { data, error } = await supabase.functions.invoke<{
-    results: SymbolMatch[]
-  }>(SYMBOL_SEARCH_FUNCTION, { body: { query } })
-  if (error) throw error
-  return data?.results ?? []
 }

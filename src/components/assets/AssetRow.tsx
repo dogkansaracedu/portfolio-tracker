@@ -11,7 +11,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, EyeOff } from "lucide-react";
+import { MoreHorizontal, Pencil, EyeOff, ListOrdered } from "lucide-react";
+import { PRICE_SOURCE_COPY } from "@/lib/constants/priceSources";
 import { AssetIcon } from "@/components/common/AssetIcon";
 import { CATEGORY_LABELS } from "@/lib/constants/assets"
 
@@ -21,6 +22,7 @@ interface AssetRowProps {
   prices: Record<string, PriceCache>;
   canManage: boolean;
   onEdit: (asset: Asset) => void;
+  onEditSources: (asset: Asset) => void;
   onDeactivate: (asset: Asset) => void;
 }
 
@@ -82,6 +84,7 @@ function AssetActions({
   asset,
   canManage,
   onEdit,
+  onEditSources,
   onDeactivate,
 }: Omit<AssetRowProps, "prices">) {
   if (!canManage || !asset.is_active || asset.is_currency) return null;
@@ -99,6 +102,10 @@ function AssetActions({
         <DropdownMenuItem onClick={() => onEdit(asset)}>
           <Pencil className="size-4" />
           Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onEditSources(asset)}>
+          <ListOrdered className="size-4" />
+          {PRICE_SOURCE_COPY.menuItem}
         </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
@@ -120,6 +127,7 @@ export function AssetRowCard({
   prices,
   canManage,
   onEdit,
+  onEditSources,
   onDeactivate,
 }: AssetRowProps) {
   const derived = derivePrice(asset, prices);
@@ -141,6 +149,7 @@ export function AssetRowCard({
             asset={asset}
             canManage={canManage}
             onEdit={onEdit}
+            onEditSources={onEditSources}
             onDeactivate={onDeactivate}
           />
         </div>
@@ -161,7 +170,14 @@ export function AssetRowCard({
   );
 }
 
-export function AssetRow({ asset, prices, canManage, onEdit, onDeactivate }: AssetRowProps) {
+export function AssetRow({
+  asset,
+  prices,
+  canManage,
+  onEdit,
+  onEditSources,
+  onDeactivate,
+}: AssetRowProps) {
   const derived = derivePrice(asset, prices);
 
   return (
@@ -198,6 +214,7 @@ export function AssetRow({ asset, prices, canManage, onEdit, onDeactivate }: Ass
           asset={asset}
           canManage={canManage}
           onEdit={onEdit}
+          onEditSources={onEditSources}
           onDeactivate={onDeactivate}
         />
       </TableCell>

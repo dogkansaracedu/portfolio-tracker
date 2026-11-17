@@ -14,11 +14,12 @@
 | `supabase/functions/fetch-prices/index.ts` | No watchlist code: watched items are catalog assets and are priced through their `asset_price_sources`. |
 | `supabase/functions/_shared/widget.ts` | `buildWatchlist(items, prices, usdTry, nowMs)` — the one row formula, used by `widget-data` **and** the page. Tested in `src/lib/queries/widget.test.ts`. |
 | `supabase/functions/widget-data/index.ts` | Reads `watchlist_items` joined to `assets` (RLS) and adds `watchlist` to the response; the currency is `quoteCurrency(asset)`. |
-| `src/lib/constants/watchlist.ts` | Route, table, function name, debounce, all copy (`WATCHLIST_COPY`). |
-| `src/lib/queries/watchlist.ts` | `fetchWatchlist`, `addWatchlistItem`, `removeWatchlistItem`, `saveWatchlistOrder`, `searchSymbols` (`supabase.functions.invoke("resolve-tickers", { body: { query } })` — the user's session). |
-| `src/hooks/useWatchlist.ts` | Page state; optimistic add/remove/move, reload on a failed write (`useReportedWrite`). |
-| `src/pages/WatchlistPage.tsx` | The page (route `/watchlist`, lazy). |
-| `src/components/watchlist/SymbolSearchDialog.tsx` | Add flow: `Dialog` + `Command` (`shouldFilter={false}`), debounced 500 ms, min 2 chars. |
+| `src/lib/constants/watchlist.ts` | Route, table, all copy (`WATCHLIST_COPY`). |
+| `src/lib/queries/watchlist.ts` | `fetchWatchlist` / `addWatchlistItem` select `id, user_id, asset_id, sort_order, created_at, asset:assets(id, ticker, name, category, price_id, icon_url)` → `WatchlistRow`; insert is `{ asset_id, sort_order }`. `removeWatchlistItem`, `saveWatchlistOrder`. |
+| `src/lib/watchlist.ts` | Pure: `foldSearchText` (lower-case `tr`, Turkish letters → ASCII), `filterCatalog(assets, query, watchedIds)` (active, non-currency, unwatched; exact ticker → ticker prefix → ticker/name contains), `watchItemFromAsset` (→ `WidgetWatchItem`: `price_id ?? ticker`, `quoteCurrency(asset)` — the same mapping `widget-data` uses). Tested in `src/lib/watchlist.test.ts`. |
+| `src/hooks/useWatchlist.ts` | Page state; `add(assetId)`, optimistic remove/move, reload on a failed write (`useReportedWrite`). |
+| `src/pages/WatchlistPage.tsx` | The page (route `/watchlist`, lazy). Rows read `item.asset`. |
+| `src/components/watchlist/CatalogSearchDialog.tsx` | Add flow: `Dialog` + `Command` (`shouldFilter={false}`) over `useAssets()` filtered by `filterCatalog` on every keystroke (no server call); each result's price comes from `buildWatchlist` so it matches the row. |
 | `src/lib/constants/navigation.ts` | First `secondaryNavItems` entry (icon `Binoculars`). |
 
 ## Data
@@ -71,11 +72,13 @@ side effect the ticker path has. Results dedupe on `price_id`. Any Yahoo
 
 ## Page
 
-`buildWatchlist` is called through a local `watchlistEntries` wrapper (staleness
-is age at render time, like `PriceDisplay`). Prices come from the shared
+`buildWatchlist` is called through a local `watchlistEntries` wrapper over
+`items.map(i => watchItemFromAsset(i.asset))` (staleness is age at render time,
+like `PriceDisplay`). Prices come from the shared
 `usePrices` store, so the page follows the app's polling loop and the header's
 manual refresh. Reorder writes only the rows whose `sort_order` changed
-(their new list index).
+(their new list index). The app no longer calls the `resolve-tickers`
+`{ query }` search (the old `SymbolSearchDialog` / `searchSymbols` are gone).
 
 ## Gotchas
 

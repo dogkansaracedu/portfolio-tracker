@@ -9,6 +9,7 @@ import LoginPage from "@/pages/LoginPage"
 import SignupPage from "@/pages/SignupPage"
 import { FEATURES } from "@/lib/features"
 import { WATCHLIST_ROUTE } from "@/lib/constants/watchlist"
+import { ADMIN_ROUTE } from "@/lib/constants/admin"
 
 const PortfolioPage = lazy(() => import("@/pages/PortfolioPage"))
 const AssetDetailPage = lazy(() => import("@/pages/AssetDetailPage"))
@@ -22,6 +23,7 @@ const ForeignIncomePage = lazy(() => import("@/pages/ForeignIncomePage"))
 const VehiclePage = lazy(() => import("@/pages/VehiclePage"))
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"))
 const WatchlistPage = lazy(() => import("@/pages/WatchlistPage"))
+const AdminPage = lazy(() => import("@/pages/AdminPage"))
 
 function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<RouteSkeleton />}>{children}</Suspense>
@@ -57,6 +59,7 @@ export default function App() {
             <Route path="foreign-income" element={<Lazy><ForeignIncomePage /></Lazy>} />
             <Route path="vehicle" element={<Lazy><VehiclePage /></Lazy>} />
             <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />
+            <Route path={ADMIN_ROUTE.slice(1)} element={<Lazy><AdminPage /></Lazy>} />
             {/* Mobile nav hub — eager: tapping the More tab must not show a skeleton. */}
             <Route path="more" element={<MorePage />} />
           </Route>

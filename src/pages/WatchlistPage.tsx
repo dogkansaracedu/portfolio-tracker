@@ -4,7 +4,7 @@ import { PageHeading } from "@/components/common/PageHeading"
 import { AssetIcon } from "@/components/common/AssetIcon"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { SymbolSearchDialog } from "@/components/watchlist/SymbolSearchDialog"
+import { CatalogSearchDialog } from "@/components/watchlist/CatalogSearchDialog"
 import { useWatchlist } from "@/hooks/useWatchlist"
 import { usePrices } from "@/hooks/usePrices"
 import {
@@ -15,21 +15,27 @@ import {
 } from "@/lib/prices"
 import { WATCHLIST_COPY } from "@/lib/constants/watchlist"
 import { cn } from "@/lib/utils"
-import type { PriceCache, WatchlistItem } from "@/types/database"
+import type { PriceCache, WatchlistRow } from "@/types/database"
+import { watchItemFromAsset } from "@/lib/watchlist"
 import { buildWatchlist } from "../../supabase/functions/_shared/widget.ts"
 
 /** Rows as of now — staleness is age at render time, like `PriceDisplay`. */
 function watchlistEntries(
-  items: WatchlistItem[],
+  items: WatchlistRow[],
   prices: Record<string, PriceCache>,
   usdTry: number | null,
 ) {
-  return buildWatchlist(items, prices, usdTry, Date.now())
+  return buildWatchlist(
+    items.map((i) => watchItemFromAsset(i.asset)),
+    prices,
+    usdTry,
+    Date.now(),
+  )
 }
 
 /**
- * Component 19 — Watchlist (Takip listesi). Symbols followed without holding
- * them: price and today's change per row, in the user's order. The same rows
+ * Component 19 — Watchlist (Takip listesi). Catalog assets followed without
+ * holding them: price and today's change per row, in the user's order. The same rows
  * (and the same formula, `buildWatchlist`) feed the home-screen widget.
  *
  * Rows stay read-only until Edit: reorder and remove replace the figures
@@ -45,7 +51,7 @@ export default function WatchlistPage() {
     () => watchlistEntries(items, prices, rates?.usd_try ?? null),
     [items, prices, rates],
   )
-  const addedKeys = useMemo(() => new Set(items.map((i) => i.price_id)), [items])
+  const watchedAssetIds = useMemo(() => new Set(items.map((i) => i.asset_id)), [items])
 
   return (
     <div className="space-y-4">
@@ -77,11 +83,11 @@ export default function WatchlistPage() {
               const e = entries[index]
               return (
                 <li key={item.id} className="flex min-h-14 items-center gap-3 px-3 py-2">
-                  <AssetIcon asset={item} size="sm" />
+                  <AssetIcon asset={item.asset} size="sm" />
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="font-medium">{item.ticker}</span>
+                    <span className="font-medium">{item.asset.ticker}</span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {item.name}
+                      {item.asset.name}
                     </span>
                   </div>
 
@@ -92,7 +98,7 @@ export default function WatchlistPage() {
                         size="icon-sm"
                         disabled={index === 0}
                         onClick={() => void move(item.id, -1)}
-                        aria-label={`${WATCHLIST_COPY.moveUp} ${item.ticker}`}
+                        aria-label={`${WATCHLIST_COPY.moveUp} ${item.asset.ticker}`}
                       >
                         <ArrowUp />
                       </Button>
@@ -101,7 +107,7 @@ export default function WatchlistPage() {
                         size="icon-sm"
                         disabled={index === items.length - 1}
                         onClick={() => void move(item.id, 1)}
-                        aria-label={`${WATCHLIST_COPY.moveDown} ${item.ticker}`}
+                        aria-label={`${WATCHLIST_COPY.moveDown} ${item.asset.ticker}`}
                       >
                         <ArrowDown />
                       </Button>
@@ -109,7 +115,7 @@ export default function WatchlistPage() {
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => void remove(item.id)}
-                        aria-label={`${WATCHLIST_COPY.remove} ${item.ticker}`}
+                        aria-label={`${WATCHLIST_COPY.remove} ${item.asset.ticker}`}
                         className="text-red-500"
                       >
                         <Trash2 />
@@ -148,11 +154,11 @@ export default function WatchlistPage() {
         )
       )}
 
-      <SymbolSearchDialog
+      <CatalogSearchDialog
         open={searchOpen}
         onOpenChange={setSearchOpen}
-        addedKeys={addedKeys}
-        onPick={(m) => void add(m)}
+        watchedAssetIds={watchedAssetIds}
+        onPick={(assetId) => void add(assetId)}
       />
     </div>
   )

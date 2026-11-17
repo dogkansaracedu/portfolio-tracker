@@ -15,6 +15,9 @@ export interface AuthContextValue {
   /** True when the signed-in user is the catalog admin. Asked of the database
    *  once per signed-in user; false while unknown or signed out. */
   isAdmin: boolean;
+  /** True while the admin check for the signed-in user is still in flight —
+   *  an admin-only route waits on it instead of bouncing the admin. */
+  adminLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
@@ -29,6 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Id of the user the database confirmed as admin; compared against the
   // current user so a stale answer never leaks across sign-out / switch.
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
+  // Id of the user whose admin check has answered (yes or no).
+  const [adminCheckedUserId, setAdminCheckedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     // Apply a session update only when identity actually changed, so a
@@ -80,12 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       if (error) console.error("Failed to check admin status:", error);
       setAdminUserId(data === true ? userId : null);
+      setAdminCheckedUserId(userId);
     });
     return () => {
       cancelled = true;
     };
   }, [userId]);
   const isAdmin = userId != null && adminUserId === userId;
+  const adminLoading = userId != null && adminCheckedUserId !== userId;
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -112,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, adminLoading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

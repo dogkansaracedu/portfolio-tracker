@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from "react"
-import type { WatchlistItem } from "@/types/database"
+import type { WatchlistRow } from "@/types/database"
 import {
   addWatchlistItem,
   fetchWatchlist,
   removeWatchlistItem,
   saveWatchlistOrder,
-  type SymbolMatch,
 } from "@/lib/queries/watchlist"
 import { useReportedWrite } from "@/hooks/useReportedWrite"
 import { WATCHLIST_COPY } from "@/lib/constants/watchlist"
@@ -15,7 +14,7 @@ import { WATCHLIST_COPY } from "@/lib/constants/watchlist"
  * server's list when they fail; the failure lands in `error`.
  */
 export function useWatchlist() {
-  const [items, setItems] = useState<WatchlistItem[]>([])
+  const [items, setItems] = useState<WatchlistRow[]>([])
   const [loading, setLoading] = useState(true)
   const { error, reported } = useReportedWrite(WATCHLIST_COPY.writeFailed)
 
@@ -32,18 +31,12 @@ export function useWatchlist() {
   }, [reload, reported])
 
   const add = useCallback(
-    async (match: SymbolMatch) => {
+    async (assetId: string) => {
       const sortOrder = items.reduce((max, i) => Math.max(max, i.sort_order + 1), 0)
       const ok = await reported(
-        addWatchlistItem({
-          ticker: match.ticker,
-          name: match.name,
-          category: match.category,
-          price_source: match.price_source,
-          price_id: match.price_id,
-          currency: match.currency,
-          sort_order: sortOrder,
-        }).then((row) => setItems((prev) => [...prev, row])),
+        addWatchlistItem({ asset_id: assetId, sort_order: sortOrder }).then((row) =>
+          setItems((prev) => [...prev, row]),
+        ),
       )
       if (!ok) void reload()
     },

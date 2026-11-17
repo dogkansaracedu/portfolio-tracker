@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — fixes
 and patches move only the third digit.
 
+## [0.27.0] — 2026-11-17
+- **Fiyat kaynakları.** Each asset now has an ordered list of price sources
+  (Paribu crypto, Paribu US, Paribu BIST, Yahoo, TEFAS). The first one is tried
+  first and the others take over when it fails. Crypto can now be priced
+  straight from Paribu in TL.
+- New **Admin** page (admin only, linked from Settings) with the asset catalog
+  and a per-asset source editor that shows when each source last worked or
+  failed. The Assets tab left Settings.
+- The Takip listesi now picks from the asset catalog instead of a free symbol
+  search.
+
 ## [0.26.0] — 2026-11-17
 - **Takip listesi (watchlist).** A new page for symbols you follow but don't hold
   — US and BIST stocks, crypto, FX pairs, gram gold, TEFAS funds. Type "AAPL",

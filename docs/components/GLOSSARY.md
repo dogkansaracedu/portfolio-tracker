@@ -79,17 +79,27 @@ The current/cached unit price of an asset, in USD and TRY, with its `source` and
 `updated_at`. Distinct from the asset's *native* price currency. See
 [Staleness](#staleness).
 
+### Price source
+**User-facing name: "Fiyat kaynağı"** (plural "Fiyat kaynakları").
+One place an asset's price can be fetched from: a **source** (`paribu_crypto`,
+`paribu_us`, `paribu_bist`, `yahoo`, `tefas`) plus that source's own
+**symbol** for the asset (`btc`, `brk.b`, `asels`, `BTC-USD`, `TP2`) — separate
+from the display `ticker`. Each Yahoo/TEFAS-priced asset has an **ordered list**
+of them, kept by the [Admin](#admin): the first is tried first, the rest are
+fallbacks. Each entry carries its own health (last success, last failure and
+its message). TCMB and manual assets have no list. Not to be confused with the
+asset's `price_source` field, which names the classic feed (and still drives
+price history).
+
 ### Watchlist
 **User-facing name: "Takip listesi"** (the home-screen widget's short form is
-"Takip"). The symbols one user follows **without holding them** — stocks, crypto,
-FX pairs, gram gold, Turkish funds — in an order the user sets. Per-user and
-private. Each item carries the same pricing vocabulary an [Asset](#asset) does
-(`category`, `price_source`, `price_id`) plus a display `ticker`, a `name`, and
-the currency its price is shown in (TRY when the source quotes TRY, USD
-otherwise). A watched symbol is **not** an asset: it never enters holdings,
-total value, allocation or P&L, and watching one never adds it to the asset
-catalog. Its [Price](#price) is shared with any asset that uses the same fetch
-key. Its daily figure is the [day change](#day-change).
+"Takip"). The [assets](#asset) one user follows **without holding them**, in an
+order the user sets. Per-user and private. Each item is a reference to a
+catalog asset — ticker, name, category and price key all come from the asset,
+so only assets in the catalog can be watched (adding one is picking it from
+the catalog). Watching never enters holdings, total value, allocation or P&L.
+Its [Price](#price) is the asset's price, shown in the asset's quote currency.
+Its daily figure is the [day change](#day-change).
 
 ### Exchange rate
 Historical FX **by date**: `usd_try`, `eur_try`, `eur_usd`, `gold_gram_try`. USD is
@@ -296,8 +306,9 @@ An asset's (or group's) **current value ÷ total portfolio value**, as a percent
 
 ### Admin
 The single account that curates the global [Asset](#asset) catalog. Only the
-admin can create / edit / deactivate assets; everyone else reads the catalog
-read-only. Who is admin is recorded in the database as data (a list of admin
+admin can create / edit / deactivate assets and edit their
+[price sources](#price-source), on the admin-only Admin page; everyone else
+reads the catalog (e.g. when adding to the [watchlist](#watchlist)). Who is admin is recorded in the database as data (a list of admin
 accounts), not written into the code; the database enforces it on every asset
 write and the UI mirrors it. Platforms are unaffected — they stay
 per-user.

@@ -102,26 +102,59 @@ export interface PriceCache {
   baseline_try?: number | null;
 }
 
-/** A symbol the user follows without holding it (Watchlist / Takip listesi).
- *  Priced like an asset: `prices[price_id]`. */
+/** A catalog asset the user follows without holding it (Watchlist / Takip
+ *  listesi). Display fields and the price key come from the joined asset. */
 export interface WatchlistItem {
   id: string;
   user_id: string;
-  /** Display symbol (THYAO, BTC, USDTRY) — never used to fetch. */
-  ticker: string;
-  name: string;
-  /** Same values as `Asset.category`. */
-  category: string;
-  price_source: string;
-  /** Price-fetch key = the price_cache key (THYAO.IS, BTC-USD, USDTRY=X). */
-  price_id: string;
-  /** The currency the price shows in, from the source at add time. */
-  currency: "USD" | "TRY";
+  asset_id: string;
   sort_order: number;
   created_at: string;
 }
 
-export type WatchlistItemInsert = Omit<WatchlistItem, "id" | "user_id" | "created_at">;
+/** The asset fields a watchlist row reads (joined as `asset`). */
+export type WatchlistAsset = Pick<
+  Asset,
+  "id" | "ticker" | "name" | "category" | "price_id" | "icon_url"
+>;
+
+export interface WatchlistRow extends WatchlistItem {
+  asset: WatchlistAsset;
+}
+
+export type WatchlistItemInsert = Pick<WatchlistItem, "asset_id" | "sort_order">;
+
+/** Where an asset's price can come from. Fetchers are code (fetch-prices);
+ *  the admin only picks source + symbol per asset. */
+export type PriceSourceKind =
+  | "paribu_crypto"
+  | "paribu_us"
+  | "paribu_bist"
+  | "yahoo"
+  | "tefas";
+
+/** One entry of an asset's ordered price-source list (Fiyat kaynakları).
+ *  Priority 1 is tried first; the rest are fallbacks. Health columns are
+ *  written by fetch-prices. */
+export interface AssetPriceSource {
+  id: string;
+  asset_id: string;
+  priority: number;
+  source: PriceSourceKind;
+  /** The source's own id for the asset (`btc`, `brk.b`, `BTC-USD`, `TP2`). */
+  symbol: string;
+  last_ok_at: string | null;
+  last_error: string | null;
+  last_error_at: string | null;
+  created_at: string;
+}
+
+/** What the editor writes: id (kept for existing rows, client-made for new
+ *  ones) + the ordered fields. Health columns are never written from here. */
+export type AssetPriceSourceUpsert = Pick<
+  AssetPriceSource,
+  "id" | "asset_id" | "priority" | "source" | "symbol"
+>;
 
 export interface Snapshot {
   id: string;

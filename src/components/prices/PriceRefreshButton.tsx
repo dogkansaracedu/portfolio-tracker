@@ -11,31 +11,12 @@ import {
   PRICE_STALENESS_TONE_CLASS,
 } from "@/lib/constants/prices"
 import { cn } from "@/lib/utils"
+import { formatCompactAge, formatTimeAgo } from "@/lib/age"
 
 interface PriceRefreshButtonProps {
   lastUpdated: string | null
   refreshing: boolean
   onRefresh: () => void
-}
-
-function ageParts(isoString: string): { value: number; unit: string } {
-  const minutes = Math.floor((Date.now() - new Date(isoString).getTime()) / 60_000)
-  if (minutes < 60) return { value: Math.max(minutes, 0), unit: "m" }
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return { value: hours, unit: "h" }
-  return { value: Math.floor(hours / 24), unit: "d" }
-}
-
-function formatTimeAgo(isoString: string): string {
-  const { value, unit } = ageParts(isoString)
-  if (unit === "m" && value < 1) return "just now"
-  return `${value}${unit} ago`
-}
-
-/** The phone header's version of the same figure: "2m", "3h", "2d". */
-function formatCompactAge(isoString: string): string {
-  const { value, unit } = ageParts(isoString)
-  return `${value}${unit}`
 }
 
 export default function PriceRefreshButton({

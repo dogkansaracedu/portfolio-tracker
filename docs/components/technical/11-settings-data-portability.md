@@ -5,12 +5,14 @@
 ## Stack
 
 - **Page**: a single React route, `src/pages/SettingsPage.tsx` — a thin shell of
-  shadcn `Tabs` mounting **Assets**, **Platforms**, and **Snapshots** (its title
+  shadcn `Tabs` mounting **Platforms** and **Snapshots** (its title
   block is the shared `PageHeading` — `src/components/common/PageHeading.tsx`,
   `hidden md:block`; on a phone the app header is the only page title), plus a
   one-line `Link` to `BULK_ADD_ROUTE` (`/transactions/edit`, Component 4) under a
-  small heading; copy in `SETTINGS_COPY` (`lib/constants/app.ts`). The Assets
-  and Platforms tabs render Component 3 components (`AssetList`, `PlatformList`);
+  small heading; copy in `SETTINGS_COPY` (`lib/constants/app.ts`). For the admin
+  (`useIsAdmin()`) a second pointer of the same shape links to `ADMIN_ROUTE`
+  (`/admin`; copy `ADMIN_COPY`, `lib/constants/admin.ts`), where Component 3's
+  `AssetList` now lives. The Platforms tab renders Component 3's `PlatformList`;
   this component owns only the **Snapshots** tab.
 - **Preferences via React Context** (not next-themes — see gotcha):
   - **Theme**: `src/contexts/ThemeContext.tsx`, surfaced by
@@ -29,7 +31,7 @@
 
 | File | Role |
 | --- | --- |
-| `src/pages/SettingsPage.tsx` | Shell: `Tabs` = Assets / Platforms / Snapshots. Mounts `AssetList`, `PlatformList` (Component 3) and `SnapshotBackfillCard`, then the muted "Import transactions → Bulk add" link. |
+| `src/pages/SettingsPage.tsx` | Shell: `Tabs` = Platforms / Snapshots (default Platforms). Mounts `PlatformList` (Component 3) and `SnapshotBackfillCard`, then the muted "Import transactions → Bulk add" link and, admin only, "Asset catalog → Edit assets and price sources". |
 | `src/components/settings/SnapshotBackfillCard.tsx` | The only Component-11-owned UI. `useState` for `granularity` (`"monthly" \| "tx_dates"`), `overwrite`, `running`, `lastResult`. Renders the granularity `SegmentedControl` (the app-wide pick-one idiom), overwrite checkbox, Run button, and a result/`Stat` panel with a warnings list. |
 | `src/contexts/ThemeContext.tsx` | Hand-rolled theme context. `localStorage` key **`"theme"`** (`"light"\|"dark"`); falls back to `prefers-color-scheme`. Effect toggles `.dark` on `<html>` and sets `colorScheme`. Exposes `useTheme()` → `{ theme, toggleTheme, setTheme }`. |
 | `src/components/common/ThemeToggle.tsx` | Ghost icon button (Sun/Moon) calling `toggleTheme()`. Lives in global chrome, not the Settings page. |
@@ -41,7 +43,7 @@
 
 ## Notes & gotchas
 
-- **Scope check.** `SettingsPage` is just 3 tabs (Assets / Platforms / Snapshots).
+- **Scope check.** `SettingsPage` is just 2 tabs (Platforms / Snapshots).
   There is no `ExportData`/`ImportData`/`DisplayPreferences`/`PriceSettings`/
   `DataManagement` component, no `lib/export.ts` or `lib/import.ts`, no locale
   select, and no danger zone. **Export is not built at all**; **import** lives in
